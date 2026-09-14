@@ -1,0 +1,87 @@
+.shell { min-height: 100dvh; }
+.header { background: var(--surface); border-bottom: 1px solid var(--line); }
+.headerInner { max-width: 1280px; margin: auto; padding: 26px 36px; display: flex; align-items: center; justify-content: space-between; gap: 28px; }
+.brand { display: grid; color: var(--navy); font-size: 29px; line-height: 1.2; letter-spacing: -1.4px; }
+.brand span { margin-top: 7px; color: var(--red); font-size: 9px; letter-spacing: 3px; }
+.session { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 22px; font-size: 12px; }
+.session p { margin: 0; text-align: right; overflow-wrap: anywhere; }
+.session strong { display: block; }
+.session form { margin: 0; }
+.session a { text-underline-offset: 3px; }
+.main { max-width: 1120px; margin: 0 auto; padding: 38px 24px 70px; }
+.main:focus { outline: none; }
+.intro { margin-bottom: 28px; }
+.eyebrow { margin: 0 0 12px; color: var(--muted); font-size: 11px; letter-spacing: .9px; text-transform: uppercase; }
+.intro h1 { font-size: clamp(28px, 4vw, 36px); margin: 0 0 14px; }
+.intro > p:last-child { color: var(--muted); font-size: 15px; }
+.form { display: grid; gap: 22px; }
+.savedNotice { border: 1px solid #bdcfdf; border-left: 4px solid var(--navy); border-radius: 8px; padding: 18px 20px; background: #f0f5fb; color: var(--navy); }
+.savedNotice p { margin: 7px 0 0; font-size: 13px; }
+.savedNotice span { display: block; margin-top: 10px; color: var(--muted); font-size: 12px; }
+.help { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.7; }
+.group { margin: 0; padding: 24px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); min-width: 0; }
+.group legend { padding: 0 8px; margin-left: -8px; color: var(--navy); font-size: 18px; font-weight: 700; }
+.group > .help { margin-bottom: 20px; }
+.identification, .address, .twoColumns { display: grid; gap: 20px; }
+.identification { grid-template-columns: minmax(0, 3fr) minmax(120px, 1fr); }
+.address { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.twoColumns { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.field, .wideField { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.wideField { grid-column: span 2; }
+.field label, .wideField label { color: var(--navy); font-size: 12px; font-weight: 600; }
+.field input, .wideField input, .field select, .field textarea { width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid #cbd4e1; border-radius: 6px; background: white; color: var(--ink); font-size: 14px; }
+.field textarea { resize: vertical; line-height: 1.6; }
+.field output { min-height: 44px; padding: 10px 0; color: var(--muted); }
+.field input[aria-invalid="true"], .wideField input[aria-invalid="true"], .field textarea[aria-invalid="true"], .field select[aria-invalid="true"] { border-color: #b5373b; }
+.fieldError { margin: 0; color: #a32931; font-size: 12px; line-height: 1.5; }
+.team { display: grid; gap: 18px; }
+.member { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 16px; padding-bottom: 18px; border-bottom: 1px solid var(--line); align-items: start; }
+.remove { border: 0; background: none; color: #9d3238; padding: 12px 0; margin-top: 23px; font-size: 12px; text-decoration: underline; text-underline-offset: 3px; }
+.teamActions { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; margin-top: 20px; }
+.teamActions > span { font-size: 12px; color: var(--muted); }
+.empty { padding: 18px; margin: 0; border-radius: 7px; background: #f1f4f8; color: var(--muted); font-size: 13px; }
+.formActions { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; }
+.formActions a { text-decoration: none; }
+.success, .error { padding: 15px 18px; border-radius: 7px; font-size: 13px; line-height: 1.7; }
+.success { border: 1px solid #b7d7c7; background: #edf7f1; color: #225d45; }
+.error { border: 1px solid #e7bfc4; background: #fff5f5; color: #9b2b35; }
+.success p, .error p { margin: 0; }
+.error p + p { margin-top: 10px; }
+.historySection { margin-top: 52px; }
+.sectionHeading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); padding-bottom: 14px; margin-bottom: 16px; }
+.sectionHeading h2 { margin: 0; font-size: 22px; }
+.sectionHeading > span { color: var(--muted); font-size: 11px; }
+.historySection > .help { margin-bottom: 18px; }
+.history { display: grid; gap: 12px; }
+.historyEntry { border: 1px solid var(--line); border-radius: 9px; background: var(--surface); overflow: hidden; }
+.historyEntry summary { padding: 18px 22px; color: var(--navy); cursor: pointer; font-size: 13px; }
+.historyEntry summary span { margin-left: 16px; overflow-wrap: anywhere; }
+.historyEntry summary small { display: block; margin: 7px 0 0 15px; color: var(--muted); font-size: 11px; }
+.historyBody { border-top: 1px solid var(--line); padding: 20px 24px; }
+.changes { display: grid; gap: 20px; }
+.change { border-bottom: 1px solid var(--line); padding-bottom: 20px; }
+.change:last-child { padding-bottom: 0; border-bottom: 0; }
+.change h3 { margin: 0 0 12px; font-size: 13px; }
+.change dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin: 0; }
+.change dt { color: var(--muted); font-size: 11px; margin-bottom: 6px; }
+.change dd { margin: 0; color: var(--ink); font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 760px) {
+  .headerInner { padding: 20px; align-items: flex-start; gap: 20px; }
+  .session { gap: 12px 18px; }
+  .session p { width: 100%; }
+  .main { padding-inline: 20px; }
+  .address { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .member { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .remove { margin: 0; padding: 0; text-align: left; justify-self: start; }
+}
+@media (max-width: 480px) {
+  .headerInner { flex-direction: column; }
+  .session { justify-content: flex-start; }
+  .session p { text-align: left; }
+  .group { padding: 20px 16px; }
+  .identification, .address, .twoColumns, .member, .change dl { grid-template-columns: 1fr; }
+  .wideField { grid-column: auto; }
+  .formActions { align-items: stretch; flex-direction: column; }
+  .formActions a { text-align: center; }
+  .historyEntry summary span { display: block; margin: 8px 0 0 15px; }
+}

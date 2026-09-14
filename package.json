@@ -1,0 +1,42 @@
+{
+  "name": "auditoria-obra",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "verify:supabase": "node --experimental-strip-types scripts/check-supabase.mjs",
+    "test:supabase": "node --experimental-strip-types --test scripts/test-supabase.mjs",
+    "verify:auth-setup": "node --experimental-strip-types scripts/check-auth-setup.mjs",
+    "test:auth": "node --experimental-strip-types --test scripts/test-auth.mjs scripts/test-login-diagnostics.mjs",
+    "verify:security": "node --experimental-strip-types scripts/verify-security-catalog.mjs",
+    "test:navigation": "node --experimental-strip-types scripts/test-audit-navigation.mjs",
+    "test:ranking": "node --experimental-strip-types scripts/test-work-ranking.mjs",
+    "test:access": "node --experimental-strip-types scripts/test-prototype-access.mjs",
+    "test:audit-context": "node --experimental-strip-types scripts/test-prototype-audits.mjs",
+    "test:access-administration": "node --experimental-strip-types --test scripts/test-access-administration.mjs scripts/test-effective-access.mjs",
+    "test:access-database": "node scripts/test-access-database.mjs",
+    "test:work-details": "node --experimental-strip-types --test scripts/test-work-details.mjs",
+    "test:profile-workspace": "node --experimental-strip-types --test scripts/test-active-profile.mjs scripts/test-workspace-context.mjs"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.12.7",
+    "@supabase/supabase-js": "^2.116.0",
+    "next": "16.3.4",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.4",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
+

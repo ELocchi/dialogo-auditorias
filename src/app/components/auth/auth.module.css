@@ -1,0 +1,297 @@
+.shell {
+  display: flex;
+  min-height: 100dvh;
+  flex-direction: column;
+}
+
+.header {
+  background: var(--surface);
+  border-top: 3px solid var(--navy);
+  border-bottom: 1px solid var(--line);
+}
+
+.headerInner {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  max-width: 1220px;
+  margin: auto;
+  padding: 26px 36px;
+}
+
+.brand {
+  flex-shrink: 0;
+  padding-right: 28px;
+  border-right: 1px solid var(--line);
+}
+
+.product strong,
+.product span {
+  display: block;
+}
+
+.product strong {
+  color: var(--navy);
+  font-size: 22px;
+}
+
+.product span {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.main {
+  display: flex;
+  flex: 1;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 44px 20px 32px;
+}
+
+.main:focus {
+  outline: none;
+}
+
+.card {
+  width: 100%;
+  max-width: 520px;
+  padding: 30px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--surface);
+  box-shadow: 0 3px 8px #213e6b03;
+}
+
+.heading {
+  margin-bottom: 25px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid var(--line);
+}
+
+.eyebrow {
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .9px;
+}
+
+.heading h1 {
+  margin: 0 0 12px;
+  border-left: 4px solid var(--red);
+  padding-left: 13px;
+  font-size: 25px;
+  letter-spacing: -.3px;
+}
+
+.description {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.form {
+  display: grid;
+  gap: 19px;
+}
+
+.form label {
+  font-size: 12px;
+}
+
+.form input {
+  min-height: 46px;
+  font-size: 16px;
+}
+
+.fieldHelp {
+  margin: -12px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.optionalFields {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+  margin: 2px 0 0;
+  padding: 20px 0 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
+.optionalFields legend {
+  padding: 0 8px 0 0;
+  color: var(--navy);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.optionalFields legend span {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.optionalHelp {
+  margin: -6px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.notice,
+.feedback,
+.error {
+  margin: 0;
+  padding: 13px 15px;
+  border-radius: 7px;
+  font-size: 12px;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.notice,
+.feedback {
+  color: var(--navy);
+  background: #f1f4f9;
+}
+
+.notice {
+  border-left: 3px solid var(--navy);
+}
+
+.error {
+  border: 1px solid #e9bfc2;
+  color: #a32931;
+  background: #fff5f5;
+}
+
+.submit {
+  width: 100%;
+  min-height: 46px;
+  padding: 11px 17px;
+  border: 1px solid var(--navy);
+  border-radius: 9px;
+  color: white;
+  background: var(--navy);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.submit:hover:not(:disabled) {
+  background: #162f56;
+}
+
+.recovery {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin: 20px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.recovery span {
+  padding: 2px 7px;
+  border-radius: 20px;
+  background: #eef1f5;
+  color: #5b6a80;
+  font-size: 10px;
+}
+
+.alternative {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 25px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.alternative a {
+  font-weight: 700;
+  text-underline-offset: 3px;
+}
+
+.logout {
+  display: grid;
+  gap: 15px;
+  justify-items: start;
+  margin-top: 24px;
+}
+
+.accountDetails {
+  display: grid;
+  gap: 8px;
+  margin: 24px 0;
+  font-size: 13px;
+}
+
+.accountDetails dt { color: var(--muted); }
+.accountDetails dd { margin: 0 0 10px; overflow-wrap: anywhere; }
+
+.footer {
+  padding: 0 20px 24px;
+  color: var(--muted);
+  text-align: center;
+  font-size: 11px;
+}
+
+@media (max-width: 600px) {
+  .headerInner {
+    gap: 16px;
+    padding: 20px;
+  }
+
+  .brand {
+    padding-right: 16px;
+  }
+
+  .brand :global(.brand-name) {
+    font-size: 32px;
+  }
+
+  .brand :global(.brand-caption) {
+    font-size: 8px;
+    letter-spacing: 3.1px;
+  }
+
+  .product strong {
+    font-size: 17px;
+  }
+
+  .product span {
+    font-size: 11px;
+  }
+
+  .main {
+    padding: 24px 16px;
+  }
+
+  .card {
+    padding: 24px 20px;
+  }
+}
+
+@media (max-width: 380px) {
+  .headerInner {
+    gap: 12px;
+    padding: 18px 16px;
+  }
+
+  .brand {
+    padding-right: 12px;
+  }
+
+  .product strong {
+    font-size: 15px;
+  }
+}

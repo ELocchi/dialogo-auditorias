@@ -1,0 +1,74 @@
+.operational-view { color: #213e6b; }
+.operational-filters { display: grid; gap: 18px; align-items: end; margin: 26px 0 18px; }
+.operational-filters label { display: grid; gap: 9px; min-width: 0; color: #647080; font-size: 11px; font-weight: 700; letter-spacing: .55px; text-transform: uppercase; }
+.operational-filters input, .operational-filters select { width: 100%; min-width: 0; height: 46px; margin: 0; padding: 0 13px; border: 1px solid #cdd4de; border-radius: 4px; background: #fff; color: #263d58; font: inherit; font-size: 14px; font-weight: 400; letter-spacing: 0; text-transform: none; }
+.operational-filters input::placeholder { color: #637186; }
+.operational-filters input:focus-visible, .operational-filters select:focus-visible { outline: 2px solid #213e6b; outline-offset: 2px; }
+.operational-clear { min-height: 46px; white-space: nowrap; }
+.operational-result-count { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 18px; color: #54667c; font-size: 12px; }
+.operational-result-count span { color: #637186; font-size: 11px; }
+.operational-empty { padding: 42px 24px; border: 1px solid #dce1e7; border-radius: 9px; background: #fff; text-align: center; }
+.operational-empty h3 { margin: 0 0 10px; color: #213e6b; font-size: 18px; }
+.operational-empty p { margin: 0 0 22px; color: #667486; font-size: 14px; line-height: 1.6; }
+.work-filters { grid-template-columns: minmax(240px, 1fr) minmax(170px, 260px) auto; }
+.work-create-action { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.work-create-action small { max-width: 240px; color: #637186; font-size: 11px; line-height: 1.5; text-align: right; }
+.work-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.work-project-card { min-width: 0; padding: 25px 27px 0; border: 1px solid #dce1e7; border-left: 5px solid #c7353c; border-radius: 11px; background: #fff; }
+.work-project-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+.work-building-icon { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 10px; background: #f0f3f8; color: #213e6b; }
+.work-building-icon svg { width: 29px; height: 29px; }
+.work-project-card h3 { margin: 0 0 8px; color: #213e6b; font-size: 21px; line-height: 1.3; }
+.work-location { margin: 0; color: #697687; font-size: 14px; }
+.work-project-data { display: grid; grid-template-columns: 1fr 1fr; gap: 22px 18px; margin: 28px 0; }
+.work-project-data dt { margin-bottom: 7px; color: #637186; font-size: 10px; letter-spacing: .5px; text-transform: uppercase; }
+.work-project-data dd { margin: 0; color: #294366; font-size: 13px; font-weight: 600; line-height: 1.5; }
+.work-project-footer { display: flex; align-items: center; gap: 7px; padding: 17px 0; border-top: 1px solid #e7ebf0; color: #637186; font-size: 11px; line-height: 1.5; }
+.work-session-dot { width: 5px; height: 5px; flex: 0 0 5px; border-radius: 50%; background: #8a98ac; }
+.occurrence-filters { grid-template-columns: minmax(220px, 1.2fr) minmax(220px, 1fr) minmax(170px, .8fr) auto; }
+.occurrence-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start; }
+.occurrence-card { min-width: 0; overflow: hidden; padding: 23px 24px 0; border: 1px solid #dedce0; border-left: 5px solid #c7353c; border-radius: 11px; background: #fffafa; }
+.occurrence-card-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 18px; }
+.occurrence-id { color: #637186; font-size: 11px; font-weight: 600; letter-spacing: .5px; }
+.occurrence-status-open { background: #fae7e7; color: #a72730; }
+.occurrence-location { margin: 0 0 7px; color: #2e5481; font-size: 13px; font-weight: 700; line-height: 1.5; }
+.occurrence-category { margin: 0 0 18px; color: #677488; font-size: 12px; line-height: 1.5; }
+.occurrence-card h3 { margin: 0 0 10px; color: #213e6b; font-size: 18px; line-height: 1.4; }
+.occurrence-description { min-height: 42px; margin: 0 0 22px; color: #677488; font-size: 13px; line-height: 1.65; }
+.occurrence-details { border-top: 1px solid #ebe1e3; }
+.occurrence-details summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 17px 0; color: #294a74; font-size: 12px; font-weight: 700; cursor: pointer; list-style: none; }
+.occurrence-details summary::-webkit-details-marker { display: none; }
+.occurrence-details summary:focus-visible { border-radius: 3px; outline: 2px solid #213e6b; outline-offset: 3px; }
+.occurrence-details summary svg { width: 18px; height: 18px; flex-shrink: 0; transition: transform .16s ease; }
+.occurrence-details[open] summary svg { transform: rotate(180deg); }
+.occurrence-detail-body { padding: 0 0 20px; }
+.occurrence-detail-body dl { display: grid; gap: 10px; margin: 0 0 14px; }
+.occurrence-detail-body dl div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; font-size: 12px; line-height: 1.5; }
+.occurrence-detail-body dt { color: #637186; }
+.occurrence-detail-body dd { margin: 0; color: #294366; }
+.occurrence-detail-body p { margin: 0; color: #637186; font-size: 12px; line-height: 1.6; }
+@media (max-width: 1100px) {
+  .occurrence-filters { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .occurrence-filters .operational-clear { justify-self: start; min-height: 38px; }
+}
+@media (max-width: 760px) {
+  .work-filters, .occurrence-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .work-filters label:first-child, .occurrence-filters label:first-child { grid-column: 1 / -1; }
+  .work-grid, .occurrence-grid { grid-template-columns: 1fr; }
+  .work-create-action { align-items: flex-start; }
+  .work-create-action small { text-align: left; }
+  .operational-clear { justify-self: start; }
+  .occurrence-description { min-height: 0; }
+}
+@media (max-width: 420px) {
+  .work-filters, .occurrence-filters { grid-template-columns: 1fr; gap: 15px; }
+  .work-project-card, .occurrence-card { padding-left: 19px; padding-right: 19px; }
+  .work-project-data { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .occurrence-details summary svg { transition: none; }
+}
+
+
+.work-edit-link { margin-left: auto; font-size: 12px; text-decoration: none; }
+.work-project-footer { flex-wrap: wrap; gap: 10px; }

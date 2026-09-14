@@ -1,0 +1,13 @@
+.simulator { margin: 0 0 22px; border: 1px dashed #acbacd; border-radius: 10px; background: #f8fafc; padding: 14px 18px; min-width: 0; }
+.simulator legend { font-size: 12px; color: var(--navy); font-weight: 700; padding: 0 8px; }
+.fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.simulator p, .help { margin: 12px 0 0; font-size: 11px; color: var(--muted); }
+.help { margin-bottom: 18px; }
+.empty { padding-top: 18px; color: var(--muted); font-size: 12px; }
+.userList { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-bottom: 20px; }
+.userList > div { border: 1px solid var(--line); padding: 14px; border-radius: 8px; min-width: 0; }
+.userList strong, .userList span, .userList small { display: block; overflow-wrap: anywhere; }
+.userList span { color: var(--navy); margin: 4px 0; font-size: 12px; }
+.userList small { color: var(--muted); font-size: 11px; }
+@media (max-width: 600px) { .fields, .userList { grid-template-columns: 1fr; } .simulator { padding: 12px; } }
+@media print { .simulator { display: none; } }

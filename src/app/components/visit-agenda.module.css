@@ -1,0 +1,103 @@
+.context {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-bottom: 22px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.context strong { color: var(--navy); }
+.context > span:last-child { margin-left: auto; }
+.createPanel { margin-bottom: 28px; }
+.panelHeading { display: flex; gap: 13px; align-items: center; margin-bottom: 22px; }
+.panelHeading h3 { margin: 0 0 5px; font-size: 18px; }
+.panelHeading p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.calendarIcon { display: grid; place-items: center; flex: 0 0 auto; width: 42px; height: 42px; border-radius: 9px; background: #edf1f7; color: var(--navy); }
+.calendarIcon svg { width: 23px; height: 23px; }
+.formGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 19px; }
+.formGrid label { min-width: 0; }
+.wideField { grid-column: 1 / -1; }
+.formGrid textarea { min-height: 86px; }
+.fieldHelp { display: block; margin-top: 7px; color: var(--muted); font-size: 11px; font-weight: 400; line-height: 1.5; }
+.formFooter { display: flex; justify-content: space-between; align-items: center; gap: 20px; margin-top: 21px; padding-top: 20px; border-top: 1px solid var(--line); }
+.formFooter p { max-width: 700px; margin: 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.success, .error { padding: 12px 15px; margin: 18px 0 0; border-radius: 7px; font-size: 12px; line-height: 1.65; }
+.success { background: #edf6f0; color: #2b654e; border: 1px solid #cbded2; }
+.error { background: #fff4f3; color: #a43139; border: 1px solid #edcdd0; }
+.listHeading { display: flex; justify-content: space-between; align-items: center; gap: 15px; margin-bottom: 14px; }
+.listHeading h3 { margin: 0; font-size: 18px; }
+.listHeading span { color: var(--muted); font-size: 12px; }
+.visitList { display: grid; gap: 15px; }
+.visitCard { padding: 22px 25px; border: 1px solid var(--line); border-left: 4px solid var(--red); border-radius: 12px; background: var(--surface); }
+.visitHeader { display: flex; align-items: flex-start; gap: 19px; }
+.dateTile { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 0 0 auto; min-width: 70px; padding: 11px 13px; border-radius: 9px; background: #f0f3f8; color: var(--navy); line-height: 1.15; }
+.dateTile strong { font-size: 24px; }
+.dateTile span { margin-top: 5px; font-size: 10px; letter-spacing: .6px; }
+.visitTitle { min-width: 0; flex: 1; }
+.visitTitle h4 { margin: 0 0 7px; font-size: 17px; overflow-wrap: anywhere; }
+.visitTitle > p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.visitTitle > span { display: inline-flex; margin-top: 9px; font-size: 10px; color: #617185; }
+.visitActions { flex-shrink: 0; }
+.visitDetails { display: grid; grid-template-columns: 1fr 1fr 1.2fr; gap: 18px; margin: 22px 0 0; padding-top: 18px; border-top: 1px solid var(--line); }
+.visitDetails > div { min-width: 0; }
+.visitDetails dt { margin-bottom: 5px; color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .4px; }
+.visitDetails dd { margin: 0; color: var(--navy); font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+.visitDetails dd small { display: block; color: var(--muted); font-size: 11px; }
+.visitNote { padding: 13px 15px; margin: 18px 0 0; background: #f8f9fb; border: 1px solid #e5e9ef; border-radius: 7px; color: #57667a; font-size: 12px; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
+.visitNote strong { color: var(--navy); }
+.history { margin-top: 18px; border-top: 1px solid var(--line); }
+.history summary { width: fit-content; padding: 14px 0 0; cursor: pointer; color: var(--navy); font-size: 12px; font-weight: 600; }
+.history ol { list-style: none; margin: 14px 0 0; padding: 0; }
+.history li { margin-left: 5px; padding: 0 0 17px 19px; border-left: 2px solid #dce3ed; color: var(--ink); font-size: 12px; line-height: 1.7; }
+.history li:last-child { padding-bottom: 2px; }
+.history li > strong { display: block; color: var(--navy); font-size: 12px; }
+.history li > small { display: block; color: var(--muted); font-size: 11px; }
+.history li > p { margin: 4px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.historyEmpty { color: var(--muted); font-size: 12px; margin: 12px 0 0; }
+.rescheduleForm { margin-top: 20px; padding: 20px; border: 1px solid #ccd6e5; border-radius: 9px; background: #f7f9fc; }
+.rescheduleForm h4 { margin: 0 0 8px; font-size: 15px; }
+.rescheduleForm > p { margin: 0 0 16px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.rescheduleFields { display: grid; grid-template-columns: minmax(170px, .8fr) 2fr; gap: 18px; }
+.rescheduleFields textarea { min-height: 82px; }
+.rescheduleActions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+.empty { padding: 36px 24px; text-align: center; }
+.empty .calendarIcon { margin: 0 auto 15px; }
+.empty h3 { margin: 0 0 9px; font-size: 18px; }
+.empty p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.65; }
+.restriction { padding: 22px 24px; border-left: 4px solid var(--red); }
+.restriction h3 { margin: 0 0 8px; font-size: 17px; }
+.restriction p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
+
+@media (max-width: 960px) {
+  .formGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .visitDetails { grid-template-columns: 1fr 1fr; }
+  .visitDetails > div:last-child { grid-column: 1 / -1; }
+  .formFooter { align-items: flex-start; }
+}
+
+@media (max-width: 620px) {
+  .context { align-items: flex-start; flex-direction: column; gap: 5px; }
+  .context > span:last-child { margin-left: 0; }
+  .formGrid { grid-template-columns: 1fr; gap: 16px; }
+  .formFooter { flex-direction: column; gap: 15px; }
+  .formFooter button { width: 100%; }
+  .visitCard { padding: 19px; }
+  .visitHeader { flex-wrap: wrap; gap: 13px; }
+  .dateTile { min-width: 61px; padding: 9px; }
+  .visitTitle h4 { font-size: 15px; }
+  .visitActions { width: 100%; }
+  .visitActions button { width: 100%; }
+  .visitDetails { grid-template-columns: 1fr; gap: 16px; }
+  .visitDetails > div:last-child { grid-column: auto; }
+  .listHeading { align-items: flex-start; flex-direction: column; gap: 5px; }
+  .rescheduleForm { padding: 16px; }
+  .rescheduleFields { grid-template-columns: 1fr; }
+  .rescheduleActions button { width: 100%; }
+}
+
+@media print {
+  .createPanel, .visitActions, .rescheduleForm { display: none; }
+  .visitCard { break-inside: avoid; }
+}
