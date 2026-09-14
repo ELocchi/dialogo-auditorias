@@ -61,11 +61,11 @@ npm run start -- --hostname 127.0.0.1 --port 3001
 
 ## GitHub e Render
 
-A publicação de um ambiente de testes foi autorizada e sua configuração está preparada. A conta GitHub `stefanirlocchi` foi conectada pelo CLI; isso, por si só, não significa que o repositório foi criado, que houve push ou que o Render publicou o serviço. O estado remoto confirmado deve ser consultado em [RETOMADA.md](docs/RETOMADA.md).
+A aplicação está publicada para testes em [dialogo-auditorias-testes.onrender.com](https://dialogo-auditorias-testes.onrender.com). O código está no repositório privado [stefanirlocchi/dialogo-auditorias](https://github.com/stefanirlocchi/dialogo-auditorias), branch `main`, conectado a um Web Service Node Free no Render. Novos commits enviados a essa branch iniciam uma nova publicação. O estado detalhado está em [RETOMADA.md](docs/RETOMADA.md).
 
 O procedimento em [PUBLICACAO_GITHUB_RENDER.md](docs/PUBLICACAO_GITHUB_RENDER.md) descreve o repositório privado, o Web Service Node no Render, as variáveis e as URLs de confirmação a autorizar no Supabase. No Render, `APP_URL` deve ser a origem HTTPS exata do serviço. Não executar novamente as migrations já aplicadas nem o bootstrap para publicar a aplicação.
 
-O ambiente online usará o mesmo banco autorizado: dados persistentes alterados por ele também aparecerão localmente. A prévia de auditorias continuará temporária. `nexobra-main`, outros serviços e os arquivos de referência sincronizados permanecem fora do escopo desta publicação.
+O ambiente online usa o mesmo banco autorizado: dados persistentes alterados por ele também aparecerão localmente. A prévia de auditorias continuará temporária. `nexobra-main`, outros serviços e os arquivos de referência sincronizados permanecem fora do escopo desta publicação.
 
 ## Verificação e documentação
 

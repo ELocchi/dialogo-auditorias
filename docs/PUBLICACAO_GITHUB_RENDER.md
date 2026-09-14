@@ -1,8 +1,12 @@
 # GitHub e Render — ambiente de testes
 
+**Online:** [Diálogo Auditorias — Testes](https://dialogo-auditorias-testes.onrender.com).
+
+**Código:** [stefanirlocchi/dialogo-auditorias](https://github.com/stefanirlocchi/dialogo-auditorias), privado, branch `main`. Conexão e primeiro deploy conferidos em 13/09/2026. As URLs de Auth descritas abaixo já foram aplicadas e verificadas; não é necessário repeti-las para usar a conta existente.
+
 O responsável autorizou vincular GitHub e Render para testes online, substituindo a restrição anterior de não publicar. O projeto é exclusivamente Diálogo Auditorias; nexobra-main e serviços de outros projetos não fazem parte desta operação.
 
-## Configuração preparada
+## Configuração ativa
 
 - Repositório privado: `dialogo-auditorias`, branch `main`.
 - Render: Web Service Node, plano Free, configuração em `render.yaml`.
@@ -24,7 +28,7 @@ Definir as variáveis antes do build. Nunca usar `service_role`, senha de banco 
 
 ## Confirmação de e-mail
 
-No Supabase Auth, após conhecer o endereço público real:
+No Supabase Auth, a configuração atual foi aplicada com a origem `https://dialogo-auditorias-testes.onrender.com`. Para eventual mudança futura de domínio:
 
 1. Configurar Site URL com a mesma origem de `APP_URL`.
 2. Adicionar a URL exata `https://DOMINIO_REAL/auth/callback` às Redirect URLs.
