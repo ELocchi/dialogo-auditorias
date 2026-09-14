@@ -40,6 +40,12 @@ A decisão adicional registra o estado anterior, quatro perfis e 84 concessões:
 
 ## Procedimento original de bootstrap no DEV — já executado
 
+### Ampliação designada de Luiza — executada em 14/09/2026
+
+A pedido explícito do responsável, a conta já aprovada de Luiza Dutra recebeu os mesmos quatro perfis, duas atuações de Engenharia e 84 concessões nas 21 obras atuais de Emanuel. A migration B.6 adiciona o tipo histórico `AJUSTE_ACESSOS_GERAIS` e uma função privada restrita à identidade designada e a `postgres`. A operação separada `supabase/admin/configure-luiza-general-access.sql` preserva a aprovação e os três vínculos anteriores, acrescenta somente 81 vínculos ausentes e uma decisão do operador; não altera Auth nem contas de terceiros. O marcador permanente bloqueia repetição. Não usar essa função para outra identidade, novas obras ou alterações futuras. Evidências e decisão estão no início de `RETOMADA.md`.
+
+### Procedimento histórico B.2
+
 A execução e suas evidências estão no início de `RETOMADA.md`. Os passos abaixo documentam B.2, já aplicado neste DEV; não executar novamente para conceder múltiplos perfis. Para uma implantação ainda pendente, conferir primeiro o vínculo local contra o projeto DEV configurado, a conta designada e o histórico remoto. Não aplicar no piloto/produção por analogia.
 
 1. Revisar a migration, o script com UUID/e-mail esperados e a justificativa.

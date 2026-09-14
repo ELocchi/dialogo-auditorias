@@ -97,13 +97,14 @@ function DecisionCard({ decision }: { decision: AccessDecision }) {
   const bootstrap = decision.decision_type === "BOOTSTRAP";
   const initialAdjustment = decision.decision_type === "AJUSTE_PERFIS_INICIAL";
   const engineeringAdjustment = decision.decision_type === "AJUSTE_ATUACAO_INICIAL";
-  const operatorDecision = bootstrap || initialAdjustment || engineeringAdjustment;
+  const generalAccessAdjustment = decision.decision_type === "AJUSTE_ACESSOS_GERAIS";
+  const operatorDecision = bootstrap || initialAdjustment || engineeringAdjustment || generalAccessAdjustment;
   const engineeringScopes = decision.atuacoes_engenharia ?? (decision.atuacao_engenharia ? [decision.atuacao_engenharia] : []);
   const profiles = decision.perfis || [decision.perfil];
   const before = decision.before_access_snapshot;
   return <details className={styles.historyCard}>
     <summary><strong>{snapshot.nome || snapshot.email || decision.auth_user_id}</strong> · {profiles.map((profile) => profileLabels[profile]).join(" · ")}
-      <span>{bootstrap ? "Ativação inicial controlada" : initialAdjustment ? "Ampliação controlada dos perfis da conta inicial" : engineeringAdjustment ? "Inclusão de Engenharia — Equipe da obra" : "Solicitação aprovada"} em {date(decision.decided_at)}</span>
+      <span>{bootstrap ? "Ativação inicial controlada" : initialAdjustment ? "Ampliação controlada dos perfis da conta inicial" : engineeringAdjustment ? "Inclusão de Engenharia — Equipe da obra" : generalAccessAdjustment ? "Ampliação dos acessos gerais" : "Solicitação aprovada"} em {date(decision.decided_at)}</span>
     </summary>
     <div className={styles.historyBody}>
       <dl className={styles.details}>

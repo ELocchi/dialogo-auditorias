@@ -105,6 +105,12 @@ if (!baselineOnly) suites.push({
   upgradeMigration: "20260913000500_work_details.sql",
   test: "work_details.sql",
   baselineAuthRows: 3,
+}, {
+  name: "B.6 designated general access/preservation/atomicity/RLS suite",
+  migrations: ["20260913000100_access_requests.sql", "20260913000200_access_administration.sql", "20260913000300_multiple_access_profiles.sql", "20260913000400_multiple_engineering_scopes.sql", "20260913000500_work_details.sql"],
+  upgradeMigration: "20260914000100_designated_general_access.sql",
+  test: "designated_general_access.sql",
+  baselineAuthRows: 3,
 });
 
 const { PGlite } = await loadPGlite();

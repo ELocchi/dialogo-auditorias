@@ -1,5 +1,17 @@
 # Retomada — Diálogo Auditorias
 
+## Estado atual — 14/09/2026 — Acessos gerais de Luiza Dutra
+
+O responsável autorizou expressamente que a conta existente `luiza.dutra@dialogo.com.br` receba os mesmos acessos atuais de `emanuel.locchi@dialogo.com.br`, com atualização no Supabase e Render. A conferência remota encontrou Luiza com e-mail confirmado, conta ativa e já aprovada: quatro perfis, Engenharia como Equipe da obra e três concessões na Alameda Tatuapé. A aprovação original é `002ee997-fbc5-47a3-9864-f0f068661da1`, atribuída a Emanuel; não foi refeita.
+
+Migration B.6 `20260914000100_designated_general_access.sql` aplicada após B.1–B.5; o dry-run continha somente B.6, sem seeds ou roles. A função privada de operação fixa as duas identidades e exige sessão `postgres`, estados anteriores verificados e 21 IDs explícitos. A instalação da migration não concede acesso. A operação separada `supabase/admin/configure-luiza-general-access.sql` foi executada uma vez e registrou a decisão `6c63daea-0d30-4019-a475-492cd0fe3608`, tipo `AJUSTE_ACESSOS_GERAIS`, com autoria do operador do banco e motivo da autorização. Não repetir a operação.
+
+Luiza agora tem Administrativo, Auditor de Segurança, Auditor de Qualidade e Engenharia, esta como Equipe da obra e Coordenação, com Coordenação como atuação primária. Seus 84 pares perfil/obra/módulo em 21 obras são exatamente iguais aos de Emanuel. Foram acrescentadas 81 concessões, preservando integralmente as três originais e os campos da aprovação. Novas obras futuras não recebem concessão automática.
+
+Comparação remota antes/depois confirmou quatro identidades e quatro contas, 21 obras, todas as 91 concessões anteriores e seis decisões anteriores intactas, além dos dados e acessos das outras contas. O total passou a 172 concessões e sete decisões. Dados de identidade conferidos, solicitações, cadastro/histórico de obras e conta de Emanuel permaneceram iguais; nenhuma senha, confirmação de e-mail ou cadastro foi alterado pela operação.
+
+O código do histórico administrativo reconhece a nova ampliação e mostra o operador, o motivo, o estado anterior e os acessos resultantes. B1–B6 passaram em PostgreSQL isolado (PGlite), incluindo preservação, bloqueios de API/RLS, estados divergentes, rollback por falha injetada e execução repetida. ESLint, build/TypeScript e 63 testes de acesso/perfis/contexto também passaram. Essas verificações não substituem o login de Luiza na própria sessão. O site online e a prévia usam o mesmo Supabase; os novos acessos são reconsultados ao abrir/trocar perfil.
+
 ## Estado atual — 13/09/2026 — GitHub privado e Render online
 
 **Publicado e conferido:** https://dialogo-auditorias-testes.onrender.com. Repositório privado https://github.com/stefanirlocchi/dialogo-auditorias, branch `main`. O usuário autorizou explicitamente enviar os 142 arquivos de código, testes, migrations e documentação interna após a revisão automática bloquear o payload inicial. `.env.local`, metadados de conexão do Supabase, dependências, builds, planilha e imagem de referência ficaram fora. Primeiro commit local/remoto: **d64a34faf149e1a0f0fa5fc03353ae44307199c9**. O projeto principal local agora possui Git e remote `origin`; alterações precisam de commit/push para atualizar o online.
