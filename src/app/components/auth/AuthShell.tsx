@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { DialogoLogo } from "../dialogo-logo";
 import styles from "./auth.module.css";
 
 type AuthShellProps = {
@@ -13,9 +14,8 @@ export function AuthShell({ title, description, children }: AuthShellProps) {
       <a className="skip-link" href="#auth-content">Ir para o conteúdo</a>
       <header className={styles.header}>
         <div className={styles.headerInner}>
-          <div className={styles.brand} aria-label="Diálogo Engenharia">
-            <span className="brand-name">Diálogo</span>
-            <span className="brand-caption">ENGENHARIA</span>
+          <div className={styles.brand}>
+            <DialogoLogo />
           </div>
           <div className={styles.product}>
             <strong>Diálogo Auditorias</strong>

@@ -5,7 +5,7 @@ import { pathToFileURL } from "node:url";
 
 const root = path.resolve(import.meta.dirname, "..");
 const source = JSON.parse(fs.readFileSync(path.join(root, "CATALOGO_SEGURANCA_IT07_R02.json"), "utf8"));
-const { securityCriteria } = await import(pathToFileURL(path.join(root, "src", "domain", "catalogs.ts")).href);
+const { securityCriteria, securityGroups, getCriterionWeight } = await import(pathToFileURL(path.join(root, "src", "domain", "catalogs.ts")).href);
 
 const normalize = (value) => String(value).replace(/\s+/g, " ").trim();
 const sourceGroups = new Map(source.grupos.map((group) => [group.codigo, group]));
@@ -27,6 +27,7 @@ assert.equal(source.grupos.length, 27, "A fonte deve conter 27 grupos");
 assert.equal(source.subgrupos.length, 37, "A fonte deve conter 37 subgrupos");
 assert.equal(securityCriteria.length, source.itens.length, "A aplicação deve usar todos os itens da fonte");
 assert.equal(new Set(securityCriteria.map((item) => item.code)).size, 205, "Os códigos da aplicação devem ser únicos");
+assert.deepEqual(securityGroups.map((group) => group[2]), [2, 2, 2, 4, 2, 3, 1, 2, 1, 10, 2, 2, 5, 10, 10, 3, 5, 5, 4, 5, 6, 5, 4, 1, 2, 4, 1], "Pesos dos 27 grupos da IT.07 devem ser preservados");
 
 source.itens.forEach((sourceItem, index) => {
   const appItem = securityCriteria[index];
@@ -35,7 +36,10 @@ source.itens.forEach((sourceItem, index) => {
   assert.deepEqual(appItem.locator.match(/\d+/g).map(Number), sourceItem.paginas_fonte, `Página divergente em ${sourceItem.codigo}`);
   assert.equal(appItem.group, `${sourceItem.grupo_codigo} — ${sourceGroups.get(sourceItem.grupo_codigo).nome_original}`, `Grupo divergente em ${sourceItem.codigo}`);
   assert.equal(appItem.subgroup, sourceSubgroups.get(sourceItem.subgrupo_id).nome_original, `Subgrupo divergente em ${sourceItem.codigo}`);
-  assert.equal(appItem.documentedWeight, null, `Peso individual não pode deixar de ser null em ${sourceItem.codigo}`);
+  assert.equal(appItem.documentedWeight, sourceItem.peso_individual, `Peso documental alterado em ${sourceItem.codigo}`);
+  assert.equal(appItem.configuredWeight, 1, `Peso inicial deve ser 1 em ${sourceItem.codigo}`);
+  assert.equal(getCriterionWeight(appItem), 1, `Peso utilizado deve ser 1 em ${sourceItem.codigo}`);
+  assert.equal(appItem.weightConfigurationId, "IT07-R02-PESOS-INICIAIS-2026-09-14", `Origem da configuração ausente em ${sourceItem.codigo}`);
   assert.deepEqual(appItem.orientations.map((orientation) => orientation.id), expectedOrientations(sourceItem), `Vínculo de orientação divergente em ${sourceItem.codigo}`);
   for (const orientation of appItem.orientations) {
     const sourceOrientation = sourceOrientations.get(orientation.id) ?? generalOrientations.find((item) => item.id_tecnico === orientation.id);
@@ -55,4 +59,5 @@ assert.ok(securityCriteria.find((item) => item.code === "19.01.08").orientations
 
 console.log(`OK: ${securityCriteria.length} itens, códigos únicos e ordem conferidos.`);
 console.log("OK: textos, grupos, subgrupos, páginas e orientações conferidos contra CATALOGO_SEGURANCA_IT07_R02.json.");
+console.log("OK: 205 pesos individuais configurados em 1; pesos documentais e dos 27 grupos preservados.");
 console.log("OK: itens específicos 01.01.01, 01.01.02, 01.01.03, 17.01.04 e 19.01.08 conferidos.");

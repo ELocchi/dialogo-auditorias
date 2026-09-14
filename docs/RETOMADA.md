@@ -1,5 +1,61 @@
 # Retomada — Diálogo Auditorias
 
+## Publicação autorizada — 14/09/2026 — Painel, agenda e roteiros administrativos
+
+O responsável solicitou publicar as alterações acumuladas no Render e no Supabase antes de continuar a edição. Esta entrega reúne logo original em todas as telas, cabeçalho administrativo compartilhado, calendário e áreas do Painel, Agenda com todas as obras/disciplinas e confirmação pelo auditor, remoção dos seletores de Obras e Roteiros e versões e os três roteiros IT.07/F.175/F.176 disponíveis juntos no Administrativo. Segurança mantém peso inicial 1 por subitem e os critérios da IT.07; Qualidade conserva seus pesos documentados. E-mails e cálculo/publicação oficial de auditorias permanecem pendentes.
+
+B.7 `20260914000200_audit_agenda.sql` aplicada ao Supabase compartilhado via CLI já autenticado. Histórico e dry-run conferidos antes, somente B.7 pendente, sem seeds/roles/Vault. Pós-condições remotas confirmaram registro da migration, RLS, políticas SELECT, negação de escritas diretas, permissões das cinco RPCs e triggers imutáveis. As novas tabelas continham zero visitas/eventos. Comparação por contagem e impressão digital antes/depois confirmou preservação de sete conjuntos existentes: contas, solicitações, obras, concessões, decisões, histórico de obras e IDs de Auth. Havia quatro contas, 21 obras e 172 concessões; nenhuma foi alterada por esta implantação.
+
+Validação final desta entrega: 90 testes offline de agenda, sessão, calendário, perfis e auditorias; suítes SQL B.1–B.7 em PGlite/PostgreSQL 18.3; ESLint completo e build de produção Next.js/TypeScript aprovados. Revisão independente sem bloqueios. O ciclo completo pela interface com duas sessões reais ainda não foi executado; não foram criadas visitas artificiais no banco compartilhado. PDFs e imagem fonte permanecem locais; somente a cópia pública do logo integra o aplicativo. Publicação da interface pelo fluxo existente `main` no GitHub → Render. Os registros abaixo descrevem etapas anteriores, inclusive as restrições locais já substituídas por esta autorização.
+
+## Estado local — 14/09/2026 — Agendamento e confirmação pelo auditor
+
+O responsável definiu: Administrativo agenda a auditoria, o auditor recebe notificação e confirma o dia. Confirmou **apenas confirmar**, sem pedir reagendamento/recusar. Inicialmente escolheu sino+e-mail, mas depois adiou expressamente os e-mails: **somente notificações no aplicativo nesta etapa**.
+
+Implementados no código local RPCs de agenda persistente (migration B.7), ações protegidas, leitura por perfil, seleção de auditores realmente autorizados, estado Aguardando confirmação/Data confirmada e sino para auditor/Administrativo. Reagendamento administrativo altera a revisão e exige nova confirmação. Histórico, repetição da mesma tentativa, datas concorrentes e troca de usuário/perfil entre abas são tratados; nenhum dado fictício alimenta a interface. O sino abre a obra/disciplina da visita e atualiza a cada 30 segundos na aba visível.
+
+**B.7 não aplicada remotamente; sem deploy no Render nesta etapa.** A LAN ainda usa o Supabase compartilhado sem a nova migration, portanto o agendamento permanece indisponível até a publicação combinada. Não declarar notificações reais enviadas nem confirmação testada com contas reais. E-mails, cancelamento, substituição do auditor e publicação de auditorias continuam fora desta entrega. Detalhes: [AGENDA_AUDITORIAS.md](AGENDA_AUDITORIAS.md). Os estados anteriores abaixo descrevem as etapas passadas.
+
+Validação final: 90 testes offline passaram (19 novos de agenda/sessão e 71 de regressão), assim como as suítes SQL B.1–B.7 em PostgreSQL/PGlite isolado, ESLint completo e build Next.js/TypeScript. Verificação em memória do frontend cobriu polling, envio repetido, respostas antigas e geração de UUID em HTTP/LAN. O controle de navegador continua indisponível para validação visual autenticada.
+
+## Estado local — 14/09/2026 — Agenda administrativa conforme PDF
+
+Lido integralmente `agenda administrativo.pdf` (primeira página com desenho; segunda em branco). O responsável confirmou três definições: reunir todas as obras autorizadas e Segurança/Qualidade; manter a lista de todas as visitas independente do mês/dia do calendário; abrir o agendamento pelo botão + em popup, mantendo obra, disciplina, roteiro, auditor responsável, data prevista e observação opcional.
+
+A Agenda administrativa agora organiza Visitas agendadas à esquerda, em ordem de data, e o calendário mensal à direita. Retirados a frase explicativa, a linha de contexto e seu contador, os seletores externos da Agenda e o aviso de preenchimento de auditorias nessa tela. Mantido o selo Agendamento administrativo. O calendário usa `calendarOnly`, sem duplicar agendamentos/Consultar agenda e sem filtrar a lista; o calendário do Painel conserva seu comportamento anterior. Em telas menores os quadros ficam empilhados. O formulário abre em dialog nativo, com Fechar/Escape e retorno do foco ao botão +.
+
+Obras e visitas continuam sujeitas às autorizações do perfil. A tela também trata ausência de obras. A integração de visitas e auditores continua pendente (`visits=[]`, `users=[]`, `previewOnly`): o popup pode ser conferido, mas agendar/reagendar permanece indisponível e não simula gravação. Alterações locais para revisão na LAN; sem deploy no Render/Supabase.
+
+Validação: 56 testes existentes de calendário, perfis, contexto e agenda passaram, assim como ESLint completo, build Next.js/TypeScript e diff check. Revisão independente do código conferiu escopo, modal e regras responsivas. A prévia LAN em `http://192.168.0.229:3001/entrar` respondeu HTTP 200. Sem conferência visual autenticada nesta etapa, pois o controle de navegador está indisponível.
+
+## Estado local — 14/09/2026 — Cabeçalho comum nas telas administrativas
+
+O responsável ampliou o cabeçalho aprovado do Painel administrativo para as outras telas do perfil: Agenda, Obras, Roteiros e versões e Administração. `AdministrativeHeader` agora é compartilhado por todas as telas administrativas de `/app`, pela gestão de Usuários e acessos e pela edição de obras. Mantém logo original, título, identificação ADMINISTRAÇÃO, sino e menu do usuário com Trocar perfil/Meus acessos/Sair; não repete cartões de obra, disciplina e acesso no cabeçalho. Links de retorno das páginas independentes ficam no início do conteúdo.
+
+Esta definição substitui o escopo anterior que limitava o cabeçalho novo à visão geral. Os controles de seleção necessários no corpo das telas e as verificações de autorização continuam existentes. As páginas independentes usam o nome do próprio cadastro protegido, com alternativa para e-mail da sessão quando indisponível. Alteração local para revisão na LAN, sem deploy no Render/Supabase.
+
+## Estado local — 14/09/2026 — Logo da Diálogo em todas as telas
+
+O responsável pediu usar o arquivo `logo dialogo.png` do projeto em todas as telas. A cópia pública `public/logo-dialogo.png` é idêntica ao original. O componente compartilhado `DialogoLogo` usa a imagem com proporção preservada, texto alternativo e tamanhos responsivos, substituindo as marcas tipográficas do cabeçalho operacional, AuthShell, escolha de perfil, gestão de usuários, edição de obras e prévia de relatório/impressão. Menções textuais à empresa e nomes de produtos permanecem conteúdo normal. Alteração local para revisão na LAN, sem deploy no Render/Supabase.
+
+## Estado local — 14/09/2026 — Calendário do Painel administrativo
+
+O responsável confirmou que faltava o calendário na área Agenda de visitas do PDF. `AdminVisitCalendar` substitui a antiga lista resumida somente no Painel administrativo: calendário mensal, anterior/próximo, Hoje, destaque do dia atual, seleção de dia e agendamentos abaixo. A seleção pode ser desfeita com Ver mês todo. As marcações distinguem Segurança e Qualidade; os registros recebidos continuam limitados às obras autorizadas, sem criação de visitas fictícias. Consultar agenda permanece disponível.
+
+O calendário usa a data atual de São Paulo e datas de visita literais; testes cobrem fevereiro, bissextos, início/fim de semanas e viradas de mês/ano/fuso. Oito testes de datas, ESLint, TypeScript e build passaram. Executar com `npm run test:calendar`. Revisão estática de layout e acessibilidade concluída; sem teste visual autenticado, pois o controle de navegador está indisponível. A agenda persistente continua uma integração futura. Alteração apenas local, sem deploy no Render/Supabase.
+
+## Estado local — 14/09/2026 — Pesos iniciais de Segurança
+
+O responsável definiu inicialmente **peso 1 em cada um dos 205 subitens de Segurança**, incluindo `01.01.01`, preservando os critérios da IT.07 revisão 02. `securityWeightConfiguration` identifica a decisão como `IT07-R02-PESOS-INICIAIS-2026-09-14`; cada critério recebe `configuredWeight` e `weightConfigurationId`. `getCriterionWeight` apresenta o peso configurado no catálogo e no preenchimento. O campo documental continua fiel ao JSON original, que não foi reescrito.
+
+Conferidos os 205 códigos, textos, grupos, subgrupos, páginas e orientações; os 27 pesos dos grupos e a escala 0/5/10/N/A permanecem intactos. Qualidade mantém integralmente os 10 quesitos de F.175 e os 23 de F.176, pesos, critérios de verificação, rateios e observações já definidos. Uma comparação antes/depois confirmou a preservação dos dados de Qualidade e do hash do catálogo original. Verificação do catálogo, navegação, 15 testes de contexto/rascunhos, ESLint, TypeScript e build passaram. A mudança configura pesos; não implementa cálculo automático nem publicação de auditorias.
+
+## Estado local — 14/09/2026 — Revisão do Painel administrativo pelo PDF
+
+Prévia LAN em `http://192.168.0.229:3001/app`. O responsável pediu revisão por alteração antes de publicar no Render/Supabase. Confirmados e aplicados somente no Painel administrativo: remoção de cartões/seletores de obra e disciplina; manutenção de ADMINISTRAÇÃO abaixo do título; caixa do usuário abre Trocar perfil/Meus acessos/Sair; sino para visitas agendadas e auditorias publicadas; visitas zeradas aparecem como `--`; quatro indicadores preservados e nova área Principais apontamentos com listas Mais graves e Mais recorrentes. Apontamentos e notificações estão em apresentação local, sem registros inventados nem fonte persistente integrada.
+
+Ranking mensal confirmado com Segurança e Qualidade em duas listas no mesmo quadro, substituindo Organização das visitas. A apresentação foi integrada em `AdminMonthlyRanking`, com seletor de mês e listas vazias; não calcula nem gera resultados. A regra para múltiplas auditorias da mesma disciplina no mês (última publicada ou média) ainda aguarda resposta. O calendário com agendamentos abaixo foi confirmado e implementado na etapa registrada acima. Browser integrado não está conectado; compilação e verificações de código não equivalem a teste visual autenticado. Nenhum deploy destas alterações locais foi realizado.
+
 ## Estado atual — 14/09/2026 — Acessos gerais de Luiza Dutra
 
 O responsável autorizou expressamente que a conta existente `luiza.dutra@dialogo.com.br` receba os mesmos acessos atuais de `emanuel.locchi@dialogo.com.br`, com atualização no Supabase e Render. A conferência remota encontrou Luiza com e-mail confirmado, conta ativa e já aprovada: quatro perfis, Engenharia como Equipe da obra e três concessões na Alameda Tatuapé. A aprovação original é `002ee997-fbc5-47a3-9864-f0f068661da1`, atribuída a Emanuel; não foi refeita.

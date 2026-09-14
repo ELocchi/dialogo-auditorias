@@ -111,6 +111,12 @@ if (!baselineOnly) suites.push({
   upgradeMigration: "20260914000100_designated_general_access.sql",
   test: "designated_general_access.sql",
   baselineAuthRows: 3,
+}, {
+  name: "B.7 audit agenda/confirmation/idempotency/history/RLS suite",
+  migrations: ["20260913000100_access_requests.sql", "20260913000200_access_administration.sql", "20260913000300_multiple_access_profiles.sql", "20260913000400_multiple_engineering_scopes.sql", "20260913000500_work_details.sql", "20260914000100_designated_general_access.sql"],
+  upgradeMigration: "20260914000200_audit_agenda.sql",
+  test: "audit_agenda.sql",
+  baselineAuthRows: 6,
 });
 
 const { PGlite } = await loadPGlite();

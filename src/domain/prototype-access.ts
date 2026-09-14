@@ -123,6 +123,12 @@ export interface Visit {
   note: string;
   createdBy: string;
   createdAt: string;
+  /** Persisted agenda records carry these fields; legacy preview fixtures do not. */
+  revision?: number;
+  confirmationStatus?: "pending_confirmation" | "confirmed";
+  confirmedAt?: string | null;
+  auditorName?: string;
+  createdByName?: string;
   history: readonly { previousDate: string; date: string; note: string; changedBy: string; changedAt: string }[];
 }
 

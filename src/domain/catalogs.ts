@@ -12,6 +12,9 @@ export interface Criterion {
   source: string;
   locator: string;
   documentedWeight: number | null;
+  /** Configuração da plataforma, independente do peso transcrito da fonte. */
+  configuredWeight?: number;
+  weightConfigurationId?: string;
   orientations: CatalogOrientation[];
   verificationRule?: string;
   sourceNote?: string;
@@ -25,6 +28,8 @@ export interface CatalogOrientation {
   pages: number[];
   highlighted: boolean;
 }
+
+export const getCriterionWeight = (criterion: Criterion): number | null => criterion.configuredWeight ?? criterion.documentedWeight;
 
 interface SecuritySourceOrientation {
   id_tecnico: string;
@@ -127,6 +132,15 @@ const orientationsForItem = (item: SecuritySourceItem): CatalogOrientation[] => 
   return [...linked, ...subgroupOrientations].map(toOrientation).concat(applicableGeneral);
 };
 
+/** Decisão do responsável em 14/09/2026 para os 205 subitens da IT.07 R02.
+ * Peso individual; não substitui a escala de respostas nem os pesos dos grupos.
+ */
+export const securityWeightConfiguration = {
+  id: "IT07-R02-PESOS-INICIAIS-2026-09-14",
+  itemWeight: 1,
+  source: "Definição do responsável em 14/09/2026",
+} as const;
+
 export const securityCriteria: Criterion[] = securityCatalog.itens.map((item) => {
   const subgroup = securitySubgroups.get(item.subgrupo_id);
   const groupName = securityGroupNames.get(item.grupo_codigo) ?? item.grupo_codigo;
@@ -140,6 +154,8 @@ export const securityCriteria: Criterion[] = securityCatalog.itens.map((item) =>
     source: `${securityCatalog.documento.identificacao} revisão ${securityCatalog.documento.revisao}`,
     locator: `página${item.paginas_fonte.length === 1 ? "" : "s"} ${item.paginas_fonte.join(", ")}`,
     documentedWeight: item.peso_individual,
+    configuredWeight: securityWeightConfiguration.itemWeight,
+    weightConfigurationId: securityWeightConfiguration.id,
     orientations: orientationsForItem(item),
   };
 });

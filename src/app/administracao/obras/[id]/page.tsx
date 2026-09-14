@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { requireAdministrator } from "@/lib/auth/session";
+import { ownAccessRequest, requireAdministrator } from "@/lib/auth/session";
 import { readWorkDetails, readWorkHistory } from "@/lib/works/queries";
 import type { WorkChange } from "@/lib/works/contracts";
-import { LogoutButton } from "@/app/components/auth/LogoutButton";
+import { AdministrativeHeader } from "@/app/components/administrative-header";
 import { WorkEditForm } from "@/app/components/works/WorkEditForm";
 import styles from "@/app/components/works/work-edit.module.css";
 
@@ -17,15 +17,15 @@ const fieldLabels: Record<string, string> = {
 export default async function EditWorkPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireAdministrator();
   const { id } = await params;
-  const [work, history] = await Promise.all([readWorkDetails(id), readWorkHistory(id)]);
+  const [work, history, ownRequest] = await Promise.all([readWorkDetails(id), readWorkHistory(id), ownAccessRequest(user.id)]);
+  const name = typeof ownRequest?.nome === "string" && ownRequest.nome.trim()
+    ? ownRequest.nome : user.email ?? "Usuário";
   return <div className={styles.shell}>
     <a className="skip-link" href="#work-content">Ir para o cadastro da obra</a>
-    <header className={styles.header}><div className={styles.headerInner}>
-      <div className={styles.brand}>diálogo<span>AUDITORIAS</span></div>
-      <div className={styles.session}><p><strong>Administrativo</strong>{user.email}</p><Link href="/app?secao=obras">Voltar às obras</Link><Link href="/escolher-perfil">Trocar perfil</Link><LogoutButton /></div>
-    </div></header>
+    <AdministrativeHeader name={name} />
     <main id="work-content" tabIndex={-1} className={styles.main}>
-      <div className={styles.intro}><p className={styles.eyebrow}>Administração · Obras</p><h1>Editar cadastro da obra</h1><p>{work ? work.nome : "Consulta do cadastro"}</p></div>
+      <Link className={styles.backLink} href="/app?secao=obras">Voltar às obras</Link>
+      <div className={styles.intro}><p className={styles.eyebrow}>Administração · Obras</p><h2>Editar cadastro da obra</h2><p>{work ? work.nome : "Consulta do cadastro"}</p></div>
       {!work ? <div className={styles.error} role="alert"><p>Não foi possível carregar este cadastro. Volte às obras e selecione a obra novamente.</p><Link href="/app?secao=obras">Voltar às obras</Link></div> : <>
         <WorkEditForm work={work} />
         <section className={styles.historySection} aria-labelledby="work-history-title">

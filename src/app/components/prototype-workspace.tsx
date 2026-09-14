@@ -5,6 +5,10 @@ import { auditModelLabels, formatAuditDate, type AuditModelId, type AuditRecord,
 import { canEditAudit, canStartAudit, canConsultAgenda, roleLabels, moduleLabels, type DemoUser, type AppModule, type Visit } from "@/domain/prototype-access";
 import { Icon } from "./ui-icon";
 import { WorkRanking } from "./work-ranking";
+import { AdminFindings } from "./admin-findings";
+import { AdminMonthlyRanking } from "./admin-monthly-ranking";
+import { AdminVisitCalendar } from "./admin-visit-calendar";
+import { DialogoLogo } from "./dialogo-logo";
 import styles from "./prototype-workspace.module.css";
 
 export function PrototypeDashboard({ user, module, works, audits, visits, open }: { user: DemoUser; module: AppModule; works: readonly WorkRecord[]; audits: readonly AuditRecord[]; visits: readonly Visit[]; open: (screen: string) => void }) {
@@ -14,24 +18,25 @@ export function PrototypeDashboard({ user, module, works, audits, visits, open }
   return <>
     <div className="page-intro"><div><h2>{admin ? "Painel administrativo" : "Visão geral"}</h2><p className="muted">{admin ? "Cadastros, configuração e agendamento de visitas." : `${moduleLabels[module]} · ${roleLabels[user.role]}${user.activity === "coordination" ? " / Coordenação" : user.activity === "site-team" ? " / Equipe da obra" : ""}`}</p></div>{!admin && works[0] && canStartAudit(user, works[0].id, module === "safety" ? "security-it07-r02" : "quality-f175") && <button className="primary" type="button" onClick={() => open("new")}><Icon name="plus" />Nova auditoria</button>}</div>
     <div className="stats-grid">
-      <Metric label="Obras disponíveis" value={works.length} onClick={() => open("works")} />
-      <Metric label="Visitas na agenda" value={visits.length} onClick={works[0] && canConsultAgenda(user, works[0].id, module) ? () => open("agenda") : undefined} />
-      <Metric label={admin ? "Perfis principais" : "Relatórios publicados"} value={admin ? 4 : published.length} onClick={() => open(admin ? "settings" : "report")} />
-      <Metric label={admin ? "Roteiros disponíveis" : user.role === "engineering" ? "Auditorias consultáveis" : "Rascunhos próprios"} value={admin ? 3 : user.role === "engineering" ? audits.length : ownDrafts.length} onClick={() => open(admin ? "criteria" : "audits")} />
+      <Metric label="Obras disponíveis" value={works.length} description={admin ? "Consultar obras" : undefined} onClick={() => open("works")} />
+      <Metric label="Visitas na agenda" value={admin && visits.length === 0 ? "--" : visits.length} description={admin ? "Consultar agenda" : undefined} onClick={works[0] && canConsultAgenda(user, works[0].id, module) ? () => open("agenda") : undefined} />
+      <Metric label={admin ? "Perfis principais" : "Relatórios publicados"} value={admin ? 4 : published.length} description={admin ? "Consultar perfis" : undefined} onClick={() => open(admin ? "settings" : "report")} />
+      <Metric label={admin ? "Roteiros disponíveis" : user.role === "engineering" ? "Auditorias consultáveis" : "Rascunhos próprios"} value={admin ? 3 : user.role === "engineering" ? audits.length : ownDrafts.length} description={admin ? "Consultar roteiros" : undefined} onClick={() => open(admin ? "criteria" : "audits")} />
     </div>
+    {admin && <AdminFindings />}
     <div className="overview-grid">
-      {module === "safety" && !admin ? <WorkRanking works={works} audits={audits} onViewWorks={() => open("works")} /> : <section className="panel"><span className="section-label">{admin ? "RESPONSABILIDADES" : "QUALIDADE"}</span><h3>{admin ? "Organização das visitas" : "Roteiros independentes"}</h3><p className="muted">{admin ? "O Administrativo agenda e reagenda. O auditor designado realiza a inspeção. Agendar não concede acesso ao preenchimento." : "F.175/00: 10 quesitos. F.176/00: 23 quesitos. As regras de pontuação e do Farol estão em preparação."}</p><button className="secondary" type="button" onClick={() => open(admin ? "agenda" : "criteria")}>{admin ? "Abrir agenda" : "Consultar roteiros"}</button></section>}
-      <section className="panel"><div className="panel-heading"><div><span className="section-label">{admin ? "AGENDA DO PERFIL" : "REGISTROS AUTORIZADOS"}</span><h3>{admin ? "Agenda do contexto" : "Auditorias recentes"}</h3></div><span className="icon-tile"><Icon name="calendar" /></span></div>
-        {admin ? visits.slice(0, 3).map((visit) => <div className="visit-card" key={visit.id}><div className="visit-info"><strong>{formatAuditDate(visit.date)}</strong><small>{auditModelLabels[visit.modelId].name}</small></div></div>) : [...audits].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 3).map((audit) => <div className="visit-card" key={audit.id}><div className="visit-info"><strong>{auditModelLabels[audit.modelId].name}</strong><small>{formatAuditDate(audit.date)} · {auditModelLabels[audit.modelId].version}</small></div><span className="badge">{audit.status}</span></div>)}
-        {(admin ? visits.length : audits.length) === 0 && <p className={styles.empty}>Nenhum registro disponível neste contexto.</p>}
-        <button className="text-button panel-link" type="button" onClick={() => open(admin ? "agenda" : "audits")}>{admin ? "Consultar agenda" : "Consultar auditorias"}<Icon name="arrow" /></button>
-      </section>
+      {admin ? <AdminMonthlyRanking /> : module === "safety" ? <WorkRanking works={works} audits={audits} onViewWorks={() => open("works")} /> : <section className="panel"><span className="section-label">QUALIDADE</span><h3>Roteiros independentes</h3><p className="muted">F.175/00: 10 quesitos. F.176/00: 23 quesitos. Pesos e critérios disponíveis nos roteiros; cálculo automático e Farol em preparação.</p><button className="secondary" type="button" onClick={() => open("criteria")}>Consultar roteiros</button></section>}
+      {admin ? <AdminVisitCalendar visits={visits} works={works} onViewAgenda={() => open("agenda")} /> : <section className="panel"><div className="panel-heading"><div><span className="section-label">REGISTROS AUTORIZADOS</span><h3>Auditorias recentes</h3></div><span className="icon-tile"><Icon name="calendar" /></span></div>
+        {[...audits].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 3).map((audit) => <div className="visit-card" key={audit.id}><div className="visit-info"><strong>{auditModelLabels[audit.modelId].name}</strong><small>{formatAuditDate(audit.date)} · {auditModelLabels[audit.modelId].version}</small></div><span className="badge">{audit.status}</span></div>)}
+        {audits.length === 0 && <p className={styles.empty}>Nenhum registro disponível neste contexto.</p>}
+        <button className="text-button panel-link" type="button" onClick={() => open("audits")}>Consultar auditorias<Icon name="arrow" /></button>
+      </section>}
     </div>
   </>;
 }
 
-function Metric({ label, value, onClick }: { label: string; value: number; onClick?: () => void }) {
-  return <button type="button" className="stat-card" onClick={onClick} disabled={!onClick}><span className="stat-top">{label}<Icon name="arrow" /></span><strong className="stat-value">{String(value).padStart(2, "0")}</strong><span className="stat-bottom">{onClick ? "Consultar contexto selecionado" : "Consulta não concedida neste perfil"}</span></button>;
+function Metric({ label, value, description, onClick }: { label: string; value: number | string; description?: string; onClick?: () => void }) {
+  return <button type="button" className="stat-card" onClick={onClick} disabled={!onClick}><span className="stat-top">{label}<Icon name="arrow" /></span><strong className="stat-value">{String(value).padStart(2, "0")}</strong><span className="stat-bottom">{onClick ? description ?? "Consultar contexto selecionado" : "Consulta não concedida neste perfil"}</span></button>;
 }
 
 export function AuditList({ user, audits, works, onOpen, onNew }: { user: DemoUser; audits: readonly AuditRecord[]; works: readonly WorkRecord[]; onOpen: (audit: AuditRecord) => void; onNew?: () => void }) {
@@ -73,5 +78,5 @@ export function AdministrativePanel() {
 
 export function AuditPreview({ audit, work }: { audit: AuditRecord; work: WorkRecord }) {
   const model = auditModelLabels[audit.modelId];
-  return <><div className="page-intro"><div><h2>Relatório de auditoria</h2><p className="muted">Prévia de demonstração · não é relatório publicado.</p></div><button type="button" className="primary" onClick={() => window.print()}><Icon name="report" />Imprimir página</button></div><article className="report-sheet"><div className="report-heading"><div><span className="section-label">DIÁLOGO ENGENHARIA</span><h3>Relatório de coleta</h3><p className="muted">Exemplo de apresentação · dados de teste</p></div><span className="badge badge-amber">Nota final pendente</span></div><dl className="report-details"><div><dt>OBRA</dt><dd>{work.name}</dd></div><div><dt>DISCIPLINA E ROTEIRO</dt><dd>{model.name} · {model.version}</dd></div><div><dt>DATA DA AUDITORIA</dt><dd>{formatAuditDate(audit.date)}</dd></div><div><dt>AUDITOR RESPONSÁVEL</dt><dd>{audit.auditor}</dd></div></dl><div className="report-warning"><Icon name="info" /><div><strong>Nota pendente — configuração incompleta</strong><p>Publicação oficial em preparação.</p></div></div><p className="report-footnote">Prévia de identificação e apresentação. Não inclui as respostas e anexos do rascunho, nem produz documento publicado. A impressão usa o navegador e não salva a auditoria.</p></article></>;
+  return <><div className="page-intro"><div><h2>Relatório de auditoria</h2><p className="muted">Prévia de demonstração · não é relatório publicado.</p></div><button type="button" className="primary" onClick={() => window.print()}><Icon name="report" />Imprimir página</button></div><article className="report-sheet"><div className="report-heading"><div><DialogoLogo className={styles.reportLogo} /><h3>Relatório de coleta</h3><p className="muted">Exemplo de apresentação · dados de teste</p></div><span className="badge badge-amber">Nota final pendente</span></div><dl className="report-details"><div><dt>OBRA</dt><dd>{work.name}</dd></div><div><dt>DISCIPLINA E ROTEIRO</dt><dd>{model.name} · {model.version}</dd></div><div><dt>DATA DA AUDITORIA</dt><dd>{formatAuditDate(audit.date)}</dd></div><div><dt>AUDITOR RESPONSÁVEL</dt><dd>{audit.auditor}</dd></div></dl><div className="report-warning"><Icon name="info" /><div><strong>Nota pendente — configuração incompleta</strong><p>Publicação oficial em preparação.</p></div></div><p className="report-footnote">Prévia de identificação e apresentação. Não inclui as respostas e anexos do rascunho, nem produz documento publicado. A impressão usa o navegador e não salva a auditoria.</p></article></>;
 }

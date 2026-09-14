@@ -1,18 +1,10 @@
 .shell { min-height: 100dvh; }
-.header { background: var(--surface); border-bottom: 1px solid var(--line); }
-.headerInner { max-width: 1280px; margin: auto; padding: 26px 36px; display: flex; align-items: center; justify-content: space-between; gap: 28px; }
-.brand { display: grid; color: var(--navy); font-size: 29px; line-height: 1.2; letter-spacing: -1.4px; }
-.brand span { margin-top: 7px; color: var(--red); font-size: 9px; letter-spacing: 3px; }
-.session { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 22px; font-size: 12px; }
-.session p { margin: 0; text-align: right; overflow-wrap: anywhere; }
-.session strong { display: block; }
-.session form { margin: 0; }
-.session a { text-underline-offset: 3px; }
 .main { max-width: 1120px; margin: 0 auto; padding: 38px 24px 70px; }
 .main:focus { outline: none; }
+.backLink { display: inline-flex; align-items: center; min-height: 32px; margin-bottom: 20px; font-size: 13px; text-underline-offset: 3px; }
 .intro { margin-bottom: 28px; }
 .eyebrow { margin: 0 0 12px; color: var(--muted); font-size: 11px; letter-spacing: .9px; text-transform: uppercase; }
-.intro h1 { font-size: clamp(28px, 4vw, 36px); margin: 0 0 14px; }
+.intro h2 { font-size: clamp(28px, 4vw, 36px); margin: 0 0 14px; }
 .intro > p:last-child { color: var(--muted); font-size: 15px; }
 .form { display: grid; gap: 22px; }
 .savedNotice { border: 1px solid #bdcfdf; border-left: 4px solid var(--navy); border-radius: 8px; padding: 18px 20px; background: #f0f5fb; color: var(--navy); }
@@ -66,18 +58,12 @@
 .change dt { color: var(--muted); font-size: 11px; margin-bottom: 6px; }
 .change dd { margin: 0; color: var(--ink); font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; }
 @media (max-width: 760px) {
-  .headerInner { padding: 20px; align-items: flex-start; gap: 20px; }
-  .session { gap: 12px 18px; }
-  .session p { width: 100%; }
   .main { padding-inline: 20px; }
   .address { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .member { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .remove { margin: 0; padding: 0; text-align: left; justify-self: start; }
 }
 @media (max-width: 480px) {
-  .headerInner { flex-direction: column; }
-  .session { justify-content: flex-start; }
-  .session p { text-align: left; }
   .group { padding: 20px 16px; }
   .identification, .address, .twoColumns, .member, .change dl { grid-template-columns: 1fr; }
   .wideField { grid-column: auto; }

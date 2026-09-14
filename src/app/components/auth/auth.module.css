@@ -255,15 +255,6 @@
     padding-right: 16px;
   }
 
-  .brand :global(.brand-name) {
-    font-size: 32px;
-  }
-
-  .brand :global(.brand-caption) {
-    font-size: 8px;
-    letter-spacing: 3.1px;
-  }
-
   .product strong {
     font-size: 17px;
   }

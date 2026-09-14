@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { requireAdministrator } from "@/lib/auth/session";
+import { ownAccessRequest, requireAdministrator } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { engineeringLabels, profileLabels, type AccessDecision, type AccessWork, type PendingRequest } from "@/lib/access/contracts";
-import { LogoutButton } from "@/app/components/auth/LogoutButton";
+import { AdministrativeHeader } from "@/app/components/administrative-header";
 import { PendingRequests } from "@/app/components/access/PendingRequests";
 import { WorkForm } from "@/app/components/access/WorkForm";
 import { AccessGrants } from "@/app/components/access/AccessGrants";
@@ -45,19 +45,20 @@ export default async function AccessAdministrationPage({ searchParams }: { searc
   const query = await searchParams;
   const pendingPage = parsePage(query.pendentes);
   const historyPage = parsePage(query.historico);
-  const data = await loadAdministration(pendingPage, historyPage);
+  const [data, ownRequest] = await Promise.all([
+    loadAdministration(pendingPage, historyPage),
+    ownAccessRequest(user.id),
+  ]);
+  const name = typeof ownRequest?.nome === "string" && ownRequest.nome.trim()
+    ? ownRequest.nome : user.email ?? "Usuário";
   return <div className={styles.shell}>
     <a className="skip-link" href="#access-content">Ir para usuários e acessos</a>
-    <header className={styles.header}>
-      <div className={styles.headerInner}>
-        <div className={styles.brand}>diálogo<span>AUDITORIAS</span></div>
-        <div className={styles.session}><p><strong>Administrativo</strong>{user.email}</p><Link className={styles.sessionLink} href="/app">Voltar ao painel</Link><Link className={styles.sessionLink} href="/escolher-perfil">Trocar perfil</Link><Link className={styles.sessionLink} href="/minha-conta">Meus acessos</Link><LogoutButton /></div>
-      </div>
-    </header>
+    <AdministrativeHeader name={name} />
     <main id="access-content" className={styles.main} tabIndex={-1}>
+      <Link className={styles.backLink} href="/app">Voltar ao painel</Link>
       <div className={styles.intro}>
         <p className={styles.eyebrow}>Administração</p>
-        <h1>Usuários e acessos</h1>
+        <h2>Usuários e acessos</h2>
         <p>Analise solicitações, combine os perfis de cada pessoa e defina as obras e os módulos autorizados em cada perfil.</p>
       </div>
       {!data ? <div className={styles.error} role="alert"><p>Não foi possível carregar a administração com segurança. Nenhuma aprovação pode ser enviada nesta tela até a consulta ser restabelecida.</p><Link href="/administracao/usuarios">Tentar carregar novamente</Link></div> : <>

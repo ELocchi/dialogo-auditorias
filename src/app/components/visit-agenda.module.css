@@ -10,7 +10,27 @@
 
 .context strong { color: var(--navy); }
 .context > span:last-child { margin-left: auto; }
+.administrativeLayout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; gap: 24px; }
+.scheduledPanel { display: flex; flex-direction: column; min-height: 460px; }
+.scheduledHeading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 22px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+.scheduledHeading h3 { margin: 0; }
+.addVisit { display: grid; place-items: center; flex: 0 0 auto; width: 42px; height: 42px; padding: 8px; border: 1px solid #ccd4e0; border-radius: 8px; background: white; color: var(--navy); }
+.addVisit:hover { background: #edf2f8; }
+.scheduledEmpty { display: flex; flex: 1; flex-direction: column; justify-content: center; align-items: center; gap: 14px; padding: 30px 8px; text-align: center; }
+.scheduledEmpty p { margin: 0; color: var(--muted); font-size: 13px; }
+.scheduledPanel .visitCard { padding: 18px; }
+.scheduledPanel .visitHeader { flex-wrap: wrap; gap: 14px; }
+.scheduledPanel .visitTitle { flex-basis: 160px; }
+.scheduledPanel .visitDetails { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; }
+.scheduledPanel .visitDetails > div:last-child { grid-column: 1 / -1; }
+.scheduledPanel .rescheduleFields { grid-template-columns: 1fr; }
+.scheduleDialog { width: min(920px, calc(100% - 32px)); max-width: none; max-height: calc(100dvh - 32px); margin: auto; padding: 28px; overflow-y: auto; overscroll-behavior: contain; border: 1px solid var(--line); border-radius: 14px; color: var(--ink); background: var(--surface); box-shadow: 0 20px 80px #14233c40; }
+.scheduleDialog::backdrop { background: #14233c80; }
+.closeDialog { display: flex; margin-left: auto; margin-bottom: 12px; }
+.scheduleDialog .createPanel { padding: 0; margin: 0; border: 0; box-shadow: none; }
 .createPanel { margin-bottom: 28px; }
+.formFields { min-width: 0; margin: 0; padding: 0; border: 0; }
+.availability { margin: 0 0 22px; padding: 13px 16px; border: 1px solid #d8e0eb; border-radius: 8px; color: var(--navy); background: #f3f6fa; font-size: 13px; line-height: 1.6; }
 .panelHeading { display: flex; gap: 13px; align-items: center; margin-bottom: 22px; }
 .panelHeading h3 { margin: 0 0 5px; font-size: 18px; }
 .panelHeading p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
@@ -39,7 +59,12 @@
 .visitTitle h4 { margin: 0 0 7px; font-size: 17px; overflow-wrap: anywhere; }
 .visitTitle > p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
 .visitTitle > span { display: inline-flex; margin-top: 9px; font-size: 10px; color: #617185; }
-.visitActions { flex-shrink: 0; }
+.visitActions { display: flex; flex-direction: column; flex-shrink: 0; gap: 8px; max-width: 100%; }
+.confirmation { display: flex; align-items: center; flex-wrap: wrap; gap: 5px 12px; margin: 18px 0 0; padding: 10px 12px; border: 1px solid; border-radius: 7px; font-size: 12px; }
+.confirmation strong { font-size: 12px; }
+.confirmation span { font-size: 11px; }
+.awaiting { color: #7e5b23; background: #fff9ed; border-color: #eadcbb; }
+.confirmed { color: #2b654e; background: #edf6f0; border-color: #cbded2; }
 .visitDetails { display: grid; grid-template-columns: 1fr 1fr 1.2fr; gap: 18px; margin: 22px 0 0; padding-top: 18px; border-top: 1px solid var(--line); }
 .visitDetails > div { min-width: 0; }
 .visitDetails dt { margin-bottom: 5px; color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .4px; }
@@ -71,6 +96,8 @@
 .restriction p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
 
 @media (max-width: 960px) {
+  .administrativeLayout { grid-template-columns: 1fr; }
+  .scheduledPanel { min-height: 280px; }
   .formGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .visitDetails { grid-template-columns: 1fr 1fr; }
   .visitDetails > div:last-child { grid-column: 1 / -1; }
@@ -78,6 +105,10 @@
 }
 
 @media (max-width: 620px) {
+  .administrativeLayout { gap: 18px; }
+  .scheduledPanel .visitDetails { grid-template-columns: 1fr; }
+  .scheduledPanel .visitDetails > div:last-child { grid-column: auto; }
+  .scheduleDialog { width: calc(100% - 20px); max-height: calc(100dvh - 20px); padding: 20px; }
   .context { align-items: flex-start; flex-direction: column; gap: 5px; }
   .context > span:last-child { margin-left: 0; }
   .formGrid { grid-template-columns: 1fr; gap: 16px; }
@@ -98,6 +129,6 @@
 }
 
 @media print {
-  .createPanel, .visitActions, .rescheduleForm { display: none; }
+  .createPanel, .visitActions, .rescheduleForm, .addVisit, .scheduleDialog { display: none; }
   .visitCard { break-inside: avoid; }
 }

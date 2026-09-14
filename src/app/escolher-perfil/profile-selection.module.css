@@ -1,10 +1,8 @@
 .shell { min-height: 100dvh; }
 .header { background: var(--surface); border-bottom: 1px solid var(--line); }
 .headerInner { max-width: 1248px; margin: auto; padding: 26px 36px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
-.brand { display: grid; color: var(--navy); }
-.brand > span { font-size: 29px; line-height: 1.2; letter-spacing: -1.4px; }
-.brand small { margin-top: 5px; color: var(--red); font-size: 9px; letter-spacing: 3px; }
-.session { display: flex; align-items: center; gap: 24px; font-size: 12px; }
+.brand { flex: 0 0 auto; max-width: 100%; }
+.session { display: flex; align-items: center; gap: 24px; min-width: 0; font-size: 12px; }
 .session > span { overflow-wrap: anywhere; }
 .session form { margin: 0; }
 .main { max-width: 1176px; margin: 0 auto; padding: 66px 0 40px; }

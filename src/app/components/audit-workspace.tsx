@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
-import { qualityModels, securityCriteria, type Criterion } from "@/domain/catalogs";
+import { getCriterionWeight, qualityModels, securityCriteria, type Criterion } from "@/domain/catalogs";
 import {
   getAdjacentIndex,
   getItemResponse,
@@ -52,7 +52,7 @@ export function Catalog({ model, setModel, query, setQuery, criteria, allowedMod
           onClick={() => setModel(item)}
         >
           <span>{item}</span>
-          <small>{total} quesitos{showWeights ? ` · ${security ? "pesos pendentes" : "pesos documentados"}` : ""}</small>
+          <small>{total} quesitos{showWeights ? ` · ${security ? "peso inicial 1 por subitem" : "pesos documentados"}` : ""}</small>
         </button>;
       })}
     </div>
@@ -88,6 +88,7 @@ export function Catalog({ model, setModel, query, setQuery, criteria, allowedMod
 }
 
 function CriterionRow({ item, showWeights }: { item: Criterion; showWeights: boolean }) {
+  const weight = getCriterionWeight(item);
   return <article className="criterion-row">
     <div className="criterion-code">{item.code}</div>
     <div className="criterion-body">
@@ -100,8 +101,8 @@ function CriterionRow({ item, showWeights }: { item: Criterion; showWeights: boo
       <CriterionOrientations item={item} />
     </div>
     {showWeights && <div className="criterion-weight">
-      <small>PESO {item.documentedWeight === null ? "PENDENTE" : "DOCUMENTADO"}</small>
-      <strong>{item.documentedWeight === null ? "A definir" : item.documentedWeight.toFixed(2).replace(".", ",")}</strong>
+      <small>PESO {item.configuredWeight !== undefined ? "CONFIGURADO" : weight === null ? "PENDENTE" : "DOCUMENTADO"}</small>
+      <strong>{weight === null ? "A definir" : weight.toFixed(2).replace(".", ",")}</strong>
     </div>}
   </article>;
 }
@@ -218,7 +219,7 @@ export function NewAudit({ model, setModel, criteria, activeIndex, setActiveInde
         </div>
 
         <div className="question-footer">
-          <div><span>Resposta: <strong>{getResponseLabel(response)}</strong></span>{showWeights && <span>Peso: <strong>{criterion.documentedWeight === null ? "A definir" : criterion.documentedWeight.toFixed(2).replace(".", ",")}</strong></span>}</div>
+          <div><span>Resposta: <strong>{getResponseLabel(response)}</strong></span>{showWeights && <span>Peso: <strong>{getCriterionWeight(criterion)?.toFixed(2).replace(".", ",") ?? "A definir"}</strong></span>}</div>
           <p className="draft-status"><span aria-hidden="true">✓</span> Respostas mantidas nesta sessão</p>
         </div>
       </div> : <div className="catalog-empty"><h3>Nenhum quesito disponível</h3><p>Selecione outro modelo de auditoria.</p></div>}

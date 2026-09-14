@@ -25,8 +25,8 @@ export function Works({ works, canManage = false }: { works: readonly WorkRecord
 
   return <div className="operational-view">
     <div className="page-intro">
-      <div><p className="kicker">CADASTRO DE OBRAS</p><h2>Obras</h2><p className="muted">Consulte os dados das obras e os responsáveis pelo acompanhamento.</p></div>
-      {canManage && <div className="work-create-action"><a className="primary" href="/administracao/usuarios#works-heading">+ Cadastrar obra</a><small>Cadastro disponível em Usuários e acessos.</small></div>}
+      <div><h2>Obras</h2><p className="muted">Consulte os dados das obras e os responsáveis pelo acompanhamento.</p></div>
+      {canManage && <div className="work-create-action"><a className="primary" href="/administracao/usuarios#works-heading">+ Cadastrar obra</a></div>}
     </div>
 
     <div className="operational-filters work-filters" role="search" aria-label="Filtrar obras">
@@ -34,7 +34,7 @@ export function Works({ works, canManage = false }: { works: readonly WorkRecord
       <label>Status<select value={status} onChange={(event) => setStatus(event.target.value)}><option value="all">Todos os status</option><option>Ativa</option><option>Planejada</option></select></label>
       <button type="button" className="secondary operational-clear" onClick={resetFilters} disabled={!query && status === "all"}>Limpar filtros</button>
     </div>
-    <p className="operational-result-count" role="status">{filteredWorks.length} {filteredWorks.length === 1 ? "obra encontrada" : "obras encontradas"}<span>{works.some((work) => work.isDemo) ? "Inclui cadastros de demonstração" : "Obras disponíveis para este perfil e módulo"}</span></p>
+    <p className="operational-result-count" role="status">{filteredWorks.length} {filteredWorks.length === 1 ? "obra encontrada" : "obras encontradas"}<span>{works.some((work) => work.isDemo) ? "Inclui cadastros de demonstração" : canManage ? "Obras disponíveis para este perfil" : "Obras disponíveis para este perfil e módulo"}</span></p>
 
     <div className="work-grid">
       {filteredWorks.map((work) => <article className="work-project-card" key={work.id}>

@@ -12,15 +12,17 @@ O Administrativo dispõe de **Usuários e acessos** para analisar solicitações
 
 O cadastro de obras é persistente. Em **Obras → Editar obra**, o Administrativo salva nome, endereço, responsável técnico, registro profissional, coordenação, equipe e observações. As alterações mantêm histórico e controle de revisão para evitar sobrescrita de uma edição concorrente. Integrantes da equipe são informações descritivas; não criam contas nem recebem acesso automaticamente.
 
-As migrations B.1–B.5 já foram aplicadas ao Supabase DEV usado no projeto. A conta inicial e as 21 obras existentes foram preservadas. O teste de aprovação de outra conta real continua pendente, conforme registro em [RETOMADA.md](docs/RETOMADA.md).
+As migrations B.1–B.7 já foram aplicadas ao Supabase DEV usado no projeto. A publicação de B.7 em 14/09/2026 preservou as contas, as 21 obras e os acessos existentes. O histórico das etapas está em [RETOMADA.md](docs/RETOMADA.md).
 
 ## Telas operacionais e limites
 
-As telas por perfil estão disponíveis em `/app`, usando a identidade e as obras/módulos realmente autorizados. Auditorias, agenda e demais integrações operacionais ainda estão em prévia. Preenchimentos de teste ficam apenas na memória da tela e são descartados ao atualizar ou trocar perfil; não são sincronizados entre dispositivos. A agenda persistente e a atribuição de auditores ainda estão em preparação.
+As telas por perfil estão disponíveis em `/app`, usando a identidade e as obras/módulos realmente autorizados. Preenchimentos de auditoria de teste ficam apenas na memória da tela e são descartados ao atualizar ou trocar perfil; não são sincronizados entre dispositivos. A agenda inclui agendamento persistente pelo Administrativo, notificação no sino e confirmação da data pelo auditor, com a migration B.7 aplicada. E-mails foram adiados pelo responsável. Detalhes e validações em [Agenda de auditorias](docs/AGENDA_AUDITORIAS.md).
 
 O cadastro de obras e as autorizações são reais, mesmo durante a prévia das telas. Não preencher obras existentes com dados inventados para testar o formulário.
 
-Segurança usa a escala 0, 5, 10 e N/A, mas seus pesos individuais continuam pendentes. F.175 e F.176 preservam os pesos documentados, com regras de resposta e farol ainda pendentes. Cálculo oficial, publicação de auditoria, relatórios definitivos e upload permanente não estão concluídos. As prévias de relatório e o ranking não devem ser tratados como resultados publicados.
+Por decisão de 14/09/2026, os 205 subitens de Segurança recebem peso inicial **1**, em configuração separada da fonte documental. Permanecem os 27 pesos de grupo, as orientações e a escala 0, 5, 10 e N/A. Qualidade preserva os pesos e critérios já fornecidos: F.175 tem 10 quesitos e F.176 tem 23, cada roteiro somando 10,00.
+
+O cálculo automático ainda não está implementado. As regras complementares de aplicabilidade, base zero, arredondamento, fator de fase de Segurança e faixas do Farol de Qualidade continuam registradas em [Pendências de metodologia](docs/PENDENCIAS_METODOLOGIA.md); isso não torna pendentes os pesos e critérios já definidos. Publicação de auditoria, relatórios definitivos e upload permanente também não estão concluídos. As prévias de relatório e o ranking não devem ser tratados como resultados publicados.
 
 ## Executar localmente
 

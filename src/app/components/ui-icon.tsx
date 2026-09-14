@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-export type IconName = "overview" | "audits" | "occurrences" | "works" | "report" | "settings" | "arrow" | "plus" | "calendar" | "info" | "check" | "book";
+export type IconName = "overview" | "audits" | "occurrences" | "works" | "report" | "settings" | "arrow" | "plus" | "calendar" | "info" | "check" | "book" | "bell";
 const paths: Record<IconName, ReactNode> = {
   overview: <><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></>,
   audits: <><rect x="5" y="4" width="14" height="17" rx="2" /><path d="M9 4V2h6v2M8 12l3 3 5-6" /></>,
@@ -14,6 +14,7 @@ const paths: Record<IconName, ReactNode> = {
   info: <><circle cx="12" cy="12" r="9" /><path d="M12 11v6m0-10h.01" /></>,
   check: <path d="m5 12 4 4L19 6" />,
   book: <path d="M12 5C9 3 5 3 2 4v16c3-1 7-1 10 1 3-2 7-2 10-1V4c-3-1-7-1-10 1Zm0 0v16" />,
+  bell: <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></>,
 };
 export function Icon({ name, className = "" }: { name: IconName; className?: string }) {
   return <svg className={`icon ${className}`} width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;

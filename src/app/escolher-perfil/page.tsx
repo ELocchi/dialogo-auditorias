@@ -5,6 +5,7 @@ import { profileLabels, engineeringLabels, type AccessProfile } from "@/lib/acce
 import { readActiveProfileContext } from "@/lib/auth/active-profile-session";
 import { getProfileContexts } from "@/lib/auth/active-profile";
 import { LogoutButton } from "../components/auth/LogoutButton";
+import { DialogoLogo } from "@/app/components/dialogo-logo";
 import { selectProfileAction } from "./actions";
 import styles from "./profile-selection.module.css";
 
@@ -31,9 +32,7 @@ export default async function SelectProfilePage({ searchParams }: {
       <a className="skip-link" href="#profile-content">Ir para o conteúdo</a>
       <header className={styles.header}>
         <div className={styles.headerInner}>
-          <div className={styles.brand} aria-label="Diálogo Auditorias">
-            <span>diálogo</span><small>AUDITORIAS</small>
-          </div>
+          <div className={styles.brand}><DialogoLogo /></div>
           <div className={styles.session}><span>{user.email}</span><LogoutButton /></div>
         </div>
       </header>

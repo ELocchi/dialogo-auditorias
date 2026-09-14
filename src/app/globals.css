@@ -30,8 +30,6 @@ p { margin-bottom: 14px; }
 .header-inner { max-width: 1600px; margin: auto; padding: 30px 44px 28px; }
 .header-main { display: flex; align-items: flex-start; gap: 34px; padding-bottom: 25px; border-bottom: 1px solid var(--line); }
 .brand { padding: 2px 30px 0 0; border-right: 1px solid var(--line); margin-top: 1px; flex-shrink: 0; }
-.brand-name { display: block; font-size: 43px; font-weight: 500; line-height: 1.05; letter-spacing: -2px; color: var(--navy); }
-.brand-caption { display: block; color: var(--red); font-size: 11px; font-weight: 700; letter-spacing: 4.4px; margin-top: 7px; }
 .header-title { min-width: 0; }
 .header-title h1 { font-size: clamp(25px, 2.25vw, 36px); letter-spacing: -.65px; margin: 0 0 5px; }
 .header-title p { color: var(--muted); font-size: 16px; margin: 0 0 13px; }
@@ -159,8 +157,6 @@ td small { display: block; color: var(--muted); font-size: 10px; margin-top: 5px
   .header-inner { padding: 25px 30px; }
   .header-main { gap: 25px; }
   .brand { padding-right: 25px; }
-  .brand-name { font-size: 36px; }
-  .brand-caption { font-size: 9px; letter-spacing: 3.7px; }
   .header-summary { gap: 14px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .summary-item { padding: 10px 12px; }
   .summary-item > span { font-size: 9px; }
@@ -209,8 +205,6 @@ td small { display: block; color: var(--muted); font-size: 10px; margin-top: 5px
   .header-inner { padding: 20px 16px; }
   .header-main { gap: 14px; }
   .brand { padding-right: 14px; margin-top: 3px; }
-  .brand-name { font-size: 29px; letter-spacing: -1.2px; }
-  .brand-caption { font-size: 8px; letter-spacing: 2.7px; margin-top: 5px; }
   .header-title { flex: 1; }
   .header-title h1 { font-size: 21px; letter-spacing: -.5px; }
   .header-title p { font-size: 11px; margin-bottom: 9px; }

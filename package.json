@@ -14,6 +14,8 @@
     "verify:security": "node --experimental-strip-types scripts/verify-security-catalog.mjs",
     "test:navigation": "node --experimental-strip-types scripts/test-audit-navigation.mjs",
     "test:ranking": "node --experimental-strip-types scripts/test-work-ranking.mjs",
+    "test:calendar": "node --experimental-strip-types --test scripts/test-visit-calendar.mjs",
+    "test:agenda": "node --experimental-strip-types --test scripts/test-agenda.mjs scripts/test-agenda-session.mjs",
     "test:access": "node --experimental-strip-types scripts/test-prototype-access.mjs",
     "test:audit-context": "node --experimental-strip-types scripts/test-prototype-audits.mjs",
     "test:access-administration": "node --experimental-strip-types --test scripts/test-access-administration.mjs scripts/test-effective-access.mjs",
