@@ -35,7 +35,6 @@ export function Catalog({ model, setModel, query, setQuery, criteria, allowedMod
       <div>
         <p className="kicker">ROTEIROS E CRITÉRIOS</p>
         <h2>Roteiro de auditoria</h2>
-        <p className="muted">Consulte os quesitos e as orientações de cada documento.{showWeights ? " Pesos disponíveis para consulta técnica." : " Pesos técnicos não estão disponíveis neste perfil."}</p>
       </div>
       <span className="catalog-total"><strong>{criteria.length}</strong> quesitos{query ? " encontrados" : " no roteiro"}</span>
     </div>
