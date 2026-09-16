@@ -21,6 +21,9 @@ export interface AuditRecord {
   auditorId: string;
   status: "Agendada" | "Em preenchimento" | "Em discussão com a obra" | "Publicada";
   visitId?: string;
+  catalogRevisionId?: string | null;
+  catalogVersion?: number;
+  catalogRevisionLabel?: string;
   collectionStatus: "Em preenchimento" | "Coleta concluída" | "Rascunho";
   calculationStatus: "Aguardando configuração" | "Nota pendente" | "Disponível";
   /** Resultado final disponibilizado pela auditoria; nunca a média dos rascunhos. */
@@ -33,6 +36,10 @@ export const auditModelLabels: Record<AuditModelId, { name: string; version: str
   "quality-f175": { name: "Qualidade Simplificada", version: "F.175/00" },
   "quality-f176": { name: "Qualidade Completa", version: "F.176/00" },
 };
+
+export function auditVersionLabel(audit: AuditRecord): string {
+  return audit.catalogVersion && audit.catalogRevisionLabel ? audit.catalogRevisionLabel : auditModelLabels[audit.modelId].version;
+}
 
 // Fonte compartilhada dos exemplos já existentes em Obras e Histórico.
 // Fixtures locais: o cadastro real persistente é carregado separadamente; auditorias com nota final ainda estão em preparação.
@@ -50,4 +57,3 @@ export function formatAuditDate(date: string): string {
   const [year, month, day] = date.split("-");
   return `${day}/${month}/${year}`;
 }
-

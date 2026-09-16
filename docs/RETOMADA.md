@@ -1,5 +1,31 @@
 # Retomada — Diálogo Auditorias
 
+## Estado local — 16/09/2026 — Edição dos roteiros na própria página
+
+O lápis em cada cartão administrativo agora troca o documento pela área de edição no corpo da página, sem janela sobreposta. “Voltar ao documento” restaura a visualização. A busca, os campos de itens, os anexos PDF/DOCX, a criação de revisões e as verificações de permissão permanecem; os cartões ficam indisponíveis durante a edição para evitar a troca acidental de roteiro. Nenhuma alteração na estrutura das auditorias. Apenas LAN, sem deploy.
+
+## Estado local — 16/09/2026 — Documento de referência na própria página
+
+No Administrativo, selecionar um dos três cartões em Roteiros e versões exibe o PDF de referência logo abaixo, dentro da página. A visualização troca de documento quando o roteiro selecionado muda; leitura em nova aba e download do original continuam disponíveis. A janela sobreposta e o botão Fechar foram retirados somente da visualização de documentos. O editor pelo lápis, as permissões de acesso e a estrutura das auditorias seguem preservados. Mudança local na LAN; sem deploy.
+
+## Estado local — 16/09/2026 — Roteiros sem lista individual no Administrativo
+
+A tela administrativa de Roteiros e versões mostra os três cartões com contagem, documento de referência e ícone de edição, sem a busca e os cartões de quesitos individuais abaixo. A consulta de quesitos nos perfis de auditor permanece disponível. O preenchimento, os critérios e os snapshots das auditorias não foram alterados por esta mudança visual. Alteração somente na LAN; sem deploy nesta etapa.
+
+## Estado local — 16/09/2026 — Editor e revisões dos roteiros
+
+Adicionado lápis nos três cartões, com edição de itens e envio de PDF (Word DOCX opcional). Cada salvamento cria uma revisão completa; novas auditorias consultam a revisão vigente e guardam cópia dos critérios, preservando auditorias já iniciadas. Documentos, autoria e versões têm gravação atômica, controle de concorrência e repetição segura.
+
+**B.8 apenas local; sem deploy no Render nem alteração no Supabase compartilhado.** O editor pode ser conferido na LAN, mas Salvar fica indisponível até a publicação autorizada da migration. Auditorias continuam sendo prévias temporárias, sem publicação oficial. Detalhes e verificações em [REVISOES_ROTEIROS.md](REVISOES_ROTEIROS.md).
+
+## Estado local — 16/09/2026 — Documentos de referência dos roteiros
+
+No Administrativo, clicar em cada cartão de Roteiros e critérios seleciona o roteiro e abre um dialog com seu documento: IT.07 revisão 02 (PDF original, 30 páginas), F.175 (PDF convertido do Word original, 1 página) e F.176 (PDF convertido do Word original, 2 páginas). A janela permite Fechar/Escape, devolve o foco ao cartão, oferece leitura em nova aba e download do original. Os DOCX originais são preservados; a conversão pelo Word local mantém seu conteúdo e sua paginação.
+
+Arquivos de execução em `private/reference-documents`, fora de `public`, incluídos no trace de build do servidor. `GET /api/reference-documents/[modelId]` exige sessão, conta ativa/aprovada, perfil Administrativo selecionado e confirmação administrativa pelo banco. Mapa fechado impede caminhos arbitrários; respostas privadas sem cache compartilhado. Os demais perfis mantêm a consulta de critérios existente, sem receber acesso aos documentos completos. Nenhuma migration, conta, concessão ou dado remoto alterado. **Sem deploy: aguardar confirmação expressa do responsável.**
+
+Validação: 32 testes de documentos/perfis, ESLint e build Next.js/TypeScript passaram. Conferidos os cinco arquivos de execução no trace, correspondência dos três cartões aos documentos, assinaturas PDF/DOCX, hashes dos originais e páginas convertidas. Na LAN, `/entrar` respondeu 200, consulta sem sessão aos documentos respondeu 401 e tentativa de acesso direto à pasta privada respondeu 404. Revisão estática do dialog concluída; o controle integrado do navegador não está disponível para validar a interação na sessão real. Testes de acesso: `npm run test:reference-documents`.
+
 ## Publicação autorizada — 14/09/2026 — Painel, agenda e roteiros administrativos
 
 O responsável solicitou publicar as alterações acumuladas no Render e no Supabase antes de continuar a edição. Esta entrega reúne logo original em todas as telas, cabeçalho administrativo compartilhado, calendário e áreas do Painel, Agenda com todas as obras/disciplinas e confirmação pelo auditor, remoção dos seletores de Obras e Roteiros e versões e os três roteiros IT.07/F.175/F.176 disponíveis juntos no Administrativo. Segurança mantém peso inicial 1 por subitem e os critérios da IT.07; Qualidade conserva seus pesos documentados. E-mails e cálculo/publicação oficial de auditorias permanecem pendentes.

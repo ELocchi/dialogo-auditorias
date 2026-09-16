@@ -14,6 +14,7 @@
 .model-tab small { display: block; margin-top: 7px; color: var(--muted); font-size: 12px; }
 .model-tab:hover { border-color: #8e9cb1; }
 .model-tab.active { border-color: var(--navy); background: #f1f4f9; box-shadow: inset 4px 0 var(--red); }
+.model-tab:disabled, .model-edit:disabled { opacity: 1; color: var(--navy); cursor: default; }
 .catalog-toolbar { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; margin-bottom: 20px; }
 .catalog-search { width: min(560px, 100%); }
 .catalog-search > span:first-child, .picker-search { display: block; color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .6px; }
@@ -173,3 +174,10 @@
   .criterion-row, .question-card { break-inside: avoid; }
   .question-content { padding: 18px; }
 }
+
+.model-card { position: relative; min-width: 0; }
+.model-card .model-tab { width: 100%; height: 100%; }
+.model-card.editable .model-tab { padding-right: 65px; }
+.model-edit { position: absolute; right: 13px; top: 16px; display: grid; place-items: center; width: 38px; height: 38px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--navy); cursor: pointer; }
+.model-edit:hover { background: #e8eef7; border-color: var(--navy); }
+.model-edit:focus-visible { outline: 2px solid var(--navy); outline-offset: 3px; }

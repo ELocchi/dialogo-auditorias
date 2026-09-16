@@ -1,7 +1,12 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { getCriterionWeight, qualityModels, securityCriteria, type Criterion } from "@/domain/catalogs";
+import type { AuditModelId } from "@/domain/operational-records";
+import { referenceDocuments } from "@/domain/reference-documents";
+import { ReferenceDocumentViewer } from "./reference-document-viewer";
+import { CatalogEditorPanel } from "./catalog-editor-panel";
+import { catalogVersion, type CatalogSnapshot } from "@/lib/catalogs/contracts";
 import {
   getAdjacentIndex,
   getItemResponse,
@@ -19,43 +24,67 @@ type CatalogProps = {
   query: string;
   setQuery: (query: string) => void;
   criteria: Criterion[];
+  showItemList?: boolean;
   allowedModels?: readonly string[];
   showWeights?: boolean;
+  showReferenceDocuments?: boolean;
+  catalogs?: CatalogSnapshot;
+  actorId?: string;
+  onCatalogsSaved?: (snapshot: CatalogSnapshot) => void;
 };
 
-export function Catalog({ model, setModel, query, setQuery, criteria, allowedModels = models, showWeights = true }: CatalogProps) {
+export function Catalog({ model, setModel, query, setQuery, criteria, showItemList = true, allowedModels = models, showWeights = true, showReferenceDocuments = false, catalogs, actorId, onCatalogsSaved }: CatalogProps) {
   const [visible, setVisible] = useState({ key: "", count: 20 });
   const resultKey = JSON.stringify([model, query]);
   const visibleCount = visible.key === resultKey ? visible.count : 20;
   const shown = Math.min(visibleCount, criteria.length);
   const searchId = useId();
+  const editorTrigger = useRef<HTMLButtonElement>(null);
+  const [editingId, setEditingId] = useState<AuditModelId | null>(null);
+  const selectedDocument = Object.values(referenceDocuments).find((entry) => entry.catalogName === model);
+  const selectedVersion = selectedDocument && catalogs ? catalogVersion(catalogs, selectedDocument.id) : undefined;
 
   return <>
     <div className="page-intro">
       <div>
-        <p className="kicker">ROTEIROS E CRITÉRIOS</p>
         <h2>Roteiro de auditoria</h2>
       </div>
-      <span className="catalog-total"><strong>{criteria.length}</strong> quesitos{query ? " encontrados" : " no roteiro"}</span>
+      {showItemList && <span className="catalog-total"><strong>{criteria.length}</strong> quesitos{query ? " encontrados" : " no roteiro"}</span>}
     </div>
 
     <div className="model-tabs" role="group" aria-label="Modelo do roteiro">
       {allowedModels.map((item) => {
         const security = item.startsWith("Segurança");
-        const total = security ? securityCriteria.length : qualityModels.find((entry) => entry.name === item)?.criteria.length;
-        return <button
+        const document = Object.values(referenceDocuments).find((entry) => entry.catalogName === item);
+        const reference = showReferenceDocuments ? document : undefined;
+        const version = document && catalogs ? catalogVersion(catalogs, document.id) : undefined;
+        const total = version?.criteria.length ?? (security ? securityCriteria.length : qualityModels.find((entry) => entry.name === item)?.criteria.length);
+        const name = version?.version ? `${security ? "Segurança — IT.07" : item} · ${version.label}` : item;
+        const editable = !!reference && !!catalogs && !!actorId && !!onCatalogsSaved;
+        return <div key={item} className={editable ? "model-card editable" : "model-card"}><button
           type="button"
-          key={item}
+          disabled={editingId !== null}
           className={model === item ? "model-tab active" : "model-tab"}
           aria-pressed={model === item}
-          onClick={() => setModel(item)}
+          aria-controls={reference ? "catalog-reference" : undefined}
+          aria-label={reference ? `Selecionar roteiro e consultar documento de referência: ${name}` : undefined}
+          onClick={() => { setModel(item); setEditingId(null); }}
         >
-          <span>{item}</span>
-          <small>{total} quesitos{showWeights ? ` · ${security ? "peso inicial 1 por subitem" : "pesos documentados"}` : ""}</small>
-        </button>;
+          <span>{name}</span>
+          <small>{total} quesitos{showWeights ? ` · ${version?.version ? "pesos da revisão" : security ? "peso inicial 1 por subitem" : "pesos documentados"}` : ""}</small>
+        </button>{editable && <button type="button" className="model-edit" disabled={editingId !== null} aria-label={`Editar roteiro: ${name}`} title="Editar itens ou enviar nova revisão" aria-controls="catalog-editor" onClick={(event) => { editorTrigger.current = event.currentTarget; setModel(item); setEditingId(reference.id); }}>
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m16 3 5 5M4 15 16 3a2 2 0 0 1 5 5L9 20l-6 1 1-6ZM4 15l5 5" /></svg>
+        </button>}</div>;
       })}
     </div>
 
+    {showReferenceDocuments && selectedDocument && !editingId && <ReferenceDocumentViewer key={`${selectedDocument.id}:${selectedVersion?.id ?? "bundled"}`} modelId={selectedDocument.id} revisionId={selectedVersion?.id} revisionLabel={selectedVersion?.label} />}
+
+    {editingId && catalogs && actorId && onCatalogsSaved && <CatalogEditorPanel key={editingId} version={catalogVersion(catalogs, editingId)} available={catalogs.available} setupPending={catalogs.setupPending} actorId={actorId} onSaved={onCatalogsSaved} onClose={() => { setEditingId(null); requestAnimationFrame(() => editorTrigger.current?.focus()); }} />}
+
+    {catalogs && !catalogs.available && !catalogs.setupPending && !editingId && <p className="source-note" role="status">Não foi possível consultar as revisões atuais. Atualize a página antes de editar.</p>}
+
+    {showItemList && <>
     <div className="catalog-toolbar">
       <label htmlFor={searchId} className="catalog-search">
         <span>BUSCAR QUESITO</span>
@@ -83,6 +112,7 @@ export function Catalog({ model, setModel, query, setQuery, criteria, allowedMod
       <p>Experimente outro código, grupo ou trecho do texto.</p>
       {query && <button type="button" className="secondary" onClick={() => setQuery("")}>Limpar busca</button>}
     </div>}
+    </>}
   </>;
 }
 
@@ -276,4 +306,3 @@ function CriterionOrientations({ item }: { item: Criterion }) {
 function SearchIcon() {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 4.5 4.5" /></svg>;
 }
-

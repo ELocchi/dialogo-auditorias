@@ -1,4 +1,5 @@
 export type WorkTeamMember = { nome: string; funcao: string };
+export type ActiveTeamProfile = { id: string; nome: string; email: string; perfis: string[]; modulos: string[] };
 export type WorkFields = {
   nome: string; logradouro: string; numero: string; complemento: string;
   bairro: string; cidade: string; uf: string; cep: string;
@@ -14,7 +15,7 @@ export type WorkChange = {
 };
 export type WorkEditState = {
   status: 'idle' | 'error' | 'success'; message: string; revision?: number; updatedAt?: string | null;
-  fieldErrors?: Record<string, string>; conflict?: boolean;
+  fieldErrors?: Record<string, string>; conflict?: boolean; workId?: string;
 };
 export const initialWorkEditState: WorkEditState = { status: 'idle', message: '' };
 export const workFieldLimits = {

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ownAccessRequest, requireAdministrator } from "@/lib/auth/session";
-import { readWorkDetails, readWorkHistory } from "@/lib/works/queries";
+import { readWorkDetails, readWorkHistory, readActiveTeamProfiles, readWorkTeamLinks } from "@/lib/works/queries";
 import type { WorkChange } from "@/lib/works/contracts";
 import { AdministrativeHeader } from "@/app/components/administrative-header";
 import { WorkEditForm } from "@/app/components/works/WorkEditForm";
@@ -17,7 +17,7 @@ const fieldLabels: Record<string, string> = {
 export default async function EditWorkPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireAdministrator();
   const { id } = await params;
-  const [work, history, ownRequest] = await Promise.all([readWorkDetails(id), readWorkHistory(id), ownAccessRequest(user.id)]);
+  const [work, history, ownRequest, activeProfiles, linkedProfiles] = await Promise.all([readWorkDetails(id), readWorkHistory(id), ownAccessRequest(user.id), readActiveTeamProfiles(), readWorkTeamLinks(id)]);
   const name = typeof ownRequest?.nome === "string" && ownRequest.nome.trim()
     ? ownRequest.nome : user.email ?? "Usuário";
   return <div className={styles.shell}>
@@ -27,7 +27,7 @@ export default async function EditWorkPage({ params }: { params: Promise<{ id: s
       <Link className={styles.backLink} href="/app?secao=obras">Voltar às obras</Link>
       <div className={styles.intro}><p className={styles.eyebrow}>Administração · Obras</p><h2>Editar cadastro da obra</h2><p>{work ? work.nome : "Consulta do cadastro"}</p></div>
       {!work ? <div className={styles.error} role="alert"><p>Não foi possível carregar este cadastro. Volte às obras e selecione a obra novamente.</p><Link href="/app?secao=obras">Voltar às obras</Link></div> : <>
-        <WorkEditForm work={work} />
+        <WorkEditForm work={work} activeProfiles={activeProfiles} linkedProfiles={linkedProfiles} />
         <section className={styles.historySection} aria-labelledby="work-history-title">
           <div className={styles.sectionHeading}><h2 id="work-history-title">Histórico do cadastro</h2><span>Até 20 alterações mais recentes · horários de Brasília</span></div>
           <p className={styles.help}>Cada alteração preserva os dados anteriores, os novos dados e o responsável por salvar.</p>

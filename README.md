@@ -10,9 +10,9 @@ Uma conta pode combinar Administrativo, Auditor de Segurança, Auditor de Qualid
 
 O Administrativo dispõe de **Usuários e acessos** para analisar solicitações confirmadas, definir perfis e autorizar pares de obra/módulo. O histórico preserva a decisão, o responsável e os acessos concedidos. A ativação controlada da primeira conta já foi realizada; não repetir bootstrap nem ajustes iniciais.
 
-O cadastro de obras é persistente. Em **Obras → Editar obra**, o Administrativo salva nome, endereço, responsável técnico, registro profissional, coordenação, equipe e observações. As alterações mantêm histórico e controle de revisão para evitar sobrescrita de uma edição concorrente. Integrantes da equipe são informações descritivas; não criam contas nem recebem acesso automaticamente.
+O cadastro de obras é persistente. Em **Administração → Obras para autorização** e **Obras → Editar obra**, o Administrativo salva nome, endereço, responsável técnico, registro profissional, coordenação, equipe e observações. As alterações mantêm histórico e controle de revisão para evitar sobrescrita de uma edição concorrente. Perfis ativos selecionados para a equipe recebem os módulos já autorizados para seus perfis nessa obra; ao remover o vínculo, somente as concessões criadas por ele são revogadas. Nomes informados manualmente continuam descritivos e não concedem acesso.
 
-As migrations B.1–B.7 já foram aplicadas ao Supabase DEV usado no projeto. A publicação de B.7 em 14/09/2026 preservou as contas, as 21 obras e os acessos existentes. O histórico das etapas está em [RETOMADA.md](docs/RETOMADA.md).
+As migrations B.1–B.10 já foram aplicadas ao Supabase DEV usado no projeto. A publicação de B.7 em 14/09/2026 preservou as contas, as 21 obras e os acessos existentes. B.8–B.10 foram aplicadas em 16/09/2026; o `db push --dry-run` confirmou que não há migrations pendentes. O histórico das etapas está em [RETOMADA.md](docs/RETOMADA.md).
 
 ## Telas operacionais e limites
 

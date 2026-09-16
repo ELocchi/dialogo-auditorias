@@ -10,5 +10,13 @@
 .userList strong, .userList span, .userList small { display: block; overflow-wrap: anywhere; }
 .userList span { color: var(--navy); margin: 4px 0; font-size: 12px; }
 .userList small { color: var(--muted); font-size: 11px; }
-@media (max-width: 600px) { .fields, .userList { grid-template-columns: 1fr; } .simulator { padding: 12px; } }
+.historySections { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin: 20px 0 24px; }
+.historySections h4 { margin: 0 0 12px; color: var(--navy); font-size: 14px; }
+.historyList { list-style: none; margin: 0; padding: 0; }
+.historyList li { display: grid; gap: 4px; padding: 12px 0; border-top: 1px solid var(--line); }
+.historyList time, .historyNote { color: var(--muted); font-size: 11px; }
+.historyList strong { color: var(--navy); font-size: 13px; }
+.historyList p { margin: 0; font-size: 12px; }
+.historyNote { margin: 12px 0; }
+@media (max-width: 600px) { .fields, .userList, .historySections { grid-template-columns: 1fr; } .simulator { padding: 12px; } }
 @media print { .simulator { display: none; } }

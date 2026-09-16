@@ -16,12 +16,14 @@
     "test:ranking": "node --experimental-strip-types scripts/test-work-ranking.mjs",
     "test:calendar": "node --experimental-strip-types --test scripts/test-visit-calendar.mjs",
     "test:agenda": "node --experimental-strip-types --test scripts/test-agenda.mjs scripts/test-agenda-session.mjs",
+    "test:reference-documents": "node --experimental-strip-types --test scripts/test-reference-documents.mjs",
     "test:access": "node --experimental-strip-types scripts/test-prototype-access.mjs",
     "test:audit-context": "node --experimental-strip-types scripts/test-prototype-audits.mjs",
     "test:access-administration": "node --experimental-strip-types --test scripts/test-access-administration.mjs scripts/test-effective-access.mjs",
     "test:access-database": "node scripts/test-access-database.mjs",
     "test:work-details": "node --experimental-strip-types --test scripts/test-work-details.mjs",
-    "test:profile-workspace": "node --experimental-strip-types --test scripts/test-active-profile.mjs scripts/test-workspace-context.mjs"
+    "test:profile-workspace": "node --experimental-strip-types --test scripts/test-active-profile.mjs scripts/test-workspace-context.mjs",
+    "test:catalog-revisions": "node --experimental-strip-types --test scripts/test-catalog-revisions.mjs scripts/test-catalog-audit-snapshots.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
@@ -41,4 +43,3 @@
     "typescript": "^5"
   }
 }
-

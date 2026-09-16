@@ -1,14 +1,57 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { validateWorkEdit } from '../src/lib/works/validation.ts';
-import { updateWork } from '../src/lib/works/service.ts';
+import { parseTeamAccountIds, validateWorkCreate, validateWorkEdit } from '../src/lib/works/validation.ts';
+import { createWorkWithDetails, updateWork } from '../src/lib/works/service.ts';
 const id='10000000-0000-4000-8000-000000000001';
 const historyId='10000000-0000-4000-8000-000000000099';
+const memberId='10000000-0000-4000-8000-000000000002';
 const date='2026-09-13T18:00:00Z';
 const blank={nome:'Obra A',logradouro:'',numero:'',complemento:'',bairro:'',cidade:'',uf:'',cep:'',responsavel_tecnico:'',registro_tecnico:'',coordenacao:'',observacoes:'',equipe_obra:[]};
 function form(changes={}) {const f=new FormData();const fields={...blank,...changes}; for(const [k,v] of Object.entries(fields)) f.set(k,k==='equipe_obra'?JSON.stringify(v):v); f.set('work_id',id);f.set('expected_revision','0');return f;}
 const success={obra_id:id,revisao:1,updated_at:date,history_id:historyId,changed:true};
 function deps(reply={data:success,error:null}) {const calls=[];return {calls,createClient:async()=>({rpc:async(...args)=>{calls.push(args);return reply;}})};}
+test('perfis da equipe exigem IDs únicos e são enviados à operação atômica',async()=>{
+ const f=form();f.set('team_accounts',JSON.stringify([memberId]));
+ assert.deepEqual(parseTeamAccountIds(f),{ok:true,ids:[memberId]});
+ const create=deps({data:id,error:null});assert.equal((await createWorkWithDetails(f,create)).status,'success');
+ assert.deepEqual(create.calls,[['create_access_work_with_team',{p_data:blank,p_user_ids:[memberId]}]]);
+ const edit=deps({data:{...success,team_changed:true},error:null});assert.equal((await updateWork(f,edit)).status,'success');
+ assert.deepEqual(edit.calls,[['update_access_work_with_team',{p_work_id:id,p_expected_revision:0,p_data:blank,p_user_ids:[memberId]}]]);
+ for(const value of [[memberId,memberId],['invalid'],Array.from({length:31},()=>memberId)]) {
+  const invalid=form();invalid.set('team_accounts',JSON.stringify(value));
+  assert.equal(parseTeamAccountIds(invalid).ok,false);
+  const db=deps();assert.equal((await updateWork(invalid,db)).status,'error');assert.equal(db.calls.length,0);
+ }
+});
+test('falta da migração de vínculos não cria obra parcial nem altera acesso',async()=>{
+ const f=form();f.set('team_accounts',JSON.stringify([memberId]));
+ const db=deps({data:null,error:{code:'PGRST202'}});
+ assert.equal((await createWorkWithDetails(f,db)).status,'error');assert.equal(db.calls.length,1);
+ assert.equal((await updateWork(f,db)).status,'error');assert.equal(db.calls.length,2);
+});
+test('novo cadastro exige apenas nome e aceita os mesmos campos opcionais da edição',()=>{
+ const minimal=validateWorkCreate(form());assert.equal(minimal.ok,true);assert.deepEqual(minimal.data,blank);
+ const complete=validateWorkCreate(form({logradouro:' Rua Norte ',uf:'sp',cep:'01234-567',equipe_obra:[{nome:' Pessoa da obra ',funcao:''}]}));
+ assert.equal(complete.ok,true);assert.equal(complete.data.logradouro,'Rua Norte');assert.equal(complete.data.uf,'SP');assert.equal(complete.data.cep,'01234567');
+ assert.deepEqual(complete.data.equipe_obra,[{nome:'Pessoa da obra',funcao:''}]);
+ for(const changes of [{nome:''},{nome:'A'},{uf:'XX'},{cep:'123'},{equipe_obra:[{nome:'',funcao:''}]}]) assert.equal(validateWorkCreate(form(changes)).ok,false);
+});
+test('cadastro completo envia uma operação atômica e valida o identificador retornado',async()=>{
+ const d=deps({data:id,error:null});const result=await createWorkWithDetails(form({cidade:'São Paulo'}),d);
+ assert.equal(result.status,'success');assert.equal(result.workId,id);assert.deepEqual(d.calls,[['create_access_work_full',{p_data:{...blank,cidade:'São Paulo'}}]]);
+ const invalid=await createWorkWithDetails(form(),deps({data:'invalid',error:null}));assert.equal(invalid.status,'error');
+});
+test('banco antigo aceita nome sozinho, mas não cria obra parcial se houver outros dados',async()=>{
+ const calls=[];const d={createClient:async()=>({rpc:async(name,payload)=>{calls.push([name,payload]);return name==='create_access_work_full'?{data:null,error:{code:'PGRST202'}}:{data:id,error:null};}})};
+ assert.equal((await createWorkWithDetails(form(),d)).status,'success');assert.equal(calls.length,2);assert.deepEqual(calls[1],['create_access_work',{p_nome:'Obra A'}]);
+ calls.length=0;const result=await createWorkWithDetails(form({cidade:'São Paulo'}),d);
+ assert.equal(result.status,'error');assert.equal(calls.length,1);assert.match(result.message,/Nenhuma obra foi criada/);
+});
+test('cadastro completo rejeita nome duplicado e falha sem inventar sucesso',async()=>{
+ const duplicate=await createWorkWithDetails(form(),deps({data:null,error:{code:'23505'}}));assert.equal(duplicate.status,'error');assert.ok(duplicate.fieldErrors.nome);
+ const denied=await createWorkWithDetails(form(),deps({data:null,error:{code:'42501'}}));assert.equal(denied.status,'error');
+ const offline=await createWorkWithDetails(form(),{createClient:async()=>{throw new Error('private provider token');}});assert.equal(offline.status,'error');assert.doesNotMatch(offline.message,/provider|token/);
+});
 test('cadastro aceita nome obrigatório e campos opcionais vazios sem inventar dados',()=>{
  const result=validateWorkEdit(form()); assert.equal(result.ok,true);assert.deepEqual(result.data.fields,blank);assert.equal(result.data.expectedRevision,0);
 });

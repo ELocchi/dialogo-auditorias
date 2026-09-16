@@ -216,7 +216,7 @@ function CreateVisitForm({ user, works, users, module, workId, available, mutati
         </label>
         <label>Roteiro
           <select value={input.modelId} onChange={(event) => changeInput({ modelId: event.target.value as AuditModelId, auditorId: "" })}>
-            {models.map((modelId) => <option key={modelId} value={modelId}>{auditModelLabels[modelId].name} · {auditModelLabels[modelId].version}</option>)}
+            {models.map((modelId) => <option key={modelId} value={modelId}>{auditModelLabels[modelId].name}</option>)}
           </select>
         </label>
         <label>Auditor responsável
@@ -310,7 +310,7 @@ function VisitCard({ visit, user, users, work, available, mutationPending = fals
       <time className={styles.dateTile} dateTime={visit.date} aria-label={formatAuditDate(visit.date)}><strong>{day}</strong><span>{months[Number(month) - 1]} {year}</span></time>
       <div className={styles.visitTitle}>
         <h4>{work?.name ?? visit.workId}</h4>
-        <p>{model.name} · {model.version}</p>
+        <p>{model.name}</p>
         <span>{visit.id}</span>
       </div>
       {(manager || startAllowed) && <div className={styles.visitActions}>

@@ -27,6 +27,7 @@ export interface CatalogOrientation {
   text: string;
   pages: number[];
   highlighted: boolean;
+  groups?: string[];
 }
 
 export const getCriterionWeight = (criterion: Criterion): number | null => criterion.configuredWeight ?? criterion.documentedWeight;

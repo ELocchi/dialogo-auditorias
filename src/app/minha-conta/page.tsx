@@ -31,7 +31,7 @@ export default async function MyAccountPage() {
         {account.atuacoes_engenharia.length > 0 && <><dt>Engenharia</dt><dd>{account.atuacoes_engenharia.map((scope) => engineeringLabels[scope]).join("; ")}</dd></>}
       </dl>
       <p><Link href="/app">Abrir painel</Link> · <Link href="/escolher-perfil">Trocar perfil</Link></p>
-      {activeProfile === "ADMINISTRATIVO" && <p><Link href="/administracao/usuarios">Administração → Usuários e acessos</Link></p>}
+      {activeProfile === "ADMINISTRATIVO" && <p><Link href="/app?secao=administracao">Administração → Usuários e acessos</Link></p>}
       {grants.error ? <p role="status" className={styles.error}>Não foi possível consultar as permissões. Tente novamente mais tarde.</p> :
         <div className={accessStyles.history}>{account.perfis.filter((profile) => profile !== "ADMINISTRATIVO").map((profile) => {
           const profileGrants = scopedGrants.filter((grant) => grant.perfil === profile);

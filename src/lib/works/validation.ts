@@ -1,15 +1,13 @@
 import { uuidPattern } from '../access/validation.ts';
 import { workFieldLimits, brazilianStates, type WorkFields, type WorkTeamMember } from './contracts.ts';
 type Validated = { ok: true; data: { workId: string; expectedRevision: number; fields: WorkFields } } | { ok: false; message: string; fieldErrors: Record<string,string> };
+type CreateValidated = { ok: true; data: WorkFields } | { ok: false; message: string; fieldErrors: Record<string,string> };
 const one = (form: FormData, key: string) => {
   const values = form.getAll(key);
   return values.length === 1 && typeof values[0] === 'string' ? values[0].trim() : null;
 };
-export function validateWorkEdit(form: FormData): Validated {
+function parseWorkFields(form: FormData) {
   const errors: Record<string,string> = {};
-  const workId = one(form,'work_id'); const rawRevision = one(form,'expected_revision');
-  if (!workId || !uuidPattern.test(workId)) errors.work_id = 'A obra não é válida. Reabra seu cadastro.';
-  if (!rawRevision || !/^\d{1,10}$/.test(rawRevision) || Number(rawRevision) > 2147483646) errors.expected_revision = 'Reabra o cadastro para conferir a versão atual.';
   const fields = {} as WorkFields;
   for (const [key, maximum] of Object.entries(workFieldLimits) as [keyof typeof workFieldLimits, number][]) {
     const value = one(form,key);
@@ -35,6 +33,33 @@ export function validateWorkEdit(form: FormData): Validated {
     members.push({nome:member.nome.trim(),funcao:member.funcao.trim()});
   }
   fields.equipe_obra = members;
+  return { fields, errors };
+}
+
+export function validateWorkCreate(form: FormData): CreateValidated {
+  const { fields, errors } = parseWorkFields(form);
+  if (Object.keys(errors).length) return { ok:false, message:'Revise os campos indicados antes de cadastrar.', fieldErrors:errors };
+  return { ok:true, data:fields };
+}
+
+export function validateWorkEdit(form: FormData): Validated {
+  const { fields, errors } = parseWorkFields(form);
+  const workId = one(form,'work_id'); const rawRevision = one(form,'expected_revision');
+  if (!workId || !uuidPattern.test(workId)) errors.work_id = 'A obra não é válida. Reabra seu cadastro.';
+  if (!rawRevision || !/^\d{1,10}$/.test(rawRevision) || Number(rawRevision) > 2147483646) errors.expected_revision = 'Reabra o cadastro para conferir a versão atual.';
   if (Object.keys(errors).length) return { ok:false, message:'Revise os campos indicados antes de salvar.', fieldErrors:errors };
   return { ok:true, data:{workId:workId!.toLowerCase(),expectedRevision:Number(rawRevision),fields} };
+}
+
+export function parseTeamAccountIds(form: FormData): { ok: true; ids: string[] | null } | { ok: false; message: string } {
+  const values = form.getAll('team_accounts');
+  if (values.length === 0) return { ok: true, ids: null };
+  if (values.length !== 1 || typeof values[0] !== 'string' || values[0].length > 2000) return { ok: false, message: 'Revise os perfis selecionados para a equipe.' };
+  try {
+    const ids: unknown = JSON.parse(values[0]);
+    if (!Array.isArray(ids) || ids.length > 30 || ids.some((id) => typeof id !== 'string' || !uuidPattern.test(id)) || new Set(ids).size !== ids.length) {
+      return { ok: false, message: 'Revise os perfis selecionados para a equipe.' };
+    }
+    return { ok: true, ids: ids.map((id: string) => id.toLowerCase()) };
+  } catch { return { ok: false, message: 'Revise os perfis selecionados para a equipe.' }; }
 }

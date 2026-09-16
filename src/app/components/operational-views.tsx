@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import type { WorkRecord } from "@/domain/operational-records";
 
@@ -25,8 +26,8 @@ export function Works({ works, canManage = false }: { works: readonly WorkRecord
 
   return <div className="operational-view">
     <div className="page-intro">
-      <div><h2>Obras</h2><p className="muted">Consulte os dados das obras e os responsáveis pelo acompanhamento.</p></div>
-      {canManage && <div className="work-create-action"><a className="primary" href="/administracao/usuarios#works-heading">+ Cadastrar obra</a></div>}
+      <div><h2>Obras</h2></div>
+      {canManage && <div className="work-create-action"><Link className="primary work-create-plus" href="/app?secao=administracao#works-heading" aria-label="Cadastrar obra" title="Cadastrar obra">+</Link></div>}
     </div>
 
     <div className="operational-filters work-filters" role="search" aria-label="Filtrar obras">

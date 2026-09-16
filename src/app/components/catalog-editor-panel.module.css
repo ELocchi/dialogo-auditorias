@@ -1,0 +1,59 @@
+.panel { width: 100%; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); color: var(--navy); box-shadow: 0 8px 28px #10284b16; overflow: hidden; }
+.header { display: flex; flex-shrink: 0; align-items: flex-start; justify-content: space-between; gap: 20px; padding: 20px 24px; border-bottom: 1px solid var(--line); }
+.header > div { min-width: 0; }
+.header h2 { margin: 0; font-size: 23px; }
+.header p { margin: 8px 0 0; font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.header button { flex-shrink: 0; }
+.eyebrow { display: block; margin-bottom: 7px; font-size: 10px; letter-spacing: 1px; color: var(--muted); }
+.form { display: flex; flex-direction: column; }
+.body { padding: 20px 24px; }
+.introduction { margin: 0 0 18px; font-size: 13px; line-height: 1.6; color: var(--muted); }
+.fields { min-width: 0; margin: 0; padding: 0; border: 0; }
+.fields:disabled { opacity: .7; }
+.fields label { display: flex; min-width: 0; flex-direction: column; gap: 7px; font-size: 13px; font-weight: 600; }
+.fields input, .fields select, .fields textarea { width: 100%; min-width: 0; min-height: 42px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 6px; background: white; color: var(--navy); font: inherit; font-weight: 400; }
+.fields textarea { line-height: 1.6; resize: vertical; }
+.fields input:focus-visible, .fields select:focus-visible, .fields textarea:focus-visible, .modes button:focus-visible, .orientations summary:focus-visible { outline: 2px solid #6e92c9; outline-offset: 2px; }
+.fields small { color: var(--muted); font-size: 11px; line-height: 1.6; font-weight: 400; overflow-wrap: anywhere; }
+.modes { display: flex; gap: 8px; margin-bottom: 20px; }
+.modes button { flex: 1; padding: 12px 16px; border: 1px solid var(--line); border-radius: 7px; background: white; color: var(--navy); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.modes button.activeMode { border-color: var(--navy); background: #edf2f9; }
+.modes button:disabled { cursor: default; }
+.editor { display: grid; grid-template-columns: minmax(210px, .85fr) minmax(0, 2fr); gap: 24px; align-items: start; }
+.selection { display: grid; gap: 14px; padding: 16px; border: 1px solid var(--line); border-radius: 8px; background: #f7f8fa; }
+.hint { margin: 0; color: var(--muted); font-size: 12px; }
+.source { display: grid; gap: 8px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.source strong { font-size: 15px; }
+.itemFields { display: grid; gap: 16px; }
+.orientations { padding-top: 14px; border-top: 1px solid var(--line); }
+.orientations summary { padding: 4px 0; font-size: 13px; font-weight: 600; cursor: pointer; }
+.orientations label { margin-top: 16px; }
+.empty { margin: 0; padding: 24px; color: var(--muted); font-size: 14px; text-align: center; }
+.uploadIntroduction h3 { margin: 0; font-size: 17px; }
+.uploadIntroduction p, .files > p { font-size: 13px; line-height: 1.6; color: var(--muted); }
+.files { margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line); }
+.files > p { margin: 0 0 16px; }
+.fileGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.fields input[type="file"] { font-size: 12px; padding: 9px; overflow: hidden; }
+.revision { display: grid; gap: 16px; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--line); }
+.availability, .error, .success { margin: 0 0 18px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 7px; font-size: 13px; line-height: 1.6; }
+.availability { background: #f4f6fa; }
+.error { margin: 20px 0 0; border-color: #e6b6bb; background: #fff6f7; color: #9d2230; }
+.success { margin: 20px 0 0; border-color: #bdd8c8; background: #f0f8f3; color: #226942; }
+.footer { display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 24px; border-top: 1px solid var(--line); background: var(--surface); }
+.footer > span { color: var(--muted); font-size: 12px; }
+@media (max-width: 720px) {
+  .panel { border-radius: 10px; }
+  .header { padding: 16px; gap: 12px; }
+  .header h2 { font-size: 20px; }
+  .body { padding: 16px; }
+  .editor, .fileGrid { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+  .source { gap: 5px; }
+  .modes button { padding: 11px 8px; font-size: 12px; }
+  .footer { padding: 12px 16px; gap: 10px; }
+  .footer button { font-size: 12px; padding: 12px; }
+}
+@media (max-width: 400px) {
+  .footer { align-items: stretch; flex-direction: column; }
+  .footer > span { text-align: center; }
+}

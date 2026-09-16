@@ -94,6 +94,8 @@ input:focus, select:focus, textarea:focus { outline: 2px solid #c2d3ec; outline-
 .stat-card { text-align: left; background: white; border: 1px solid var(--line); border-radius: 12px; border-top: 3px solid var(--navy); padding: 20px; color: var(--navy); min-width: 0; transition: box-shadow .15s, border-color .15s; }
 .stat-card:nth-child(3) { border-top-color: var(--red); }
 .stat-card:hover { border-color: #adbdd3; box-shadow: 0 5px 16px #213e6b0b; }
+.stats-grid-admin .stat-card { border-top-color: var(--red); color: var(--navy); }
+.stats-grid-admin .stat-top .icon, .stats-grid-admin .stat-bottom { color: var(--navy); }
 .stat-top, .stat-bottom { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .stat-top { font-size: 12px; font-weight: 700; }
 .stat-top .icon { color: #7b8da8; width: 21px; height: 21px; }

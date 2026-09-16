@@ -39,7 +39,7 @@ A conta existente pode entrar com e-mail e senha em outro dispositivo. Para um c
 
 ## Uso e limites dos testes
 
-O endereço online usa o mesmo Supabase já configurado: alterações no cadastro de obras e na agenda são reais e aparecerão também na aplicação local. A migration B.7 foi aplicada em 14/09/2026 e permite agendamento, reagendamento e confirmação pelo auditor, com notificações no aplicativo. Não preencher obras ou criar visitas com valores inventados para testar. Preenchimentos de auditoria continuam temporários e não são sincronizados entre dispositivos, conforme o README.
+O endereço online usa o mesmo Supabase já configurado: alterações no cadastro de obras e na agenda são reais e aparecerão também na aplicação local. As migrations B.1–B.10 estão aplicadas ao Supabase DEV; B.8–B.10 foram aplicadas em 16/09/2026 e a consulta posterior não mostrou pendências. A agenda permite agendamento, reagendamento e confirmação pelo auditor, com notificações no aplicativo. Não preencher obras ou criar visitas com valores inventados para testar. Preenchimentos de auditoria continuam temporários e não são sincronizados entre dispositivos, conforme o README.
 
 O plano Free pode suspender o serviço após inatividade, tornando o primeiro acesso mais lento. Não foi autorizada mudança para plano pago. Para mudanças no visual: editar no VS Code, testar localmente, criar commit e enviar ao GitHub; aguardar o Render concluir o deploy.
 

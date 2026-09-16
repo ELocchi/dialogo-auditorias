@@ -117,6 +117,25 @@ if (!baselineOnly) suites.push({
   upgradeMigration: "20260914000200_audit_agenda.sql",
   test: "audit_agenda.sql",
   baselineAuthRows: 6,
+}, {
+  name: "B.8 catalog revisions/private documents/idempotency/permissions suite",
+  migrations: ["20260913000100_access_requests.sql", "20260913000200_access_administration.sql", "20260913000300_multiple_access_profiles.sql", "20260913000400_multiple_engineering_scopes.sql", "20260913000500_work_details.sql", "20260914000100_designated_general_access.sql", "20260914000200_audit_agenda.sql"],
+  upgradeMigration: "20260916000100_catalog_revisions.sql",
+  test: "catalog_revisions.sql",
+  baselineAuthRows: 6,
+  validateBuiltInCatalogs: true,
+}, {
+  name: "B.9 full work registration/optional fields/atomicity/permissions suite",
+  migrations: ["20260913000100_access_requests.sql", "20260913000200_access_administration.sql", "20260913000300_multiple_access_profiles.sql", "20260913000400_multiple_engineering_scopes.sql", "20260913000500_work_details.sql", "20260914000100_designated_general_access.sql", "20260914000200_audit_agenda.sql", "20260916000100_catalog_revisions.sql"],
+  upgradeMigration: "20260916000200_full_work_registration.sql",
+  test: "full_work_registration.sql",
+  baselineAuthRows: 1,
+}, {
+  name: "B.10 active work-team profiles/grants/revocation/atomicity/RLS suite",
+  migrations: ["20260913000100_access_requests.sql", "20260913000200_access_administration.sql", "20260913000300_multiple_access_profiles.sql", "20260913000400_multiple_engineering_scopes.sql", "20260913000500_work_details.sql", "20260914000100_designated_general_access.sql", "20260914000200_audit_agenda.sql", "20260916000100_catalog_revisions.sql", "20260916000200_full_work_registration.sql"],
+  upgradeMigration: "20260916000300_work_team_access.sql",
+  test: "work_team_access.sql",
+  baselineAuthRows: 2,
 });
 
 const { PGlite } = await loadPGlite();
@@ -142,6 +161,16 @@ for (const suite of suites) {
       await db.exec(phases[1]);
     } else {
       await db.exec(testSql);
+    }
+    if (suite.validateBuiltInCatalogs) {
+      const { criteriaForModel } = await import(pathToFileURL(path.join(projectRoot, "src", "domain", "prototype-audits.ts")).href);
+      for (const [modelId, expectedCount] of [["security-it07-r02", 205], ["quality-f175", 10], ["quality-f176", 23]]) {
+        const criteria = criteriaForModel(modelId);
+        assert.equal(criteria.length, expectedCount, `${modelId}: built-in criterion count`);
+        const validation = await db.query("select dialogo_private.valid_catalog_criteria($1::jsonb) as valid", [JSON.stringify(criteria)]);
+        assert.equal(validation.rows[0].valid, true, `${modelId}: real built-in Criterion snapshots satisfy the SQL contract`);
+      }
+      console.log("PASS: actual built-in catalogs accepted by SQL (security 205, F175 10, F176 23 criteria).");
     }
     // Post-upgrade fixtures roll back. Pre-upgrade fixtures necessarily commit
     // with the real migration and are discarded with this in-memory database.

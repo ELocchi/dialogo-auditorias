@@ -31,6 +31,13 @@
 .remove { border: 0; background: none; color: #9d3238; padding: 12px 0; margin-top: 23px; font-size: 12px; text-decoration: underline; text-underline-offset: 3px; }
 .teamActions { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; margin-top: 20px; }
 .teamActions > span { font-size: 12px; color: var(--muted); }
+.activeProfiles { display: grid; gap: 14px; }
+.profileList { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.profileOption { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border: 1px solid var(--line); border-radius: 7px; font-size: 12px; cursor: pointer; }
+.profileOption:has(input:checked) { border-color: var(--navy); background: #f0f5fb; }
+.profileOption input { width: 18px; height: 18px; min-height: 18px; margin: 1px 0 0; accent-color: var(--navy); }
+.profileOption span { display: grid; gap: 3px; min-width: 0; }
+.profileOption small { color: var(--muted); overflow-wrap: anywhere; }
 .empty { padding: 18px; margin: 0; border-radius: 7px; background: #f1f4f8; color: var(--muted); font-size: 13px; }
 .formActions { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; }
 .formActions a { text-decoration: none; }
@@ -61,6 +68,7 @@
   .main { padding-inline: 20px; }
   .address { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .member { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .profileList { grid-template-columns: 1fr; }
   .remove { margin: 0; padding: 0; text-align: left; justify-self: start; }
 }
 @media (max-width: 480px) {

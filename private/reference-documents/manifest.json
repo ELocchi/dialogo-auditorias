@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "preparedOn": "2026-09-16",
+  "scope": "Local reference documents; source files preserved without edits.",
+  "documents": [
+    {
+      "modelId": "security-it07-r02",
+      "sourceFile": "it-07_rev02_diretrizes_de_inspecao_de_seguranca.pdf",
+      "sourceSha256": "643AEDD3028FBE0312E59B2D7F188CBB22A6F1A309946265A4031B0C726B9A35",
+      "pdfFile": "security-it07-r02.pdf",
+      "pdfSha256": "643AEDD3028FBE0312E59B2D7F188CBB22A6F1A309946265A4031B0C726B9A35",
+      "pdfBytes": 413863,
+      "pdfPages": 30,
+      "method": "Unmodified binary copy of the source PDF.",
+      "visualReview": "First page rendered with bundled Poppler and inspected; binary hash validates the complete copy."
+    },
+    {
+      "modelId": "quality-f175",
+      "sourceFile": "F.175 - Roteiro Farol da Qualidade Simplificado.docx",
+      "sourceSha256": "15B1B64162F17607897B51ECF37B078459F07A162E5477A8800AADAC1404E06D",
+      "originalDownloadFile": "quality-f175.docx",
+      "originalDownloadSha256": "15B1B64162F17607897B51ECF37B078459F07A162E5477A8800AADAC1404E06D",
+      "originalDownloadBytes": 47664,
+      "pdfFile": "quality-f175.pdf",
+      "pdfSha256": "89A7215D9A219BB6FBF477E47283663A60F5650A489CDFFA19F0CC08C1B81C4F",
+      "pdfBytes": 130693,
+      "pdfPages": 1,
+      "sourceStoredPageCount": 1,
+      "method": "Microsoft Word 16.0 ExportAsFixedFormat, PDF print quality, complete document content; opened read-only with macros disabled and closed without saving.",
+      "visualReview": "All pages rendered with Windows.Data.Pdf at 2000 pixels wide and inspected; page count also verified by bundled Poppler pdfinfo.",
+      "sourceNote": "The original header contains a PAGE field followed by literal /2, although the source and exported PDF have one page. This original inconsistency was preserved."
+    },
+    {
+      "modelId": "quality-f176",
+      "sourceFile": "F.176 - Roteiro Farol da Qualidade Completo.docx",
+      "sourceSha256": "9C62EE244247F483CBE4815703273CB4DE7C96AEB759028281F656134FE0A288",
+      "originalDownloadFile": "quality-f176.docx",
+      "originalDownloadSha256": "9C62EE244247F483CBE4815703273CB4DE7C96AEB759028281F656134FE0A288",
+      "originalDownloadBytes": 50392,
+      "pdfFile": "quality-f176.pdf",
+      "pdfSha256": "AB0AD9B8214D9C0D80F865B27CA8507780DC2FC20B9FE4D307A4BFBAA11158A9",
+      "pdfBytes": 145316,
+      "pdfPages": 2,
+      "sourceStoredPageCount": 2,
+      "method": "Microsoft Word 16.0 ExportAsFixedFormat, PDF print quality, complete document content; opened read-only with macros disabled and closed without saving.",
+      "visualReview": "All pages rendered with Windows.Data.Pdf at 2000 pixels wide and inspected; page count also verified by bundled Poppler pdfinfo."
+    }
+  ],
+  "verification": {
+    "sourceHashesUnchanged": true,
+    "docxCopiesBinaryIdentical": true,
+    "conversionPerformedLocally": true,
+    "externalUploads": false,
+    "convertedPagesVisuallyReviewed": 3,
+    "layoutResult": "No conversion-induced clipping, overlap, broken tables or missing characters found.",
+    "pdfVersion": "1.7",
+    "pdfJavascript": false,
+    "pdfEncryption": false
+  }
+}

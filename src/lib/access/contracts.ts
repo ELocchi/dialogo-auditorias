@@ -33,7 +33,7 @@ export type PendingRequest = {
 export type AccessDecision = {
   id: string;
   auth_user_id: string;
-  decision_type: "BOOTSTRAP" | "APROVACAO" | "AJUSTE_PERFIS_INICIAL" | "AJUSTE_ATUACAO_INICIAL" | "AJUSTE_ACESSOS_GERAIS";
+  decision_type: "BOOTSTRAP" | "APROVACAO" | "AJUSTE_PERFIS_INICIAL" | "AJUSTE_ATUACAO_INICIAL" | "AJUSTE_ACESSOS_GERAIS" | "VINCULO_OBRA" | "DESVINCULO_OBRA";
   perfil: AccessProfile;
   perfis: AccessProfile[] | null;
   atuacao_engenharia: EngineeringScope | null;

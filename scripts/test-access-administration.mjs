@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test, { before, after } from "node:test";
 import { validateApproval, validateWork } from "../src/lib/access/validation.ts";
 import { approveRequest, registerWork } from "../src/lib/access/service.ts";
+import { countActiveAccounts } from "../src/lib/access/account-count.ts";
 
 // Offline only: no environment, real identities, account creation or email.
 const actor = "11111111-1111-4111-8111-111111111111";
@@ -16,6 +17,37 @@ const originalFetch = globalThis.fetch;
 let attemptedNetwork = 0;
 before(() => { globalThis.fetch = async () => { attemptedNetwork++; throw new Error("NETWORK_FORBIDDEN"); }; });
 after(() => { globalThis.fetch = originalFetch; assert.equal(attemptedNetwork, 0); });
+
+test("cartão conta cada conta ativa uma vez, mesmo com vários perfis", async () => {
+  let queries = 0;
+  const client = {
+    rpc: async () => ({ data: true, error: null }),
+    from: (table) => {
+      queries++;
+      assert.equal(table, "access_accounts");
+      return { select: (columns, options) => {
+        assert.equal(columns, "auth_user_id");
+        assert.deepEqual(options, { count: "exact", head: true });
+        return { eq: async (column, value) => {
+          assert.equal(column, "ativo");
+          assert.equal(value, true);
+          return { count: 3, error: null };
+        } };
+      } };
+    },
+  };
+  assert.equal(await countActiveAccounts(client), 3);
+  assert.equal(queries, 1);
+});
+
+test("cartão não mostra total parcial sem autorização ou com falha de leitura", async () => {
+  let reads = 0;
+  const unauthorized = { rpc: async () => ({ data: false, error: null }), from: () => { reads++; throw new Error("Não deve consultar contas"); } };
+  assert.equal(await countActiveAccounts(unauthorized), null);
+  assert.equal(reads, 0);
+  const unavailable = { rpc: async () => ({ data: true, error: null }), from: () => ({ select: () => ({ eq: async () => ({ count: null, error: new Error("Indisponível") }) }) }) };
+  assert.equal(await countActiveAccounts(unavailable), null);
+});
 
 function form(overrides = {}) {
   const data = new FormData();

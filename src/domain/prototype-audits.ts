@@ -6,6 +6,7 @@ import type { AuditRecord, AuditModelId, WorkRecord } from "./operational-record
 export interface PrototypeAuditState {
   audits: readonly AuditRecord[];
   responses: Record<string, AuditDrafts>;
+  criteriaSnapshots?: Record<string, Criterion[]>;
 }
 
 export function criteriaForModel(modelId: AuditModelId): Criterion[] {
@@ -13,12 +14,17 @@ export function criteriaForModel(modelId: AuditModelId): Criterion[] {
   return qualityModels.find((model) => model.id === (modelId === "quality-f175" ? "F175" : "F176"))?.criteria ?? [];
 }
 
+export function criteriaForAudit(state: PrototypeAuditState, audit: AuditRecord): Criterion[] {
+  return state.criteriaSnapshots?.[audit.id] ?? criteriaForModel(audit.modelId);
+}
+
 export function modelDisplayName(modelId: AuditModelId): string {
   if (modelId === "security-it07-r02") return "Segurança — IT.07 rev. 02";
   return qualityModels.find((model) => model.id === (modelId === "quality-f175" ? "F175" : "F176"))?.name ?? "Modelo indisponível";
 }
 
-type LocalAuditInput = { id: string; work: WorkRecord; modelId: AuditModelId; date: string; visit?: Visit };
+type LocalAuditInput = { id: string; work: WorkRecord; modelId: AuditModelId; date: string; visit?: Visit;
+  catalogRevision?: { id: string | null; version: number; label: string; criteria: Criterion[] } };
 
 export function beginPrototypeAudit(state: PrototypeAuditState, user: DemoUser, input: LocalAuditInput) {
   return beginLocalAudit(state, user, input, false);
@@ -42,17 +48,21 @@ function beginLocalAudit(state: PrototypeAuditState, user: DemoUser, input: Loca
     }
   }
   if (!input.id || state.audits.some((audit) => audit.id === input.id)) throw new Error("Identificação da auditoria já utilizada.");
-  const audit: AuditRecord = { id: input.id, workId: input.work.id, modelId: input.modelId, date: input.date, auditor: user.name, auditorId: user.id, status: "Em preenchimento", collectionStatus: "Em preenchimento", calculationStatus: "Aguardando configuração", finalScore: null, isDemo: true, ...(input.visit ? { visitId: input.visit.id } : {}) };
-  return { state: { audits: [...state.audits, audit], responses: { ...state.responses, [audit.id]: {} } }, auditId: audit.id };
+  const revision = input.catalogRevision;
+  const snapshot = structuredClone(revision?.criteria ?? criteriaForModel(input.modelId));
+  if (!snapshot.length || new Set(snapshot.map((item) => item.id)).size !== snapshot.length) throw new Error("Roteiro indisponível para iniciar a auditoria.");
+  const audit: AuditRecord = { catalogRevisionId: revision?.id ?? null, catalogVersion: revision?.version ?? 0, catalogRevisionLabel: revision?.label ?? (input.modelId === "security-it07-r02" ? "02" : "00"), id: input.id, workId: input.work.id, modelId: input.modelId, date: input.date, auditor: user.name, auditorId: user.id, status: "Em preenchimento", collectionStatus: "Em preenchimento", calculationStatus: "Aguardando configuração", finalScore: null, isDemo: true, ...(input.visit ? { visitId: input.visit.id } : {}) };
+  return { state: { ...state, audits: [...state.audits, audit], responses: { ...state.responses, [audit.id]: {} }, criteriaSnapshots: { ...state.criteriaSnapshots, [audit.id]: snapshot } }, auditId: audit.id };
 }
 
 export function updatePrototypeResponse(state: PrototypeAuditState, user: DemoUser, auditId: string, criterion: Criterion, response: ItemResponse): PrototypeAuditState {
   const audit = state.audits.find((entry) => entry.id === auditId);
   if (!audit || !canEditAudit(user, audit)) throw new Error("Sem permissão para editar esta auditoria.");
-  if (!criteriaForModel(audit.modelId).some((entry) => entry.id === criterion.id)) throw new Error("O item não pertence à versão desta auditoria.");
+  const pinnedCriterion = criteriaForAudit(state, audit).find((entry) => entry.id === criterion.id);
+  if (!pinnedCriterion) throw new Error("O item não pertence à versão desta auditoria.");
   const allowedAnswers = audit.modelId === "security-it07-r02" ? ["0", "5", "10", "N/A"] : ["Não verificado", "Constatação qualitativa"];
   if (response.answer !== undefined && !allowedAnswers.includes(response.answer)) throw new Error("Resposta incompatível com o modelo.");
-  return { ...state, responses: { ...state.responses, [audit.id]: updateItemResponse(state.responses[audit.id] ?? {}, audit.modelId, criterion, response) } };
+  return { ...state, responses: { ...state.responses, [audit.id]: updateItemResponse(state.responses[audit.id] ?? {}, audit.modelId, pinnedCriterion, response) } };
 }
 
 export function updatePrototypeAuditDate(state: PrototypeAuditState, user: DemoUser, auditId: string, date: string): PrototypeAuditState {

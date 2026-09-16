@@ -5,11 +5,17 @@ import { PrototypeApp } from "@/app/components/prototype-app";
 import { AuthShell } from "@/app/components/auth/AuthShell";
 import { LogoutButton } from "@/app/components/auth/LogoutButton";
 import { createClient } from "@/lib/supabase/server";
+import { readCatalogSnapshot } from "@/lib/catalogs/service";
 import { readAgendaSnapshot } from "@/lib/agenda/service";
+import { AccessAdministration } from "@/app/components/access/AccessAdministration";
+import { countActiveAccounts } from "@/lib/access/account-count";
 
 export const dynamic = "force-dynamic";
 
-export default async function OperationalPage({ searchParams }: { searchParams: Promise<{ secao?: string; visita?: string }> }) {
+type Query = { secao?: string; visita?: string; pendentes?: string; historico?: string };
+const parsePage = (value: string | undefined) => value && /^[1-9]\d{0,5}$/.test(value) ? Number(value) : 1;
+
+export default async function OperationalPage({ searchParams }: { searchParams: Promise<Query> }) {
   const active = await requireActiveProfile();
   const context = await readWorkspaceContext(active);
   const query = await searchParams;
@@ -18,10 +24,15 @@ export default async function OperationalPage({ searchParams }: { searchParams: 
     <p><Link href="/escolher-perfil">Trocar perfil</Link></p>
     <LogoutButton />
   </AuthShell>;
-  const initialAgenda = await readAgendaSnapshot(await createClient(), context);
+  const client = await createClient();
+  const [initialAgenda, initialCatalogs, activeAccountCount] = await Promise.all([
+    readAgendaSnapshot(client, context), readCatalogSnapshot(client, context),
+    active.profile === "ADMINISTRATIVO" ? countActiveAccounts(client) : Promise.resolve(null),
+  ]);
   return <PrototypeApp key={`${active.user.id}:${active.profile}:${active.engineeringScope ?? ""}`} context={context}
-    initialAgenda={initialAgenda} initialVisitId={typeof query.visita === "string" ? query.visita : undefined}
-    initialScreen={query.secao === "obras" ? "works" : query.secao === "agenda" ? "agenda" : "overview"} />;
+    initialCatalogs={initialCatalogs} initialAgenda={initialAgenda} initialVisitId={typeof query.visita === "string" ? query.visita : undefined}
+    initialScreen={query.secao === "obras" ? "works" : query.secao === "agenda" ? "agenda" : query.secao === "administracao" && active.profile === "ADMINISTRATIVO" ? "settings" : "overview"}
+    activeAccountCount={activeAccountCount}
+    administrationContent={active.profile === "ADMINISTRATIVO" ? <AccessAdministration embedded pendingPage={parsePage(query.pendentes)} historyPage={parsePage(query.historico)} /> : undefined}
+    administrationWorksContent={active.profile === "ADMINISTRATIVO" ? <AccessAdministration embedded view="works" pendingPage={parsePage(query.pendentes)} historyPage={parsePage(query.historico)} /> : undefined} />;
 }
-
-

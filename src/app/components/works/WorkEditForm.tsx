@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { startTransition, useActionState, useRef, useState, type FormEvent } from "react";
 import { updateWorkAction } from "@/app/administracao/obras/[id]/actions";
-import { initialWorkEditState, workFieldLimits, brazilianStates, type WorkDetails, type WorkEditState } from "@/lib/works/contracts";
+import { initialWorkEditState, workFieldLimits, brazilianStates, type WorkDetails, type WorkEditState, type ActiveTeamProfile } from "@/lib/works/contracts";
+import { ActiveTeamProfiles } from "./ActiveTeamProfiles";
 import styles from "./work-edit.module.css";
 
 type Member = { key: number; nome: string; funcao: string };
 const date = (value: string) => new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" }).format(new Date(value));
 
-export function WorkEditForm({ work }: { work: WorkDetails }) {
+export function WorkEditForm({ work, activeProfiles, linkedProfiles }: { work: WorkDetails; activeProfiles: ActiveTeamProfile[] | null; linkedProfiles: string[] | null }) {
   const [revision, setRevision] = useState(work.revisao);
   const [updatedAt, setUpdatedAt] = useState(work.updated_at);
   const [team, setTeam] = useState<Member[]>(() => work.equipe_obra.map((member, index) => ({ key: index, nome: member.nome, funcao: member.funcao ?? "" })));
@@ -76,7 +77,8 @@ export function WorkEditForm({ work }: { work: WorkDetails }) {
     </fieldset>
     <fieldset disabled={pending} className={styles.group}>
       <legend>Equipe da obra</legend>
-      <p className={styles.help}>Registre os integrantes e suas funções. Este cadastro não cria contas nem concede acessos.</p>
+      <ActiveTeamProfiles profiles={activeProfiles} initialIds={linkedProfiles ?? []} available={linkedProfiles !== null} />
+      <p className={styles.help}>Os nomes informados manualmente abaixo não concedem acessos. Para direcionar uma conta à obra, selecione seu perfil ativo acima.</p>
       <div className={styles.team}>
         {team.length === 0 && <p className={styles.empty}>Nenhum integrante informado.</p>}
         {team.map((member, index) => <div className={styles.member} key={member.key}>

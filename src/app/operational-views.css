@@ -12,6 +12,7 @@
 .operational-empty p { margin: 0 0 22px; color: #667486; font-size: 14px; line-height: 1.6; }
 .work-filters { grid-template-columns: minmax(240px, 1fr) minmax(170px, 260px) auto; }
 .work-create-action { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.work-create-plus { width: 43px; padding: 0; font-size: 24px; line-height: 1; text-decoration: none; }
 .work-create-action small { max-width: 240px; color: #637186; font-size: 11px; line-height: 1.5; text-align: right; }
 .work-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
 .work-project-card { min-width: 0; padding: 25px 27px 0; border: 1px solid #dce1e7; border-left: 5px solid #c7353c; border-radius: 11px; background: #fff; }
