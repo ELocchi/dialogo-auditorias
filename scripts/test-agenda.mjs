@@ -9,10 +9,11 @@ const otherId = '10000000-0000-4000-8000-000000000003';
 const workId = '20000000-0000-4000-8000-000000000001';
 const visitId = '30000000-0000-4000-8000-000000000001';
 const requestId = '40000000-0000-4000-8000-000000000001';
-const creation = { requestId, workId, auditorId, module: 'safety', modelId: 'security-it07-r02', date: '2030-02-20', note: 'Observação' };
+const creation = { requestId, workId, auditorId, module: 'safety', kind: 'audit', modelId: 'security-it07-r02', date: '2030-02-20', note: 'Observação' };
+const followUp = { ...creation, kind: 'follow_up', modelId: null };
 const confirmation = { requestId, visitId, expectedRevision: 1 };
 const rescheduling = { ...confirmation, date: '2030-03-01', note: 'Nova data' };
-const visit = { id: visitId, workId, auditorId, module: 'safety', modelId: 'security-it07-r02', date: '2030-02-20', note: '',
+const visit = { id: visitId, workId, auditorId, module: 'safety', kind: 'audit', modelId: 'security-it07-r02', date: '2030-02-20', note: '',
   createdBy: adminId, createdAt: '2030-02-01T12:00:00+00:00', history: [], revision: 1,
   confirmationStatus: 'pending_confirmation', confirmedAt: null, auditorName: 'Auditor de teste', createdByName: 'Administrativo de teste' };
 function context(role = 'administrative') {
@@ -36,9 +37,11 @@ function fixture({ visits = [visit], auditors = [], error = null, mutationData =
 
 test('creation validates exact fields, real dates, discipline/model and canonical UUIDs', () => {
   assert.deepEqual(parseCreateAgendaVisit({ ...creation, note: '  Local  ' }), { ...creation, note: 'Local' });
+  assert.deepEqual(parseCreateAgendaVisit(followUp), followUp);
   for (const input of [null, [], { ...creation, date: '2030-02-29' }, { ...creation, module: 'quality' },
     { ...creation, modelId: '__proto__' }, { ...creation, workId: 'invalid' }, { ...creation, note: 'x'.repeat(2001) },
-    { ...creation, note: '\u0000' }, { ...creation, createdBy: otherId }, { ...creation, confirmationStatus: 'confirmed' }]) {
+    { ...creation, note: '\u0000' }, { ...creation, createdBy: otherId }, { ...creation, confirmationStatus: 'confirmed' },
+    { ...followUp, modelId: 'security-it07-r02' }, { ...creation, modelId: null }]) {
     assert.equal(parseCreateAgendaVisit(input), null);
   }
 });
@@ -102,6 +105,29 @@ test('new scheduling reaches only the admin RPC with exact fields and no caller 
     [{ ...creation, workId: otherId }, context()]]) {
     const blocked = fixture(); assert.equal((await createAgendaVisit(input, ctx, blocked.client)).status, 'error'); assert.equal(blocked.calls.length, 0);
   }
+});
+
+test('work follow-up schedules without a model and still asks the assigned professional to confirm', async () => {
+  const scheduled = { ...visit, kind: 'follow_up', modelId: null };
+  const f = fixture({ visits: [scheduled] });
+  const result = await createAgendaVisit(followUp, context(), f.client);
+  assert.equal(result.status, 'success');
+  assert.deepEqual(f.calls[0], { name: 'create_work_follow_up_visit', params: {
+    p_request_id: requestId, p_obra_id: workId, p_modulo: 'SEGURANCA',
+    p_auditor_auth_user_id: auditorId, p_data_prevista: followUp.date, p_observacao: followUp.note,
+  } });
+  const assigned = await readAgendaSnapshot(f.client, context('safety-auditor'));
+  assert.equal(assigned.visits[0].kind, 'follow_up');
+  assert.equal(assigned.visits[0].modelId, null);
+  assert.equal(assigned.notifications[0].type, 'visit_confirmation_requested');
+  assert.equal((await confirmAgendaVisit(confirmation, context('safety-auditor'), f.client)).status, 'success');
+  const qualityFollowUp = { ...followUp, module: 'quality' };
+  const qualityVisit = { ...scheduled, module: 'quality' };
+  const qualityFixture = fixture({ visits: [qualityVisit] });
+  assert.equal((await createAgendaVisit(qualityFollowUp, context(), qualityFixture.client)).status, 'success');
+  assert.equal(qualityFixture.calls[0].params.p_modulo, 'QUALIDADE');
+  assert.equal((await readAgendaSnapshot(qualityFixture.client, context('quality-auditor'))).notifications[0].type,
+    'visit_confirmation_requested');
 });
 
 test('confirmation is scoped to the currently selected auditor before mutation', async () => {

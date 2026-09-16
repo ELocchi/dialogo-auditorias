@@ -87,7 +87,7 @@ export function AdminVisitCalendar({ visits, works, onViewAgenda, calendarOnly =
       {visibleVisits.length ? <div className={styles.listScroll} role="region" aria-label="Agendamentos" tabIndex={0}>
         <ul className={styles.list}>{visibleVisits.map((visit) => <li key={visit.id} className={styles.visit}>
           <time dateTime={visit.date} className={styles.visitDate}>{formatAuditDate(visit.date).slice(0, 5)}</time>
-          <div className={styles.visitInfo}><strong>{workNames.get(visit.workId)}</strong><span>{auditModelLabels[visit.modelId].name}</span></div>
+          <div className={styles.visitInfo}><strong>{workNames.get(visit.workId)}</strong><span>{visit.kind === "follow_up" ? "Acompanhamento da obra" : visit.modelId ? auditModelLabels[visit.modelId].name : "Auditoria"}</span></div>
           <span className={visit.module === "safety" ? styles.safetyDot : styles.qualityDot} aria-hidden="true" />
         </li>)}</ul>
       </div> : <p className={styles.empty}>{selectedDate ? "Nenhuma visita agendada para este dia." : "Nenhuma visita agendada neste mês."}</p>}

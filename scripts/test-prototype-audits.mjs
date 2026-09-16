@@ -160,6 +160,12 @@ test("visita não transfere autoria nem aceita obra/modelo de outro contexto", (
   assert.throws(() => begin(emptyState(), admin, { visit: initialVisits[0] }), /não pode iniciar/);
 });
 
+test("acompanhamento da obra não inicia auditoria nem cria registro para nota mensal", () => {
+  const followUp = { ...initialVisits[0], kind: "follow_up", modelId: null };
+  assert.throws(() => begin(emptyState(), safety, { visit: followUp }), /não é uma auditoria/);
+  assert.equal(emptyState().audits.length, 0);
+});
+
 test("auditoria publicada de teste bloqueia respostas, data e reinício pela mesma visita para todos", () => {
   const started = begin(emptyState(), safety, { visit: initialVisits[0] });
   const published = deepFreeze({ ...started.state, audits: started.state.audits.map((audit) => ({ ...audit, status: "Publicada" })) });

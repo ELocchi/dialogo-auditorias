@@ -40,7 +40,8 @@ function beginLocalAudit(state: PrototypeAuditState, user: DemoUser, input: Loca
   if ((!input.work.isDemo && !registeredWorkPreview) || !canStartAudit(user, input.work.id, input.modelId)) throw new Error("Este perfil não pode iniciar essa auditoria.");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date) || !Number.isFinite(Date.parse(`${input.date}T12:00:00Z`)) || new Date(`${input.date}T12:00:00Z`).toISOString().slice(0, 10) !== input.date) throw new Error("Informe uma data válida para a inspeção.");
   if (input.visit) {
-    if (input.visit.auditorId !== user.id || input.visit.workId !== input.work.id || input.visit.modelId !== input.modelId) throw new Error("A visita pertence a outro responsável ou contexto.");
+    if (input.visit.kind !== "audit" || input.visit.auditorId !== user.id
+      || input.visit.workId !== input.work.id || input.visit.modelId !== input.modelId) throw new Error("A visita não é uma auditoria ou pertence a outro responsável ou contexto.");
     const existing = state.audits.find((audit) => audit.visitId === input.visit!.id);
     if (existing) {
       if (!canEditAudit(user, existing)) throw new Error("A auditoria desta visita não está disponível para edição.");

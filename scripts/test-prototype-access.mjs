@@ -17,7 +17,7 @@ const coordination = users["engineering-coordination"];
 const admin = users.administrative;
 const workIds = ["horizonte", "jardim-norte"];
 const meta = { id: "VISITA-TESTE-NOVA", now: "2026-09-12T15:00:00.000Z" };
-const input = { workId: "horizonte", module: "safety", modelId: "security-it07-r02", auditorId: safety.id, date: "2026-09-20", note: "Observação de teste" };
+const input = { workId: "horizonte", module: "safety", kind: "audit", modelId: "security-it07-r02", auditorId: safety.id, date: "2026-09-20", note: "Observação de teste" };
 const audit = (overrides = {}) => ({ workId: "horizonte", modelId: "security-it07-r02", auditorId: safety.id, status: "Em preenchimento", ...overrides });
 
 test("quatro perfis e duas atuações internas, sem quinto perfil de Engenharia", () => {
@@ -138,8 +138,8 @@ test("criação valida obra, módulo, modelo e auditor autorizado", () => {
   assert.throws(() => create({}, admin, []), /não está cadastrada/);
   assert.throws(() => create({}, { ...admin, modules: ["quality"] }), /não autorizado/);
   assert.throws(() => create({ modelId: "quality-f175" }), /pertencer à disciplina/);
-  for (const auditorId of [quality.id, admin.id, site.id, "nao-existe"]) assert.throws(() => create({ auditorId }), /auditor autorizado/);
-  assert.throws(() => create({ workId: "jardim-norte", auditorId: otherSafety.id }), /auditor autorizado/);
+  for (const auditorId of [quality.id, admin.id, site.id, "nao-existe"]) assert.throws(() => create({ auditorId }), /profissional autorizado/);
+  assert.throws(() => create({ workId: "jardim-norte", auditorId: otherSafety.id }), /profissional autorizado/);
   assert.throws(() => create({ modelId: "modelo-nao-existe" }), /Modelo.*desconhecido/);
   assert.equal(create({ module: "quality", modelId: "quality-f176", auditorId: quality.id }).modelId, "quality-f176");
 });

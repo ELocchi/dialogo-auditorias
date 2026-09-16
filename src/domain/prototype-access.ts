@@ -117,7 +117,8 @@ export interface Visit {
   id: string;
   workId: string;
   module: AppModule;
-  modelId: AuditModelId;
+  kind: "audit" | "follow_up";
+  modelId: AuditModelId | null;
   auditorId: string;
   date: string;
   note: string;
@@ -132,15 +133,18 @@ export interface Visit {
   history: readonly { previousDate: string; date: string; note: string; changedBy: string; changedAt: string }[];
 }
 
-export type VisitInput = Pick<Visit, "workId" | "module" | "modelId" | "auditorId" | "date" | "note">;
+export type VisitInput = Pick<Visit, "workId" | "module" | "kind" | "modelId" | "auditorId" | "date" | "note">;
 
 export const initialVisits: readonly Visit[] = [
-  { id: "VISITA-TESTE-001", workId: "horizonte", module: "safety", modelId: "security-it07-r02", auditorId: "auditor-safety", date: "2026-09-15", note: "Visita demonstrativa de Segurança.", createdBy: "administrative", createdAt: "2026-09-12T12:00:00.000Z", history: [] },
-  { id: "VISITA-TESTE-002", workId: "jardim-norte", module: "quality", modelId: "quality-f175", auditorId: "auditor-quality", date: "2026-09-16", note: "Visita demonstrativa de Qualidade.", createdBy: "administrative", createdAt: "2026-09-12T12:00:00.000Z", history: [] },
+  { id: "VISITA-TESTE-001", workId: "horizonte", module: "safety", kind: "audit", modelId: "security-it07-r02", auditorId: "auditor-safety", date: "2026-09-15", note: "Visita demonstrativa de Segurança.", createdBy: "administrative", createdAt: "2026-09-12T12:00:00.000Z", history: [] },
+  { id: "VISITA-TESTE-002", workId: "jardim-norte", module: "quality", kind: "audit", modelId: "quality-f175", auditorId: "auditor-quality", date: "2026-09-16", note: "Visita demonstrativa de Qualidade.", createdBy: "administrative", createdAt: "2026-09-12T12:00:00.000Z", history: [] },
 ];
 
 export function canReadVisit(user: DemoUser, visit: Visit): boolean {
-  if (modelModule(visit.modelId) !== visit.module || !canConsultAgenda(user, visit.workId, visit.module)) return false;
+  if ((visit.kind !== "audit" && visit.kind !== "follow_up")
+    || (visit.kind === "audit" && (!visit.modelId || modelModule(visit.modelId) !== visit.module))
+    || (visit.kind === "follow_up" && visit.modelId !== null)
+    || !canConsultAgenda(user, visit.workId, visit.module)) return false;
   return (user.role !== "quality-auditor" && user.role !== "safety-auditor") || visit.auditorId === user.id;
 }
 
@@ -168,15 +172,20 @@ function assertAgendaAccess(user: DemoUser, workId: string, module: AppModule): 
 export function createVisit(user: DemoUser, input: VisitInput, users: readonly DemoUser[], workIds: readonly string[], meta: { id: string; now: string }): Visit {
   assertAgendaAccess(user, input.workId, input.module);
   if (!workIds.includes(input.workId)) throw new Error("A obra informada não está cadastrada.");
-  if (modelModule(input.modelId) !== input.module) throw new Error("O modelo deve pertencer à disciplina da visita.");
+  if (input.kind === "audit" ? !input.modelId || modelModule(input.modelId) !== input.module : input.kind !== "follow_up" || input.modelId !== null) {
+    throw new Error("O roteiro da auditoria deve pertencer à disciplina; acompanhamento não usa roteiro.");
+  }
   const auditor = users.find((entry) => entry.id === input.auditorId);
-  if (!auditor || !canStartAudit(auditor, input.workId, input.modelId)) throw new Error("Selecione um auditor autorizado para a disciplina e a obra.");
+  if (!auditor || (input.kind === "audit" ? !input.modelId || !canStartAudit(auditor, input.workId, input.modelId)
+    : !["quality-auditor", "safety-auditor"].includes(auditor.role) || !canAccessWorkModule(auditor, input.workId, input.module))) {
+    throw new Error("Selecione um profissional autorizado para a disciplina e a obra.");
+  }
   validateDate(input.date);
   validateNote(input.note);
   validateTimestamp(meta.now);
   if (typeof meta.id !== "string" || !meta.id.trim()) throw new Error("A visita precisa de uma identificação.");
   return {
-    id: meta.id, workId: input.workId, module: input.module, modelId: input.modelId, auditorId: input.auditorId,
+    id: meta.id, workId: input.workId, module: input.module, kind: input.kind, modelId: input.modelId, auditorId: input.auditorId,
     date: input.date, note: input.note, createdBy: user.id, createdAt: meta.now, history: [],
   };
 }
@@ -184,7 +193,8 @@ export function createVisit(user: DemoUser, input: VisitInput, users: readonly D
 /** Altera somente a programação da visita; não recebe nem modifica respostas ou auditorias. */
 export function rescheduleVisit(user: DemoUser, visit: Visit, input: { date: string; note: string }, now: string): Visit {
   assertAgendaAccess(user, visit.workId, visit.module);
-  if (modelModule(visit.modelId) !== visit.module) throw new Error("O modelo deve pertencer à disciplina da visita.");
+  if (visit.kind === "audit" ? !visit.modelId || modelModule(visit.modelId) !== visit.module
+    : visit.kind !== "follow_up" || visit.modelId !== null) throw new Error("Tipo de visita inválido.");
   validateDate(input.date);
   validateNote(input.note);
   validateTimestamp(now);

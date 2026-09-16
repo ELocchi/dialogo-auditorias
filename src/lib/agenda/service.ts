@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { canAccessWorkModule, canManageAgenda, canReadVisit, canStartAudit, modelModule, moduleLabels, type DemoUser, type Visit } from "../../domain/prototype-access.ts";
+import { canAccessWorkModule, canManageAgenda, canReadVisit, modelModule, moduleLabels, type DemoUser, type Visit } from "../../domain/prototype-access.ts";
 import { auditModelLabels, formatAuditDate, type AuditModelId } from "../../domain/operational-records.ts";
 import { isCalendarDate } from "../../domain/visit-calendar.ts";
 import { uuidPattern } from "../access/validation.ts";
@@ -17,12 +17,16 @@ const exactKeys = (value: Record<string, unknown>, keys: string[]) => Object.key
 const failure = (message: string): AgendaActionResult => ({ status: "error", message });
 
 export function parseCreateAgendaVisit(input: unknown): CreateAgendaVisitInput | null {
-  if (!record(input) || !exactKeys(input, ["requestId", "workId", "module", "modelId", "auditorId", "date", "note"])
-    || !uuid(input.requestId) || !uuid(input.workId) || !uuid(input.auditorId) || !model(input.modelId)
-    || input.module !== modelModule(input.modelId) || typeof input.date !== "string" || !isCalendarDate(input.date)
+  if (!record(input) || !exactKeys(input, ["requestId", "workId", "module", "kind", "modelId", "auditorId", "date", "note"])
+    || !uuid(input.requestId) || !uuid(input.workId) || !uuid(input.auditorId)
+    || (input.kind !== "audit" && input.kind !== "follow_up")
+    || (input.module !== "safety" && input.module !== "quality")
+    || (input.kind === "audit" ? !model(input.modelId) || input.module !== modelModule(input.modelId) : input.modelId !== null)
+    || typeof input.date !== "string" || !isCalendarDate(input.date)
     || !text(input.note, 2000)) return null;
-  return { requestId: input.requestId.toLowerCase(), workId: input.workId.toLowerCase(), module: modelModule(input.modelId),
-    modelId: input.modelId, auditorId: input.auditorId.toLowerCase(), date: input.date, note: input.note.trim() };
+  return { requestId: input.requestId.toLowerCase(), workId: input.workId.toLowerCase(), module: input.module,
+    kind: input.kind, modelId: input.modelId as AuditModelId | null,
+    auditorId: input.auditorId.toLowerCase(), date: input.date, note: input.note.trim() };
 }
 
 export function parseConfirmAgendaVisit(input: unknown): ConfirmAgendaVisitInput | null {
@@ -39,8 +43,12 @@ export function parseRescheduleAgendaVisit(input: unknown): RescheduleAgendaVisi
 }
 
 function parseVisit(raw: unknown, context: ProfileWorkspaceContext): Visit | null {
+  const kind = record(raw) && raw.kind === undefined ? "audit" : record(raw) ? raw.kind : null;
   if (!record(raw) || !uuid(raw.id) || !uuid(raw.workId) || !uuid(raw.auditorId) || !uuid(raw.createdBy)
-    || !model(raw.modelId) || raw.module !== modelModule(raw.modelId) || !text(raw.note, 2000)
+    || (kind !== "audit" && kind !== "follow_up")
+    || (raw.module !== "safety" && raw.module !== "quality")
+    || (kind === "audit" ? !model(raw.modelId) || raw.module !== modelModule(raw.modelId) : raw.modelId !== null)
+    || !text(raw.note, 2000)
     || typeof raw.date !== "string" || !isCalendarDate(raw.date) || !timestamp(raw.createdAt) || !revision(raw.revision)
     || !text(raw.auditorName, 200) || !text(raw.createdByName, 200) || !Array.isArray(raw.history)
     || !["pending_confirmation", "confirmed"].includes(String(raw.confirmationStatus))
@@ -53,7 +61,7 @@ function parseVisit(raw: unknown, context: ProfileWorkspaceContext): Visit | nul
     history.push({ previousDate: entry.previousDate, date: entry.date, note: entry.note, changedBy: entry.changedBy, changedAt: entry.changedAt });
   }
   const visit: Visit = {
-    id: raw.id, workId: raw.workId, module: modelModule(raw.modelId), modelId: raw.modelId, auditorId: raw.auditorId,
+    id: raw.id, workId: raw.workId, module: raw.module, kind, modelId: raw.modelId as AuditModelId | null, auditorId: raw.auditorId,
     date: raw.date, note: raw.note, createdBy: raw.createdBy, createdAt: raw.createdAt, history, revision: raw.revision,
     confirmationStatus: raw.confirmationStatus as Visit["confirmationStatus"], confirmedAt: raw.confirmedAt as string | null,
     auditorName: raw.auditorName, createdByName: raw.createdByName,
@@ -81,13 +89,15 @@ function notificationsFor(visits: Visit[], context: ProfileWorkspaceContext): Ag
   for (const visit of visits) {
     const workName = context.works.find((work) => work.id === visit.workId)!.name;
     const createdAt = visit.history.at(-1)?.changedAt ?? visit.createdAt;
-    const detail = `${moduleLabels[visit.module]} · ${formatAuditDate(visit.date)}`;
+    const detail = `${visit.kind === "follow_up" ? "Acompanhamento" : "Auditoria"} de ${moduleLabels[visit.module]} · ${formatAuditDate(visit.date)}`;
     const base = { workName, detail, href: `/app?secao=agenda&visita=${encodeURIComponent(visit.id)}` };
     if (canManageAgenda(context.user)) {
       items.push({ ...base, id: `${visit.id}:${visit.revision}:scheduled`, type: "visit_scheduled", createdAt });
       if (visit.confirmationStatus === "confirmed" && visit.confirmedAt) items.push({ ...base,
         detail: `${detail} · ${visit.auditorName}`, id: `${visit.id}:${visit.revision}:confirmed`, type: "visit_confirmed", createdAt: visit.confirmedAt });
-    } else if (visit.auditorId === context.user.id && canStartAudit(context.user, visit.workId, visit.modelId) && visit.confirmationStatus === "pending_confirmation") {
+    } else if ((context.user.role === "safety-auditor" || context.user.role === "quality-auditor")
+      && visit.auditorId === context.user.id && canAccessWorkModule(context.user, visit.workId, visit.module)
+      && visit.confirmationStatus === "pending_confirmation") {
       items.push({ ...base, id: `${visit.id}:${visit.revision}:pending`, type: "visit_confirmation_requested", createdAt });
     }
   }
@@ -114,6 +124,9 @@ async function mutate(client: Client, context: ProfileWorkspaceContext, rpc: str
   try {
     const { data, error } = await client.rpc(rpc, params);
     if (error) {
+      if (rpc === "create_work_follow_up_visit" && (error.code === "PGRST202" || error.code === "42883")) {
+        return failure("O agendamento de acompanhamento ficará disponível após a atualização do banco de dados.");
+      }
       if (error.code === "40001") return failure("A programação mudou. Atualize a agenda e confira a data antes de continuar.");
       if (error.code === "42501") return failure("Seu perfil não está autorizado para esta operação. Confira seus acessos.");
       if (error.code === "22023") return failure("Confira a obra, o auditor e os dados do agendamento antes de continuar.");
@@ -136,10 +149,15 @@ export async function createAgendaVisit(input: unknown, context: ProfileWorkspac
   if (!value) return failure("Revise os campos do agendamento.");
   if (!canManageAgenda(context.user) || !context.works.some((work) => work.id === value.workId)
     || !canAccessWorkModule(context.user, value.workId, value.module)) return failure("Este perfil não pode agendar a visita nesta obra e disciplina.");
-  return mutate(client, context, "create_audit_visit", {
+  const params = {
     p_request_id: value.requestId, p_obra_id: value.workId, p_modulo: value.module === "safety" ? "SEGURANCA" : "QUALIDADE",
-    p_modelo_id: value.modelId, p_auditor_auth_user_id: value.auditorId, p_data_prevista: value.date, p_observacao: value.note,
-  }, "Auditoria agendada. O auditor recebeu uma notificação no aplicativo para confirmar a data.");
+    p_auditor_auth_user_id: value.auditorId, p_data_prevista: value.date, p_observacao: value.note,
+  };
+  return value.kind === "follow_up"
+    ? mutate(client, context, "create_work_follow_up_visit", params,
+      "Acompanhamento agendado. O profissional recebeu uma notificação para confirmar a data.")
+    : mutate(client, context, "create_audit_visit", { ...params, p_modelo_id: value.modelId },
+      "Auditoria agendada. O auditor recebeu uma notificação no aplicativo para confirmar a data.");
 }
 
 export async function rescheduleAgendaVisit(input: unknown, context: ProfileWorkspaceContext, client: Client): Promise<AgendaActionResult> {
@@ -158,7 +176,9 @@ export async function confirmAgendaVisit(input: unknown, context: ProfileWorkspa
   if (context.user.role !== "safety-auditor" && context.user.role !== "quality-auditor") return failure("Selecione o perfil de auditor responsável para confirmar a data.");
   const current = await readAgendaSnapshot(client, context);
   const visit = current.visits.find((entry) => entry.id === value.visitId);
-  if (!current.available || !visit || visit.auditorId !== context.user.id || !canStartAudit(context.user, visit.workId, visit.modelId)) return failure("Esta confirmação não está disponível para o perfil selecionado. Atualize a agenda.");
+  if (!current.available || !visit || visit.auditorId !== context.user.id
+    || (context.user.role !== "safety-auditor" && context.user.role !== "quality-auditor")
+    || !canAccessWorkModule(context.user, visit.workId, visit.module)) return failure("Esta confirmação não está disponível para o perfil selecionado. Atualize a agenda.");
   // The RPC checks the expected revision under a row lock, including on replay.
   return mutate(client, context, "confirm_audit_visit", {
     p_request_id: value.requestId, p_visit_id: value.visitId, p_expected_revision: value.expectedRevision,

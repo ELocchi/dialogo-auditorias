@@ -136,6 +136,12 @@ if (!baselineOnly) suites.push({
   upgradeMigration: "20260916000300_work_team_access.sql",
   test: "work_team_access.sql",
   baselineAuthRows: 2,
+}, {
+  name: "B.12 work follow-up visits/no audit model/confirmation suite",
+  migrations: ["20260913000100_access_requests.sql", "20260913000200_access_administration.sql", "20260913000300_multiple_access_profiles.sql", "20260913000400_multiple_engineering_scopes.sql", "20260913000500_work_details.sql", "20260914000100_designated_general_access.sql", "20260914000200_audit_agenda.sql", "20260916000100_catalog_revisions.sql", "20260916000200_full_work_registration.sql", "20260916000300_work_team_access.sql", "20260916000400_ibrahim_general_access.sql"],
+  upgradeMigration: "20260916000500_work_follow_up_visits.sql",
+  test: "work_follow_up_visits.sql",
+  baselineAuthRows: 2,
 });
 
 const { PGlite } = await loadPGlite();
