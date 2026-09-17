@@ -4,6 +4,7 @@ import { verifiedUser, effectiveAccount } from "@/lib/auth/session";
 import { readActiveProfileContext } from "@/lib/auth/active-profile-session";
 import { createClient } from "@/lib/supabase/server";
 import { getReferenceDocument } from "@/domain/reference-documents";
+import { modelModule } from "@/domain/prototype-access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,6 +35,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ mode
   const { modelId } = await params;
   const document = getReferenceDocument(modelId);
   if (!document) return Response.json({ message: "Documento não encontrado." }, { status: 404, headers });
+  if (selected.administrativeScope !== "GERAL" && modelModule(document.id) !== (selected.administrativeScope === "SEGURANCA" ? "safety" : "quality"))
+    return Response.json({ message: "Consulta não autorizada nesta disciplina." }, { status: 403, headers });
   const query = new URL(request.url).searchParams;
   const original = query.get("download") === "original";
   const revision = query.get("revision");

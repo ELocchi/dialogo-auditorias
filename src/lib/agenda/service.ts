@@ -4,7 +4,7 @@ import { auditModelLabels, formatAuditDate, type AuditModelId } from "../../doma
 import { isCalendarDate } from "../../domain/visit-calendar.ts";
 import { uuidPattern } from "../access/validation.ts";
 import type { ProfileWorkspaceContext } from "../access/workspace-context.ts";
-import { unavailableAgenda, type AgendaActionResult, type AgendaNotification, type AgendaSnapshot, type ConfirmAgendaVisitInput, type CreateAgendaVisitInput, type RescheduleAgendaVisitInput } from "./contracts.ts";
+import { unavailableAgenda, type AgendaActionResult, type AgendaNotification, type AgendaSnapshot, type ConfirmAgendaVisitInput, type CreateAgendaVisitInput, type DeleteAgendaVisitInput } from "./contracts.ts";
 
 type Client = Pick<SupabaseClient, "rpc">;
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
@@ -33,13 +33,6 @@ export function parseConfirmAgendaVisit(input: unknown): ConfirmAgendaVisitInput
   if (!record(input) || !exactKeys(input, ["requestId", "visitId", "expectedRevision"])
     || !uuid(input.requestId) || !uuid(input.visitId) || !revision(input.expectedRevision)) return null;
   return { requestId: input.requestId.toLowerCase(), visitId: input.visitId.toLowerCase(), expectedRevision: input.expectedRevision };
-}
-
-export function parseRescheduleAgendaVisit(input: unknown): RescheduleAgendaVisitInput | null {
-  if (!record(input) || !exactKeys(input, ["requestId", "visitId", "expectedRevision", "date", "note"])
-    || typeof input.date !== "string" || !isCalendarDate(input.date) || !text(input.note, 2000)) return null;
-  const base = parseConfirmAgendaVisit({ requestId: input.requestId, visitId: input.visitId, expectedRevision: input.expectedRevision });
-  return base ? { ...base, date: input.date, note: input.note.trim() } : null;
 }
 
 function parseVisit(raw: unknown, context: ProfileWorkspaceContext): Visit | null {
@@ -111,8 +104,16 @@ export async function readAgendaSnapshot(client: Client, context: ProfileWorkspa
       || (!canManageAgenda(context.user) && data.auditors.length)) return unavailableAgenda();
     const visits: Visit[] = [];
     const auditors: DemoUser[] = [];
-    for (const raw of data.visits) { const visit = parseVisit(raw, context); if (!visit) return unavailableAgenda(); visits.push(visit); }
-    for (const raw of data.auditors) { const auditor = parseAuditor(raw, context); if (!auditor) return unavailableAgenda(); auditors.push(auditor); }
+    for (const raw of data.visits) {
+      if (context.profile === "ADMINISTRATIVO" && record(raw) && (raw.module === "safety" || raw.module === "quality")
+        && !context.user.modules.includes(raw.module)) continue;
+      const visit = parseVisit(raw, context); if (!visit) return unavailableAgenda(); visits.push(visit);
+    }
+    for (const raw of data.auditors) {
+      if (context.profile === "ADMINISTRATIVO" && record(raw) && (raw.role === "safety-auditor" || raw.role === "quality-auditor")
+        && !context.user.modules.includes(raw.role === "safety-auditor" ? "safety" : "quality")) continue;
+      const auditor = parseAuditor(raw, context); if (!auditor) return unavailableAgenda(); auditors.push(auditor);
+    }
     if (new Set(visits.map((visit) => visit.id)).size !== visits.length
       || new Set(auditors.map((auditor) => `${auditor.id}:${auditor.role}`)).size !== auditors.length) return unavailableAgenda();
     visits.sort((left, right) => left.date.localeCompare(right.date) || left.id.localeCompare(right.id));
@@ -127,7 +128,11 @@ async function mutate(client: Client, context: ProfileWorkspaceContext, rpc: str
       if (rpc === "create_work_follow_up_visit" && (error.code === "PGRST202" || error.code === "42883")) {
         return failure("O agendamento de acompanhamento ficará disponível após a atualização do banco de dados.");
       }
+      if (rpc === "delete_audit_visit" && (error.code === "PGRST202" || error.code === "42883")) {
+        return failure("A exclusão de agendamentos ficará disponível após a atualização do banco de dados.");
+      }
       if (error.code === "40001") return failure("A programação mudou. Atualize a agenda e confira a data antes de continuar.");
+      if (error.code === "P0002") return failure("Este agendamento não está mais disponível. Atualize a agenda.");
       if (error.code === "42501") return failure("Seu perfil não está autorizado para esta operação. Confira seus acessos.");
       if (error.code === "22023") return failure("Confira a obra, o auditor e os dados do agendamento antes de continuar.");
       return failure("Não foi possível confirmar a operação. Atualize a agenda e confira o registro antes de tentar novamente.");
@@ -139,6 +144,9 @@ async function mutate(client: Client, context: ProfileWorkspaceContext, rpc: str
       if (!current || current.revision !== params.p_expected_revision || current.confirmationStatus !== "confirmed") {
         return { status: "error", message: "A programação mudou após sua confirmação. Confira a data atual na agenda.", visitId: data, snapshot };
       }
+    }
+    if (rpc === "delete_audit_visit" && snapshot.available && snapshot.visits.some((visit) => visit.id === data)) {
+      return { status: "error", message: "A exclusão não pôde ser confirmada. Atualize a agenda antes de tentar novamente.", visitId: data, snapshot };
     }
     return { status: "success", message: snapshot.available ? message : `${message} Atualize a página para consultar a agenda.`, visitId: data, snapshot };
   } catch { return failure("Não foi possível confirmar a operação. Atualize a agenda e confira o registro antes de tentar novamente."); }
@@ -160,14 +168,14 @@ export async function createAgendaVisit(input: unknown, context: ProfileWorkspac
       "Auditoria agendada. O auditor recebeu uma notificação no aplicativo para confirmar a data.");
 }
 
-export async function rescheduleAgendaVisit(input: unknown, context: ProfileWorkspaceContext, client: Client): Promise<AgendaActionResult> {
-  const value = parseRescheduleAgendaVisit(input);
-  if (!value) return failure("Confira a data e reabra o agendamento para tentar novamente.");
-  if (!canManageAgenda(context.user)) return failure("Somente o Administrativo pode reagendar visitas.");
-  return mutate(client, context, "reschedule_audit_visit", {
+export async function deleteAgendaVisit(input: unknown, context: ProfileWorkspaceContext, client: Client): Promise<AgendaActionResult> {
+  const value: DeleteAgendaVisitInput | null = parseConfirmAgendaVisit(input);
+  if (!value) return failure("Atualize a agenda e selecione um agendamento válido.");
+  if (!canManageAgenda(context.user)) return failure("Somente o Administrativo pode excluir agendamentos.");
+  // The database owns revision checks and replay: the visit may already be hidden after a committed retry.
+  return mutate(client, context, "delete_audit_visit", {
     p_request_id: value.requestId, p_visit_id: value.visitId, p_expected_revision: value.expectedRevision,
-    p_data_prevista: value.date, p_observacao: value.note,
-  }, "Programação salva. Confira a data e o status de confirmação na agenda.");
+  }, "Agendamento excluído da agenda e das notificações.");
 }
 
 export async function confirmAgendaVisit(input: unknown, context: ProfileWorkspaceContext, client: Client): Promise<AgendaActionResult> {

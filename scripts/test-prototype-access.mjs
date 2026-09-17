@@ -4,7 +4,7 @@ import {
   demoUsers, initialVisits, roleLabels, moduleLabels, modelModule,
   canAccessWork, canAccessModule, canManageAgenda, canConsultAgenda, canStartAudit,
   canEditAudit, canReadAudit, canReadTechnicalWeights, canReadOperationalDocuments,
-  canEditCommitteeSchedule, canReadVisit, createVisit, rescheduleVisit,
+  canEditCommitteeSchedule, canReadVisit, createVisit,
 } from "../src/domain/prototype-access.ts";
 
 // Cenários exclusivamente demonstrativos; não validam autenticação, banco ou permissões reais.
@@ -30,12 +30,11 @@ test("quatro perfis e duas atuações internas, sem quinto perfil de Engenharia"
   assert.equal(modelModule("security-it07-r02"), "safety");
 });
 
-test("D01: apenas Administrativo cria e reagenda visitas", () => {
+test("D01: apenas Administrativo cria visitas", () => {
   for (const user of demoUsers) {
     assert.equal(canManageAgenda(user), user.role === "administrative");
     if (user.role !== "administrative") {
       assert.throws(() => createVisit(user, input, demoUsers, workIds, meta), /Somente o Administrativo/);
-      assert.throws(() => rescheduleVisit(user, initialVisits[0], { date: "2026-09-21", note: "Teste" }, meta.now), /Somente o Administrativo/);
     }
   }
 });
@@ -152,30 +151,6 @@ test("datas reais, texto opcional e metadados de autoria são validados", () => 
   assert.throws(() => createVisit(admin, { ...input, note: "x".repeat(2001) }, demoUsers, workIds, meta), /2.000/);
   assert.throws(() => createVisit(admin, input, demoUsers, workIds, { ...meta, id: " " }), /identificação/);
   assert.throws(() => createVisit(admin, input, demoUsers, workIds, { ...meta, now: "ontem" }), /horário/);
-});
-
-test("reagendamento preserva contexto/autoria e acrescenta histórico sem mutar", () => {
-  const original = createVisit(admin, input, demoUsers, workIds, meta);
-  const before = structuredClone(original);
-  Object.freeze(original.history);
-  Object.freeze(original);
-  const update = Object.freeze({ date: "2026-09-21", note: "Novo horário solicitado no teste" });
-  const changedAt = "2026-09-13T09:00:00.000Z";
-  const changed = rescheduleVisit(admin, original, update, changedAt);
-  assert.deepEqual(original, before);
-  for (const key of ["id", "workId", "module", "modelId", "auditorId", "createdBy", "createdAt"]) assert.equal(changed[key], original[key]);
-  assert.deepEqual(changed.history, [{ previousDate: input.date, date: update.date, note: update.note, changedBy: admin.id, changedAt }]);
-  const again = rescheduleVisit(admin, changed, { date: "2026-09-22", note: "Segunda alteração de teste" }, "2026-09-14T09:00:00.000Z");
-  assert.equal(changed.history.length, 1);
-  assert.equal(again.history.length, 2);
-  assert.equal(again.history[1].previousDate, update.date);
-});
-
-test("reagendamento não contorna vínculo e rejeita campos inválidos", () => {
-  assert.throws(() => rescheduleVisit({ ...admin, workIds: ["jardim-norte"] }, initialVisits[0], { date: "2026-09-21", note: "" }, meta.now), /não autorizado/);
-  assert.throws(() => rescheduleVisit(admin, initialVisits[0], { date: "2026-02-30", note: "" }, meta.now), /data/i);
-  assert.throws(() => rescheduleVisit(admin, initialVisits[0], { date: "2026-09-21", note: "x".repeat(2001) }, meta.now), /2.000/);
-  assert.throws(() => rescheduleVisit(admin, initialVisits[0], { date: "2026-09-21", note: "" }, "sem-data"), /horário/);
 });
 
 test("criação preserva inputs, usuários e registros de demonstração", () => {

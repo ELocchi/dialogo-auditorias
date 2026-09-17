@@ -12,23 +12,23 @@ import { MaintenanceHistory } from "./maintenance-history";
 import { DialogoLogo } from "./dialogo-logo";
 import styles from "./prototype-workspace.module.css";
 
-export function PrototypeDashboard({ user, module, works, audits, visits, activeAccountCount, open }: { user: DemoUser; module: AppModule; works: readonly WorkRecord[]; audits: readonly AuditRecord[]; visits: readonly Visit[]; activeAccountCount: number | null; open: (screen: string) => void }) {
+export function PrototypeDashboard({ user, module, works, audits, visits, auditors = [], activeAccountCount, generalAdministrator = false, open }: { user: DemoUser; module: AppModule; works: readonly WorkRecord[]; audits: readonly AuditRecord[]; visits: readonly Visit[]; auditors?: readonly DemoUser[]; activeAccountCount: number | null; generalAdministrator?: boolean; open: (screen: string) => void }) {
   const admin = user.role === "administrative";
   const ownDrafts = audits.filter((audit) => canEditAudit(user, audit));
   const published = audits.filter((audit) => audit.status === "Publicada");
   const worksCard = <Metric label="Obras disponíveis" value={works.length} description={admin ? "Consultar obras" : undefined} onClick={() => open("works")} />;
   const agendaCard = <Metric label={admin ? "Visitas Agendadas" : "Visitas na agenda"} value={admin && visits.length === 0 ? "--" : visits.length} description={admin ? "Consultar agenda" : undefined} onClick={works[0] && canConsultAgenda(user, works[0].id, module) ? () => open("agenda") : undefined} />;
   const profilesCard = <Metric label={admin ? "Perfis cadastrados" : "Relatórios publicados"} value={admin ? activeAccountCount ?? "--" : published.length} description={admin ? "Consultar perfis" : undefined} onClick={() => open(admin ? "settings" : "report")} />;
-  const catalogsCard = <Metric label={admin ? "Roteiros disponíveis" : user.role === "engineering" ? "Auditorias consultáveis" : "Rascunhos próprios"} value={admin ? 3 : user.role === "engineering" ? audits.length : ownDrafts.length} description={admin ? "Consultar roteiros" : undefined} onClick={() => open(admin ? "criteria" : "audits")} />;
+  const catalogsCard = <Metric label={admin ? "Roteiros disponíveis" : user.role === "engineering" ? "Auditorias consultáveis" : "Rascunhos próprios"} value={admin ? user.modules.includes("safety") ? 1 + (user.modules.includes("quality") ? 2 : 0) : 2 : user.role === "engineering" ? audits.length : ownDrafts.length} description={admin ? "Consultar roteiros" : undefined} onClick={() => open(admin ? "criteria" : "audits")} />;
   return <>
     <div className="page-intro"><div><h2>{admin ? "Painel administrativo" : "Visão geral"}</h2>{!admin && <p className="muted">{`${moduleLabels[module]} · ${roleLabels[user.role]}${user.activity === "coordination" ? " / Coordenação" : user.activity === "site-team" ? " / Equipe da obra" : ""}`}</p>}</div>{!admin && works[0] && canStartAudit(user, works[0].id, module === "safety" ? "security-it07-r02" : "quality-f175") && <button className="primary" type="button" onClick={() => open("new")}><Icon name="plus" />Nova auditoria</button>}</div>
     <div className={`stats-grid${admin ? " stats-grid-admin" : ""}`}>
-      {admin ? <>{agendaCard}{worksCard}{catalogsCard}{profilesCard}</> : <>{worksCard}{agendaCard}{profilesCard}{catalogsCard}</>}
+      {admin ? <>{agendaCard}{worksCard}{catalogsCard}{generalAdministrator && profilesCard}</> : <>{worksCard}{agendaCard}{profilesCard}{catalogsCard}</>}
     </div>
     {admin && <AdminFindings />}
     <div className="overview-grid">
-      {admin ? <AdminMonthlyRanking /> : module === "safety" ? <WorkRanking works={works} audits={audits} onViewWorks={() => open("works")} /> : <section className="panel"><span className="section-label">QUALIDADE</span><h3>Roteiros independentes</h3><p className="muted">F.175/00: 10 quesitos. F.176/00: 23 quesitos. Pesos e critérios disponíveis nos roteiros; cálculo automático e Farol em preparação.</p><button className="secondary" type="button" onClick={() => open("criteria")}>Consultar roteiros</button></section>}
-      {admin ? <AdminVisitCalendar visits={visits} works={works} onViewAgenda={() => open("agenda")} /> : <section className="panel"><div className="panel-heading"><div><span className="section-label">REGISTROS AUTORIZADOS</span><h3>Auditorias recentes</h3></div><span className="icon-tile"><Icon name="calendar" /></span></div>
+      {admin ? <AdminMonthlyRanking modules={user.modules} /> : module === "safety" ? <WorkRanking works={works} audits={audits} onViewWorks={() => open("works")} /> : <section className="panel"><span className="section-label">QUALIDADE</span><h3>Roteiros independentes</h3><p className="muted">F.175/00: 10 quesitos. F.176/00: 23 quesitos. Pesos e critérios disponíveis nos roteiros; cálculo automático e Farol em preparação.</p><button className="secondary" type="button" onClick={() => open("criteria")}>Consultar roteiros</button></section>}
+      {admin ? <AdminVisitCalendar visits={visits} works={works} auditors={auditors} viewerId={user.id} onViewAgenda={() => open("agenda")} /> : <section className="panel"><div className="panel-heading"><div><span className="section-label">REGISTROS AUTORIZADOS</span><h3>Auditorias recentes</h3></div><span className="icon-tile"><Icon name="calendar" /></span></div>
         {[...audits].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 3).map((audit) => <div className="visit-card" key={audit.id}><div className="visit-info"><strong>{auditModelLabels[audit.modelId].name}</strong><small>{formatAuditDate(audit.date)} · {auditVersionLabel(audit)}</small></div><span className="badge">{audit.status}</span></div>)}
         {audits.length === 0 && <p className={styles.empty}>Nenhum registro disponível neste contexto.</p>}
         <button className="text-button panel-link" type="button" onClick={() => open("audits")}>Consultar auditorias<Icon name="arrow" /></button>
@@ -72,7 +72,7 @@ export function DeferredScreen({ kind }: { kind: keyof typeof deferred }) {
 
 export function AdministrativePanel({ accessContent, worksContent }: { accessContent?: ReactNode; worksContent?: ReactNode }) {
   const [tab, setTab] = useState("users");
-  const entries = [["users", "Usuários e acessos"], ["works", "Obras para autorização"], ["history", "Histórico de manutenção"]];
+  const entries = [["users", "Usuários e acessos"], ["works", "Cadastro de obras"], ["history", "Histórico de manutenção"]];
   return <><div className="page-intro"><div><h2>Administração</h2></div></div><nav className="subnav" aria-label="Manutenção administrativa">{entries.map(([id, label]) => <button className={`subnav-item${id === tab ? " active" : ""}`} key={id} type="button" onClick={() => setTab(id)}>{label}</button>)}</nav>
     {tab === "users" ? accessContent : tab === "works" ? worksContent : <MaintenanceHistory />}
   </>;

@@ -12,7 +12,7 @@ export async function selectProfileAction(form: FormData): Promise<void> {
   if (!account) redirect("/aguardando-liberacao");
   const context = validateProfileSelectionContext(form, account, user.id);
   if (!context) redirect("/escolher-perfil?erro=perfil");
-  await writeActiveProfileChoice(user.id, context.profile, context.engineeringScope);
+  await writeActiveProfileChoice(user.id, context.profile, context.engineeringScope, context.administrativeScope);
   revalidatePath("/", "layout");
   redirect("/app");
 }

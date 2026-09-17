@@ -6,7 +6,7 @@ import { roleLabels, moduleLabels, modelModule, canAccessWorkModule, canAccessMo
 import { beginWorkspacePreviewAudit, updatePrototypeResponse, updatePrototypeAuditDate, criteriaForAudit, modelDisplayName, type PrototypeAuditState } from "@/domain/prototype-audits";
 import type { ProfileWorkspaceContext } from "@/lib/access/workspace-context";
 import { unavailableAgenda, type AgendaActionResult, type AgendaSnapshot } from "@/lib/agenda/contracts";
-import { createAgendaVisitAction, rescheduleAgendaVisitAction, confirmAgendaVisitAction } from "@/app/agenda/actions";
+import { createAgendaVisitAction, deleteAgendaVisitAction, confirmAgendaVisitAction } from "@/app/agenda/actions";
 import { catalogVersion, unavailableCatalogs, type CatalogSnapshot } from "@/lib/catalogs/contracts";
 import { refreshCatalogsAction } from "@/app/catalogs/actions";
 import { Catalog, NewAudit } from "./audit-workspace";
@@ -45,7 +45,7 @@ function ProfileWorkspace({ context, initialScreen, initialVisitId, initialAgend
   const [startingAudit, setStartingAudit] = useState(false);
   const startingRef = useRef(false);
   const [session, setSession] = useState<PrototypeAuditState>({ audits: [], responses: {} });
-  const { agenda, agendaSyncError, mutationPending, runAgendaAction } = useAgenda(initialAgenda, user.id, context.profile, context.engineeringScope);
+  const { agenda, agendaSyncError, mutationPending, runAgendaAction } = useAgenda(initialAgenda, user.id, context.profile, context.engineeringScope, context.administrativeScope);
   const visits = agenda.visits;
   const [activeAuditId, setActiveAuditId] = useState<string | null>(null);
   const [positions, setPositions] = useState<Record<string, number>>({});
@@ -59,6 +59,7 @@ function ProfileWorkspace({ context, initialScreen, initialVisitId, initialAgend
   const availableWorks = context.works.filter((work) => auditModule && canAccessWorkModule(user, work.id, auditModule));
   const work = availableWorks.find((entry) => entry.id === selectedWorkId) ?? availableWorks[0];
   const isAdmin = user.role === "administrative";
+  const isGeneralAdmin = isAdmin && context.administrativeScope === "GERAL";
   const catalogModules = isAdmin ? availableModules : auditModule ? [auditModule] : [];
   const modelIds = (["security-it07-r02", "quality-f175", "quality-f176"] as const).filter((id) => catalogModules.includes(modelModule(id)));
   const currentCatalogId = modelIds.includes(catalogId) ? catalogId : modelIds[0];
@@ -81,7 +82,7 @@ function ProfileWorkspace({ context, initialScreen, initialVisitId, initialAgend
     ...(currentCatalogId ? [{ key: "criteria", label: isAdmin ? "Roteiros e versões" : "Roteiros", icon: "book" as const }] : []),
     ...(canDocuments ? [{ key: "report", label: "Relatórios", icon: "report" as const }, { key: "occurrences", label: "Apontamentos", icon: "occurrences" as const }, { key: "plans", label: "Planos de ação", icon: "check" as const }] : []),
     ...(canDocuments && auditModule === "safety" ? [{ key: "committee", label: "Comitê", icon: "calendar" as const }] : []),
-    ...(isAdmin ? [{ key: "settings", label: "Administração", icon: "settings" as const }] : []),
+    ...(isGeneralAdmin ? [{ key: "settings", label: "Administração", icon: "settings" as const }] : []),
   ];
   const allowed = new Set([...nav.map((item) => item.key), ...(canStart ? ["new", "fill", "discussion", "publication"] : []), ...(activeAudit && canReadAudit(user, activeAudit) ? ["fill"] : [])]);
   const currentScreen = allowed.has(screen) ? screen : "overview";
@@ -109,7 +110,7 @@ function ProfileWorkspace({ context, initialScreen, initialVisitId, initialAgend
     try {
       if (!work || modelModule(modelId) !== auditModule || !canAccessWorkModule(user, work.id, modelModule(modelId))) throw new Error("Selecione uma obra e um modelo autorizados.");
       const existing = visit && session.audits.find((audit) => audit.visitId === visit.id);
-      const latest = existing ? catalogs : await refreshCatalogsAction({ userId: user.id, profile: context.profile, engineeringScope: context.engineeringScope });
+      const latest = existing ? catalogs : await refreshCatalogsAction({ userId: user.id, profile: context.profile, engineeringScope: context.engineeringScope, administrativeScope: context.administrativeScope });
       if (!existing && !latest.available && !latest.setupPending) throw new Error("Não foi possível conferir a revisão atual. Tente novamente antes de iniciar a auditoria.");
       if (latest.available) setCatalogs(latest);
       const result = beginWorkspacePreviewAudit(session, user, { id: `PREVIA-${newRequestId()}`, work, modelId, date, visit, catalogRevision: catalogVersion(latest, modelId) });
@@ -117,10 +118,10 @@ function ProfileWorkspace({ context, initialScreen, initialVisitId, initialAgend
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Não foi possível iniciar a auditoria."); }
     finally { startingRef.current = false; setStartingAudit(false); }
   };
-  const agendaActor = { userId: user.id, profile: context.profile, engineeringScope: context.engineeringScope ?? null };
+  const agendaActor = { userId: user.id, profile: context.profile, engineeringScope: context.engineeringScope ?? null, administrativeScope: context.administrativeScope };
   const agendaActions = {
     onCreate: (input: VisitInput) => runAgendaAction("create", input, (requestId) => createAgendaVisitAction({ ...input, requestId }, agendaActor)),
-    onReschedule: (visitId: string, change: { expectedRevision: number; date: string; note: string }) => runAgendaAction(`reschedule:${visitId}`, { visitId, ...change }, (requestId) => rescheduleAgendaVisitAction({ visitId, ...change, requestId }, agendaActor)),
+    onDelete: (visitId: string, expectedRevision: number) => runAgendaAction(`delete:${visitId}`, { visitId, expectedRevision }, (requestId) => deleteAgendaVisitAction({ visitId, expectedRevision, requestId }, agendaActor)),
     onConfirm: (visitId: string, expectedRevision: number) => runAgendaAction(`confirm:${visitId}`, { visitId, expectedRevision }, (requestId) => confirmAgendaVisitAction({ visitId, expectedRevision, requestId }, agendaActor)),
   };
   const auditNav = ["audits", "new", "fill", "discussion", "publication"].includes(currentScreen);
@@ -128,12 +129,12 @@ function ProfileWorkspace({ context, initialScreen, initialVisitId, initialAgend
 
   return <div className="app-shell">
     <a className="skip-link" href="#main-content">Ir para o conteúdo</a>
-    {isAdmin ? <AdministrativeHeader name={user.name} notifications={agenda.notifications} onNavigateAgenda={navigateAgenda} /> : <header className="site-header"><div className="header-inner"><div className="header-main">
+    {isAdmin ? <AdministrativeHeader name={user.name} userId={user.id} scope={context.administrativeScope} notifications={agenda.notifications} onNavigateAgenda={navigateAgenda} /> : <header className="site-header"><div className="header-inner"><div className="header-main">
       <div className="brand"><DialogoLogo /></div>
       <div className="header-title"><h1>Auditorias de obra</h1><p>Gestão de segurança e qualidade</p><span className="context-pill">{auditModule ? moduleLabels[auditModule].toLocaleUpperCase("pt-BR") : "MEU PERFIL"}</span></div>
       <div className={styles.session}>
           <div className={`summary-item ${styles.userCard}`}><span>USUÁRIO</span><strong>{user.name}</strong></div>
-          <div className={styles.sessionActions}><AdminNotifications items={agenda.notifications} onNavigateAgenda={navigateAgenda} /><a href="/escolher-perfil">Trocar perfil</a><a href="/minha-conta">Meus acessos</a><LogoutButton /></div>
+          <div className={styles.sessionActions}><AdminNotifications items={agenda.notifications} userId={user.id} onNavigateAgenda={navigateAgenda} /><a href="/escolher-perfil">Trocar perfil</a><a href="/minha-conta">Meus acessos</a><LogoutButton /></div>
       </div>
     </div><div className="header-summary"><div className="summary-item"><span>OBRA NO CONTEXTO</span><strong>{work?.name ?? "Sem obra autorizada"}</strong></div><div className="summary-item"><span>MÓDULO</span><strong>{auditModule ? moduleLabels[auditModule] : "Sem módulo autorizado"}</strong></div><div className="summary-item"><span>ACESSO</span><strong>{profileLabel}</strong></div></div></div></header>}
     <div className="navigation-bar"><nav className="main-navigation" aria-label="Navegação principal">{nav.map(({ key, label, icon }) => <button type="button" key={key} className={`nav-item${currentScreen === key || (key === "audits" && auditNav) ? " active" : ""}`} aria-current={currentScreen === key ? "page" : undefined} onClick={() => navigate(key)}><Icon name={icon} /><span>{label}</span></button>)}</nav></div>
@@ -141,9 +142,9 @@ function ProfileWorkspace({ context, initialScreen, initialVisitId, initialAgend
       {!isAdminOverview && !isAdminAgenda && !isAdminWorks && !isAdminCatalog && !isAdminSettings && <div className={styles.context} aria-label="Contexto autorizado"><label>{isAdmin ? "Disciplina da agenda" : "Módulo"}<select value={auditModule ?? ""} disabled={!availableModules.length} onChange={(event) => { const next = event.target.value as AppModule; if (canAccessModule(user, next)) { setSelectedModule(next); changeContext(); } }}>{!availableModules.length && <option value="">Nenhum módulo autorizado</option>}{availableModules.map((id) => <option value={id} key={id}>{moduleLabels[id]}</option>)}</select></label><label>Obra no contexto<select value={work?.id ?? ""} disabled={!availableWorks.length} onChange={(event) => { if (auditModule && canAccessWorkModule(user, event.target.value, auditModule)) { setSelectedWorkId(event.target.value); changeContext(); } }}>{!availableWorks.length && <option value="">Nenhuma obra autorizada</option>}{availableWorks.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label></div>}
       {error && <p role="alert" className={styles.error}>{error}</p>}
       {auditNav && <nav className="subnav" aria-label="Seções de auditorias"><button className={`subnav-item${currentScreen === "audits" ? " active" : ""}`} type="button" onClick={() => navigate("audits")}>Histórico e rascunhos</button>{canStart && <><button className={`subnav-item${currentScreen === "new" ? " active" : ""}`} type="button" onClick={() => navigate("new")}>Nova auditoria</button>{activeAudit && <button className={`subnav-item${currentScreen === "fill" ? " active" : ""}`} type="button" onClick={() => navigate("fill")}>Preenchimento</button>}<button className="subnav-item" type="button" onClick={() => navigate("discussion")}>Fechamento</button><button className="subnav-item" type="button" onClick={() => navigate("publication")}>Conferência e publicação</button></>}</nav>}
-      {currentScreen === "overview" && (auditModule ? <PrototypeDashboard user={user} module={auditModule} works={isAdminOverview ? context.works : availableWorks} audits={isAdminOverview ? session.audits.filter((audit) => canReadAudit(user, audit)) : moduleAudits} visits={isAdminOverview ? visits.filter((visit) => canReadVisit(user, visit)) : contextualVisits} activeAccountCount={activeAccountCount} open={navigate} /> : <section className="panel"><h2>Visão geral</h2><p className="muted">Este perfil ainda não tem obras e módulos autorizados. Consulte seus acessos ou solicite a liberação ao Administrativo.</p></section>)}
-      {currentScreen === "works" && <Works works={isAdmin ? context.works : availableWorks} canManage={isAdmin} />}
-      {currentScreen === "settings" && isAdmin && <AdministrativePanel accessContent={administrationContent} worksContent={administrationWorksContent} />}
+      {currentScreen === "overview" && (auditModule ? <PrototypeDashboard user={user} module={auditModule} works={isAdminOverview ? context.works : availableWorks} audits={isAdminOverview ? session.audits.filter((audit) => canReadAudit(user, audit)) : moduleAudits} visits={isAdminOverview ? visits.filter((visit) => canReadVisit(user, visit)) : contextualVisits} auditors={isAdminOverview ? agenda.auditors : []} activeAccountCount={activeAccountCount} generalAdministrator={isGeneralAdmin} open={navigate} /> : <section className="panel"><h2>Visão geral</h2><p className="muted">Este perfil ainda não tem obras e módulos autorizados. Consulte seus acessos ou solicite a liberação ao Administrativo.</p></section>)}
+      {currentScreen === "works" && <Works works={isAdmin ? context.works : availableWorks} canManage={isGeneralAdmin} />}
+      {currentScreen === "settings" && isGeneralAdmin && <AdministrativePanel accessContent={administrationContent} worksContent={administrationWorksContent} />}
       {currentScreen === "criteria" && currentCatalogId && <Catalog model={currentModelName} setModel={(name) => { const id = modelIds.find((entry) => modelDisplayName(entry) === name); if (id) { setCatalogId(id); setCatalogQuery(""); } }} query={catalogQuery} setQuery={setCatalogQuery} criteria={criteria} showItemList={!isAdmin} allowedModels={modelIds.map(modelDisplayName)} showWeights={canReadTechnicalWeights(user, modelModule(currentCatalogId))} showReferenceDocuments={isAdmin} catalogs={catalogs} actorId={isAdmin ? user.id : undefined} onCatalogsSaved={isAdmin ? setCatalogs : undefined} />}
       {currentScreen === "audits" && <AuditList user={user} works={availableWorks} audits={contextualAudits} onOpen={openAudit} onNew={canStart ? () => navigate("new") : undefined} />}
       {isAdminAgenda && auditModule && <VisitAgenda key={user.id} user={user} works={context.works} users={agenda.auditors} visits={visits} module={auditModule} workId={work?.id ?? ""} available={agenda.available} mutationPending={mutationPending || startingAudit} syncError={agendaSyncError} {...agendaActions} onStartAudit={(visit) => { if (visit.kind === "audit" && visit.modelId) void startAudit(visit.modelId, visit.date, visit); }} />}
@@ -178,7 +179,7 @@ function isAgendaSnapshot(value: unknown): value is AgendaSnapshot {
     && Array.isArray(candidate.auditors) && Array.isArray(candidate.notifications);
 }
 
-function useAgenda(initialAgenda: AgendaSnapshot, userId: string, profile: ProfileWorkspaceContext["profile"], engineeringScope: ProfileWorkspaceContext["engineeringScope"]) {
+function useAgenda(initialAgenda: AgendaSnapshot, userId: string, profile: ProfileWorkspaceContext["profile"], engineeringScope: ProfileWorkspaceContext["engineeringScope"], administrativeScope: ProfileWorkspaceContext["administrativeScope"]) {
   const [agenda, setAgenda] = useState(initialAgenda);
   const [agendaSyncError, setAgendaSyncError] = useState("");
   const [mutationPending, setMutationPending] = useState(false);
@@ -190,7 +191,7 @@ function useAgenda(initialAgenda: AgendaSnapshot, userId: string, profile: Profi
   useEffect(() => {
     mountedRef.current = true;
     let controller: AbortController | null = null;
-    const query = new URLSearchParams({ usuario: userId, perfil: profile, atuacao: engineeringScope ?? "" });
+    const query = new URLSearchParams({ usuario: userId, perfil: profile, atuacao: engineeringScope ?? "", administrativo: administrativeScope ?? "" });
     const refreshAgenda = async () => {
       if (document.visibilityState !== "visible" || controller || mutationRef.current) return;
       const request = new AbortController();
@@ -236,7 +237,7 @@ function useAgenda(initialAgenda: AgendaSnapshot, userId: string, profile: Profi
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [userId, profile, engineeringScope]);
+  }, [userId, profile, engineeringScope, administrativeScope]);
 
   const runAgendaAction = async (operation: string, payload: object, action: (requestId: string) => Promise<AgendaActionResult>): Promise<AgendaActionResult> => {
     if (mutationRef.current) return { status: "error", message: "Aguarde a operação de agenda em andamento." };

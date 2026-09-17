@@ -1,5 +1,7 @@
 # Matriz canônica de acessos — escopo revisado
 
+**Decisão posterior de 17/09/2026:** o perfil Administrativo passa a ter uma atuação por conta: Segurança, Qualidade ou Geral. Segurança e Qualidade acessam somente a disciplina correspondente; Geral acessa os dois módulos e administra usuários, obras e manutenção da plataforma. A migration B.14 está preparada localmente e ainda não foi aplicada ao Supabase compartilhado. As matrizes históricas abaixo permanecem como transcrição do escopo original.
+
 Data: 12/09/2026. Fonte: [escopo revisado](../PROMPT_DIALOGO_AUDITORIAS_ESCOPO_REVISADO.md), Parte I, seções 2–4 e 10, e Parte II, seções 03–05, páginas 5–7. Esta matriz substitui, para a evolução do produto, a [matriz antiga](PERMISSOES.md), mantida como histórico.
 
 As tabelas abaixo transcrevem integralmente as células das seções 04 e 05. Descrevem responsabilidades e restrições; não atestam que autenticação, banco, anexos privados ou permissões operacionais estejam implementados. O Bloco A usa somente simulação local, identificada como **“Simulação de perfil — não é autenticação”**.

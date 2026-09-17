@@ -1,5 +1,7 @@
 # Seleção de perfil e prévia das telas — 13/09/2026
 
+**Atualização local de 17/09/2026:** Administrativo agora exibe sua atuação aprovada (Segurança, Qualidade ou Geral). Segurança e Qualidade têm somente os respectivos módulos; Geral mantém ambos e a manutenção da plataforma. A migration B.14 ainda aguarda deploy autorizado. O restante deste documento registra o fluxo e as limitações das etapas anteriores.
+
 Uma conta aprovada com mais de um perfil entra em `/escolher-perfil` após o login. Cada opção corresponde a um perfil atualmente aprovado no banco; Engenharia exibe a atuação aprovada (Equipe da obra ou Coordenação). Uma conta com um único perfil abre `/app` diretamente. O link **Trocar perfil** permite mudar de ambiente sem sair da conta.
 
 A preferência usa cookie HttpOnly de sessão, associado à identidade, SameSite=Lax e Secure em HTTPS. No ambiente local HTTP autorizado, o cookie continua compatível com 127.0.0.1. A preferência não concede permissões: cada entrada protegida verifica Auth, aprovação/atividade, perfis atuais e RLS. Uma preferência de outra identidade, inválida ou revogada não seleciona perfil. Login e logout bem-sucedidos apagam a escolha anterior. Administração exige perfil Administrativo selecionado e a verificação administrativa independente no banco.

@@ -8,7 +8,7 @@ import type { AccessGrant } from "./contracts";
 /** Caller must have a verified current account and a currently granted selection.
  * Read through the user's session/RLS; never a privileged service client.
  */
-export async function readWorkspaceContext({ user, account, profile, engineeringScope }: Awaited<ReturnType<typeof requireActiveProfile>>) {
+export async function readWorkspaceContext({ user, account, profile, engineeringScope, administrativeScope }: Awaited<ReturnType<typeof requireActiveProfile>>) {
   try {
     const client = await createClient();
     const request = await ownAccessRequest(user.id);
@@ -30,7 +30,7 @@ export async function readWorkspaceContext({ user, account, profile, engineering
       works = result.data as WorkspaceWork[];
     }
     // Only the selected profile's work/module pairs are serialized to the UI.
-    return buildWorkspaceContext({ account, profile, engineeringScope, identity: { id: user.id, name: request.nome, email: user.email! }, works, grants });
+    return buildWorkspaceContext({ account, profile, engineeringScope, administrativeScope, identity: { id: user.id, name: request.nome, email: user.email! }, works, grants });
   } catch { return null; }
 }
 

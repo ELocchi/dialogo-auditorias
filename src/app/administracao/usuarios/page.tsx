@@ -16,7 +16,7 @@ export default async function AccessAdministrationPage({ searchParams }: { searc
     ? ownRequest.nome : user.email ?? "Usuário";
   return <div className={styles.shell}>
     <a className="skip-link" href="#access-content">Ir para usuários e acessos</a>
-    <AdministrativeHeader name={name} />
+    <AdministrativeHeader name={name} userId={user.id} />
     <main id="access-content" className={styles.main} tabIndex={-1}>
       <Link className={styles.backLink} href="/app?secao=administracao">Voltar à Administração</Link>
       <AccessAdministration pendingPage={parsePage(query.pendentes)} historyPage={parsePage(query.historico)} />

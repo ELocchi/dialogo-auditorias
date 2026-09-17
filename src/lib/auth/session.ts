@@ -47,8 +47,8 @@ export async function requireActiveProfile() {
 }
 
 export async function requireAdministrator() {
-  const { user, profile } = await requireActiveProfile();
-  if (profile !== "ADMINISTRATIVO") redirect("/app");
+  const { user, profile, administrativeScope } = await requireActiveProfile();
+  if (profile !== "ADMINISTRATIVO" || administrativeScope !== "GERAL") redirect("/app");
   // Also ask the database helper; it checks the current Auth/account state.
   let authorized = false;
   try {

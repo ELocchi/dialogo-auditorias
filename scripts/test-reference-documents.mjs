@@ -26,9 +26,9 @@ function reset(profile = "ADMINISTRATIVO", scope = null) {
   state = {
     user: { id: userId, email: "reference.fixture@dialogo.com.br", email_confirmed_at: "2026-09-16T12:00:00Z" },
     account: { auth_user_id: userId, perfil: "ADMINISTRATIVO", perfis: ["ADMINISTRATIVO", "AUDITOR_SEGURANCA", "AUDITOR_QUALIDADE", "ENGENHARIA"],
-      atuacao_engenharia: "EQUIPE_OBRA", atuacoes_engenharia: ["EQUIPE_OBRA", "COORDENACAO"], ativo: true, approved_at: "2026-09-16T12:00:00Z" },
+      atuacao_engenharia: "EQUIPE_OBRA", atuacoes_engenharia: ["EQUIPE_OBRA", "COORDENACAO"], atuacao_administrativa: "GERAL", ativo: true, approved_at: "2026-09-16T12:00:00Z" },
     requestStatus: "APROVADO", active: true, administrator: true, administratorError: null, authError: null,
-    cookies: [{ value: encodeActiveProfileChoice(userId, profile, scope) }],
+    cookies: [{ value: encodeActiveProfileChoice(userId, profile, scope, profile === "ADMINISTRATIVO" ? "GERAL" : null) }],
     fileReads: [], rpcCalls: [], calls: [], fsError: false,
   };
   state.cookieStore = { getAll(name) { assert.equal(name, activeProfileCookieName); return state.cookies; } };
@@ -129,7 +129,7 @@ test("Missing, duplicate or wrong-user cookie and removed Administrative members
   for (const mutate of [
     (s) => { s.cookies = []; },
     (s) => { s.cookies.push({ value: encodeActiveProfileChoice(userId, "AUDITOR_SEGURANCA") }); },
-    (s) => { s.cookies = [{ value: encodeActiveProfileChoice(otherId, "ADMINISTRATIVO") }]; },
+    (s) => { s.cookies = [{ value: encodeActiveProfileChoice(otherId, "ADMINISTRATIVO", null, "GERAL") }]; },
     (s) => { s.account.perfis = ["AUDITOR_SEGURANCA", "AUDITOR_QUALIDADE", "ENGENHARIA"]; s.account.perfil = "AUDITOR_SEGURANCA"; },
   ]) {
     reset(); mutate(state); await assertDenied(await load(), 403);
@@ -168,6 +168,16 @@ test("Each Administrative PDF request returns exactly its private file with inli
     assert.ok(state.calls.indexOf("is_current_access_administrator") < state.calls.indexOf("readFile"));
     assert.ok(!response.headers.has("Access-Control-Allow-Origin"));
   }
+});
+
+test("A General administrator's selected discipline limits reference documents in that view", async () => {
+  reset(); state.cookies = [{ value: encodeActiveProfileChoice(userId, "ADMINISTRATIVO", null, "SEGURANCA") }];
+  await assertDenied(await load("quality-f175"), 403);
+  assert.equal(state.fileReads.length, 0);
+  assert.equal((await load("security-it07-r02")).status, 200);
+  reset(); state.cookies = [{ value: encodeActiveProfileChoice(userId, "ADMINISTRATIVO", null, "QUALIDADE") }];
+  await assertDenied(await load("security-it07-r02"), 403);
+  assert.equal((await load("quality-f175")).status, 200);
 });
 
 test("Original downloads preserve the source PDF/DOCX per model and require the same Administrative authorization", async () => {

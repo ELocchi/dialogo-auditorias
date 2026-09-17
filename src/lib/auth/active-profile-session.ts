@@ -1,7 +1,7 @@
 import "server-only";
 
 import { cookies } from "next/headers";
-import type { AccessProfile, EngineeringScope } from "../access/contracts.ts";
+import type { AccessProfile, AdministrativeScope, EngineeringScope } from "../access/contracts.ts";
 import type { EffectiveAccount } from "./effective-access.ts";
 import { activeProfileCookieName, encodeActiveProfileChoice, resolveActiveProfileContext } from "./active-profile.ts";
 import { confirmationCallbackUrl } from "./site-url.ts";
@@ -25,8 +25,8 @@ export async function readActiveProfileContext(userId: string, account: Effectiv
 }
 
 // Call only after the Server Action checks current account membership.
-export async function writeActiveProfileChoice(userId: string, profile: AccessProfile, engineeringScope: EngineeringScope | null = null) {
-  (await cookies()).set(activeProfileCookieName, encodeActiveProfileChoice(userId, profile, engineeringScope), preferenceOptions());
+export async function writeActiveProfileChoice(userId: string, profile: AccessProfile, engineeringScope: EngineeringScope | null = null, administrativeScope: AdministrativeScope | null = null) {
+  (await cookies()).set(activeProfileCookieName, encodeActiveProfileChoice(userId, profile, engineeringScope, administrativeScope), preferenceOptions());
 }
 
 export async function clearActiveProfileChoice() {

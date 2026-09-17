@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseCreateAgendaVisit, parseConfirmAgendaVisit, parseRescheduleAgendaVisit, readAgendaSnapshot, createAgendaVisit, rescheduleAgendaVisit, confirmAgendaVisit } from '../src/lib/agenda/service.ts';
+import { parseCreateAgendaVisit, parseConfirmAgendaVisit, readAgendaSnapshot, createAgendaVisit, deleteAgendaVisit, confirmAgendaVisit } from '../src/lib/agenda/service.ts';
 
 // Offline fixtures only. No environment, database, real identity or notification.
 const adminId = '10000000-0000-4000-8000-000000000001';
@@ -12,7 +12,6 @@ const requestId = '40000000-0000-4000-8000-000000000001';
 const creation = { requestId, workId, auditorId, module: 'safety', kind: 'audit', modelId: 'security-it07-r02', date: '2030-02-20', note: 'Observação' };
 const followUp = { ...creation, kind: 'follow_up', modelId: null };
 const confirmation = { requestId, visitId, expectedRevision: 1 };
-const rescheduling = { ...confirmation, date: '2030-03-01', note: 'Nova data' };
 const visit = { id: visitId, workId, auditorId, module: 'safety', kind: 'audit', modelId: 'security-it07-r02', date: '2030-02-20', note: '',
   createdBy: adminId, createdAt: '2030-02-01T12:00:00+00:00', history: [], revision: 1,
   confirmationStatus: 'pending_confirmation', confirmedAt: null, auditorName: 'Auditor de teste', createdByName: 'Administrativo de teste' };
@@ -31,6 +30,7 @@ function fixture({ visits = [visit], auditors = [], error = null, mutationData =
     calls.push({ name, params: structuredClone(params) });
     if (throws) throw new Error('private provider diagnostic');
     if (name === 'confirm_audit_visit' && !error) currentVisits = postConfirmationVisits ?? currentVisits.map((entry) => ({ ...entry, confirmationStatus: 'confirmed', confirmedAt: '2030-02-02T12:00:00Z' }));
+    if (name === 'delete_audit_visit' && !error) currentVisits = currentVisits.filter((entry) => entry.id !== params.p_visit_id);
     return name === 'read_audit_agenda' ? { data: { visits: currentVisits, auditors }, error: readError } : { data: mutationData, error };
   } } };
 }
@@ -46,13 +46,11 @@ test('creation validates exact fields, real dates, discipline/model and canonica
   }
 });
 
-test('confirmation/rescheduling accept only a stable request key and integer revision', () => {
+test('confirmation and deletion require a stable request key and integer revision', () => {
   assert.deepEqual(parseConfirmAgendaVisit(confirmation), confirmation);
-  assert.deepEqual(parseRescheduleAgendaVisit(rescheduling), rescheduling);
   for (const rev of [0, -1, 1.5, '1', null, 2147483647]) assert.equal(parseConfirmAgendaVisit({ ...confirmation, expectedRevision: rev }), null);
   assert.equal(parseConfirmAgendaVisit({ ...confirmation, auditorId }), null);
-  assert.equal(parseRescheduleAgendaVisit({ ...rescheduling, date: '2030-13-01' }), null);
-  assert.equal(parseRescheduleAgendaVisit({ ...rescheduling, workId: otherId }), null);
+  assert.equal(parseConfirmAgendaVisit({ ...confirmation, date: '2030-03-01' }), null);
 });
 
 test('snapshot sends selected profile and strips fields outside the public agenda contract', async () => {
@@ -65,6 +63,23 @@ test('snapshot sends selected profile and strips fields outside the public agend
   assert.deepEqual(result.auditors[0].workIds, [workId]);
   assert.deepEqual(f.calls[0].params, { p_profile: 'ADMINISTRATIVO', p_engineering_scope: null });
   assert.equal(result.notifications[0].type, 'visit_scheduled');
+});
+
+test('General administrator discipline views omit visits and auditors from the other module', async () => {
+  const qualityVisit = { ...visit, id: '30000000-0000-4000-8000-000000000002', module: 'quality', modelId: 'quality-f175' };
+  const auditors = [
+    { id: auditorId, name: 'Segurança', role: 'safety-auditor', workModuleScopes: [{ workId, module: 'safety' }] },
+    { id: otherId, name: 'Qualidade', role: 'quality-auditor', workModuleScopes: [{ workId, module: 'quality' }] },
+  ];
+  const safetyContext = context(); safetyContext.administrativeScope = 'SEGURANCA'; safetyContext.user.modules = ['safety'];
+  const qualityContext = context(); qualityContext.administrativeScope = 'QUALIDADE'; qualityContext.user.modules = ['quality'];
+  const f = fixture({ visits: [visit, qualityVisit], auditors });
+  const safety = await readAgendaSnapshot(f.client, safetyContext);
+  const quality = await readAgendaSnapshot(f.client, qualityContext);
+  assert.deepEqual(safety.visits.map((entry) => entry.id), [visitId]);
+  assert.deepEqual(quality.visits.map((entry) => entry.id), [qualityVisit.id]);
+  assert.deepEqual(safety.auditors.map((entry) => entry.id), [auditorId]);
+  assert.deepEqual(quality.auditors.map((entry) => entry.id), [otherId]);
 });
 
 test('auditor bell includes only their pending visits, with a link to the exact visit', async () => {
@@ -143,17 +158,23 @@ test('confirmation is scoped to the currently selected auditor before mutation',
   assert.deepEqual(own.calls[1], { name: 'confirm_audit_visit', params: { p_request_id: requestId, p_visit_id: visitId, p_expected_revision: 1 } });
 });
 
-test('rescheduling preserves optimistic revision and reuses the caller request key', async () => {
+test('only the administrator can delete a current visit, removing its notifications', async () => {
   const f = fixture();
-  assert.equal((await rescheduleAgendaVisit(rescheduling, context(), f.client)).status, 'success');
-  assert.deepEqual(f.calls[0], { name: 'reschedule_audit_visit', params: { p_request_id: requestId, p_visit_id: visitId,
-    p_expected_revision: 1, p_data_prevista: '2030-03-01', p_observacao: 'Nova data' } });
+  const result = await deleteAgendaVisit(confirmation, context(), f.client);
+  assert.equal(result.status, 'success');
+  assert.equal(result.snapshot.visits.length, 0);
+  assert.equal(result.snapshot.notifications.length, 0);
+  assert.deepEqual(f.calls[0], { name: 'delete_audit_visit', params: { p_request_id: requestId, p_visit_id: visitId, p_expected_revision: 1 } });
   const blocked = fixture();
-  assert.equal((await rescheduleAgendaVisit(rescheduling, context('safety-auditor'), blocked.client)).status, 'error');
+  assert.equal((await deleteAgendaVisit(confirmation, context('safety-auditor'), blocked.client)).status, 'error');
   assert.equal(blocked.calls.length, 0);
+  assert.equal((await deleteAgendaVisit(confirmation, context(), f.client)).status, 'success');
+  assert.equal(f.calls.filter((call) => call.name === 'delete_audit_visit').length, 2);
+  const stale = fixture({ error: { code: '40001' } });
+  assert.equal((await deleteAgendaVisit({ ...confirmation, expectedRevision: 2 }, context(), stale.client)).status, 'error');
 });
 
-test('a reschedule committed after confirmation cannot produce a stale confirmed message', async () => {
+test('a concurrent revision change cannot produce a stale confirmed message', async () => {
   const f = fixture({ postConfirmationVisits: [{ ...visit, revision: 2, date: '2030-03-01', history: [
     { previousDate: visit.date, date: '2030-03-01', note: '', changedBy: adminId, changedAt: '2030-02-02T12:00:01Z' },
   ] }] });
@@ -176,4 +197,7 @@ test('conflicts, uncertain writes and provider diagnostics never become fake suc
   const savedReadFailed = fixture({ readError: { code: 'unavailable' } });
   const saved = await createAgendaVisit(creation, context(), savedReadFailed.client);
   assert.equal(saved.status, 'success'); assert.equal(saved.snapshot.available, false); assert.match(saved.message, /Atualize/);
+  const pendingMigration = fixture({ error: { code: 'PGRST202' } });
+  const deletion = await deleteAgendaVisit(confirmation, context(), pendingMigration.client);
+  assert.equal(deletion.status, 'error'); assert.match(deletion.message, /atualização do banco/);
 });

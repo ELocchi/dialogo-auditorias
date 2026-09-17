@@ -1,6 +1,10 @@
 export const accessProfiles = ["ADMINISTRATIVO", "AUDITOR_SEGURANCA", "AUDITOR_QUALIDADE", "ENGENHARIA"] as const;
 export type AccessProfile = typeof accessProfiles[number];
 export type EngineeringScope = "EQUIPE_OBRA" | "COORDENACAO";
+export type AdministrativeScope = "SEGURANCA" | "QUALIDADE" | "GERAL";
+export const administrativeLabels: Record<AdministrativeScope, string> = {
+  SEGURANCA: "Administrativo de Segurança", QUALIDADE: "Administrativo de Qualidade", GERAL: "Administrativo Geral",
+};
 export type AccessModule = "SEGURANCA" | "QUALIDADE";
 
 export const profileLabels: Record<AccessProfile, string> = {
@@ -38,6 +42,7 @@ export type AccessDecision = {
   perfis: AccessProfile[] | null;
   atuacao_engenharia: EngineeringScope | null;
   atuacoes_engenharia: EngineeringScope[] | null;
+  atuacao_administrativa?: AdministrativeScope | null;
   request_snapshot: Partial<PendingRequest> & { status_acesso?: string };
   grants_snapshot: HistoricalGrant[];
   before_access_snapshot: {
@@ -65,6 +70,7 @@ export type ApprovalInput = {
   authUserId: string;
   perfis: AccessProfile[];
   atuacaoEngenharia: EngineeringScope | null;
+  atuacaoAdministrativa: AdministrativeScope | null;
   grants: AccessGrant[];
   reason: string;
 };

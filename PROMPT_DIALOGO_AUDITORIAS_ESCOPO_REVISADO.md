@@ -1,5 +1,7 @@
 # Diálogo Auditorias — prompt de evolução a partir do escopo revisado
 
+> Decisão posterior de 17/09/2026: o reagendamento foi retirado do fluxo operacional. O Administrativo pode excluir agendamentos; as referências a reagendamento abaixo permanecem apenas como registro do escopo original.
+
 ## Como utilizar este arquivo
 
 Coloque este arquivo na raiz de `auditoria-obra`, ao lado de `package.json`, e peça ao agente do VS Code que o leia integralmente. Ele reúne as instruções de execução e, na Parte II, o conteúdo textual completo do escopo revisado, com suas tabelas. Não é necessário depender da leitura do Word pelo agente para acessar esse conteúdo.

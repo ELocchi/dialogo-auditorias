@@ -3,12 +3,12 @@
 import { requireActiveProfile } from "@/lib/auth/session";
 import { readWorkspaceContext } from "@/lib/access/workspace";
 import { createClient } from "@/lib/supabase/server";
-import { confirmAgendaVisit, createAgendaVisit, rescheduleAgendaVisit } from "@/lib/agenda/service";
-import { unavailableAgenda, type AgendaActorContext, type AgendaActionResult, type ConfirmAgendaVisitInput, type CreateAgendaVisitInput, type RescheduleAgendaVisitInput } from "@/lib/agenda/contracts";
+import { confirmAgendaVisit, createAgendaVisit, deleteAgendaVisit } from "@/lib/agenda/service";
+import { unavailableAgenda, type AgendaActorContext, type AgendaActionResult, type ConfirmAgendaVisitInput, type CreateAgendaVisitInput, type DeleteAgendaVisitInput } from "@/lib/agenda/contracts";
 
 async function execute(operation: typeof createAgendaVisit, input: unknown, expected: AgendaActorContext): Promise<AgendaActionResult> {
   const active = await requireActiveProfile();
-  if (!expected || expected.userId !== active.user.id || expected.profile !== active.profile || expected.engineeringScope !== active.engineeringScope) {
+  if (!expected || expected.userId !== active.user.id || expected.profile !== active.profile || expected.engineeringScope !== active.engineeringScope || expected.administrativeScope !== active.administrativeScope) {
     return { status: "error", message: "O usuário ou perfil mudou. Atualize a página antes de continuar.", snapshot: unavailableAgenda() };
   }
   const context = await readWorkspaceContext(active);
@@ -20,8 +20,8 @@ export async function createAgendaVisitAction(input: CreateAgendaVisitInput, exp
   return execute(createAgendaVisit, input, expected);
 }
 
-export async function rescheduleAgendaVisitAction(input: RescheduleAgendaVisitInput, expected: AgendaActorContext): Promise<AgendaActionResult> {
-  return execute(rescheduleAgendaVisit, input, expected);
+export async function deleteAgendaVisitAction(input: DeleteAgendaVisitInput, expected: AgendaActorContext): Promise<AgendaActionResult> {
+  return execute(deleteAgendaVisit, input, expected);
 }
 
 export async function confirmAgendaVisitAction(input: ConfirmAgendaVisitInput, expected: AgendaActorContext): Promise<AgendaActionResult> {

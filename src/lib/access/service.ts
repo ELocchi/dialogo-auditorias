@@ -13,11 +13,12 @@ export async function approveRequest(form: FormData, deps: Dependencies): Promis
   if (validated.data.authUserId === deps.actorId.toLowerCase()) return failed("Você não pode aprovar sua própria solicitação.");
   try {
     const client = await deps.createClient();
-    const { authUserId, perfis, atuacaoEngenharia, grants, reason } = validated.data;
-    const { data, error } = await client.rpc("approve_access_request_v2", {
+    const { authUserId, perfis, atuacaoEngenharia, atuacaoAdministrativa, grants, reason } = validated.data;
+    const { data, error } = await client.rpc("approve_access_request_v3", {
       p_auth_user_id: authUserId,
       p_perfis: perfis,
       p_atuacao_engenharia: atuacaoEngenharia,
+      p_atuacao_administrativa: atuacaoAdministrativa,
       p_grants: grants,
       p_reason: reason,
     });

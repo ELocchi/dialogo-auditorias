@@ -30,7 +30,6 @@ export function WorkForm({ activeProfiles }: { activeProfiles: ActiveTeamProfile
 
   return <form method="post" onSubmit={submit} aria-busy={pending} className={styles.form}>
     <input type="hidden" name="equipe_obra" value={JSON.stringify(team.map(({ nome, funcao }) => ({ nome, funcao })))} />
-    <p className={styles.help}>Preencha os dados disponíveis. Somente o nome da obra é obrigatório; os demais dados podem ser incluídos agora ou depois, na edição.</p>
     <fieldset disabled={pending} className={styles.group}>
       <legend>Identificação</legend>
       <div className={styles.identification}>

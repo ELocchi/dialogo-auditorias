@@ -15,6 +15,7 @@ export async function readCatalogSnapshot(client: Client, context: ProfileWorksp
     const allowed = catalogModelIds.filter((id) => context.user.modules.includes(modelModule(id)));
     const versions: CatalogVersion[] = [];
     for (const raw of data) {
+      if (context.profile === "ADMINISTRATIVO" && isRecord(raw) && isModel(raw.modelId) && !allowed.includes(raw.modelId)) continue;
       if (!isRecord(raw) || !isUuid(raw.id) || !isModel(raw.modelId) || !allowed.includes(raw.modelId)
         || !Number.isInteger(raw.version) || Number(raw.version) < 1 || Number(raw.version) > 2147483647
         || !validText(raw.label, 80) || !raw.label.trim() || !validText(raw.changeNote, 2000)
@@ -43,6 +44,7 @@ export async function saveCatalogRevision(form: FormData, context: ProfileWorksp
   if (context.profile !== "ADMINISTRATIVO" || context.user.role !== "administrative") return failure("Somente o Administrativo pode editar os roteiros.");
   const value = parseRevisionForm(form);
   if (!value || value.actorId !== context.user.id) return failure("Confira os campos e o usuário antes de salvar a revisão.");
+  if (!context.user.modules.includes(modelModule(value.modelId))) return failure("Este roteiro não pertence à disciplina selecionada.");
   let pdf, original;
   try {
     pdf = await parseUpload(form.get("pdf"), "pdf");

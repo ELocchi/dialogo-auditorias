@@ -6,7 +6,7 @@ import { readActiveProfile } from "@/lib/auth/active-profile-session";
 import { AuthShell } from "../components/auth/AuthShell";
 import { LogoutButton } from "../components/auth/LogoutButton";
 import { AccessGrants } from "../components/access/AccessGrants";
-import { engineeringLabels, profileLabels, type HistoricalGrant } from "@/lib/access/contracts";
+import { administrativeLabels, engineeringLabels, profileLabels, type HistoricalGrant } from "@/lib/access/contracts";
 import accessStyles from "../administracao/usuarios/access.module.css";
 import styles from "../components/auth/auth.module.css";
 
@@ -28,10 +28,11 @@ export default async function MyAccountPage() {
         <dt>Nome</dt><dd>{request?.nome ?? "—"}</dd>
         <dt>E-mail</dt><dd>{user.email}</dd>
         <dt>Perfis</dt><dd>{account.perfis.map((profile) => profileLabels[profile]).join("; ")}</dd>
+        {account.atuacao_administrativa && <><dt>Atuação administrativa</dt><dd>{administrativeLabels[account.atuacao_administrativa]}</dd></>}
         {account.atuacoes_engenharia.length > 0 && <><dt>Engenharia</dt><dd>{account.atuacoes_engenharia.map((scope) => engineeringLabels[scope]).join("; ")}</dd></>}
       </dl>
       <p><Link href="/app">Abrir painel</Link> · <Link href="/escolher-perfil">Trocar perfil</Link></p>
-      {activeProfile === "ADMINISTRATIVO" && <p><Link href="/app?secao=administracao">Administração → Usuários e acessos</Link></p>}
+      {activeProfile === "ADMINISTRATIVO" && account.atuacao_administrativa === "GERAL" && <p><Link href="/app?secao=administracao">Administração → Usuários e acessos</Link></p>}
       {grants.error ? <p role="status" className={styles.error}>Não foi possível consultar as permissões. Tente novamente mais tarde.</p> :
         <div className={accessStyles.history}>{account.perfis.filter((profile) => profile !== "ADMINISTRATIVO").map((profile) => {
           const profileGrants = scopedGrants.filter((grant) => grant.perfil === profile);

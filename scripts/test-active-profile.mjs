@@ -14,14 +14,14 @@ const user = { id: userId, email: "profile.fixture@dialogo.com.br", email_confir
 const account = {
   auth_user_id: userId, perfil: "ADMINISTRATIVO",
   perfis: ["ADMINISTRATIVO", "AUDITOR_SEGURANCA", "AUDITOR_QUALIDADE", "ENGENHARIA"],
-  atuacao_engenharia: "COORDENACAO", atuacoes_engenharia: ["EQUIPE_OBRA", "COORDENACAO"], ativo: true, approved_at: "2026-09-13T13:00:00Z",
+  atuacao_engenharia: "COORDENACAO", atuacoes_engenharia: ["EQUIPE_OBRA", "COORDENACAO"], atuacao_administrativa: "GERAL", ativo: true, approved_at: "2026-09-13T13:00:00Z",
 };
-const choice = (profile = "ADMINISTRATIVO", identity = userId, scope = profile === "ENGENHARIA" ? "COORDENACAO" : null) => encodeActiveProfileChoice(identity, profile, scope);
+const choice = (profile = "ADMINISTRATIVO", identity = userId, scope = profile === "ENGENHARIA" ? "COORDENACAO" : null, adminScope = profile === "ADMINISTRATIVO" ? "GERAL" : null) => encodeActiveProfileChoice(identity, profile, scope, adminScope);
 function form(...profiles) { const result = new FormData(); for (const profile of profiles) result.append("perfil", profile); return result; }
 
 test("Every authorized profile round-trips as a versioned preference without credentials", () => {
   for (const profile of account.perfis) {
-    assert.deepEqual(parseActiveProfileChoice(choice(profile)), { version: 2, userId, profile, engineeringScope: profile === "ENGENHARIA" ? "COORDENACAO" : null });
+    assert.deepEqual(parseActiveProfileChoice(choice(profile)), { version: 3, userId, profile, engineeringScope: profile === "ENGENHARIA" ? "COORDENACAO" : null, administrativeScope: profile === "ADMINISTRATIVO" ? "GERAL" : null });
     assert.equal(resolveActiveProfile(account, userId, choice(profile)), profile);
   }
 });
@@ -52,12 +52,12 @@ test("Revoked profiles and inactive or missing accounts invalidate an earlier ch
   }
 });
 
-test("A single profile is automatic while multiple profiles require a current choice", () => {
+test("A single view is automatic while General administration requires a choice", () => {
   assert.equal(resolveActiveProfile(account, userId, undefined), null);
   for (const profile of account.perfis) {
     const single = { ...account, perfil: profile, perfis: [profile], atuacao_engenharia: profile === "ENGENHARIA" ? "COORDENACAO" : null, atuacoes_engenharia: profile === "ENGENHARIA" ? ["COORDENACAO"] : [] };
-    assert.equal(resolveActiveProfile(single, userId, undefined), profile);
-    assert.equal(resolveActiveProfile(single, userId, choice("ADMINISTRATIVO", otherId)), profile);
+    assert.equal(resolveActiveProfile(single, userId, undefined), profile === "ADMINISTRATIVO" ? null : profile);
+    assert.equal(resolveActiveProfile(single, userId, choice("ADMINISTRATIVO", otherId)), profile === "ADMINISTRATIVO" ? null : profile);
   }
 });
 
@@ -77,27 +77,47 @@ test("Choosing Engineering cannot modify the approved Engineering scope or suppl
   submitted.set("redirectTo", "https://example.invalid");
   assert.equal(validateProfileSelection(submitted, current, userId), null);
   submitted.set("atuacao_engenharia", "EQUIPE_OBRA");
-  assert.deepEqual(validateProfileSelectionContext(submitted, current, userId), { profile: "ENGENHARIA", engineeringScope: "EQUIPE_OBRA" });
+  assert.deepEqual(validateProfileSelectionContext(submitted, current, userId), { profile: "ENGENHARIA", engineeringScope: "EQUIPE_OBRA", administrativeScope: null });
   assert.equal(current.atuacao_engenharia, "EQUIPE_OBRA");
 });
 
-test("Four profiles and both approved Engineering scopes produce five distinct choices", () => {
+test("General administration and both approved Engineering scopes produce seven distinct choices", () => {
   assert.deepEqual(getProfileContexts(account), [
-    { profile: "ADMINISTRATIVO", engineeringScope: null },
-    { profile: "AUDITOR_SEGURANCA", engineeringScope: null },
-    { profile: "AUDITOR_QUALIDADE", engineeringScope: null },
-    { profile: "ENGENHARIA", engineeringScope: "EQUIPE_OBRA" },
-    { profile: "ENGENHARIA", engineeringScope: "COORDENACAO" },
+    { profile: "ADMINISTRATIVO", engineeringScope: null, administrativeScope: "GERAL" },
+    { profile: "ADMINISTRATIVO", engineeringScope: null, administrativeScope: "SEGURANCA" },
+    { profile: "ADMINISTRATIVO", engineeringScope: null, administrativeScope: "QUALIDADE" },
+    { profile: "AUDITOR_SEGURANCA", engineeringScope: null, administrativeScope: null },
+    { profile: "AUDITOR_QUALIDADE", engineeringScope: null, administrativeScope: null },
+    { profile: "ENGENHARIA", engineeringScope: "EQUIPE_OBRA", administrativeScope: null },
+    { profile: "ENGENHARIA", engineeringScope: "COORDENACAO", administrativeScope: null },
   ]);
   for (const scope of account.atuacoes_engenharia) {
-    assert.deepEqual(resolveActiveProfileContext(account, userId, choice("ENGENHARIA", userId, scope)), { profile: "ENGENHARIA", engineeringScope: scope });
+    assert.deepEqual(resolveActiveProfileContext(account, userId, choice("ENGENHARIA", userId, scope)), { profile: "ENGENHARIA", engineeringScope: scope, administrativeScope: null });
+  }
+});
+
+test("General administrator can select both discipline views, but scoped administrators cannot widen access", () => {
+  for (const scope of ["GERAL", "SEGURANCA", "QUALIDADE"]) {
+    const submitted = form("ADMINISTRATIVO"); submitted.set("atuacao_administrativa", scope);
+    assert.deepEqual(validateProfileSelectionContext(submitted, account, userId),
+      { profile: "ADMINISTRATIVO", engineeringScope: null, administrativeScope: scope });
+    assert.deepEqual(resolveActiveProfileContext(account, userId, choice("ADMINISTRATIVO", userId, null, scope)),
+      { profile: "ADMINISTRATIVO", engineeringScope: null, administrativeScope: scope });
+  }
+  const safety = { ...account, atuacao_administrativa: "SEGURANCA" };
+  assert.equal(resolveActiveProfileContext(safety, userId, choice("ADMINISTRATIVO", userId, null, "QUALIDADE")), null);
+  assert.equal(resolveActiveProfileContext(safety, userId, choice("ADMINISTRATIVO", userId, null, "GERAL")), null);
+  for (const values of [[], ["GERAL", "SEGURANCA"], ["ROOT"], [new Blob(["GERAL"])]]) {
+    const submitted = form("ADMINISTRATIVO");
+    for (const value of values) submitted.append("atuacao_administrativa", value);
+    assert.equal(validateProfileSelectionContext(submitted, account, userId), null);
   }
 });
 
 test("Only Engineering with two scopes requires a choice even though it has one profile", () => {
   const engineering = { ...account, perfil: "ENGENHARIA", perfis: ["ENGENHARIA"] };
   assert.equal(resolveActiveProfileContext(engineering, userId, undefined), null);
-  assert.deepEqual(resolveActiveProfileContext(engineering, userId, choice("ENGENHARIA", userId, "EQUIPE_OBRA")), { profile: "ENGENHARIA", engineeringScope: "EQUIPE_OBRA" });
+  assert.deepEqual(resolveActiveProfileContext(engineering, userId, choice("ENGENHARIA", userId, "EQUIPE_OBRA")), { profile: "ENGENHARIA", engineeringScope: "EQUIPE_OBRA", administrativeScope: null });
 });
 
 test("Version 2 requires an explicit valid Engineering scope and rejects scopes for other profiles", () => {
@@ -111,9 +131,9 @@ test("Version 2 requires an explicit valid Engineering scope and rejects scopes 
 });
 
 test("Legacy v1 Engineering selects only its existing authorized primary scope", () => {
-  assert.deepEqual(resolveActiveProfileContext(account, userId, `v1.${userId}.ENGENHARIA`), { profile: "ENGENHARIA", engineeringScope: "COORDENACAO" });
+  assert.deepEqual(resolveActiveProfileContext(account, userId, `v1.${userId}.ENGENHARIA`), { profile: "ENGENHARIA", engineeringScope: "COORDENACAO", administrativeScope: null });
   const team = { ...account, atuacao_engenharia: "EQUIPE_OBRA", atuacoes_engenharia: ["EQUIPE_OBRA"] };
-  assert.deepEqual(resolveActiveProfileContext(team, userId, `v1.${userId}.ENGENHARIA`), { profile: "ENGENHARIA", engineeringScope: "EQUIPE_OBRA" });
+  assert.deepEqual(resolveActiveProfileContext(team, userId, `v1.${userId}.ENGENHARIA`), { profile: "ENGENHARIA", engineeringScope: "EQUIPE_OBRA", administrativeScope: null });
   assert.equal(resolveActiveProfileContext(team, userId, choice("ENGENHARIA", userId, "COORDENACAO")), null);
 });
 
@@ -226,6 +246,8 @@ test("Duplicate preference cookies fail closed for multiple profiles", async () 
 
 test("Administration requires the active Administrative view and the independent database check", async () => {
   reset(); state.cookies = [{ value: choice("AUDITOR_SEGURANCA") }];
+  await assert.rejects(requireAdministrator(), redirected("/app"));
+  state.cookies = [{ value: choice("ADMINISTRATIVO", userId, null, "SEGURANCA") }];
   await assert.rejects(requireAdministrator(), redirected("/app"));
   state.cookies = [{ value: choice() }];
   assert.equal((await requireAdministrator()).id, userId);

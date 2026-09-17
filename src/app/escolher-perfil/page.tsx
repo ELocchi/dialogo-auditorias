@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireUser, effectiveAccount } from "@/lib/auth/session";
-import { profileLabels, engineeringLabels, type AccessProfile } from "@/lib/access/contracts";
+import { profileLabels, administrativeLabels, engineeringLabels, type AccessProfile } from "@/lib/access/contracts";
 import { readActiveProfileContext } from "@/lib/auth/active-profile-session";
 import { getProfileContexts } from "@/lib/auth/active-profile";
 import { LogoutButton } from "../components/auth/LogoutButton";
@@ -42,16 +42,20 @@ export default async function SelectProfilePage({ searchParams }: {
         <p className={styles.description}>Escolha o perfil que deseja usar agora. Você poderá trocar de perfil durante a navegação.</p>
         {params.erro === "perfil" && <p className={styles.error} role="alert">Não foi possível selecionar esse perfil. Escolha uma das opções disponíveis abaixo.</p>}
         <div className={styles.grid}>
-          {contexts.map(({ profile, engineeringScope }) => {
+          {contexts.map(({ profile, engineeringScope, administrativeScope }) => {
             const label = profile === "ENGENHARIA" && engineeringScope
               ? `${profileLabels[profile]} — ${engineeringLabels[engineeringScope]}`
-              : profileLabels[profile];
-            return <form action={selectProfileAction} key={`${profile}:${engineeringScope}`}>
+              : profile === "ADMINISTRATIVO" && administrativeScope
+                ? administrativeLabels[administrativeScope] : profileLabels[profile];
+            return <form action={selectProfileAction} key={`${profile}:${engineeringScope}:${administrativeScope}`}>
               {engineeringScope && <input type="hidden" name="atuacao_engenharia" value={engineeringScope} />}
+              {administrativeScope && <input type="hidden" name="atuacao_administrativa" value={administrativeScope} />}
               <button className={styles.profile} name="perfil" value={profile} type="submit" aria-label={`Entrar como ${label}`}>
-                <span className={styles.profileTop}><span className={styles.profileTag}>{profile === current?.profile && engineeringScope === current.engineeringScope ? "PERFIL ATUAL" : "DISPONÍVEL"}</span><span aria-hidden="true">↗</span></span>
+                <span className={styles.profileTop}><span className={styles.profileTag}>{profile === current?.profile && engineeringScope === current.engineeringScope && administrativeScope === current.administrativeScope ? "PERFIL ATUAL" : "DISPONÍVEL"}</span><span aria-hidden="true">↗</span></span>
                 <strong>{label}</strong>
-                <span className={styles.profileDescription}>{descriptions[profile]}</span>
+                <span className={styles.profileDescription}>{profile === "ADMINISTRATIVO" && administrativeScope !== "GERAL"
+                  ? `Agenda, roteiros e acompanhamento de ${administrativeScope === "SEGURANCA" ? "Segurança" : "Qualidade"}.`
+                  : descriptions[profile]}</span>
                 <span className={styles.enter}>Entrar com este perfil <span aria-hidden="true">→</span></span>
               </button>
             </form>;

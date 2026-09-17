@@ -165,7 +165,7 @@ function validateTimestamp(now: string): void {
 }
 
 function assertAgendaAccess(user: DemoUser, workId: string, module: AppModule): void {
-  if (!canManageAgenda(user)) throw new Error("Somente o Administrativo pode agendar ou reagendar visitas.");
+  if (!canManageAgenda(user)) throw new Error("Somente o Administrativo pode agendar visitas.");
   if (!canAccessWorkModule(user, workId, module)) throw new Error("Obra ou módulo não autorizado para este Administrativo.");
 }
 
@@ -187,19 +187,5 @@ export function createVisit(user: DemoUser, input: VisitInput, users: readonly D
   return {
     id: meta.id, workId: input.workId, module: input.module, kind: input.kind, modelId: input.modelId, auditorId: input.auditorId,
     date: input.date, note: input.note, createdBy: user.id, createdAt: meta.now, history: [],
-  };
-}
-
-/** Altera somente a programação da visita; não recebe nem modifica respostas ou auditorias. */
-export function rescheduleVisit(user: DemoUser, visit: Visit, input: { date: string; note: string }, now: string): Visit {
-  assertAgendaAccess(user, visit.workId, visit.module);
-  if (visit.kind === "audit" ? !visit.modelId || modelModule(visit.modelId) !== visit.module
-    : visit.kind !== "follow_up" || visit.modelId !== null) throw new Error("Tipo de visita inválido.");
-  validateDate(input.date);
-  validateNote(input.note);
-  validateTimestamp(now);
-  return {
-    ...visit, date: input.date, note: input.note,
-    history: [...visit.history, { previousDate: visit.date, date: input.date, note: input.note, changedBy: user.id, changedAt: now }],
   };
 }

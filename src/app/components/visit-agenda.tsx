@@ -37,7 +37,7 @@ type VisitAgendaProps = {
   mutationPending?: boolean;
   syncError?: string;
   onCreate: (input: VisitInput) => Promise<AgendaActionResult>;
-  onReschedule: (visitId: string, change: { expectedRevision: number; date: string; note: string }) => Promise<AgendaActionResult>;
+  onDelete: (visitId: string, expectedRevision: number) => Promise<AgendaActionResult>;
   onConfirm: (visitId: string, expectedRevision: number) => Promise<AgendaActionResult>;
   onStartAudit: (visit: Visit) => void;
 };
@@ -55,7 +55,7 @@ export function VisitAgenda(props: VisitAgendaProps) {
   return <AgendaContext key={`${props.user.id}:${props.module}:${props.workId}`} {...props} />;
 }
 
-function AdministrativeAgenda({ user, works, users, visits, module, workId, available, mutationPending = false, syncError, onCreate, onReschedule, onConfirm, onStartAudit }: VisitAgendaProps) {
+function AdministrativeAgenda({ user, works, users, visits, module, workId, available, mutationPending = false, syncError, onCreate, onDelete, onConfirm, onStartAudit }: VisitAgendaProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const addButtonRef = useRef<HTMLButtonElement>(null);
   const listId = useId();
@@ -80,13 +80,13 @@ function AdministrativeAgenda({ user, works, users, visits, module, workId, avai
         {visibleVisits.length ? <div className={styles.visitList}>
           {visibleVisits.map((visit) => <VisitCard key={visit.id} visit={visit} user={user} users={users}
             work={authorizedWorks.find((work) => work.id === visit.workId)} available={available} mutationPending={mutationPending}
-            onReschedule={onReschedule} onConfirm={onConfirm} onStartAudit={onStartAudit} />)}
+            onDelete={onDelete} onConfirm={onConfirm} onStartAudit={onStartAudit} />)}
         </div> : <div className={styles.scheduledEmpty}>
           <CalendarIcon />
           <p>{!available ? "Aguardando acesso à agenda." : authorizedWorks.length ? "Nenhuma visita agendada." : "Nenhuma obra disponível para agendamento."}</p>
         </div>}
       </section>
-      <AdminVisitCalendar visits={visibleVisits} works={authorizedWorks} calendarOnly />
+      <AdminVisitCalendar visits={visibleVisits} works={authorizedWorks} auditors={users} viewerId={user.id} calendarOnly />
     </div>
     <dialog ref={dialogRef} className={styles.scheduleDialog} aria-labelledby={dialogTitleId} onCancel={(event) => { if (mutationPending) event.preventDefault(); }} onClose={() => addButtonRef.current?.focus()}>
       <button type="button" className={`secondary ${styles.closeDialog}`} disabled={mutationPending} onClick={() => dialogRef.current?.close()}>Fechar</button>
@@ -96,7 +96,7 @@ function AdministrativeAgenda({ user, works, users, visits, module, workId, avai
   </>;
 }
 
-function AgendaContext({ user, works, users, visits, module, workId, available, mutationPending = false, syncError, onCreate, onReschedule, onConfirm, onStartAudit }: VisitAgendaProps) {
+function AgendaContext({ user, works, users, visits, module, workId, available, mutationPending = false, syncError, onCreate, onDelete, onConfirm, onStartAudit }: VisitAgendaProps) {
   const canManage = canManageAgenda(user);
   const contextWork = works.find((work) => work.id === workId);
   const canConsult = canConsultAgenda(user, workId, module);
@@ -109,7 +109,7 @@ function AgendaContext({ user, works, users, visits, module, workId, available, 
     <div className="page-intro">
       <div>
         <h2>Agenda de visitas</h2>
-        <p className="muted">O Administrativo agenda e reagenda. Auditores confirmam as visitas e iniciam as auditorias sob sua responsabilidade.</p>
+        <p className="muted">O Administrativo agenda e pode excluir agendamentos. Auditores confirmam as visitas e iniciam as auditorias sob sua responsabilidade.</p>
       </div>
       <span className="badge">{canManage ? "Agendamento administrativo" : "Consulta à agenda"}</span>
     </div>
@@ -139,7 +139,7 @@ function AgendaContext({ user, works, users, visits, module, workId, available, 
           work={works.find((work) => work.id === visit.workId)}
           available={available}
           mutationPending={mutationPending}
-          onReschedule={onReschedule}
+          onDelete={onDelete}
           onConfirm={onConfirm}
           onStartAudit={onStartAudit}
         />)}
@@ -274,19 +274,21 @@ function CreateVisitForm({ user, works, users, module, workId, available, mutati
   </section>;
 }
 
-type VisitCardProps = Pick<VisitAgendaProps, "user" | "users" | "available" | "mutationPending" | "onReschedule" | "onConfirm" | "onStartAudit"> & {
+type VisitCardProps = Pick<VisitAgendaProps, "user" | "users" | "available" | "mutationPending" | "onDelete" | "onConfirm" | "onStartAudit"> & {
   visit: Visit;
   work?: WorkRecord;
 };
 
-function VisitCard({ visit, user, users, work, available, mutationPending = false, onReschedule, onConfirm, onStartAudit }: VisitCardProps) {
-  const [editing, setEditing] = useState(false);
+function VisitCard({ visit, user, users, work, available, mutationPending = false, onDelete, onConfirm, onStartAudit }: VisitCardProps) {
+  const manager = canManageAgenda(user);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [expanded, setExpanded] = useState(!manager);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [confirming, setConfirming] = useState(false);
   const confirmingRef = useRef(false);
-  const rescheduleId = useId();
-  const manager = canManageAgenda(user);
+  const deletingRef = useRef(false);
   const assignedAllowed = visit.auditorId === user.id
     && (user.role === "safety-auditor" || user.role === "quality-auditor")
     && canAccessWorkModule(user, visit.workId, visit.module);
@@ -311,14 +313,24 @@ function VisitCard({ visit, user, users, work, available, mutationPending = fals
     }
   };
 
-  const reschedule = async (change: { expectedRevision: number; date: string; note: string }) => {
-    if (!available) throw new Error("A agenda está indisponível no momento.");
-    if (!manager || !canReadVisit(user, visit)) throw new Error("Este perfil não está autorizado a reagendar a visita.");
-    const result = await onReschedule(visit.id, change);
-    if (result.status !== "success") throw new Error(result.message);
-    setSuccess(result.message);
+  const deleteVisit = async () => {
+    if (deletingRef.current || mutationPending) return;
+    deletingRef.current = true;
+    setDeleting(true);
     setError("");
-    setEditing(false);
+    try {
+      if (!available || !manager || !canReadVisit(user, visit) || !hasRevision || visit.revision === undefined) {
+        throw new Error("A exclusão não está disponível para este agendamento.");
+      }
+      const result = await onDelete(visit.id, visit.revision);
+      if (result.status !== "success") throw new Error(result.message);
+      setConfirmDelete(false);
+    } catch (cause) {
+      setError(errorMessage(cause, "Não foi possível excluir o agendamento. Atualize a agenda e tente novamente."));
+    } finally {
+      deletingRef.current = false;
+      setDeleting(false);
+    }
   };
 
   const confirm = async () => {
@@ -341,89 +353,40 @@ function VisitCard({ visit, user, users, work, available, mutationPending = fals
   };
 
   return <article className={styles.visitCard} aria-label={`${visitLabel} em ${formatAuditDate(visit.date)}`}>
-    <div className={styles.visitHeader}>
-      <time className={styles.dateTile} dateTime={visit.date} aria-label={formatAuditDate(visit.date)}><strong>{day}</strong><span>{months[Number(month) - 1]} {year}</span></time>
-      <div className={styles.visitTitle}>
-        <h4>{work?.name ?? visit.workId}</h4>
-        <p>{visitLabel}</p>
-        <span>{visit.id}</span>
+    <details className={styles.visitDisclosure} open={expanded} onToggle={(event) => {
+      setExpanded(event.currentTarget.open);
+      if (!event.currentTarget.open) setConfirmDelete(false);
+    }}>
+      <summary className={styles.visitSummary}>
+        <time className={`${styles.dateTile} ${visit.confirmationStatus === "confirmed" ? styles.dateTileConfirmed : styles.dateTilePending}`} dateTime={visit.date} aria-label={`${formatAuditDate(visit.date)}; ${visit.confirmationStatus === "confirmed" ? "visita confirmada" : "aguardando confirmação"}`}><strong>{day}</strong><span>{months[Number(month) - 1]} {year}</span></time>
+        <span className={styles.visitTitle}>
+          <strong>{work?.name ?? visit.workId}</strong>
+          <span><small>Profissional responsável</small>{auditorName}</span>
+        </span>
+        <span className={styles.expandIndicator} aria-hidden="true" />
+      </summary>
+      <div className={styles.visitExpanded}>
+        <div className={styles.visitMeta}><strong>{visitLabel}</strong><span>{visit.id}</span></div>
+        {(manager || assignedAllowed) && <div className={styles.visitActions}>
+          {manager ? <button type="button" className="secondary" disabled={!available || !hasRevision || mutationPending || deleting} aria-expanded={confirmDelete} onClick={() => { setConfirmDelete(!confirmDelete); setError(""); }}>{confirmDelete ? "Voltar" : "Excluir agendamento"}</button> : <>
+            {confirmAllowed && <button type="button" className="primary" disabled={!available || mutationPending || confirming} onClick={() => { void confirm(); }}>{confirming ? "Confirmando…" : "Confirmar data"}</button>}
+            {startAllowed && <button type="button" className={confirmAllowed ? "secondary" : "primary"} disabled={mutationPending} onClick={start}>Iniciar auditoria</button>}
+          </>}
+        </div>}
+        {confirmDelete && manager && <div className={styles.deleteConfirmation}>
+          <p>Excluir este agendamento da agenda de todos os perfis? A visita deixará de aparecer no calendário e nas notificações.</p>
+          <button type="button" className="secondary" disabled={!available || mutationPending || deleting} onClick={() => { void deleteVisit(); }}>{deleting ? "Excluindo…" : "Confirmar exclusão"}</button>
+        </div>}
+        <dl className={styles.visitDetails}>
+          <div><dt>AGENDAMENTO ADMINISTRATIVO</dt><dd>{creatorName}<small>Registrado em <time dateTime={visit.createdAt}>{formatRecordedAt(visit.createdAt)}</time></small></dd></div>
+        </dl>
+        {visit.note && <p className={styles.visitNote}><strong>Observação: </strong>{visit.note}</p>}
+
+        {error && <p role="alert" className={styles.error}>{error}</p>}
+        {success && <p role="status" className={styles.success}>{success}</p>}
       </div>
-      {(manager || assignedAllowed) && <div className={styles.visitActions}>
-        {manager ? <button type="button" className="secondary" disabled={!available || !hasRevision || mutationPending} aria-expanded={editing} aria-controls={editing ? rescheduleId : undefined} onClick={() => { setEditing(!editing); setError(""); setSuccess(""); }}>{editing ? "Fechar reagendamento" : "Reagendar visita"}</button> : <>
-          {confirmAllowed && <button type="button" className="primary" disabled={!available || mutationPending || confirming} onClick={() => { void confirm(); }}>{confirming ? "Confirmando…" : "Confirmar data"}</button>}
-          {startAllowed && <button type="button" className={confirmAllowed ? "secondary" : "primary"} disabled={mutationPending} onClick={start}>Iniciar auditoria</button>}
-        </>}
-      </div>}
-    </div>
-    {visit.kind === "follow_up" && <p className={styles.followUpNotice}>Acompanhamento da obra · não entra na nota mensal.</p>}
-    {visit.confirmationStatus && <p className={`${styles.confirmation} ${visit.confirmationStatus === "confirmed" ? styles.confirmed : styles.awaiting}`}>
-      <strong>{visit.confirmationStatus === "confirmed" ? "Visita confirmada pelo profissional" : "Aguardando confirmação do profissional"}</strong>
-      {visit.confirmationStatus === "confirmed" && visit.confirmedAt && <span>Em <time dateTime={visit.confirmedAt}>{formatRecordedAt(visit.confirmedAt)}</time></span>}
-    </p>}
-    <dl className={styles.visitDetails}>
-      <div><dt>DATA PREVISTA</dt><dd><time dateTime={visit.date}>{formatAuditDate(visit.date)}</time></dd></div>
-      <div><dt>PROFISSIONAL RESPONSÁVEL</dt><dd>{auditorName}<small>Responsável pela visita</small></dd></div>
-      <div><dt>AGENDAMENTO ADMINISTRATIVO</dt><dd>{creatorName}<small>Registrado em <time dateTime={visit.createdAt}>{formatRecordedAt(visit.createdAt)}</time></small></dd></div>
-    </dl>
-    {visit.note && <p className={styles.visitNote}><strong>Observação: </strong>{visit.note}</p>}
-
-    {editing && manager && <RescheduleForm id={rescheduleId} visit={visit} disabled={!available || mutationPending} onSubmit={reschedule} onClose={() => setEditing(false)} />}
-    {error && <p role="alert" className={styles.error}>{error}</p>}
-    {success && <p role="status" className={styles.success}>{success}</p>}
-
-    <details className={styles.history}>
-      <summary>Histórico de reagendamentos ({visit.history.length})</summary>
-      {visit.history.length > 0 ? <ol>
-        {visit.history.map((entry, index) => <li key={`${entry.changedAt}:${index}`}>
-          <strong><time dateTime={entry.previousDate}>{formatAuditDate(entry.previousDate)}</time> → <time dateTime={entry.date}>{formatAuditDate(entry.date)}</time></strong>
-          <small>Reagendado por {users.find((candidate) => candidate.id === entry.changedBy)?.name ?? entry.changedBy} · <time dateTime={entry.changedAt}>{formatRecordedAt(entry.changedAt)}</time></small>
-          {entry.note && <p>{entry.note}</p>}
-        </li>)}
-      </ol> : <p className={styles.historyEmpty}>Esta visita ainda não foi reagendada.</p>}
     </details>
   </article>;
-}
-
-function RescheduleForm({ id, visit, disabled, onSubmit, onClose }: { id: string; visit: Visit; disabled: boolean; onSubmit: (change: { expectedRevision: number; date: string; note: string }) => Promise<void>; onClose: () => void }) {
-  const [date, setDate] = useState(visit.date);
-  const [note, setNote] = useState(visit.note);
-  const [expectedRevision] = useState(visit.revision ?? 0);
-  const [error, setError] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const submittingRef = useRef(false);
-
-  const submit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (submittingRef.current || disabled) return;
-    submittingRef.current = true;
-    setSubmitting(true);
-    setError("");
-    try {
-      await onSubmit({ expectedRevision, date, note: note.trim() });
-    } catch (cause) {
-      setError(errorMessage(cause, "Não foi possível reagendar a visita. Confira a data e tente novamente."));
-    } finally {
-      submittingRef.current = false;
-      setSubmitting(false);
-    }
-  };
-
-  return <form id={id} className={styles.rescheduleForm} onSubmit={submit} aria-busy={submitting}>
-    <h4>Reagendar visita</h4>
-    <p>Atualize a data prevista e registre uma observação. Obra, disciplina, finalidade e profissional permanecem vinculados a esta visita.</p>
-    {expectedRevision !== visit.revision && <p role="status">A visita foi atualizada. Se o envio anterior ficou sem resposta, tente novamente com os mesmos dados. Para fazer outra alteração, feche e reabra o reagendamento.</p>}
-    <fieldset className={styles.formFields} disabled={disabled || submitting}>
-    <div className={styles.rescheduleFields}>
-      <label>Nova data prevista<input required type="date" value={date} onChange={(event) => { setDate(event.target.value); setError(""); }} /></label>
-      <label>Observação do reagendamento (opcional)<textarea maxLength={2000} value={note} onChange={(event) => { setNote(event.target.value); setError(""); }} placeholder="Informação sobre a mudança da data…" /></label>
-    </div>
-    <div className={styles.rescheduleActions}>
-      <button type="submit" className="primary">{submitting ? "Reagendando…" : "Confirmar reagendamento"}</button>
-      <button type="button" className="secondary" onClick={onClose}>Voltar sem alterar</button>
-    </div>
-    </fieldset>
-    {error && <p role="alert" className={styles.error}>{error}</p>}
-  </form>;
 }
 
 function errorMessage(cause: unknown, fallback: string) {

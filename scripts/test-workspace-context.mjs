@@ -7,7 +7,7 @@ const id = '13044e3f-e8d2-4b4b-9981-22a8de22c610';
 const a = '10000000-0000-4000-8000-000000000001';
 const b = '10000000-0000-4000-8000-000000000002';
 const c = '10000000-0000-4000-8000-000000000003';
-const account = { auth_user_id:id, ativo:true, approved_at:'2026-09-13T06:00:00Z', perfil:'ADMINISTRATIVO', perfis:['ADMINISTRATIVO','AUDITOR_SEGURANCA','AUDITOR_QUALIDADE','ENGENHARIA'], atuacao_engenharia:'COORDENACAO', atuacoes_engenharia:['COORDENACAO'] };
+const account = { auth_user_id:id, ativo:true, approved_at:'2026-09-13T06:00:00Z', perfil:'ADMINISTRATIVO', perfis:['ADMINISTRATIVO','AUDITOR_SEGURANCA','AUDITOR_QUALIDADE','ENGENHARIA'], atuacao_engenharia:'COORDENACAO', atuacoes_engenharia:['COORDENACAO'], atuacao_administrativa:'GERAL' };
 const input = { account, profile:'AUDITOR_SEGURANCA', identity:{id,name:'Pessoa autorizada',email:'pessoa@dialogo.com.br'}, works:[{id:a,nome:'Obra A',ativo:true},{id:b,nome:'Obra B',ativo:true},{id:c,nome:'Obra C',ativo:false}], grants:[{perfil:'AUDITOR_SEGURANCA',obra_id:a,modulo:'SEGURANCA'},{perfil:'AUDITOR_SEGURANCA',obra_id:c,modulo:'SEGURANCA'},{perfil:'AUDITOR_QUALIDADE',obra_id:b,modulo:'QUALIDADE'},{perfil:'ENGENHARIA',obra_id:a,modulo:'SEGURANCA'},{perfil:'ENGENHARIA',obra_id:b,modulo:'QUALIDADE'}] };
 const context = (profile=input.profile, changes={}) => buildWorkspaceContext({...input,profile,...changes});
 test('perfil escolhido usa somente suas próprias concessões e obras ativas',()=>{
@@ -40,6 +40,27 @@ test('Administrativo mantém catálogo sem herdar operações dos perfis técnic
  assert.equal(canReadAudit(admin,{workId:a,modelId:'security-it07-r02',auditorId:id,status:'Em preenchimento'}),false);
  const empty=context('ADMINISTRATIVO',{works:[],grants:[]});
  assert.deepEqual(empty.works,[]); assert.deepEqual(empty.user.modules,['safety','quality']);
+});
+test('Administrativos de Segurança e Qualidade recebem apenas sua disciplina',()=>{
+  const safety=context('ADMINISTRATIVO',{account:{...account,atuacao_administrativa:'SEGURANCA'}});
+  const quality=context('ADMINISTRATIVO',{account:{...account,atuacao_administrativa:'QUALIDADE'}});
+  assert.deepEqual(safety.user.modules,['safety']);
+  assert.deepEqual(quality.user.modules,['quality']);
+  assert.equal(canAccessWorkModule(safety.user,a,'safety'),true);
+  assert.equal(canAccessWorkModule(safety.user,a,'quality'),false);
+  assert.equal(canAccessWorkModule(quality.user,a,'safety'),false);
+  assert.equal(canAccessWorkModule(quality.user,a,'quality'),true);
+  assert.equal(context('ADMINISTRATIVO',{account:{...account,atuacao_administrativa:null}}),null);
+});
+
+test('Administrativo Geral pode visualizar cada disciplina sem ampliar o perfil salvo',()=>{
+  const safety=context('ADMINISTRATIVO',{administrativeScope:'SEGURANCA'});
+  const quality=context('ADMINISTRATIVO',{administrativeScope:'QUALIDADE'});
+  assert.deepEqual(safety.user.modules,['safety']);
+  assert.deepEqual(quality.user.modules,['quality']);
+  assert.equal(safety.administrativeScope,'SEGURANCA');
+  assert.equal(quality.administrativeScope,'QUALIDADE');
+  assert.equal(context('ADMINISTRATIVO',{account:{...account,atuacao_administrativa:'SEGURANCA'},administrativeScope:'QUALIDADE'}),null);
 });
 test('perfil técnico sem concessões não recebe obras ou usuários fictícios',()=>{
  const empty=context('AUDITOR_SEGURANCA',{grants:[]});

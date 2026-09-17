@@ -2,7 +2,7 @@ import Link from "next/link";
 import { cache } from "react";
 import { requireAdministrator } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
-import { engineeringLabels, profileLabels, type AccessDecision, type AccessWork, type PendingRequest } from "@/lib/access/contracts";
+import { administrativeLabels, engineeringLabels, profileLabels, type AccessDecision, type AccessWork, type PendingRequest } from "@/lib/access/contracts";
 import { PendingRequests } from "@/app/components/access/PendingRequests";
 import { WorkForm } from "@/app/components/access/WorkForm";
 import { readActiveTeamProfiles } from "@/lib/works/queries";
@@ -15,7 +15,7 @@ const date = (value: string) => new Intl.DateTimeFormat("pt-BR", { dateStyle: "s
 const loadAdministration = cache(async (pendingPage: number, historyPage: number) => {
   try {
     const client = await createClient();
-    const [requests, works, decisions, accounts] = await Promise.all([
+    const [requests, works, decisions, accounts, scopeHistory] = await Promise.all([
       client.from("access_requests")
         .select("auth_user_id,nome,email,cargo_area_informado,obra_referencia_informada,email_confirmado_em,created_at", { count: "exact" })
         .eq("status_acesso", "PENDENTE_APROVACAO").not("email_confirmado_em", "is", null)
@@ -27,12 +27,18 @@ const loadAdministration = cache(async (pendingPage: number, historyPage: number
         .order("decided_at", { ascending: false }).order("id", { ascending: false })
         .range((historyPage - 1) * pageSize, historyPage * pageSize - 1),
       client.from("access_accounts").select("auth_user_id", { count: "exact", head: true }).eq("ativo", true),
+      client.rpc("read_administrative_scope_history"),
     ]);
     if (requests.error || works.error || decisions.error || accounts.error || !requests.data || !works.data || !decisions.data
       || requests.count === null || decisions.count === null || accounts.count === null) return null;
+    if (scopeHistory.error && !["42883", "PGRST202"].includes(scopeHistory.error.code ?? "")) return null;
+    const scopes = scopeHistory.data && typeof scopeHistory.data === "object" && !Array.isArray(scopeHistory.data)
+      ? scopeHistory.data as Record<string, unknown> : {};
     return {
       requests: requests.data as PendingRequest[], works: works.data as AccessWork[],
-      decisions: decisions.data as AccessDecision[], pendingCount: requests.count,
+      decisions: (decisions.data as AccessDecision[]).map((decision) => ({ ...decision,
+        atuacao_administrativa: ["SEGURANCA", "QUALIDADE", "GERAL"].includes(String(scopes[decision.id]))
+          ? scopes[decision.id] as AccessDecision["atuacao_administrativa"] : null })), pendingCount: requests.count,
       historyCount: decisions.count, activeCount: accounts.count,
     };
   } catch { return null; }
@@ -62,7 +68,7 @@ export async function AccessAdministration({ embedded = false, pendingPage = 1, 
         </>}
         {view === "works" &&
         <section className={styles.section} aria-labelledby="works-heading">
-          <div className={styles.sectionHeading}><h2 id="works-heading">Obras para autorização</h2><p>{data.works.length} obras ativas disponíveis</p></div>
+          <div className={styles.sectionHeading}><h2 id="works-heading">Cadastro de obras</h2><p>{data.works.length} obras ativas disponíveis</p></div>
           <div className={styles.workPanel}>
             <WorkForm activeProfiles={activeProfiles} />
             {data.works.length > 0 && <ul className={styles.workNames} aria-label="Obras cadastradas">{data.works.map((work) => <li key={work.id}>{work.nome}</li>)}</ul>}
@@ -95,14 +101,14 @@ function DecisionCard({ decision }: { decision: AccessDecision }) {
   const profiles = decision.perfis || [decision.perfil];
   const before = decision.before_access_snapshot;
   return <details className={styles.historyCard}>
-    <summary><strong>{snapshot.nome || snapshot.email || decision.auth_user_id}</strong> · {profiles.map((profile) => profileLabels[profile]).join(" · ")}
+    <summary><strong>{snapshot.nome || snapshot.email || decision.auth_user_id}</strong> · {profiles.map((profile) => profile === "ADMINISTRATIVO" && decision.atuacao_administrativa ? administrativeLabels[decision.atuacao_administrativa] : profileLabels[profile]).join(" · ")}
       <span>{bootstrap ? "Ativação inicial controlada" : initialAdjustment ? "Ampliação controlada dos perfis da conta inicial" : engineeringAdjustment ? "Inclusão de Engenharia — Equipe da obra" : generalAccessAdjustment ? "Ampliação dos acessos gerais" : decision.decision_type === "VINCULO_OBRA" ? "Vínculo à equipe da obra" : decision.decision_type === "DESVINCULO_OBRA" ? "Desvínculo da equipe da obra" : "Solicitação aprovada"} em {date(decision.decided_at)}</span>
     </summary>
     <div className={styles.historyBody}>
       <dl className={styles.details}>
         <div><dt>E-mail no momento da decisão</dt><dd>{snapshot.email || "Não registrado"}</dd></div>
         <div><dt>Responsável pela decisão</dt><dd>{operatorDecision ? `Operador do banco: ${actor.database_session_user || decision.actor_database_role || "Operador autorizado"}` : actor.nome || actor.email || decision.actor_auth_user_id}{!operatorDecision && actor.nome && actor.email && <span className={styles.email}>{actor.email}</span>}</dd></div>
-        <div><dt>Perfis concedidos</dt><dd>{profiles.map((profile) => `${profileLabels[profile]}${profile === "ENGENHARIA" ? ` · ${engineeringScopes.map((scope) => engineeringLabels[scope]).join("; ")}` : ""}`).join("; ")}</dd></div>
+        <div><dt>Perfis concedidos</dt><dd>{profiles.map((profile) => `${profile === "ADMINISTRATIVO" && decision.atuacao_administrativa ? administrativeLabels[decision.atuacao_administrativa] : profileLabels[profile]}${profile === "ENGENHARIA" ? ` · ${engineeringScopes.map((scope) => engineeringLabels[scope]).join("; ")}` : ""}`).join("; ")}</dd></div>
         <div><dt>Data da decisão</dt><dd>{date(decision.decided_at)}</dd></div>
         <div><dt>Cargo ou área declarada</dt><dd>{snapshot.cargo_area_informado || "Não informado"}</dd></div>
         <div><dt>Obra de referência declarada</dt><dd>{snapshot.obra_referencia_informada || "Não informada"}</dd></div>

@@ -19,7 +19,7 @@ export async function saveCatalogRevisionAction(formData: FormData): Promise<Cat
 
 export async function refreshCatalogsAction(expected: AgendaActorContext): Promise<CatalogSnapshot> {
   const active = await requireActiveProfile();
-  if (!expected || expected.userId !== active.user.id || expected.profile !== active.profile || expected.engineeringScope !== active.engineeringScope) return unavailableCatalogs();
+  if (!expected || expected.userId !== active.user.id || expected.profile !== active.profile || expected.engineeringScope !== active.engineeringScope || expected.administrativeScope !== active.administrativeScope) return unavailableCatalogs();
   const context = await readWorkspaceContext(active);
   return context ? readCatalogSnapshot(await createClient({ writableCookies: true }), context) : unavailableCatalogs();
 }

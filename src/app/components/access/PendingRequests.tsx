@@ -2,7 +2,7 @@
 
 import { startTransition, useActionState, useId, useState } from "react";
 import { approveAccessAction } from "@/app/administracao/usuarios/actions";
-import { accessProfiles, engineeringLabels, initialAccessState, moduleLabels, profileLabels, type AccessModule, type AccessProfile, type AccessWork, type PendingRequest, type TechnicalProfile } from "@/lib/access/contracts";
+import { accessProfiles, administrativeLabels, engineeringLabels, initialAccessState, moduleLabels, profileLabels, type AccessModule, type AccessProfile, type AccessWork, type PendingRequest, type TechnicalProfile } from "@/lib/access/contracts";
 import styles from "@/app/administracao/usuarios/access.module.css";
 
 const formatDate = (value: string) => new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" }).format(new Date(value));
@@ -25,16 +25,18 @@ function RequestCard({ request, works, action, pending, isSelf }: { request: Pen
   const id = useId();
   const [perfis, setPerfis] = useState<AccessProfile[]>([]);
   const [scope, setScope] = useState("");
+  const [administrativeScope, setAdministrativeScope] = useState("");
   const [rows, setRows] = useState<GrantRow[]>([]);
   const [reason, setReason] = useState("");
   const [reviewed, setReviewed] = useState(false);
   const technicalProfiles = perfis.filter((profile): profile is TechnicalProfile => profile !== "ADMINISTRATIVO");
-  const incomplete = perfis.length === 0 || technicalProfiles.some((profile) => !rows.some((row) => row.perfil === profile)) || (technicalProfiles.length > 0 && works.length === 0);
+  const incomplete = perfis.length === 0 || (perfis.includes("ADMINISTRATIVO") && !administrativeScope) || technicalProfiles.some((profile) => !rows.some((row) => row.perfil === profile)) || (technicalProfiles.length > 0 && works.length === 0);
   const toggleProfile = (profile: AccessProfile, selected: boolean) => {
     setPerfis((current) => accessProfiles.filter((item) => item === profile ? selected : current.includes(item)));
     if (!selected) {
       setRows((current) => current.filter((row) => row.perfil !== profile));
       if (profile === "ENGENHARIA") setScope("");
+      if (profile === "ADMINISTRATIVO") setAdministrativeScope("");
     } else if (profile !== "ADMINISTRATIVO") {
       setRows((current) => [...current, { key: Math.max(-1, ...current.map((row) => row.key)) + 1, perfil: profile, obra_id: "", modulo: firstModule(profile) }]);
     }
@@ -86,11 +88,16 @@ function RequestCard({ request, works, action, pending, isSelf }: { request: Pen
                 {Object.entries(engineeringLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
               </select>
             </label></div>}
-          {perfis.includes("ADMINISTRATIVO") && <p className={styles.note}>Administrativo permite gerir usuários e acessos. As permissões de auditoria e Engenharia são definidas nos respectivos perfis, mesmo quando a pessoa também é Administrativo.</p>}
+          {perfis.includes("ADMINISTRATIVO") && <div className={styles.formGrid}><label htmlFor={`${id}-administrative-scope`}>Atuação administrativa
+            <select id={`${id}-administrative-scope`} name="atuacaoAdministrativa" required value={administrativeScope} onChange={(event) => { setAdministrativeScope(event.target.value); setReviewed(false); }}>
+              <option value="">Selecione a atuação</option>
+              {Object.entries(administrativeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
+          </label><p className={styles.note}>Segurança e Qualidade acessam apenas sua disciplina. Administrativo Geral acessa os dois módulos e gerencia usuários, obras e manutenção da plataforma.</p></div>}
           {technicalProfiles.map((profile) => <fieldset key={profile} className={styles.grantFields}>
             <legend>{profileLabels[profile]} · obras e módulos</legend>
             <p className={styles.help}>Cada linha concede o módulo escolhido nesta obra para {profileLabels[profile]}. Os acessos dos outros perfis são definidos separadamente.</p>
-            {works.length === 0 && <p className={styles.error}>Cadastre uma obra real na seção Obras para autorização antes de aprovar este perfil.</p>}
+            {works.length === 0 && <p className={styles.error}>Cadastre uma obra real na seção Cadastro de obras antes de aprovar este perfil.</p>}
             {rows.filter((row) => row.perfil === profile).map((row, index) => <div key={row.key} className={styles.grantRow}>
               <label htmlFor={`${id}-work-${row.key}`}>Obra {index + 1}
                 <select id={`${id}-work-${row.key}`} required value={row.obra_id} onChange={(event) => changeRow(row.key, { obra_id: event.target.value })}>

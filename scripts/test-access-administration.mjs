@@ -52,6 +52,7 @@ test("cartão não mostra total parcial sem autorização ou com falha de leitur
 function form(overrides = {}) {
   const data = new FormData();
   const values = { authUserId: target, perfis: ["ENGENHARIA"], atuacaoEngenharia: "EQUIPE_OBRA", grants: JSON.stringify(engineeringGrants), reason: "Equipe responsável pelas obras informadas.", confirmation: "SIM", ...overrides };
+  if (Array.isArray(values.perfis) && values.perfis.includes("ADMINISTRATIVO") && !Object.hasOwn(overrides, "atuacaoAdministrativa")) values.atuacaoAdministrativa = "GERAL";
   for (const [key, value] of Object.entries(values)) {
     if (value === null || value === undefined) continue;
     if (Array.isArray(value)) value.forEach((item) => data.append(key, item));
@@ -77,6 +78,17 @@ test("administrator alone receives management, with no technical grants or engin
   assert.equal(validateApproval(form({ perfis: ["ADMINISTRATIVO"], atuacaoEngenharia: null })).ok, false);
   assert.equal(validateApproval(form({ perfis: ["ADMINISTRATIVO"], grants: "[]" })).ok, false);
   assert.equal(validateApproval(form({ perfis: allProfiles, grants: JSON.stringify([grant("ADMINISTRATIVO")]) })).ok, false);
+});
+test("administrative approval requires exactly one Safety, Quality or General activity", () => {
+  for (const scope of ["SEGURANCA", "QUALIDADE", "GERAL"]) {
+    const parsed = validateApproval(form({ perfis: ["ADMINISTRATIVO"], atuacaoEngenharia: null, atuacaoAdministrativa: scope, grants: "[]" }));
+    assert.equal(parsed.ok, true);
+    assert.equal(parsed.data.atuacaoAdministrativa, scope);
+  }
+  for (const scope of [null, "TODOS", "engenharia"]) {
+    assert.equal(validateApproval(form({ perfis: ["ADMINISTRATIVO"], atuacaoEngenharia: null, atuacaoAdministrativa: scope, grants: "[]" })).ok, false);
+  }
+  assert.equal(validateApproval(form({ atuacaoAdministrativa: "GERAL" })).ok, false);
 });
 test("an administrator can also have independently scoped auditor or engineering access", () => {
   for (const perfis of [["ADMINISTRATIVO", "AUDITOR_SEGURANCA"], ["ADMINISTRATIVO", "ENGENHARIA"]]) {
@@ -144,20 +156,21 @@ test("invalid and self approval never instantiate a database client", async () =
     assert.equal(env.calls.length, 0);
   }
 });
-test("v2 sends only the selected profiles and their exact grants, ignoring actor and approval claims", async () => {
+test("v3 sends the selected administrative activity and exact grants, ignoring actor claims", async () => {
   const env = harness();
   const result = await approveRequest(form({ actor_id: target, status_acesso: "APROVADO" }), env.deps);
   assert.equal(result.status, "success");
   assert.equal(result.recordId, decision);
-  assert.deepEqual(env.calls, [["approve_access_request_v2", { p_auth_user_id: target, p_perfis: ["ENGENHARIA"], p_atuacao_engenharia: "EQUIPE_OBRA", p_grants: engineeringGrants, p_reason: "Equipe responsável pelas obras informadas." }]]);
+  assert.deepEqual(env.calls, [["approve_access_request_v3", { p_auth_user_id: target, p_perfis: ["ENGENHARIA"], p_atuacao_engenharia: "EQUIPE_OBRA", p_atuacao_administrativa: null, p_grants: engineeringGrants, p_reason: "Equipe responsável pelas obras informadas." }]]);
 });
-test("v2 retains four-profile scopes without cross-profile or cross-work expansion", async () => {
+test("v3 retains four-profile scopes without cross-profile or cross-work expansion", async () => {
   const env = harness();
   const grants = [grant("AUDITOR_SEGURANCA"), grant("AUDITOR_QUALIDADE", workB, "QUALIDADE"), grant("ENGENHARIA", workB, "SEGURANCA")];
   const result = await approveRequest(form({ perfis: allProfiles, grants: JSON.stringify(grants) }), env.deps);
   assert.equal(result.status, "success");
   assert.deepEqual(env.calls[0][1].p_perfis, allProfiles);
   assert.deepEqual(env.calls[0][1].p_grants, grants);
+  assert.equal(env.calls[0][1].p_atuacao_administrativa, "GERAL");
   assert.equal(env.calls[0][1].p_perfil, undefined);
 });
 test("provider errors and unconfirmed responses cannot masquerade as successful approvals", async () => {

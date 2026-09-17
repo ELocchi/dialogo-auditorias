@@ -11,6 +11,7 @@ export type AdminMonthlyRankingRow = {
 };
 
 type AdminMonthlyRankingProps = {
+  modules?: readonly ("safety" | "quality")[];
   /** When supplied, the parent controls the month and provides its matching rows. */
   month?: string;
   onMonthChange?: (month: string) => void;
@@ -51,7 +52,7 @@ function RankingTable({ title, month, rows }: {
 }
 
 /** Presentation only: no score calculation, aggregation or fixture data. */
-export function AdminMonthlyRanking({ month, onMonthChange, safetyRows = [], qualityRows = [] }: AdminMonthlyRankingProps) {
+export function AdminMonthlyRanking({ month, onMonthChange, modules = ["safety", "quality"], safetyRows = [], qualityRows = [] }: AdminMonthlyRankingProps) {
   const [localMonth, setLocalMonth] = useState(currentMonth);
   const selectedMonth = month ?? localMonth;
   const headingId = useId();
@@ -59,9 +60,9 @@ export function AdminMonthlyRanking({ month, onMonthChange, safetyRows = [], qua
 
   return <section className={`panel ${styles.panel}`} aria-labelledby={headingId}>
     <div className={styles.heading}>
-      <h3 id={headingId}>Ranking das obras no mês</h3>
+      <h3 id={headingId}>Ranking das Obras</h3>
       <label className={styles.month} htmlFor={monthId}>
-        <span>Mês de referência</span>
+        <span className={styles.srOnly}>Mês de referência</span>
         <input id={monthId} type="month" value={selectedMonth} min="0001-01" max="9999-12"
           required readOnly={month !== undefined && !onMonthChange}
           onChange={(event) => {
@@ -73,8 +74,8 @@ export function AdminMonthlyRanking({ month, onMonthChange, safetyRows = [], qua
       </label>
     </div>
     <div className={styles.rankings}>
-      <RankingTable title="Segurança" month={selectedMonth} rows={safetyRows} />
-      <RankingTable title="Qualidade" month={selectedMonth} rows={qualityRows} />
+      {modules.includes("safety") && <RankingTable title="Segurança" month={selectedMonth} rows={safetyRows} />}
+      {modules.includes("quality") && <RankingTable title="Qualidade" month={selectedMonth} rows={qualityRows} />}
     </div>
   </section>;
 }

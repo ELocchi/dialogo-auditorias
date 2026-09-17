@@ -27,12 +27,12 @@ export default async function OperationalPage({ searchParams }: { searchParams: 
   const client = await createClient();
   const [initialAgenda, initialCatalogs, activeAccountCount] = await Promise.all([
     readAgendaSnapshot(client, context), readCatalogSnapshot(client, context),
-    active.profile === "ADMINISTRATIVO" ? countActiveAccounts(client) : Promise.resolve(null),
+    context.administrativeScope === "GERAL" ? countActiveAccounts(client) : Promise.resolve(null),
   ]);
-  return <PrototypeApp key={`${active.user.id}:${active.profile}:${active.engineeringScope ?? ""}`} context={context}
+  return <PrototypeApp key={`${active.user.id}:${active.profile}:${active.engineeringScope ?? ""}:${active.administrativeScope ?? ""}`} context={context}
     initialCatalogs={initialCatalogs} initialAgenda={initialAgenda} initialVisitId={typeof query.visita === "string" ? query.visita : undefined}
-    initialScreen={query.secao === "obras" ? "works" : query.secao === "agenda" ? "agenda" : query.secao === "administracao" && active.profile === "ADMINISTRATIVO" ? "settings" : "overview"}
+    initialScreen={query.secao === "obras" ? "works" : query.secao === "agenda" ? "agenda" : query.secao === "administracao" && context.administrativeScope === "GERAL" ? "settings" : "overview"}
     activeAccountCount={activeAccountCount}
-    administrationContent={active.profile === "ADMINISTRATIVO" ? <AccessAdministration embedded pendingPage={parsePage(query.pendentes)} historyPage={parsePage(query.historico)} /> : undefined}
-    administrationWorksContent={active.profile === "ADMINISTRATIVO" ? <AccessAdministration embedded view="works" pendingPage={parsePage(query.pendentes)} historyPage={parsePage(query.historico)} /> : undefined} />;
+    administrationContent={context.administrativeScope === "GERAL" ? <AccessAdministration embedded pendingPage={parsePage(query.pendentes)} historyPage={parsePage(query.historico)} /> : undefined}
+    administrationWorksContent={context.administrativeScope === "GERAL" ? <AccessAdministration embedded view="works" pendingPage={parsePage(query.pendentes)} historyPage={parsePage(query.historico)} /> : undefined} />;
 }

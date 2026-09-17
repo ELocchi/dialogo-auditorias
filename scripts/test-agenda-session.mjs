@@ -17,9 +17,9 @@ function reset(profile = "ADMINISTRATIVO", engineeringScope = null) {
   state = {
     user: { id: userId, email: "agenda.session.fixture@dialogo.com.br", email_confirmed_at: "2026-09-14T12:00:00Z" },
     account: { auth_user_id: userId, perfil: "ADMINISTRATIVO", perfis: ["ADMINISTRATIVO", "AUDITOR_SEGURANCA", "AUDITOR_QUALIDADE", "ENGENHARIA"],
-      atuacao_engenharia: "EQUIPE_OBRA", atuacoes_engenharia: ["EQUIPE_OBRA", "COORDENACAO"], ativo: true, approved_at: "2026-09-14T12:00:00Z" },
+      atuacao_engenharia: "EQUIPE_OBRA", atuacoes_engenharia: ["EQUIPE_OBRA", "COORDENACAO"], atuacao_administrativa: "GERAL", ativo: true, approved_at: "2026-09-14T12:00:00Z" },
     status: "APROVADO", active: true, contextAvailable: true, authError: null,
-    cookieValues: [{ value: encodeActiveProfileChoice(userId, profile, engineeringScope) }],
+    cookieValues: [{ value: encodeActiveProfileChoice(userId, profile, engineeringScope, profile === "ADMINISTRATIVO" ? "GERAL" : null) }],
     context: { profile, engineeringScope, user: { id: userId }, works: [], fixture: "trusted workspace" },
     snapshot: { available: true, visits: [{ id: "offline-private-visit" }], auditors: [], notifications: [{ id: "offline-private-notification" }] },
     workspaceReads: [], agendaReads: [], mutations: [], clients: [],
@@ -38,13 +38,15 @@ function reset(profile = "ADMINISTRATIVO", engineeringScope = null) {
   };
   globalThis.__agendaSessionFixture = state;
 }
-const expected = (overrides = {}) => ({ userId, profile: state.context.profile, engineeringScope: state.context.engineeringScope, ...overrides });
+const expected = (overrides = {}) => ({ userId, profile: state.context.profile, engineeringScope: state.context.engineeringScope,
+  administrativeScope: state.context.profile === "ADMINISTRATIVO" ? "GERAL" : null, ...overrides });
 const request = (query = expected()) => {
   const url = new URL("http://offline.invalid/api/agenda");
   if (query) {
     url.searchParams.set("usuario", query.userId);
     url.searchParams.set("perfil", query.profile);
     url.searchParams.set("atuacao", query.engineeringScope ?? "");
+    url.searchParams.set("administrativo", query.administrativeScope ?? "");
   }
   return new Request(url);
 };
@@ -72,7 +74,7 @@ const stubModules = {
       return Promise.resolve({ status: 'success', message: 'Offline DAL accepted' });
     }
     export const createAgendaVisit = (...args) => operation('create', ...args);
-    export const rescheduleAgendaVisit = (...args) => operation('reschedule', ...args);
+    export const deleteAgendaVisit = (...args) => operation('delete', ...args);
     export const confirmAgendaVisit = (...args) => operation('confirm', ...args);
     export async function readAgendaSnapshot(client, context) {
       const s = globalThis.__agendaSessionFixture; s.agendaReads.push({ client, context }); return s.snapshot;
@@ -95,7 +97,7 @@ const actions = await import("../src/app/agenda/actions.ts");
 const { GET, dynamic } = await import("../src/app/api/agenda/route.ts");
 const operations = [
   ["create", actions.createAgendaVisitAction],
-  ["reschedule", actions.rescheduleAgendaVisitAction],
+  ["delete", actions.deleteAgendaVisitAction],
   ["confirm", actions.confirmAgendaVisitAction],
 ];
 
@@ -140,7 +142,7 @@ test("Valid actions pass the verified active context and writable session client
     assert.equal((await action(input, expected())).status, "success");
     assert.equal(state.workspaceReads.length, 1); assert.equal(state.mutations.length, 1);
     const active = state.workspaceReads[0];
-    assert.equal(active.user, state.user); assert.equal(active.account, state.account);
+    assert.equal(active.user, state.user); assert.deepEqual(active.account, state.account);
     assert.equal(active.profile, state.context.profile); assert.equal(active.engineeringScope, null);
     assert.deepEqual(state.mutations[0], { name, input, context: state.context, client: state.client });
     assert.deepEqual(state.clients.at(-1), { writableCookies: true });
@@ -167,7 +169,7 @@ test("GET returns private uncached 401/403 without agenda data for anonymous, pe
 });
 
 test("GET rejects displayed identity/profile/activity mismatch before invoking workspace or agenda readers", async () => {
-  for (const mismatch of [{ userId: otherId }, { profile: "AUDITOR_SEGURANCA" }, { engineeringScope: "EQUIPE_OBRA" }]) {
+  for (const mismatch of [{ userId: otherId }, { profile: "AUDITOR_SEGURANCA" }, { engineeringScope: "EQUIPE_OBRA" }, { administrativeScope: "QUALIDADE" }]) {
     reset(); await assertUnavailable(await GET(request(expected(mismatch))), 403); assertNoAgendaWork();
   }
   reset("ENGENHARIA", "COORDENACAO");
@@ -182,7 +184,7 @@ test("Valid GET uses cookie-selected identity/activity and session client and pr
   assert.equal(response.headers.get("Vary"), "Cookie");
   assert.deepEqual(await response.json(), state.snapshot);
   assert.deepEqual(state.agendaReads, [{ client: state.client, context: state.context }]);
-  assert.deepEqual(state.workspaceReads, [{ user: state.user, account: state.account, profile: "ENGENHARIA", engineeringScope: "EQUIPE_OBRA" }]);
+  assert.deepEqual(state.workspaceReads, [{ user: state.user, account: state.account, profile: "ENGENHARIA", engineeringScope: "EQUIPE_OBRA", administrativeScope: null }]);
   assert.equal(state.clients.at(-1), undefined);
   assert.equal(state.mutations.length, 0);
 });

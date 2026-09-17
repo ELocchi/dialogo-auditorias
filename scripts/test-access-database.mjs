@@ -142,6 +142,18 @@ if (!baselineOnly) suites.push({
   upgradeMigration: "20260916000500_work_follow_up_visits.sql",
   test: "work_follow_up_visits.sql",
   baselineAuthRows: 2,
+}, {
+  name: "B.13 schedule deletion/history/revoked rescheduling suite",
+  migrations: ["20260913000100_access_requests.sql", "20260913000200_access_administration.sql", "20260913000300_multiple_access_profiles.sql", "20260913000400_multiple_engineering_scopes.sql", "20260913000500_work_details.sql", "20260914000100_designated_general_access.sql", "20260914000200_audit_agenda.sql", "20260916000100_catalog_revisions.sql", "20260916000200_full_work_registration.sql", "20260916000300_work_team_access.sql", "20260916000400_ibrahim_general_access.sql", "20260916000500_work_follow_up_visits.sql"],
+  upgradeMigration: "20260917000100_delete_audit_agenda.sql",
+  test: "delete_audit_agenda.sql",
+  baselineAuthRows: 2,
+}, {
+  name: "B.14 administrative Safety/Quality/General permissions suite",
+  migrations: ["20260913000100_access_requests.sql", "20260913000200_access_administration.sql", "20260913000300_multiple_access_profiles.sql", "20260913000400_multiple_engineering_scopes.sql", "20260913000500_work_details.sql", "20260914000100_designated_general_access.sql", "20260914000200_audit_agenda.sql", "20260916000100_catalog_revisions.sql", "20260916000200_full_work_registration.sql", "20260916000300_work_team_access.sql", "20260916000400_ibrahim_general_access.sql", "20260916000500_work_follow_up_visits.sql", "20260917000100_delete_audit_agenda.sql"],
+  upgradeMigration: "20260917000200_administrative_scopes.sql",
+  test: "administrative_scopes.sql",
+  baselineAuthRows: 5,
 });
 
 const { PGlite } = await loadPGlite();

@@ -1,4 +1,4 @@
-import { accessProfiles, type AccessGrant, type AccessProfile, type AccessWork, type EngineeringScope } from "./contracts.ts";
+import { accessProfiles, type AccessGrant, type AccessProfile, type AccessWork, type AdministrativeScope, type EngineeringScope } from "./contracts.ts";
 import { uuidPattern } from "./validation.ts";
 import { corporateEmail } from "../auth/validation.ts";
 import type { EffectiveAccount } from "../auth/effective-access.ts";
@@ -11,12 +11,14 @@ export type ProfileWorkspaceContext = {
   profile: AccessProfile;
   email: string;
   engineeringScope: EngineeringScope | null;
+  administrativeScope: AdministrativeScope | null;
 };
 export type WorkspaceWork = AccessWork & Partial<Record<"cidade" | "uf" | "logradouro" | "numero" | "responsavel_tecnico" | "coordenacao", string>>;
 type Input = {
   account: EffectiveAccount;
   profile: AccessProfile;
   engineeringScope?: EngineeringScope | null;
+  administrativeScope?: AdministrativeScope | null;
   identity: { id: string; name: string; email: string };
   works: WorkspaceWork[];
   grants: AccessGrant[];
@@ -40,6 +42,10 @@ export function buildWorkspaceContext(input: Input): ProfileWorkspaceContext | n
     if (profile === "ENGENHARIA" && (!engineeringScope || !["EQUIPE_OBRA", "COORDENACAO"].includes(engineeringScope)
       || !Array.isArray(account.atuacoes_engenharia) || !account.atuacoes_engenharia.includes(engineeringScope))) return null;
     if (profile !== "ENGENHARIA" && input.engineeringScope != null) return null;
+    const administrativeScope = profile === "ADMINISTRATIVO" ? (input.administrativeScope ?? account.atuacao_administrativa) : null;
+    if (profile === "ADMINISTRATIVO" && (!administrativeScope || !["SEGURANCA", "QUALIDADE", "GERAL"].includes(administrativeScope)
+      || (account.atuacao_administrativa !== "GERAL" && account.atuacao_administrativa !== administrativeScope))) return null;
+    if (profile !== "ADMINISTRATIVO" && input.administrativeScope != null) return null;
     if (works.some((work) => !work || !uuidPattern.test(work.id) || typeof work.nome !== "string" || !work.nome.trim()
       || typeof work.ativo !== "boolean" || [work.cidade, work.uf, work.logradouro, work.numero, work.responsavel_tecnico, work.coordenacao].some((value) => value !== undefined && typeof value !== "string")) || new Set(works.map((work) => work.id)).size !== works.length) return null;
     if (grants.some((grant) => !grant || !uuidPattern.test(grant.obra_id)
@@ -52,8 +58,12 @@ export function buildWorkspaceContext(input: Input): ProfileWorkspaceContext | n
     const activeIds = new Set(activeWorks.map((work) => work.id));
     // Administrative contexts show the authorized maintenance catalog. This is
     // not a technical grant: auditor actions/documents remain role-restricted.
+    const administrativeModules: AppModule[] = administrativeScope === "GERAL" ? ["safety", "quality"]
+      : administrativeScope === "SEGURANCA" ? ["safety"]
+      : administrativeScope === "QUALIDADE" ? ["quality"] : [];
+    if (profile === "ADMINISTRATIVO" && !administrativeModules.length) return null;
     const scopes = profile === "ADMINISTRATIVO"
-      ? activeWorks.flatMap((work) => (["safety", "quality"] as const).map((module) => ({ workId: work.id, module })))
+      ? activeWorks.flatMap((work) => administrativeModules.map((module) => ({ workId: work.id, module })))
       : grants.filter((grant) => grant.perfil === profile && activeIds.has(grant.obra_id))
         .map((grant) => ({ workId: grant.obra_id, module: (grant.modulo === "SEGURANCA" ? "safety" : "quality") as AppModule }));
     const uniqueScopes = [...new Map(scopes.map((scope) => [`${scope.workId}/${scope.module}`, scope])).values()];
@@ -64,7 +74,8 @@ export function buildWorkspaceContext(input: Input): ProfileWorkspaceContext | n
       address: [work.logradouro, work.numero].filter(Boolean).join(", "),
       status: "Ativa", isDemo: false,
     })).sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
-    const modules = (["safety", "quality"] as const).filter((module) => profile === "ADMINISTRATIVO" || uniqueScopes.some((scope) => scope.module === module));
+    const modules = (["safety", "quality"] as const).filter((module) => profile === "ADMINISTRATIVO"
+      ? administrativeModules.includes(module) : uniqueScopes.some((scope) => scope.module === module));
     const user: DemoUser = {
       id: identity.id, name: identity.name.trim(), role: roles[profile], modules,
       workIds: selectedWorks.map((work) => work.id), workModuleScopes: uniqueScopes,
@@ -73,7 +84,7 @@ export function buildWorkspaceContext(input: Input): ProfileWorkspaceContext | n
       documentWorkIds: [],
       ...(profile === "ENGENHARIA" ? { activity: engineeringScope === "COORDENACAO" ? "coordination" as const : "site-team" as const } : {}),
     };
-    return { user, works: selectedWorks, profile, email: identity.email, engineeringScope };
+    return { user, works: selectedWorks, profile, email: identity.email, engineeringScope, administrativeScope };
   } catch { return null; }
 }
 

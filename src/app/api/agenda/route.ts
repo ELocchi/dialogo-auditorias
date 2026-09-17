@@ -18,7 +18,8 @@ export async function GET(request: Request) {
   const query = new URL(request.url).searchParams;
   if ((query.has("usuario") && query.get("usuario") !== user.id)
     || (query.has("perfil") && query.get("perfil") !== selected.profile)
-    || (query.has("atuacao") && query.get("atuacao") !== (selected.engineeringScope ?? ""))) {
+    || (query.has("atuacao") && query.get("atuacao") !== (selected.engineeringScope ?? ""))
+    || (query.has("administrativo") && query.get("administrativo") !== (selected.administrativeScope ?? ""))) {
     return Response.json(unavailableAgenda(), { status: 403, headers });
   }
   const context = await readWorkspaceContext({ user, account, ...selected });

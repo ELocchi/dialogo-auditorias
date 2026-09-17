@@ -6,7 +6,7 @@ const id = "d1a20000-0000-4000-8000-000000000001";
 const otherId = "d1a20000-0000-4000-8000-000000000002";
 const user = { id, email: "fixture.effective@dialogo.com.br", email_confirmed_at: "2026-09-13T12:00:00Z" };
 const originalAccount = {
-  auth_user_id: id, perfil: "ADMINISTRATIVO", perfis: ["ADMINISTRATIVO"], atuacao_engenharia: null, atuacoes_engenharia: [],
+  auth_user_id: id, perfil: "ADMINISTRATIVO", perfis: ["ADMINISTRATIVO"], atuacao_engenharia: null, atuacoes_engenharia: [], atuacao_administrativa: "GERAL",
   ativo: true, approved_at: "2026-09-13T12:30:00Z",
 };
 const originalRequest = {
@@ -17,7 +17,7 @@ const originalRequest = {
 function fixture(options = {}) {
   const state = {
     account: structuredClone(originalAccount), request: structuredClone(originalRequest),
-    active: true, accountError: null, requestError: null, activeError: null,
+    active: true, accountError: null, requestError: null, activeError: null, scopeError: null, legacyAuthority: true,
     throwFrom: false, throwRpc: false, ...options,
   };
   const calls = [];
@@ -26,14 +26,17 @@ function fixture(options = {}) {
       calls.push(["from", table]);
       if (state.throwFrom) throw new Error("synthetic provider failure");
       assert.ok(["access_accounts", "access_requests"].includes(table));
+      let selected = "";
       return {
-        select() { return this; },
+        select(columns) { selected = columns; return this; },
         eq(column, value) {
           assert.equal(column, "auth_user_id");
           assert.equal(value, id, "Each read must explicitly select the verified identity.");
           return this;
         },
         async maybeSingle() {
+          if (table === "access_accounts" && selected === "atuacao_administrativa" && state.scopeError)
+            return { data: null, error: state.scopeError };
           const key = table === "access_accounts" ? "account" : "request";
           return { data: state[key], error: state[`${key}Error`] };
         },
@@ -41,20 +44,28 @@ function fixture(options = {}) {
     },
     async rpc(name) {
       calls.push(["rpc", name]);
-      assert.equal(name, "is_current_access_active");
+      assert.ok(["is_current_access_active", "is_current_access_administrator"].includes(name));
       if (state.throwRpc) throw new Error("synthetic RPC transport failure");
-      return { data: state.active, error: state.activeError };
+      return name === "is_current_access_active" ? { data: state.active, error: state.activeError }
+        : { data: state.legacyAuthority, error: null };
     },
   };
   return { state, calls, client };
 }
 
-test("A verified single Administrative account enters its workspace", async () => {
+test("A verified General administrator chooses which administrative view to enter", async () => {
   const { client, calls } = fixture();
   const account = await readEffectiveAccount(client, user);
   assert.deepEqual(account, originalAccount);
-  assert.equal(effectiveDestination(account), "/app");
+  assert.equal(effectiveDestination(account), "/escolher-perfil");
   assert.deepEqual(calls.filter(([type]) => type === "rpc"), [["rpc", "is_current_access_active"]]);
+});
+test("before B.14, only a database-confirmed existing administrator receives General activity", async () => {
+  const legacy = fixture({ scopeError: { code: "42703" } });
+  assert.equal((await readEffectiveAccount(legacy.client, user))?.atuacao_administrativa, "GERAL");
+  assert.ok(legacy.calls.some(([kind, name]) => kind === "rpc" && name === "is_current_access_administrator"));
+  assert.equal(await readEffectiveAccount(fixture({ scopeError: { code: "42703" }, legacyAuthority: false }).client, user), null);
+  assert.equal(await readEffectiveAccount(fixture({ scopeError: { code: "PGRST500" } }).client, user), null);
 });
 
 test("Approved single auditor and engineering profiles enter their workspace", async () => {
@@ -88,7 +99,7 @@ test("Combined technical profiles never imply administration", async () => {
 });
 
 test("An Engineering-only account with both authorized scopes needs a view selection", async () => {
-  const engineering = { ...originalAccount, perfil: "ENGENHARIA", perfis: ["ENGENHARIA"],
+  const engineering = { ...originalAccount, perfil: "ENGENHARIA", perfis: ["ENGENHARIA"], atuacao_administrativa: null,
     atuacao_engenharia: "COORDENACAO", atuacoes_engenharia: ["EQUIPE_OBRA", "COORDENACAO"] };
   const account = await readEffectiveAccount(fixture({ account: engineering }).client, user);
   assert.deepEqual(account, engineering);

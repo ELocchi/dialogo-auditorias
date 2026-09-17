@@ -2,9 +2,12 @@ import { DialogoLogo } from "./dialogo-logo";
 import { AdminNotifications, type AdminNotification } from "./auth/AdminNotifications";
 import { UserMenu } from "./auth/UserMenu";
 import styles from "./administrative-header.module.css";
+import { administrativeLabels, type AdministrativeScope } from "@/lib/access/contracts";
 
-export function AdministrativeHeader({ name, notifications, onNavigateAgenda }: {
+export function AdministrativeHeader({ name, userId, scope, notifications, onNavigateAgenda }: {
   name: string;
+  userId: string;
+  scope?: AdministrativeScope | null;
   notifications?: readonly AdminNotification[];
   onNavigateAgenda?: (item: AdminNotification) => void;
 }) {
@@ -15,11 +18,11 @@ export function AdministrativeHeader({ name, notifications, onNavigateAgenda }: 
         <div className="header-title">
           <h1>Auditorias de obra</h1>
           <p>Gestão de segurança e qualidade</p>
-          <span className="context-pill">ADMINISTRAÇÃO</span>
+          <span className="context-pill">{scope ? administrativeLabels[scope].toLocaleUpperCase("pt-BR") : "ADMINISTRAÇÃO"}</span>
         </div>
         <div className={styles.session}>
           <div className={styles.accountControls}>
-            <AdminNotifications items={notifications} onNavigateAgenda={onNavigateAgenda} />
+            <AdminNotifications items={notifications} userId={userId} onNavigateAgenda={onNavigateAgenda} />
             <UserMenu name={name} />
           </div>
         </div>

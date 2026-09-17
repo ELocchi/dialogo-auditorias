@@ -1,4 +1,4 @@
-import { accessProfiles, type AccessGrant, type AccessProfile, type ApprovalInput, type EngineeringScope } from "./contracts.ts";
+import { accessProfiles, type AccessGrant, type AccessProfile, type AdministrativeScope, type ApprovalInput, type EngineeringScope } from "./contracts.ts";
 
 export const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const invalid = (message: string) => ({ ok: false as const, message });
@@ -14,6 +14,8 @@ export function validateApproval(form: FormData): { ok: true; data: ApprovalInpu
   const submittedProfiles = form.getAll("perfis");
   const scopeValues = form.getAll("atuacaoEngenharia");
   const scope = field(form, "atuacaoEngenharia") || null;
+  const administrativeValues = form.getAll("atuacaoAdministrativa");
+  const administrativeScope = field(form, "atuacaoAdministrativa") || null;
   const reason = field(form, "reason");
   if (!authUserId || !uuidPattern.test(authUserId)) return invalid("A solicitação não é válida. Atualize a página e tente novamente.");
   if (submittedProfiles.length === 0 || submittedProfiles.length > accessProfiles.length
@@ -23,6 +25,9 @@ export function validateApproval(form: FormData): { ok: true; data: ApprovalInpu
   if (scopeValues.length > 1 || scopeValues.some((value) => typeof value !== "string")) return invalid("Revise a atuação de Engenharia.");
   if (perfis.includes("ENGENHARIA") && scope !== "EQUIPE_OBRA" && scope !== "COORDENACAO") return invalid("Escolha Equipe da obra ou Coordenação para Engenharia.");
   if (!perfis.includes("ENGENHARIA") && scope !== null) return invalid("A atuação de Engenharia deve ser informada apenas quando esse perfil é concedido.");
+  if (administrativeValues.length > 1 || administrativeValues.some((value) => typeof value !== "string")) return invalid("Revise a atuação administrativa.");
+  if (perfis.includes("ADMINISTRATIVO") && !["SEGURANCA", "QUALIDADE", "GERAL"].includes(administrativeScope ?? "")) return invalid("Escolha Administrativo de Segurança, Qualidade ou Geral.");
+  if (!perfis.includes("ADMINISTRATIVO") && administrativeScope !== null) return invalid("A atuação administrativa deve ser informada apenas para o perfil Administrativo.");
   if (!reason || reason.length < 10 || reason.length > 1000) return invalid("Registre o motivo da aprovação com 10 a 1.000 caracteres.");
   if (field(form, "confirmation") !== "SIM") return invalid("Revise os perfis e cada acesso e confirme a aprovação.");
 
@@ -49,7 +54,7 @@ export function validateApproval(form: FormData): { ok: true; data: ApprovalInpu
     validated.push({ perfil: grant.perfil, obra_id, modulo: grant.modulo });
   }
   if (perfis.some((profile) => profile !== "ADMINISTRATIVO" && !validated.some((grant) => grant.perfil === profile))) return invalid("Informe ao menos uma obra e um módulo para cada perfil técnico selecionado.");
-  return { ok: true, data: { authUserId: authUserId.toLowerCase(), perfis, atuacaoEngenharia: scope as EngineeringScope | null, grants: validated, reason } };
+  return { ok: true, data: { authUserId: authUserId.toLowerCase(), perfis, atuacaoEngenharia: scope as EngineeringScope | null, atuacaoAdministrativa: administrativeScope as AdministrativeScope | null, grants: validated, reason } };
 }
 
 export function validateWork(form: FormData) {

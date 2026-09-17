@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Icon } from "../ui-icon";
 import styles from "./admin-notifications.module.css";
 
@@ -30,6 +30,28 @@ function timestamp(value: string) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+const readStorageKey = (userId: string) => `dialogo-auditorias:notifications-read:${userId}`;
+const dismissedStorageKey = (userId: string) => `dialogo-auditorias:notifications-dismissed:${userId}`;
+const notificationKey = (item: AdminNotification) => `${item.type}:${item.id}`;
+const emptyNotifications: readonly AdminNotification[] = [];
+const readChangeEvent = "dialogo-auditorias:notifications-read-changed";
+const dismissedChangeEvent = "dialogo-auditorias:notifications-dismissed-changed";
+
+function storedSnapshot(key: string) {
+  try { return localStorage.getItem(key) ?? "[]"; } catch { return "[]"; }
+}
+
+function parseReadKeys(snapshot: string): Set<string> {
+  try {
+    const value: unknown = JSON.parse(snapshot);
+    return new Set(Array.isArray(value) ? value.filter((key): key is string => typeof key === "string" && key.length <= 200) : []);
+  } catch { return new Set(); }
+}
+
+function sameKeys(left: Set<string>, right: Set<string>) {
+  return left.size === right.size && [...left].every((key) => right.has(key));
+}
+
 function NotificationContent({ item }: { item: AdminNotification }) {
   const date = Date.parse(item.createdAt);
   return <>
@@ -45,8 +67,9 @@ function NotificationContent({ item }: { item: AdminNotification }) {
   </>;
 }
 
-export function AdminNotifications({ items = [], onNavigateAgenda }: {
+export function AdminNotifications({ items = emptyNotifications, userId, onNavigateAgenda }: {
   items?: readonly AdminNotification[];
+  userId: string;
   onNavigateAgenda?: (item: AdminNotification) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -54,8 +77,63 @@ export function AdminNotifications({ items = [], onNavigateAgenda }: {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelId = useId();
   const headingId = useId();
-  const sortedItems = [...items].sort((left, right) => timestamp(right.createdAt) - timestamp(left.createdAt));
-  const countLabel = items.length === 1 ? "1 notificação" : `${items.length} notificações`;
+  const subscribeReadKeys = useCallback((onChange: () => void) => {
+    const onStorage = (event: StorageEvent) => { if (event.key === readStorageKey(userId)) onChange(); };
+    const onLocalChange = (event: Event) => {
+      if (event instanceof CustomEvent && event.detail === userId) onChange();
+    };
+    window.addEventListener("storage", onStorage);
+    window.addEventListener(readChangeEvent, onLocalChange);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener(readChangeEvent, onLocalChange);
+    };
+  }, [userId]);
+  const subscribeDismissedKeys = useCallback((onChange: () => void) => {
+    const onStorage = (event: StorageEvent) => { if (event.key === dismissedStorageKey(userId)) onChange(); };
+    const onLocalChange = (event: Event) => {
+      if (event instanceof CustomEvent && event.detail === userId) onChange();
+    };
+    window.addEventListener("storage", onStorage);
+    window.addEventListener(dismissedChangeEvent, onLocalChange);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener(dismissedChangeEvent, onLocalChange);
+    };
+  }, [userId]);
+  const getReadSnapshot = useCallback(() => storedSnapshot(readStorageKey(userId)), [userId]);
+  const getDismissedSnapshot = useCallback(() => storedSnapshot(dismissedStorageKey(userId)), [userId]);
+  const snapshot = useSyncExternalStore(subscribeReadKeys, getReadSnapshot, () => "[]");
+  const dismissedSnapshot = useSyncExternalStore(subscribeDismissedKeys, getDismissedSnapshot, () => "[]");
+  const readKeys = useMemo(() => parseReadKeys(snapshot), [snapshot]);
+  const dismissedKeys = useMemo(() => parseReadKeys(dismissedSnapshot), [dismissedSnapshot]);
+  const visibleItems = useMemo(() => items.filter((item) => !dismissedKeys.has(notificationKey(item))), [items, dismissedKeys]);
+  const sortedItems = [...visibleItems].sort((left, right) => timestamp(right.createdAt) - timestamp(left.createdAt));
+  const unreadCount = visibleItems.filter((item) => !readKeys.has(notificationKey(item))).length;
+  const countLabel = unreadCount === 1 ? "1 notificação não lida" : `${unreadCount} notificações não lidas`;
+
+  const markVisibleRead = useCallback(() => {
+    const stored = parseReadKeys(storedSnapshot(readStorageKey(userId)));
+    const next = new Set([...stored, ...visibleItems.map(notificationKey)]);
+    if (sameKeys(next, stored)) return;
+    try {
+      localStorage.setItem(readStorageKey(userId), JSON.stringify([...next]));
+      window.dispatchEvent(new CustomEvent(readChangeEvent, { detail: userId }));
+    } catch { /* Browser storage may be unavailable. */ }
+  }, [visibleItems, userId]);
+
+  const dismissNotification = (item: AdminNotification) => {
+    const stored = parseReadKeys(storedSnapshot(dismissedStorageKey(userId)));
+    stored.add(notificationKey(item));
+    try {
+      localStorage.setItem(dismissedStorageKey(userId), JSON.stringify([...stored]));
+      window.dispatchEvent(new CustomEvent(dismissedChangeEvent, { detail: userId }));
+    } catch { /* Browser storage may be unavailable. */ }
+  };
+
+  useEffect(() => {
+    if (open) markVisibleRead();
+  }, [open, markVisibleRead]);
 
   useEffect(() => {
     if (!open) return;
@@ -79,10 +157,10 @@ export function AdminNotifications({ items = [], onNavigateAgenda }: {
       }
     }}>
     <button ref={triggerRef} type="button" className={styles.trigger}
-      aria-label={items.length ? `Notificações, ${countLabel}` : "Notificações"}
+      aria-label={unreadCount ? `Notificações, ${countLabel}` : "Notificações"}
       aria-expanded={open} aria-controls={panelId} onClick={() => setOpen((previous) => !previous)}>
       <Icon name="bell" />
-      {items.length > 0 && <span className={styles.count} aria-hidden="true">{items.length > 99 ? "99+" : items.length}</span>}
+      {unreadCount > 0 && <span className={styles.count} aria-hidden="true">{unreadCount > 99 ? "99+" : unreadCount}</span>}
     </button>
     <section id={panelId} className={styles.panel} aria-labelledby={headingId} hidden={!open}>
       <div className={styles.heading}>
@@ -94,6 +172,7 @@ export function AdminNotifications({ items = [], onNavigateAgenda }: {
           {item.type !== "audit_published" || item.href
             ? <a className={styles.item} href={item.href ?? "/app?secao=agenda"}
               onClick={(event) => {
+                dismissNotification(item);
                 if (item.type === "audit_published" || !onNavigateAgenda || event.defaultPrevented
                   || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
                 event.preventDefault();
@@ -101,7 +180,8 @@ export function AdminNotifications({ items = [], onNavigateAgenda }: {
                 triggerRef.current?.focus();
                 onNavigateAgenda(item);
               }}><NotificationContent item={item} /></a>
-            : <div className={styles.item}><NotificationContent item={item} /></div>}
+            : <button type="button" className={`${styles.item} ${styles.itemButton}`}
+              onClick={() => dismissNotification(item)}><NotificationContent item={item} /></button>}
         </li>)}
       </ul> : <p className={styles.empty}>Nenhuma notificação no momento.</p>}
     </section>

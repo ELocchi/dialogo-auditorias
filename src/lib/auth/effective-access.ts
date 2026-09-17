@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { corporateEmail } from "./validation.ts";
-import { accessProfiles, type AccessProfile, type EngineeringScope } from "../access/contracts.ts";
+import { accessProfiles, type AccessProfile, type AdministrativeScope, type EngineeringScope } from "../access/contracts.ts";
 
 export type EffectiveAccount = {
   auth_user_id: string;
@@ -9,6 +9,7 @@ export type EffectiveAccount = {
   perfis: AccessProfile[];
   atuacao_engenharia: "EQUIPE_OBRA" | "COORDENACAO" | null;
   atuacoes_engenharia: EngineeringScope[];
+  atuacao_administrativa: AdministrativeScope | null;
   ativo: boolean;
   approved_at: string;
 };
@@ -49,11 +50,26 @@ export async function readEffectiveAccount(client: Pick<SupabaseClient, "from" |
     const canonical = accessProfiles.filter((profile) => data.perfis.includes(profile));
     if (canonical.some((profile, index) => data.perfis[index] !== profile) || data.perfil !== canonical[0]) return null;
     if (!validEngineeringScopes(data.perfis, data.atuacao_engenharia, data.atuacoes_engenharia)) return null;
-    return data as EffectiveAccount;
+    let administrativeScope: AdministrativeScope | null = null;
+    if (data.perfis.includes("ADMINISTRATIVO")) {
+      const scope = await client.from("access_accounts").select("atuacao_administrativa")
+        .eq("auth_user_id", user.id).maybeSingle();
+      if (!scope.error && scope.data) {
+        if (!["SEGURANCA", "QUALIDADE", "GERAL"].includes(scope.data.atuacao_administrativa)) return null;
+        administrativeScope = scope.data.atuacao_administrativa as AdministrativeScope;
+      } else if (scope.error?.code === "42703") {
+        // Before B.14, every existing administrator has General authority.
+        // The server helper must confirm it; a scoped account cannot pass it after B.14.
+        const legacy = await client.rpc("is_current_access_administrator");
+        if (legacy.error || legacy.data !== true) return null;
+        administrativeScope = "GERAL";
+      } else return null;
+    }
+    return { ...data, atuacao_administrativa: administrativeScope } as EffectiveAccount;
   } catch { return null; }
 }
 
 export function effectiveDestination(account: EffectiveAccount | null) {
   if (!account) return "/aguardando-liberacao";
-  return account.perfis.length > 1 || account.atuacoes_engenharia.length > 1 ? "/escolher-perfil" : "/app";
+  return account.perfis.length > 1 || account.atuacoes_engenharia.length > 1 || account.atuacao_administrativa === "GERAL" ? "/escolher-perfil" : "/app";
 }

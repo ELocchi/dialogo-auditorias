@@ -17,14 +17,12 @@ export type AgendaSnapshot = {
 };
 
 export type CreateAgendaVisitInput = VisitInput & { requestId: string };
-export type RescheduleAgendaVisitInput = {
+export type DeleteAgendaVisitInput = {
   visitId: string;
   requestId: string;
   expectedRevision: number;
-  date: string;
-  note: string;
 };
-export type ConfirmAgendaVisitInput = Pick<RescheduleAgendaVisitInput, "visitId" | "requestId" | "expectedRevision">;
+export type ConfirmAgendaVisitInput = DeleteAgendaVisitInput;
 export type AgendaActionResult = {
   status: "success" | "error";
   message: string;
@@ -33,7 +31,7 @@ export type AgendaActionResult = {
 };
 
 /** Expected UI context is compared with the verified session; it grants no authority. */
-export type AgendaActorContext = { userId: string; profile: string; engineeringScope: string | null };
+export type AgendaActorContext = { userId: string; profile: string; engineeringScope: string | null; administrativeScope: string | null };
 
 export function unavailableAgenda(): AgendaSnapshot {
   return { available: false, visits: [], auditors: [], notifications: [] };
