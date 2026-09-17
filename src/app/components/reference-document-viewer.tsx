@@ -22,7 +22,7 @@ export function ReferenceDocumentViewer({ modelId, revisionId, revisionLabel }: 
         const response = await fetch(endpoint, { credentials: "same-origin", cache: "no-store", signal: controller.signal });
         if (!response.ok) {
           throw new Error(response.status === 401 || response.status === 403
-            ? "Sua sessão ou seu perfil mudou. Entre no perfil Administrativo para consultar este documento."
+            ? "Sua sessão ou seu acesso a este documento mudou. Entre novamente ou confira seus acessos."
             : "Não foi possível abrir o documento. Tente novamente.");
         }
         if (!response.headers.get("Content-Type")?.startsWith("application/pdf")) throw new Error("Não foi possível abrir o documento. Tente novamente.");

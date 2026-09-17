@@ -1,6 +1,6 @@
 import { securityCriteria, qualityModels, type Criterion } from "./catalogs.ts";
 import { updateItemResponse, type AuditDrafts, type ItemResponse } from "./audit-draft.ts";
-import { canStartAudit, canEditAudit, type DemoUser, type Visit } from "./prototype-access.ts";
+import { canBeginScheduledAudit, canStartAudit, canEditAudit, type DemoUser, type Visit } from "./prototype-access.ts";
 import type { AuditRecord, AuditModelId, WorkRecord } from "./operational-records";
 
 export interface PrototypeAuditState {
@@ -36,12 +36,21 @@ export function beginWorkspacePreviewAudit(state: PrototypeAuditState, user: Dem
   return beginLocalAudit(state, user, input, true);
 }
 
+export function beginScheduledVisitAudit(state: PrototypeAuditState, user: DemoUser,
+  input: { id: string; work: WorkRecord; visit: Visit; catalogRevision?: LocalAuditInput["catalogRevision"] }, today: string) {
+  if (!canBeginScheduledAudit(user, input.visit, today) || !input.visit.modelId)
+    throw new Error("Esta auditoria só pode ser iniciada pelo responsável na data confirmada.");
+  return beginWorkspacePreviewAudit(state, user, {
+    ...input, modelId: input.visit.modelId, date: input.visit.date,
+  });
+}
+
 function beginLocalAudit(state: PrototypeAuditState, user: DemoUser, input: LocalAuditInput, registeredWorkPreview: boolean): { state: PrototypeAuditState; auditId: string } {
   if ((!input.work.isDemo && !registeredWorkPreview) || !canStartAudit(user, input.work.id, input.modelId)) throw new Error("Este perfil não pode iniciar essa auditoria.");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date) || !Number.isFinite(Date.parse(`${input.date}T12:00:00Z`)) || new Date(`${input.date}T12:00:00Z`).toISOString().slice(0, 10) !== input.date) throw new Error("Informe uma data válida para a inspeção.");
   if (input.visit) {
     if (input.visit.kind !== "audit" || input.visit.auditorId !== user.id
-      || input.visit.workId !== input.work.id || input.visit.modelId !== input.modelId) throw new Error("A visita não é uma auditoria ou pertence a outro responsável ou contexto.");
+      || input.visit.workId !== input.work.id || input.visit.modelId !== input.modelId || input.visit.date !== input.date) throw new Error("A visita não é uma auditoria ou pertence a outro responsável ou contexto.");
     const existing = state.audits.find((audit) => audit.visitId === input.visit!.id);
     if (existing) {
       if (!canEditAudit(user, existing)) throw new Error("A auditoria desta visita não está disponível para edição.");

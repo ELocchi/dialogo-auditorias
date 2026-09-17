@@ -154,20 +154,27 @@ if (!baselineOnly) suites.push({
   upgradeMigration: "20260917000200_administrative_scopes.sql",
   test: "administrative_scopes.sql",
   baselineAuthRows: 5,
+}, {
+  name: "B.16 follow-up orientative reports and findings permissions suite",
+  migrations: ["20260913000100_access_requests.sql", "20260913000200_access_administration.sql", "20260913000300_multiple_access_profiles.sql", "20260913000400_multiple_engineering_scopes.sql", "20260913000500_work_details.sql", "20260914000100_designated_general_access.sql", "20260914000200_audit_agenda.sql", "20260916000100_catalog_revisions.sql", "20260916000200_full_work_registration.sql", "20260916000300_work_team_access.sql", "20260916000400_ibrahim_general_access.sql", "20260916000500_work_follow_up_visits.sql", "20260917000100_delete_audit_agenda.sql", "20260917000200_administrative_scopes.sql", "20260917000300_auditor_reference_documents.sql", "20260917000400_follow_up_reports.sql"],
+  test: "follow_up_reports.sql",
 });
 
 const { PGlite } = await loadPGlite();
 for (const suite of suites) {
   const db = await PGlite.create();
+  let currentSqlFile = "";
   try {
     await db.exec(authAdapter);
     const version = await db.query("select version() as version");
     console.log(`${suite.name}: ${version.rows[0].version}`);
     for (const migration of suite.migrations) {
+      currentSqlFile = migration;
       const sql = readFileSync(path.join(projectRoot, "supabase", "migrations", migration), "utf8");
       await db.exec(sql);
     }
     const testSql = readFileSync(path.join(projectRoot, "supabase", "tests", suite.test), "utf8");
+    currentSqlFile = suite.test;
     if (suite.upgradeMigration) {
       // Seed real legacy records BEFORE upgrading. Execute the unmodified,
       // versioned migration including its own transaction. Legacy snapshots
@@ -197,7 +204,7 @@ for (const suite of suites) {
       "The SQL suite must roll back all new fixtures; only disposable pre-upgrade fixtures may remain.");
     console.log(`PASS: ${suite.name}; new fixtures rolled back; isolated database discarded.`);
   } catch (error) {
-    console.error(`FAIL: ${suite.name}: ${error.message}`);
+    console.error(`FAIL: ${suite.name} (${currentSqlFile}): ${error.message}`);
     if (error.detail) console.error(`Detail: ${error.detail}`);
     if (error.where) console.error(`Where: ${error.where}`);
     if (error.position) console.error(`SQL position: ${error.position}`);

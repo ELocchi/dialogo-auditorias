@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { demoUsers, initialVisits } from "../src/domain/prototype-access.ts";
+import { demoUsers, initialVisits, canBeginScheduledAudit } from "../src/domain/prototype-access.ts";
 import { workRecords, auditRecords } from "../src/domain/operational-records.ts";
 import { getItemResponse, getResponseLabel } from "../src/domain/audit-draft.ts";
 import {
-  criteriaForModel, modelDisplayName, beginPrototypeAudit,
+  criteriaForModel, modelDisplayName, beginPrototypeAudit, beginScheduledVisitAudit,
   updatePrototypeResponse, updatePrototypeAuditDate,
 } from "../src/domain/prototype-audits.ts";
 
@@ -145,12 +145,33 @@ test("Segurança e Qualidade não compartilham escala ou atribuem notas automát
 test("visita inicia uma vez e retomada mantém o mesmo rascunho sem duplicar", () => {
   const started = begin(emptyState(), safety, { visit: initialVisits[0] });
   const state = updatePrototypeResponse(started.state, safety, started.auditId, first, { answer: "5", note: "Mantida ao retomar" });
-  const resumed = begin(state, safety, { id: "ID-QUE-NAO-SERA-CRIADO", date: "2026-09-20", visit: initialVisits[0] });
+  const resumed = begin(state, safety, { id: "ID-QUE-NAO-SERA-CRIADO", visit: initialVisits[0] });
   assert.equal(resumed.auditId, started.auditId);
   assert.equal(resumed.state, state);
   assert.equal(resumed.state.audits.length, 1);
   assert.equal(resumed.state.audits[0].date, "2026-09-15");
   assert.deepEqual(responseOf(resumed.state, resumed.auditId), { answer: "5", note: "Mantida ao retomar" });
+  assert.throws(() => begin(state, safety, { date: "2026-09-20", visit: initialVisits[0] }), /outro responsável ou contexto/);
+});
+
+test("início agendado exige auditor responsável, confirmação e o dia da visita", () => {
+  const user = { ...safety, workModuleScopes: [{ workId: horizonte.id, module: "safety" }] };
+  const visit = { ...initialVisits[0], confirmationStatus: "confirmed", revision: 1 };
+  assert.equal(canBeginScheduledAudit(user, visit, visit.date), true);
+  const started = beginScheduledVisitAudit(emptyState(), user, { id: "VISITA-INICIADA", work: horizonte, visit }, visit.date);
+  assert.equal(started.state.audits[0].visitId, visit.id);
+  assert.equal(started.state.audits[0].date, visit.date);
+  assert.equal(started.state.audits[0].finalScore, null);
+  assert.equal(beginScheduledVisitAudit(started.state, user, { id: "IGNORADO", work: horizonte, visit }, visit.date).auditId, started.auditId);
+  for (const [actor, changed, day] of [
+    [user, visit, "2026-09-14"],
+    [user, { ...visit, confirmationStatus: "pending_confirmation" }, visit.date],
+    [user, { ...visit, kind: "follow_up", modelId: null }, visit.date],
+    [otherSafety, visit, visit.date],
+  ]) {
+    assert.equal(canBeginScheduledAudit(actor, changed, day), false);
+    assert.throws(() => beginScheduledVisitAudit(emptyState(), actor, { id: "NEGADO", work: horizonte, visit: changed }, day), /data confirmada/);
+  }
 });
 
 test("visita não transfere autoria nem aceita obra/modelo de outro contexto", () => {

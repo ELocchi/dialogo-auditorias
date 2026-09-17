@@ -1,9 +1,27 @@
-export const auditorColorPalette = [
-  "#2563eb", "#dc2626", "#059669", "#7c3aed", "#ea580c", "#0891b2",
-  "#be185d", "#4d7c0f", "#4338ca", "#b45309", "#0f766e", "#9333ea",
-  "#0284c7", "#e11d48", "#16a34a", "#c026d3", "#475569", "#65a30d",
-  "#9a3412", "#db2777",
+export const auditorColorOptions = [
+  { name: "Azul claro", value: "#60a5fa" },
+  { name: "Amarelo claro", value: "#facc15" },
+  { name: "Vermelho claro", value: "#f87171" },
+  { name: "Verde claro", value: "#4ade80" },
+  { name: "Rosa claro", value: "#f472b6" },
+  { name: "Azul escuro", value: "#2563eb" },
+  { name: "Amarelo escuro", value: "#ca8a04" },
+  { name: "Vermelho escuro", value: "#dc2626" },
+  { name: "Verde escuro", value: "#15803d" },
+  { name: "Rosa escuro", value: "#be185d" },
+  { name: "Laranja claro", value: "#fb923c" },
+  { name: "Marrom claro", value: "#b08968" },
+  { name: "Preto claro", value: "#475569" },
+  { name: "Roxo claro", value: "#a78bfa" },
+  { name: "Azul-turquesa claro", value: "#2dd4bf" },
+  { name: "Laranja escuro", value: "#ea580c" },
+  { name: "Marrom escuro", value: "#78350f" },
+  { name: "Preto escuro", value: "#111827" },
+  { name: "Roxo escuro", value: "#7c3aed" },
+  { name: "Azul-turquesa escuro", value: "#0f766e" },
 ] as const;
+
+export const auditorColorPalette = auditorColorOptions.map((option) => option.value);
 
 export const validAuditorColor = (value: unknown): value is string =>
   typeof value === "string" && auditorColorPalette.some((color) => color === value.toLowerCase());

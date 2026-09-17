@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { assignAuditorColors, auditorColorPalette } from "../src/domain/auditor-calendar-colors.ts";
+import { assignAuditorColors, auditorColorOptions, auditorColorPalette } from "../src/domain/auditor-calendar-colors.ts";
 
 test("Each auditor receives a stable, distinct color across calendar renders", () => {
   const ids = ["auditor-b", "auditor-a", "auditor-c"];
@@ -21,6 +21,10 @@ test("Chosen colors take precedence without giving two auditors the same marker"
 test("The calendar offers exactly 20 fixed colors and ignores old spectrum values", () => {
   assert.equal(auditorColorPalette.length, 20);
   assert.equal(new Set(auditorColorPalette).size, 20);
+  for (const family of ["Azul", "Amarelo", "Vermelho", "Verde", "Rosa", "Laranja", "Marrom", "Preto", "Roxo"]) {
+    assert.ok(auditorColorOptions.some((option) => option.name === `${family} claro`));
+    assert.ok(auditorColorOptions.some((option) => option.name === `${family} escuro`));
+  }
   const colors = assignAuditorColors(["auditor-a"], { "auditor-a": "#123456" });
   assert.ok(auditorColorPalette.includes(colors["auditor-a"]));
 });

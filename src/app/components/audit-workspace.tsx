@@ -28,12 +28,13 @@ type CatalogProps = {
   allowedModels?: readonly string[];
   showWeights?: boolean;
   showReferenceDocuments?: boolean;
+  embedded?: boolean;
   catalogs?: CatalogSnapshot;
   actorId?: string;
   onCatalogsSaved?: (snapshot: CatalogSnapshot) => void;
 };
 
-export function Catalog({ model, setModel, query, setQuery, criteria, showItemList = true, allowedModels = models, showWeights = true, showReferenceDocuments = false, catalogs, actorId, onCatalogsSaved }: CatalogProps) {
+export function Catalog({ model, setModel, query, setQuery, criteria, showItemList = true, allowedModels = models, showWeights = true, showReferenceDocuments = false, embedded = false, catalogs, actorId, onCatalogsSaved }: CatalogProps) {
   const [visible, setVisible] = useState({ key: "", count: 20 });
   const resultKey = JSON.stringify([model, query]);
   const visibleCount = visible.key === resultKey ? visible.count : 20;
@@ -45,9 +46,9 @@ export function Catalog({ model, setModel, query, setQuery, criteria, showItemLi
   const selectedVersion = selectedDocument && catalogs ? catalogVersion(catalogs, selectedDocument.id) : undefined;
 
   return <>
-    <div className="page-intro">
+    <div className={embedded ? "panel-heading" : "page-intro"}>
       <div>
-        <h2>Roteiro de auditoria</h2>
+        {embedded ? <h3>Roteiros e versões</h3> : <h2>Roteiro de auditoria</h2>}
       </div>
       {showItemList && <span className="catalog-total"><strong>{criteria.length}</strong> quesitos{query ? " encontrados" : " no roteiro"}</span>}
     </div>
@@ -82,7 +83,7 @@ export function Catalog({ model, setModel, query, setQuery, criteria, showItemLi
 
     {editingId && catalogs && actorId && onCatalogsSaved && <CatalogEditorPanel key={editingId} version={catalogVersion(catalogs, editingId)} available={catalogs.available} setupPending={catalogs.setupPending} actorId={actorId} onSaved={onCatalogsSaved} onClose={() => { setEditingId(null); requestAnimationFrame(() => editorTrigger.current?.focus()); }} />}
 
-    {catalogs && !catalogs.available && !catalogs.setupPending && !editingId && <p className="source-note" role="status">Não foi possível consultar as revisões atuais. Atualize a página antes de editar.</p>}
+    {catalogs && !catalogs.available && !catalogs.setupPending && !editingId && <p className="source-note" role="status">Não foi possível consultar as revisões atuais. Atualize a página para tentar novamente.</p>}
 
     {showItemList && <>
     <div className="catalog-toolbar">
@@ -180,7 +181,7 @@ export function NewAudit({ model, setModel, criteria, activeIndex, setActiveInde
 
     <section className="form-panel" aria-label="Dados da auditoria">
       <label>OBRA<select disabled={lockedContext || readOnly}><option>{workName}</option></select></label>
-      <label>DATA DA AUDITORIA<input type="date" value={details.date} readOnly={readOnly} onChange={(event) => setDetails({ ...details, date: event.target.value })} /></label>
+      <label>DATA DA AUDITORIA<input type="date" value={details.date} readOnly={lockedContext || readOnly} onChange={(event) => setDetails({ ...details, date: event.target.value })} /></label>
       <label>MODELO E VERSÃO<select value={model} disabled={lockedContext || readOnly} onChange={(event) => setModel(event.target.value)}>{(lockedContext ? [model] : models).map((item) => <option key={item}>{item}</option>)}</select></label>
       <label>AUDITOR RESPONSÁVEL<input value={details.auditor} readOnly={lockedContext || readOnly} onChange={(event) => setDetails({ ...details, auditor: event.target.value })} /></label>
     </section>

@@ -12,7 +12,7 @@ O **Administrativo Geral** dispõe de **Usuários e acessos** para analisar soli
 
 O cadastro de obras é persistente. Em **Administração → Cadastro de obras** e **Obras → Editar obra**, o Administrativo salva nome, endereço, responsável técnico, registro profissional, coordenação, equipe e observações. As alterações mantêm histórico e controle de revisão para evitar sobrescrita de uma edição concorrente. Perfis ativos selecionados para a equipe recebem os módulos já autorizados para seus perfis nessa obra; ao remover o vínculo, somente as concessões criadas por ele são revogadas. Nomes informados manualmente continuam descritivos e não concedem acesso.
 
-As migrations B.1–B.14 foram aplicadas ao Supabase DEV usado no projeto. A publicação de B.7 em 14/09/2026 preservou as contas, as 21 obras e os acessos existentes. B.8–B.10 foram aplicadas em 16/09/2026; B.13 e B.14, em 17/09/2026. O histórico das etapas está em [RETOMADA.md](docs/RETOMADA.md).
+As migrations B.1–B.14 foram aplicadas ao Supabase DEV usado no projeto. A publicação de B.7 em 14/09/2026 preservou as contas, as 21 obras e os acessos existentes. B.8–B.10 foram aplicadas em 16/09/2026; B.13 e B.14, em 17/09/2026. Em 17/09/2026 também foram aplicadas `20260917000300_auditor_reference_documents.sql` e `20260917000400_follow_up_reports.sql`, para consulta de documentos pelo auditor e persistência de relatórios orientativos de acompanhamento. O histórico das etapas está em [RETOMADA.md](docs/RETOMADA.md).
 
 ## Telas operacionais e limites
 
@@ -22,7 +22,7 @@ O cadastro de obras e as autorizações são reais, mesmo durante a prévia das 
 
 Por decisão de 14/09/2026, os 205 subitens de Segurança recebem peso inicial **1**, em configuração separada da fonte documental. Permanecem os 27 pesos de grupo, as orientações e a escala 0, 5, 10 e N/A. Qualidade preserva os pesos e critérios já fornecidos: F.175 tem 10 quesitos e F.176 tem 23, cada roteiro somando 10,00.
 
-O cálculo automático ainda não está implementado. As regras complementares de aplicabilidade, base zero, arredondamento, fator de fase de Segurança e faixas do Farol de Qualidade continuam registradas em [Pendências de metodologia](docs/PENDENCIAS_METODOLOGIA.md); isso não torna pendentes os pesos e critérios já definidos. Publicação de auditoria, relatórios definitivos e upload permanente também não estão concluídos. As prévias de relatório e o ranking não devem ser tratados como resultados publicados.
+O cálculo automático ainda não está implementado. As regras complementares de aplicabilidade, base zero, arredondamento, fator de fase de Segurança e faixas do Farol de Qualidade continuam registradas em [Pendências de metodologia](docs/PENDENCIAS_METODOLOGIA.md); isso não torna pendentes os pesos e critérios já definidos. Publicação de auditoria, relatórios definitivos e upload permanente também não estão concluídos. O ranking administrativo permite selecionar mês ou ano; no ano, a posição usa a média das notas mensais publicadas disponíveis, separada por Segurança e Qualidade. Enquanto não houver resultados publicados persistidos, as tabelas permanecem vazias. As prévias de relatório e o ranking não devem ser tratados como resultados publicados.
 
 ## Executar localmente
 

@@ -13,7 +13,7 @@
     "test:auth": "node --experimental-strip-types --test scripts/test-auth.mjs scripts/test-login-diagnostics.mjs",
     "verify:security": "node --experimental-strip-types scripts/verify-security-catalog.mjs",
     "test:navigation": "node --experimental-strip-types scripts/test-audit-navigation.mjs",
-    "test:ranking": "node --experimental-strip-types scripts/test-work-ranking.mjs",
+    "test:ranking": "node --experimental-strip-types --test scripts/test-work-ranking.mjs scripts/test-admin-ranking.mjs",
     "test:calendar": "node --experimental-strip-types --test scripts/test-visit-calendar.mjs",
     "test:agenda": "node --experimental-strip-types --test scripts/test-agenda.mjs scripts/test-agenda-session.mjs",
     "test:reference-documents": "node --experimental-strip-types --test scripts/test-reference-documents.mjs",

@@ -79,6 +79,13 @@ export function canStartAudit(user: DemoUser, workId: string, modelId: AuditMode
     && canAccessWorkModule(user, workId, modelModule(modelId));
 }
 
+export function canBeginScheduledAudit(user: DemoUser, visit: Visit, today: string): boolean {
+  return visit.kind === "audit" && visit.modelId !== null
+    && visit.auditorId === user.id && visit.confirmationStatus === "confirmed"
+    && visit.date === today && modelModule(visit.modelId) === visit.module
+    && canReadVisit(user, visit) && canStartAudit(user, visit.workId, visit.modelId);
+}
+
 export interface AuditAccessTarget {
   workId: string;
   modelId: AuditModelId;

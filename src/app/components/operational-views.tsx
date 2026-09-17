@@ -35,7 +35,7 @@ export function Works({ works, canManage = false }: { works: readonly WorkRecord
       <label>Status<select value={status} onChange={(event) => setStatus(event.target.value)}><option value="all">Todos os status</option><option>Ativa</option><option>Planejada</option></select></label>
       <button type="button" className="secondary operational-clear" onClick={resetFilters} disabled={!query && status === "all"}>Limpar filtros</button>
     </div>
-    <p className="operational-result-count" role="status">{filteredWorks.length} {filteredWorks.length === 1 ? "obra encontrada" : "obras encontradas"}<span>{works.some((work) => work.isDemo) ? "Inclui cadastros de demonstração" : canManage ? "Obras disponíveis para este perfil" : "Obras disponíveis para este perfil e módulo"}</span></p>
+    <p className="operational-result-count" role="status">{filteredWorks.length} {filteredWorks.length === 1 ? "obra encontrada" : "obras encontradas"}</p>
 
     <div className="work-grid">
       {filteredWorks.map((work) => <article className="work-project-card" key={work.id}>

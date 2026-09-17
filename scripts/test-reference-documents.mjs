@@ -27,7 +27,7 @@ function reset(profile = "ADMINISTRATIVO", scope = null) {
     user: { id: userId, email: "reference.fixture@dialogo.com.br", email_confirmed_at: "2026-09-16T12:00:00Z" },
     account: { auth_user_id: userId, perfil: "ADMINISTRATIVO", perfis: ["ADMINISTRATIVO", "AUDITOR_SEGURANCA", "AUDITOR_QUALIDADE", "ENGENHARIA"],
       atuacao_engenharia: "EQUIPE_OBRA", atuacoes_engenharia: ["EQUIPE_OBRA", "COORDENACAO"], atuacao_administrativa: "GERAL", ativo: true, approved_at: "2026-09-16T12:00:00Z" },
-    requestStatus: "APROVADO", active: true, administrator: true, administratorError: null, authError: null,
+    requestStatus: "APROVADO", active: true, administrator: true, administratorError: null, auditorGrant: true, fallbackGrant: true, activeWork: true, authError: null,
     cookies: [{ value: encodeActiveProfileChoice(userId, profile, scope, profile === "ADMINISTRATIVO" ? "GERAL" : null) }],
     fileReads: [], rpcCalls: [], calls: [], fsError: false,
   };
@@ -35,7 +35,13 @@ function reset(profile = "ADMINISTRATIVO", scope = null) {
   state.client = {
     auth: { async getUser() { state.calls.push("auth"); return { data: { user: state.user }, error: state.authError }; } },
     from(table) { return {
-      select() { return this; }, eq() { return this; },
+      select() { return this; }, eq() { return this; }, in() { return this; }, limit() { return this; },
+      then(resolve, reject) {
+        state.calls.push(table);
+        const data = table === "access_grants" ? state.fallbackGrant ? [{ obra_id: otherId }] : []
+          : table === "access_works" ? state.activeWork ? [{ id: otherId }] : [] : [];
+        return Promise.resolve({ data, error: null }).then(resolve, reject);
+      },
       async maybeSingle() {
         state.calls.push(table);
         return { data: table === "access_accounts" ? state.account : {
@@ -46,6 +52,10 @@ function reset(profile = "ADMINISTRATIVO", scope = null) {
     }; },
     async rpc(name, params) {
       if (name === "read_audit_catalog_document") { state.rpcCalls.push(name); state.documentParams = params; return { data: state.document ?? null, error: state.documentError ?? null }; }
+      if (name === "read_auditor_catalog_document") {
+        state.calls.push(name); state.rpcCalls.push(name); state.documentParams = params;
+        return { data: state.document ?? null, error: state.auditorGrant ? state.documentError ?? null : { code: "42501" } };
+      }
       assert.ok(["is_current_access_active", "is_current_access_administrator"].includes(name));
       state.calls.push(name); state.rpcCalls.push(name);
       return name === "is_current_access_active"
@@ -115,14 +125,60 @@ test("Pending, inactive or database-revoked accounts are rejected before private
   }
 });
 
-test("Multi-profile identities must currently select Administrative, including when opening direct download URLs", async () => {
+test("Engineering profiles cannot open reference documents, including direct download URLs", async () => {
   for (const [profile, scope] of [
-    ["AUDITOR_SEGURANCA", null], ["AUDITOR_QUALIDADE", null], ["ENGENHARIA", "EQUIPE_OBRA"], ["ENGENHARIA", "COORDENACAO"],
+    ["ENGENHARIA", "EQUIPE_OBRA"], ["ENGENHARIA", "COORDENACAO"],
   ]) {
     for (const query of ["", "?download=original"]) {
       reset(profile, scope); await assertDenied(await load("quality-f176", query), 403);
     }
   }
+});
+
+test("Auditors can read only their discipline while an active grant exists", async () => {
+  for (const [profile, allowed, denied] of [
+    ["AUDITOR_SEGURANCA", "security-it07-r02", "quality-f175"],
+    ["AUDITOR_QUALIDADE", "quality-f176", "security-it07-r02"],
+  ]) {
+    for (const query of ["", "?download=original", "?revision=bundled"]) {
+      reset(profile);
+      const response = await load(allowed, query);
+      assert.equal(response.status, 200); assertPrivate(response);
+      assert.ok(state.calls.indexOf("read_auditor_catalog_document") < state.calls.indexOf("readFile"));
+      assert.equal(state.documentParams.p_profile, profile);
+      reset(profile); await assertDenied(await load(denied, query), 403);
+      assert.ok(!state.rpcCalls.includes("read_auditor_catalog_document"));
+      reset(profile); state.auditorGrant = false;
+      await assertDenied(await load(allowed, query), 403);
+    }
+  }
+});
+
+test("An auditor receives the selected private revision through the guarded reader", async () => {
+  reset("AUDITOR_SEGURANCA");
+  const id = "d1a80000-0000-4000-8000-000000000003";
+  const bytes = Buffer.from("%PDF-1.7 auditor revision");
+  state.document = { name: "IT.07 atualizado.pdf", contentType: pdfType, base64: bytes.toString("base64") };
+  const response = await load("security-it07-r02", `?revision=${id}`);
+  assert.equal(response.status, 200);
+  assert.deepEqual(Buffer.from(await response.arrayBuffer()), bytes);
+  assert.equal(state.documentParams.p_revision_id, id);
+  assert.equal(state.fileReads.length, 0);
+});
+
+test("Bundled auditor documents work with existing RLS grants before the new RPC is deployed", async () => {
+  for (const query of ["", "?revision=bundled", "?revision=bundled&download=original"]) {
+    reset("AUDITOR_SEGURANCA"); state.documentError = { code: "PGRST202" };
+    assert.equal((await load("security-it07-r02", query)).status, 200);
+    assert.deepEqual(state.fileReads, [path.join(privateRoot, "security-it07-r02.pdf")]);
+    assert.ok(state.calls.indexOf("access_works") < state.calls.indexOf("readFile"));
+    for (const revoked of ["fallbackGrant", "activeWork"]) {
+      reset("AUDITOR_SEGURANCA"); state.documentError = { code: "PGRST202" }; state[revoked] = false;
+      await assertDenied(await load("security-it07-r02", query), 403);
+    }
+  }
+  reset("AUDITOR_SEGURANCA"); state.documentError = { code: "PGRST202" };
+  await assertDenied(await load("security-it07-r02", `?revision=${otherId}`), 503);
 });
 
 test("Missing, duplicate or wrong-user cookie and removed Administrative membership do not authorize a document", async () => {
@@ -243,5 +299,8 @@ test("Explicit versions pass the revision identity; invalid IDs fail before file
   state.document={name:"Historical.pdf",contentType:pdfType,base64:Buffer.from("%PDF-1.7 old").toString("base64")};
   assert.equal((await load("quality-f175","?revision="+id)).status,200);
   assert.equal(state.documentParams.p_revision_id,id);
+  reset("AUDITOR_SEGURANCA");
+  await assertDenied(await load("security-it07-r02", `?revision=${id}`), 503);
+  assert.equal(state.fileReads.length, 0);
   reset();state.documentError={code:"PGRST202"};assert.equal((await load()).status,200);
 });

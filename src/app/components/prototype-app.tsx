@@ -1,28 +1,27 @@
 "use client";
 
-import { startTransition, useEffect, useRef, useState, type ReactNode } from "react";
+import { startTransition, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { type AuditModelId, type AuditRecord } from "@/domain/operational-records";
-import { roleLabels, moduleLabels, modelModule, canAccessWorkModule, canAccessModule, canReadVisit, canConsultAgenda, canReadAudit, canEditAudit, canStartAudit, canReadTechnicalWeights, canReadOperationalDocuments, type AppModule, type Visit, type VisitInput } from "@/domain/prototype-access";
-import { beginWorkspacePreviewAudit, updatePrototypeResponse, updatePrototypeAuditDate, criteriaForAudit, modelDisplayName, type PrototypeAuditState } from "@/domain/prototype-audits";
+import { roleLabels, moduleLabels, modelModule, canAccessWorkModule, canAccessModule, canReadVisit, canBeginScheduledAudit, canConsultAgenda, canReadAudit, canEditAudit, canReadTechnicalWeights, canReadOperationalDocuments, type AppModule, type Visit, type VisitInput } from "@/domain/prototype-access";
+import { beginScheduledVisitAudit, updatePrototypeResponse, criteriaForAudit, modelDisplayName, type PrototypeAuditState } from "@/domain/prototype-audits";
+import { getSaoPauloToday } from "@/domain/visit-calendar";
 import type { ProfileWorkspaceContext } from "@/lib/access/workspace-context";
 import { unavailableAgenda, type AgendaActionResult, type AgendaSnapshot } from "@/lib/agenda/contracts";
 import { createAgendaVisitAction, deleteAgendaVisitAction, confirmAgendaVisitAction } from "@/app/agenda/actions";
 import { catalogVersion, unavailableCatalogs, type CatalogSnapshot } from "@/lib/catalogs/contracts";
-import { refreshCatalogsAction } from "@/app/catalogs/actions";
 import { Catalog, NewAudit } from "./audit-workspace";
 import { Works, Occurrences } from "./operational-views";
 import { Icon, type IconName } from "./ui-icon";
 import { VisitAgenda } from "./visit-agenda";
-import { PrototypeDashboard, AuditList, StartAudit, DeferredScreen, AdministrativePanel, AuditPreview } from "./prototype-workspace";
-import { LogoutButton } from "./auth/LogoutButton";
-import { AdminNotifications, type AdminNotification } from "./auth/AdminNotifications";
+import { PrototypeDashboard, AuditList, AuditorScheduledAudits, DeferredScreen, AdministrativePanel, AuditPreview } from "./prototype-workspace";
+import { type AdminNotification } from "./auth/AdminNotifications";
 import { AdministrativeHeader } from "./administrative-header";
-import { DialogoLogo } from "./dialogo-logo";
+import { FollowUpWorkspace } from "./follow-up-workspace";
 import styles from "./prototype-app.module.css";
 
 type PrototypeAppProps = {
   context: ProfileWorkspaceContext;
-  initialScreen?: "overview" | "works" | "agenda" | "settings";
+  initialScreen?: "overview" | "works" | "agenda" | "follow_up" | "settings";
   initialVisitId?: string;
   initialAgenda?: AgendaSnapshot;
   initialCatalogs?: CatalogSnapshot;
@@ -41,9 +40,8 @@ function ProfileWorkspace({ context, initialScreen, initialVisitId, initialAgend
   const [selectedModule, setSelectedModule] = useState<AppModule | null>(initialVisit?.module ?? user.modules[0] ?? null);
   const [selectedWorkId, setSelectedWorkId] = useState(initialVisit?.workId ?? "");
   const [screen, setScreen] = useState<string>(initialScreen);
+  const [reportSection, setReportSection] = useState<"reports" | "occurrences" | "plans">("reports");
   const [catalogs, setCatalogs] = useState(initialCatalogs);
-  const [startingAudit, setStartingAudit] = useState(false);
-  const startingRef = useRef(false);
   const [session, setSession] = useState<PrototypeAuditState>({ audits: [], responses: {} });
   const { agenda, agendaSyncError, mutationPending, runAgendaAction } = useAgenda(initialAgenda, user.id, context.profile, context.engineeringScope, context.administrativeScope);
   const visits = agenda.visits;
@@ -59,13 +57,13 @@ function ProfileWorkspace({ context, initialScreen, initialVisitId, initialAgend
   const availableWorks = context.works.filter((work) => auditModule && canAccessWorkModule(user, work.id, auditModule));
   const work = availableWorks.find((entry) => entry.id === selectedWorkId) ?? availableWorks[0];
   const isAdmin = user.role === "administrative";
+  const isAuditor = user.role === "safety-auditor" || user.role === "quality-auditor";
   const isGeneralAdmin = isAdmin && context.administrativeScope === "GERAL";
   const catalogModules = isAdmin ? availableModules : auditModule ? [auditModule] : [];
   const modelIds = (["security-it07-r02", "quality-f175", "quality-f176"] as const).filter((id) => catalogModules.includes(modelModule(id)));
   const currentCatalogId = modelIds.includes(catalogId) ? catalogId : modelIds[0];
   const currentModelName = currentCatalogId ? modelDisplayName(currentCatalogId) : "Sem roteiro autorizado";
-  const canStart = !!work && !!currentCatalogId && canStartAudit(user, work.id, currentCatalogId);
-  const canAgenda = !!auditModule && !!work && canConsultAgenda(user, work.id, auditModule);
+  const canAgenda = context.works.some((entry) => user.modules.some((discipline) => canConsultAgenda(user, entry.id, discipline)));
   const canDocuments = !!auditModule && !!work && canReadOperationalDocuments(user, work.id, auditModule);
   const moduleAudits = session.audits.filter((audit) => modelModule(audit.modelId) === auditModule && canReadAudit(user, audit));
   const contextualAudits = moduleAudits.filter((audit) => audit.workId === work?.id);
@@ -78,20 +76,19 @@ function ProfileWorkspace({ context, initialScreen, initialVisitId, initialAgend
     { key: "overview", label: isAdmin ? "Painel administrativo" : "Visão geral", icon: "overview" },
     ...(canAgenda || (isAdmin && auditModule) ? [{ key: "agenda", label: "Agenda", icon: "calendar" as const }] : []),
     ...(!isAdmin ? [{ key: "audits", label: "Auditorias", icon: "audits" as const }] : []),
+    ...(isAuditor ? [{ key: "follow_up", label: "Acompanhamento", icon: "check" as const }] : []),
     { key: "works", label: "Obras", icon: "works" },
-    ...(currentCatalogId ? [{ key: "criteria", label: isAdmin ? "Roteiros e versões" : "Roteiros", icon: "book" as const }] : []),
-    ...(canDocuments ? [{ key: "report", label: "Relatórios", icon: "report" as const }, { key: "occurrences", label: "Apontamentos", icon: "occurrences" as const }, { key: "plans", label: "Planos de ação", icon: "check" as const }] : []),
-    ...(canDocuments && auditModule === "safety" ? [{ key: "committee", label: "Comitê", icon: "calendar" as const }] : []),
+    ...(currentCatalogId && !isAuditor ? [{ key: "criteria", label: isAdmin ? "Roteiros e versões" : "Roteiros", icon: "book" as const }] : []),
+    ...(canDocuments ? [{ key: "report", label: "Relatórios", icon: "report" as const }] : []),
     ...(isGeneralAdmin ? [{ key: "settings", label: "Administração", icon: "settings" as const }] : []),
   ];
-  const allowed = new Set([...nav.map((item) => item.key), ...(canStart ? ["new", "fill", "discussion", "publication"] : []), ...(activeAudit && canReadAudit(user, activeAudit) ? ["fill"] : [])]);
+  const allowed = new Set([...nav.map((item) => item.key), ...(activeAudit && canReadAudit(user, activeAudit) ? ["fill"] : [])]);
   const currentScreen = allowed.has(screen) ? screen : "overview";
   const isAdminOverview = isAdmin && currentScreen === "overview";
   const isAdminAgenda = isAdmin && currentScreen === "agenda";
-  const isAdminWorks = isAdmin && currentScreen === "works";
   const isAdminCatalog = isAdmin && currentScreen === "criteria";
   const isAdminSettings = isAdmin && currentScreen === "settings";
-  const navigate = (next: string) => { if (allowed.has(next)) { setScreen(next); setError(""); } };
+  const navigate = (next: string) => { if (allowed.has(next)) { if (next === "report") setReportSection("reports"); setScreen(next); setError(""); } };
   const navigateAgenda = (item: AdminNotification) => {
     const visitId = item.href ? new URL(item.href, window.location.origin).searchParams.get("visita") : null;
     const target = visits.find((visit) => visit.id === visitId && canReadVisit(user, visit))
@@ -99,65 +96,75 @@ function ProfileWorkspace({ context, initialScreen, initialVisitId, initialAgend
     if (target) { setSelectedModule(target.module); setSelectedWorkId(target.workId); }
     if (target || allowed.has("agenda")) { setScreen("agenda"); setError(""); setJumpOpen(false); }
   };
-  const changeContext = () => { setScreen("overview"); setActiveAuditId(null); setJumpOpen(false); setCatalogQuery(""); setError(""); };
+  const changeContext = () => { setScreen("overview"); setReportSection("reports"); setActiveAuditId(null); setJumpOpen(false); setCatalogQuery(""); setError(""); };
   const openAudit = (audit: AuditRecord) => {
     if (!work || !canReadAudit(user, audit) || audit.workId !== work.id || modelModule(audit.modelId) !== auditModule) return;
-    setActiveAuditId(audit.id); setJumpOpen(false); setScreen(audit.status === "Publicada" ? "report" : "fill");
+    setActiveAuditId(audit.id); setJumpOpen(false); setReportSection("reports"); setScreen(audit.status === "Publicada" ? "report" : "fill");
   };
-  const startAudit = async (modelId: AuditModelId, date: string, visit?: Visit) => {
-    if (startingRef.current) return;
-    startingRef.current = true; setStartingAudit(true); setError("");
-    try {
-      if (!work || modelModule(modelId) !== auditModule || !canAccessWorkModule(user, work.id, modelModule(modelId))) throw new Error("Selecione uma obra e um modelo autorizados.");
-      const existing = visit && session.audits.find((audit) => audit.visitId === visit.id);
-      const latest = existing ? catalogs : await refreshCatalogsAction({ userId: user.id, profile: context.profile, engineeringScope: context.engineeringScope, administrativeScope: context.administrativeScope });
-      if (!existing && !latest.available && !latest.setupPending) throw new Error("Não foi possível conferir a revisão atual. Tente novamente antes de iniciar a auditoria.");
-      if (latest.available) setCatalogs(latest);
-      const result = beginWorkspacePreviewAudit(session, user, { id: `PREVIA-${newRequestId()}`, work, modelId, date, visit, catalogRevision: catalogVersion(latest, modelId) });
-      setSession(result.state); setSelectedWorkId(work.id); setSelectedModule(modelModule(modelId)); setActiveAuditId(result.auditId); setJumpOpen(false); setScreen("fill");
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "Não foi possível iniciar a auditoria."); }
-    finally { startingRef.current = false; setStartingAudit(false); }
-  };
-  const agendaActor = { userId: user.id, profile: context.profile, engineeringScope: context.engineeringScope ?? null, administrativeScope: context.administrativeScope };
+  const agendaActor = useMemo(() => ({ userId: user.id, profile: context.profile,
+    engineeringScope: context.engineeringScope ?? null, administrativeScope: context.administrativeScope }),
+  [user.id, context.profile, context.engineeringScope, context.administrativeScope]);
   const agendaActions = {
     onCreate: (input: VisitInput) => runAgendaAction("create", input, (requestId) => createAgendaVisitAction({ ...input, requestId }, agendaActor)),
     onDelete: (visitId: string, expectedRevision: number) => runAgendaAction(`delete:${visitId}`, { visitId, expectedRevision }, (requestId) => deleteAgendaVisitAction({ visitId, expectedRevision, requestId }, agendaActor)),
     onConfirm: (visitId: string, expectedRevision: number) => runAgendaAction(`confirm:${visitId}`, { visitId, expectedRevision }, (requestId) => confirmAgendaVisitAction({ visitId, expectedRevision, requestId }, agendaActor)),
   };
-  const auditNav = ["audits", "new", "fill", "discussion", "publication"].includes(currentScreen);
+  const startScheduledAudit = async (visit: Visit) => {
+    if (!isAuditor || !agenda.available || !canBeginScheduledAudit(user, visit, getSaoPauloToday()))
+      throw new Error("Esta auditoria só pode ser iniciada pelo profissional responsável na data confirmada.");
+    const response = await fetch("/api/agenda", { credentials: "same-origin", cache: "no-store" });
+    if (!response.ok) throw new Error("Não foi possível conferir o agendamento. Tente novamente.");
+    const fresh: unknown = await response.json();
+    if (!isAgendaSnapshot(fresh) || !fresh.available) throw new Error("Não foi possível conferir o agendamento. Tente novamente.");
+    const current = fresh.visits.find((entry) => entry.id === visit.id);
+    if (!current || current.revision !== visit.revision || !canBeginScheduledAudit(user, current, getSaoPauloToday()))
+      throw new Error("O agendamento mudou ou não está mais disponível para iniciar. Atualize a agenda.");
+    const selectedWork = context.works.find((entry) => entry.id === current.workId);
+    if (!selectedWork || !current.modelId) throw new Error("Esta obra ou roteiro não está autorizado neste perfil.");
+    const version = catalogVersion(catalogs, current.modelId);
+    const started = beginScheduledVisitAudit(session, user, {
+      id: newRequestId(), work: selectedWork, visit: current, catalogRevision: version,
+    }, getSaoPauloToday());
+    setSession(started.state);
+    setSelectedModule(current.module);
+    setSelectedWorkId(current.workId);
+    setActiveAuditId(started.auditId);
+    setJumpOpen(false);
+    setError("");
+    setScreen("fill");
+  };
+  const auditNav = ["audits", "fill"].includes(currentScreen);
   const profileLabel = `${roleLabels[user.role]}${user.activity === "coordination" ? " · Coordenação" : user.activity === "site-team" ? " · Equipe da obra" : ""}`;
 
   return <div className="app-shell">
     <a className="skip-link" href="#main-content">Ir para o conteúdo</a>
-    {isAdmin ? <AdministrativeHeader name={user.name} userId={user.id} scope={context.administrativeScope} notifications={agenda.notifications} onNavigateAgenda={navigateAgenda} /> : <header className="site-header"><div className="header-inner"><div className="header-main">
-      <div className="brand"><DialogoLogo /></div>
-      <div className="header-title"><h1>Auditorias de obra</h1><p>Gestão de segurança e qualidade</p><span className="context-pill">{auditModule ? moduleLabels[auditModule].toLocaleUpperCase("pt-BR") : "MEU PERFIL"}</span></div>
-      <div className={styles.session}>
-          <div className={`summary-item ${styles.userCard}`}><span>USUÁRIO</span><strong>{user.name}</strong></div>
-          <div className={styles.sessionActions}><AdminNotifications items={agenda.notifications} userId={user.id} onNavigateAgenda={navigateAgenda} /><a href="/escolher-perfil">Trocar perfil</a><a href="/minha-conta">Meus acessos</a><LogoutButton /></div>
-      </div>
-    </div><div className="header-summary"><div className="summary-item"><span>OBRA NO CONTEXTO</span><strong>{work?.name ?? "Sem obra autorizada"}</strong></div><div className="summary-item"><span>MÓDULO</span><strong>{auditModule ? moduleLabels[auditModule] : "Sem módulo autorizado"}</strong></div><div className="summary-item"><span>ACESSO</span><strong>{profileLabel}</strong></div></div></div></header>}
+    <AdministrativeHeader name={user.name} userId={user.id} scope={isAdmin ? context.administrativeScope : undefined} profileLabel={isAdmin ? undefined : profileLabel} notifications={agenda.notifications} onNavigateAgenda={navigateAgenda} />
     <div className="navigation-bar"><nav className="main-navigation" aria-label="Navegação principal">{nav.map(({ key, label, icon }) => <button type="button" key={key} className={`nav-item${currentScreen === key || (key === "audits" && auditNav) ? " active" : ""}`} aria-current={currentScreen === key ? "page" : undefined} onClick={() => navigate(key)}><Icon name={icon} /><span>{label}</span></button>)}</nav></div>
     <main className="main-content" id="main-content" tabIndex={-1}><div className="content-wrap">
-      {!isAdminOverview && !isAdminAgenda && !isAdminWorks && !isAdminCatalog && !isAdminSettings && <div className={styles.context} aria-label="Contexto autorizado"><label>{isAdmin ? "Disciplina da agenda" : "Módulo"}<select value={auditModule ?? ""} disabled={!availableModules.length} onChange={(event) => { const next = event.target.value as AppModule; if (canAccessModule(user, next)) { setSelectedModule(next); changeContext(); } }}>{!availableModules.length && <option value="">Nenhum módulo autorizado</option>}{availableModules.map((id) => <option value={id} key={id}>{moduleLabels[id]}</option>)}</select></label><label>Obra no contexto<select value={work?.id ?? ""} disabled={!availableWorks.length} onChange={(event) => { if (auditModule && canAccessWorkModule(user, event.target.value, auditModule)) { setSelectedWorkId(event.target.value); changeContext(); } }}>{!availableWorks.length && <option value="">Nenhuma obra autorizada</option>}{availableWorks.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label></div>}
+      {currentScreen !== "overview" && currentScreen !== "agenda" && currentScreen !== "works" && !(currentScreen === "audits" && isAuditor) && !(currentScreen === "follow_up" && isAuditor) && !isAdminCatalog && !isAdminSettings && <div className={styles.context} aria-label="Contexto autorizado"><label>{isAdmin ? "Disciplina da agenda" : "Módulo"}<select value={auditModule ?? ""} disabled={!availableModules.length} onChange={(event) => { const next = event.target.value as AppModule; if (canAccessModule(user, next)) { setSelectedModule(next); changeContext(); } }}>{!availableModules.length && <option value="">Nenhum módulo autorizado</option>}{availableModules.map((id) => <option value={id} key={id}>{moduleLabels[id]}</option>)}</select></label><label>Obra no contexto<select value={work?.id ?? ""} disabled={!availableWorks.length} onChange={(event) => { if (auditModule && canAccessWorkModule(user, event.target.value, auditModule)) { setSelectedWorkId(event.target.value); changeContext(); } }}>{!availableWorks.length && <option value="">Nenhuma obra autorizada</option>}{availableWorks.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label></div>}
       {error && <p role="alert" className={styles.error}>{error}</p>}
-      {auditNav && <nav className="subnav" aria-label="Seções de auditorias"><button className={`subnav-item${currentScreen === "audits" ? " active" : ""}`} type="button" onClick={() => navigate("audits")}>Histórico e rascunhos</button>{canStart && <><button className={`subnav-item${currentScreen === "new" ? " active" : ""}`} type="button" onClick={() => navigate("new")}>Nova auditoria</button>{activeAudit && <button className={`subnav-item${currentScreen === "fill" ? " active" : ""}`} type="button" onClick={() => navigate("fill")}>Preenchimento</button>}<button className="subnav-item" type="button" onClick={() => navigate("discussion")}>Fechamento</button><button className="subnav-item" type="button" onClick={() => navigate("publication")}>Conferência e publicação</button></>}</nav>}
-      {currentScreen === "overview" && (auditModule ? <PrototypeDashboard user={user} module={auditModule} works={isAdminOverview ? context.works : availableWorks} audits={isAdminOverview ? session.audits.filter((audit) => canReadAudit(user, audit)) : moduleAudits} visits={isAdminOverview ? visits.filter((visit) => canReadVisit(user, visit)) : contextualVisits} auditors={isAdminOverview ? agenda.auditors : []} activeAccountCount={activeAccountCount} generalAdministrator={isGeneralAdmin} open={navigate} /> : <section className="panel"><h2>Visão geral</h2><p className="muted">Este perfil ainda não tem obras e módulos autorizados. Consulte seus acessos ou solicite a liberação ao Administrativo.</p></section>)}
-      {currentScreen === "works" && <Works works={isAdmin ? context.works : availableWorks} canManage={isGeneralAdmin} />}
+      {auditNav && !isAuditor && <nav className="subnav" aria-label="Seções de auditorias"><button className={`subnav-item${currentScreen === "audits" ? " active" : ""}`} type="button" onClick={() => navigate("audits")}>Histórico e rascunhos</button>{activeAudit && <button className={`subnav-item${currentScreen === "fill" ? " active" : ""}`} type="button" onClick={() => navigate("fill")}>Preenchimento</button>}</nav>}
+      {currentScreen === "report" && canDocuments && <nav className="subnav" aria-label="Seções de relatórios">
+        {([ ["reports", "Relatórios"], ["occurrences", "Apontamentos"], ["plans", "Planos de ação"] ] as const).map(([key, label]) => <button key={key} type="button" className={`subnav-item${reportSection === key ? " active" : ""}`} aria-current={reportSection === key ? "page" : undefined} onClick={() => setReportSection(key)}>{label}</button>)}
+      </nav>}
+      {currentScreen === "overview" && (auditModule ? <PrototypeDashboard user={user} module={auditModule} works={isAdminOverview ? context.works : availableWorks} audits={isAdminOverview ? session.audits.filter((audit) => canReadAudit(user, audit)) : moduleAudits} visits={isAdminOverview || user.role === "safety-auditor" || user.role === "quality-auditor" ? visits.filter((visit) => canReadVisit(user, visit) && (isAdminOverview || visit.module === auditModule)) : contextualVisits} auditors={isAdminOverview ? agenda.auditors : []} activeAccountCount={activeAccountCount} generalAdministrator={isGeneralAdmin} open={navigate} /> : <section className="panel"><h2>Visão geral</h2><p className="muted">Este perfil ainda não tem obras e módulos autorizados. Consulte seus acessos ou solicite a liberação ao Administrativo.</p></section>)}
+      {currentScreen === "works" && <Works works={context.works} canManage={isGeneralAdmin} />}
+      {currentScreen === "follow_up" && isAuditor && <FollowUpWorkspace user={user} visits={visits} works={context.works} actor={agendaActor} agendaAvailable={agenda.available} />}
       {currentScreen === "settings" && isGeneralAdmin && <AdministrativePanel accessContent={administrationContent} worksContent={administrationWorksContent} />}
-      {currentScreen === "criteria" && currentCatalogId && <Catalog model={currentModelName} setModel={(name) => { const id = modelIds.find((entry) => modelDisplayName(entry) === name); if (id) { setCatalogId(id); setCatalogQuery(""); } }} query={catalogQuery} setQuery={setCatalogQuery} criteria={criteria} showItemList={!isAdmin} allowedModels={modelIds.map(modelDisplayName)} showWeights={canReadTechnicalWeights(user, modelModule(currentCatalogId))} showReferenceDocuments={isAdmin} catalogs={catalogs} actorId={isAdmin ? user.id : undefined} onCatalogsSaved={isAdmin ? setCatalogs : undefined} />}
-      {currentScreen === "audits" && <AuditList user={user} works={availableWorks} audits={contextualAudits} onOpen={openAudit} onNew={canStart ? () => navigate("new") : undefined} />}
-      {isAdminAgenda && auditModule && <VisitAgenda key={user.id} user={user} works={context.works} users={agenda.auditors} visits={visits} module={auditModule} workId={work?.id ?? ""} available={agenda.available} mutationPending={mutationPending || startingAudit} syncError={agendaSyncError} {...agendaActions} onStartAudit={(visit) => { if (visit.kind === "audit" && visit.modelId) void startAudit(visit.modelId, visit.date, visit); }} />}
+      {currentScreen === "criteria" && currentCatalogId && !isAuditor && <Catalog model={currentModelName} setModel={(name) => { const id = modelIds.find((entry) => modelDisplayName(entry) === name); if (id) { setCatalogId(id); setCatalogQuery(""); } }} query={catalogQuery} setQuery={setCatalogQuery} criteria={criteria} showItemList={!isAdmin} allowedModels={modelIds.map(modelDisplayName)} showWeights={canReadTechnicalWeights(user, modelModule(currentCatalogId))} showReferenceDocuments={isAdmin} catalogs={catalogs} actorId={isAdmin ? user.id : undefined} onCatalogsSaved={isAdmin ? setCatalogs : undefined} />}
+      {currentScreen === "audits" && (isAuditor ? <AuditorScheduledAudits user={user} works={context.works} visits={visits} users={agenda.auditors} available={agenda.available} mutationPending={mutationPending} onDelete={agendaActions.onDelete} onConfirm={agendaActions.onConfirm} onStartAudit={startScheduledAudit} startedVisitIds={new Set(session.audits.map((audit) => audit.visitId).filter((id): id is string => !!id))}
+        catalog={currentCatalogId ? <Catalog embedded model={currentModelName} setModel={(name) => { const id = modelIds.find((entry) => modelDisplayName(entry) === name); if (id) { setCatalogId(id); setCatalogQuery(""); } }} query={catalogQuery} setQuery={setCatalogQuery} criteria={criteria} showItemList={false} showReferenceDocuments allowedModels={modelIds.map(modelDisplayName)} showWeights={canReadTechnicalWeights(user, modelModule(currentCatalogId))} catalogs={catalogs} /> : <p className="muted">Nenhum roteiro autorizado para este perfil.</p>} /> : <AuditList user={user} works={availableWorks} audits={contextualAudits} onOpen={openAudit} />)}
+      {isAdminAgenda && auditModule && <VisitAgenda key={user.id} user={user} works={context.works} users={agenda.auditors} visits={visits} module={auditModule} workId={work?.id ?? ""} available={agenda.available} mutationPending={mutationPending} syncError={agendaSyncError} {...agendaActions} />}
+      {currentScreen === "agenda" && !isAdmin && canAgenda && <VisitAgenda key={user.id} user={user} works={context.works} users={agenda.auditors} visits={visits} module={auditModule ?? "safety"} workId={work?.id ?? ""} available={agenda.available} mutationPending={mutationPending} syncError={agendaSyncError} {...agendaActions} />}
       {work && auditModule && <>
-        {currentScreen === "agenda" && !isAdmin && canAgenda && <VisitAgenda key={`${user.id}:${work.id}:${auditModule}`} user={user} works={availableWorks} users={agenda.auditors} visits={visits} module={auditModule} workId={work.id} available={agenda.available} mutationPending={mutationPending || startingAudit} syncError={agendaSyncError} {...agendaActions} onStartAudit={(visit) => { if (visit.kind === "audit" && visit.modelId) void startAudit(visit.modelId, visit.date, visit); }} />}
-        {currentScreen === "new" && canStart && <StartAudit key={`${user.id}:${work.id}:${auditModule}`} user={user} work={work} module={auditModule} onStart={startAudit} pending={startingAudit} />}
-        {currentScreen === "fill" && activeAudit && activeAudit.status !== "Publicada" && <NewAudit key={activeAudit.id} model={activeAudit.catalogVersion ? `${modelDisplayName(activeAudit.modelId).replace(" rev. 02", "")} · ${activeAudit.catalogRevisionLabel}` : modelDisplayName(activeAudit.modelId)} setModel={() => {}} responseKey={activeAudit.modelId} lockedContext workName={`${work.name} · ${work.city}`} readOnly={!canEditAudit(user, activeAudit)} showWeights={canReadTechnicalWeights(user, auditModule)} criteria={criteriaForAudit(session, activeAudit)} activeIndex={positions[activeAudit.id] ?? 0} setActiveIndex={(index) => setPositions((previous) => ({ ...previous, [activeAudit.id]: index }))} drafts={session.responses[activeAudit.id] ?? {}} updateDraft={(response) => { try { const item = criteriaForAudit(session, activeAudit)[positions[activeAudit.id] ?? 0]; setSession(updatePrototypeResponse(session, user, activeAudit.id, item, response)); } catch (reason) { setError(reason instanceof Error ? reason.message : "Edição indisponível."); } }} jumpOpen={jumpOpen} setJumpOpen={setJumpOpen} details={{ date: activeAudit.date, auditor: activeAudit.auditor }} setDetails={(details) => { try { setSession(updatePrototypeAuditDate(session, user, activeAudit.id, details.date)); setError(""); } catch (reason) { setError(reason instanceof Error ? reason.message : "Data inválida."); } }} />}
+        {currentScreen === "fill" && activeAudit && activeAudit.status !== "Publicada" && <NewAudit key={activeAudit.id} model={activeAudit.catalogVersion ? `${modelDisplayName(activeAudit.modelId).replace(" rev. 02", "")} · ${activeAudit.catalogRevisionLabel}` : modelDisplayName(activeAudit.modelId)} setModel={() => {}} responseKey={activeAudit.modelId} lockedContext workName={`${work.name} · ${work.city}`} readOnly={!canEditAudit(user, activeAudit)} showWeights={canReadTechnicalWeights(user, auditModule)} criteria={criteriaForAudit(session, activeAudit)} activeIndex={positions[activeAudit.id] ?? 0} setActiveIndex={(index) => setPositions((previous) => ({ ...previous, [activeAudit.id]: index }))} drafts={session.responses[activeAudit.id] ?? {}} updateDraft={(response) => { try { const item = criteriaForAudit(session, activeAudit)[positions[activeAudit.id] ?? 0]; setSession(updatePrototypeResponse(session, user, activeAudit.id, item, response)); } catch (reason) { setError(reason instanceof Error ? reason.message : "Edição indisponível."); } }} jumpOpen={jumpOpen} setJumpOpen={setJumpOpen} details={{ date: activeAudit.date, auditor: activeAudit.auditor }} setDetails={() => {}} />}
         {currentScreen === "fill" && !activeAudit && <p className="muted">Selecione um rascunho autorizado no histórico.</p>}
-        {currentScreen === "report" && <>{preview && canEditAudit(user, preview) ? <AuditPreview audit={preview} work={work} /> : <section className="panel"><h2>Relatórios publicados</h2><p className="muted">Nenhum documento publicado disponível neste contexto. A publicação oficial está em preparação.</p></section>}</>}
-        {currentScreen === "occurrences" && <Occurrences works={[work]} records={[]} />}
-        {(currentScreen === "discussion" || currentScreen === "publication" || currentScreen === "plans" || currentScreen === "committee") && <DeferredScreen kind={currentScreen} />}
+        {currentScreen === "report" && reportSection === "reports" && <>{preview && canEditAudit(user, preview) ? <AuditPreview audit={preview} work={work} /> : <section className="panel"><h2>Relatórios publicados</h2><p className="muted">Nenhum documento publicado disponível neste contexto. A publicação oficial está em preparação.</p></section>}</>}
+        {currentScreen === "report" && reportSection === "occurrences" && <Occurrences works={[work]} records={[]} />}
+        {currentScreen === "report" && reportSection === "plans" && <DeferredScreen kind="plans" />}
+        {(currentScreen === "discussion" || currentScreen === "publication") && <DeferredScreen kind={currentScreen} />}
       </>}
-      {!work && !isAdmin && currentScreen === "agenda" && <section className="panel"><h2>Nenhuma obra disponível na agenda</h2><p className="muted">Cadastre uma obra para consultar este contexto.</p></section>}
+      {!canAgenda && !isAdmin && currentScreen === "agenda" && <section className="panel"><h2>Nenhuma obra disponível na agenda</h2><p className="muted">Consulte seus acessos para verificar as obras autorizadas.</p></section>}
       <footer className="page-footer"><span>Diálogo Engenharia · Auditorias</span><span>{profileLabel}</span></footer>
     </div></main>
   </div>;

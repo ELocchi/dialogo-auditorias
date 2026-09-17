@@ -6,7 +6,7 @@ import {
   canManageAgenda,
   canConsultAgenda,
   canReadVisit,
-  canStartAudit,
+  canBeginScheduledAudit,
   modelModule,
   moduleLabels,
   type AppModule,
@@ -20,7 +20,7 @@ import {
   type AuditModelId,
   type WorkRecord,
 } from "@/domain/operational-records";
-import { isCalendarDate } from "@/domain/visit-calendar";
+import { getSaoPauloToday, isCalendarDate } from "@/domain/visit-calendar";
 import type { AgendaActionResult } from "@/lib/agenda/contracts";
 import { AdminVisitCalendar } from "./admin-visit-calendar";
 import { Icon } from "./ui-icon";
@@ -39,7 +39,6 @@ type VisitAgendaProps = {
   onCreate: (input: VisitInput) => Promise<AgendaActionResult>;
   onDelete: (visitId: string, expectedRevision: number) => Promise<AgendaActionResult>;
   onConfirm: (visitId: string, expectedRevision: number) => Promise<AgendaActionResult>;
-  onStartAudit: (visit: Visit) => void;
 };
 
 const modelIds = Object.keys(auditModelLabels) as AuditModelId[];
@@ -52,10 +51,11 @@ const months = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "
 
 export function VisitAgenda(props: VisitAgendaProps) {
   if (canManageAgenda(props.user)) return <AdministrativeAgenda {...props} />;
+  if (props.user.role === "safety-auditor") return <SafetyAuditorAgenda {...props} />;
   return <AgendaContext key={`${props.user.id}:${props.module}:${props.workId}`} {...props} />;
 }
 
-function AdministrativeAgenda({ user, works, users, visits, module, workId, available, mutationPending = false, syncError, onCreate, onDelete, onConfirm, onStartAudit }: VisitAgendaProps) {
+function AdministrativeAgenda({ user, works, users, visits, module, workId, available, mutationPending = false, syncError, onCreate, onDelete, onConfirm }: VisitAgendaProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const addButtonRef = useRef<HTMLButtonElement>(null);
   const listId = useId();
@@ -80,7 +80,7 @@ function AdministrativeAgenda({ user, works, users, visits, module, workId, avai
         {visibleVisits.length ? <div className={styles.visitList}>
           {visibleVisits.map((visit) => <VisitCard key={visit.id} visit={visit} user={user} users={users}
             work={authorizedWorks.find((work) => work.id === visit.workId)} available={available} mutationPending={mutationPending}
-            onDelete={onDelete} onConfirm={onConfirm} onStartAudit={onStartAudit} />)}
+            onDelete={onDelete} onConfirm={onConfirm} />)}
         </div> : <div className={styles.scheduledEmpty}>
           <CalendarIcon />
           <p>{!available ? "Aguardando acesso à agenda." : authorizedWorks.length ? "Nenhuma visita agendada." : "Nenhuma obra disponível para agendamento."}</p>
@@ -96,12 +96,40 @@ function AdministrativeAgenda({ user, works, users, visits, module, workId, avai
   </>;
 }
 
-function AgendaContext({ user, works, users, visits, module, workId, available, mutationPending = false, syncError, onCreate, onDelete, onConfirm, onStartAudit }: VisitAgendaProps) {
+function SafetyAuditorAgenda({ user, works, users, visits, available, mutationPending = false, syncError, onDelete, onConfirm }: VisitAgendaProps) {
+  const listId = useId();
+  const authorizedWorks = works.filter((work) => canConsultAgenda(user, work.id, "safety"));
+  const workIds = new Set(authorizedWorks.map((work) => work.id));
+  const visibleVisits = visits.filter((visit) => visit.module === "safety" && workIds.has(visit.workId) && canReadVisit(user, visit) && isCalendarDate(visit.date))
+    .slice().sort((first, second) => first.date.localeCompare(second.date) || first.id.localeCompare(second.id));
+
+  return <>
+    <div className="page-intro"><h2>Agenda de visitas</h2></div>
+    {(!available || syncError) && <p role="status" className={styles.availability}>{syncError || "A agenda está indisponível no momento. Tente novamente após a atualização."}</p>}
+    <div className={styles.administrativeLayout}>
+      <section className={`panel ${styles.scheduledPanel}`} aria-labelledby={listId}>
+        <div className={styles.scheduledHeading}><h3 id={listId}>Visitas agendadas</h3></div>
+        {visibleVisits.length ? <div className={styles.visitList}>
+          {visibleVisits.map((visit) => <VisitCard key={visit.id} visit={visit} user={user} users={users}
+            work={authorizedWorks.find((work) => work.id === visit.workId)} available={available} mutationPending={mutationPending}
+            onDelete={onDelete} onConfirm={onConfirm} collapsedInitially />)}
+        </div> : <div className={styles.scheduledEmpty}>
+          <CalendarIcon />
+          <p>{!available ? "Aguardando acesso à agenda." : "Nenhuma visita agendada para este auditor."}</p>
+        </div>}
+      </section>
+      <AdminVisitCalendar visits={visibleVisits} works={authorizedWorks} viewerId={user.id} calendarOnly includeFollowUps colorBy="work" />
+    </div>
+  </>;
+}
+
+function AgendaContext({ user, works, users, visits, module, workId, available, mutationPending = false, syncError, onCreate, onDelete, onConfirm }: VisitAgendaProps) {
   const canManage = canManageAgenda(user);
-  const contextWork = works.find((work) => work.id === workId);
-  const canConsult = canConsultAgenda(user, workId, module);
+  const authorizedWorks = works.filter((work) => user.modules.some((discipline) => canConsultAgenda(user, work.id, discipline)));
+  const authorizedWorkIds = new Set(authorizedWorks.map((work) => work.id));
+  const canConsult = authorizedWorks.length > 0;
   const visibleVisits = visits
-    .filter((visit) => visit.workId === workId && visit.module === module && canReadVisit(user, visit))
+    .filter((visit) => authorizedWorkIds.has(visit.workId) && canReadVisit(user, visit))
     .slice()
     .sort((first, second) => first.date.localeCompare(second.date) || first.id.localeCompare(second.id));
 
@@ -109,23 +137,22 @@ function AgendaContext({ user, works, users, visits, module, workId, available, 
     <div className="page-intro">
       <div>
         <h2>Agenda de visitas</h2>
-        <p className="muted">O Administrativo agenda e pode excluir agendamentos. Auditores confirmam as visitas e iniciam as auditorias sob sua responsabilidade.</p>
+        <p className="muted">O Administrativo agenda e pode excluir agendamentos. Auditores confirmam as visitas sob sua responsabilidade.</p>
       </div>
       <span className="badge">{canManage ? "Agendamento administrativo" : "Consulta à agenda"}</span>
     </div>
     {(!available || syncError) && <p role="status" className={styles.availability}>{syncError || "A agenda está indisponível no momento. Tente novamente após a atualização."}</p>}
 
-    <div className={styles.context}>
-      <span>Obra: <strong>{contextWork?.name ?? "Obra não selecionada"}</strong></span>
-      <span>Disciplina: <strong>{moduleLabels[module]}</strong></span>
-      {canConsult && <span>{visibleVisits.length} {visibleVisits.length === 1 ? "visita neste contexto" : "visitas neste contexto"}</span>}
-    </div>
+    {canConsult && <div className={styles.context}>
+      <span><strong>{authorizedWorks.length}</strong> {authorizedWorks.length === 1 ? "obra relacionada" : "obras relacionadas"}</span>
+      <span><strong>{visibleVisits.length}</strong> {visibleVisits.length === 1 ? "visita agendada" : "visitas agendadas"}</span>
+    </div>}
 
     {!canConsult ? <section className={`panel ${styles.restriction}`}>
-      <h3>Consulta à agenda não autorizada para esta obra</h3>
+      <h3>Nenhuma obra disponível na agenda</h3>
       <p>A consulta depende dos vínculos de obra, disciplina e das autorizações do perfil selecionado.</p>
     </section> : <>
-      {canManage && <CreateVisitForm user={user} works={works} users={users} module={module} workId={workId} available={available} mutationPending={mutationPending} onCreate={onCreate} />}
+      {canManage && <CreateVisitForm user={user} works={authorizedWorks} users={users} module={module} workId={workId} available={available} mutationPending={mutationPending} onCreate={onCreate} />}
       <div className={styles.listHeading}>
         <h3>Visitas agendadas</h3>
         <span>Ordenadas pela data prevista</span>
@@ -136,17 +163,16 @@ function AgendaContext({ user, works, users, visits, module, workId, available, 
           visit={visit}
           user={user}
           users={users}
-          work={works.find((work) => work.id === visit.workId)}
+          work={authorizedWorks.find((work) => work.id === visit.workId)}
           available={available}
           mutationPending={mutationPending}
           onDelete={onDelete}
           onConfirm={onConfirm}
-          onStartAudit={onStartAudit}
         />)}
       </div> : <section className={`panel ${styles.empty}`}>
         <CalendarIcon />
         <h3>Nenhuma visita disponível</h3>
-        <p>{!available ? "Aguardando acesso à agenda." : canManage ? "Agende uma visita para esta obra e disciplina no formulário acima." : "Não há visitas para consulta nesta obra e disciplina com o perfil selecionado."}</p>
+        <p>{!available ? "Aguardando acesso à agenda." : canManage ? "Agende uma visita no formulário acima." : "Não há visitas para consulta nas obras autorizadas deste perfil."}</p>
       </section>}
     </>}
   </>;
@@ -274,44 +300,39 @@ function CreateVisitForm({ user, works, users, module, workId, available, mutati
   </section>;
 }
 
-type VisitCardProps = Pick<VisitAgendaProps, "user" | "users" | "available" | "mutationPending" | "onDelete" | "onConfirm" | "onStartAudit"> & {
+type VisitCardProps = Pick<VisitAgendaProps, "user" | "users" | "available" | "mutationPending" | "onDelete" | "onConfirm"> & {
   visit: Visit;
   work?: WorkRecord;
+  collapsedInitially?: boolean;
+  showType?: boolean;
+  onStartAudit?: (visit: Visit) => Promise<void>;
+  auditStarted?: boolean;
 };
 
-function VisitCard({ visit, user, users, work, available, mutationPending = false, onDelete, onConfirm, onStartAudit }: VisitCardProps) {
+export function VisitCard({ visit, user, users, work, available, mutationPending = false, onDelete, onConfirm, collapsedInitially = false, showType = true, onStartAudit, auditStarted = false }: VisitCardProps) {
   const manager = canManageAgenda(user);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [expanded, setExpanded] = useState(!manager);
+  const [expanded, setExpanded] = useState(!manager && !collapsedInitially);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [confirming, setConfirming] = useState(false);
+  const [starting, setStarting] = useState(false);
   const confirmingRef = useRef(false);
+  const startingRef = useRef(false);
   const deletingRef = useRef(false);
   const assignedAllowed = visit.auditorId === user.id
     && (user.role === "safety-auditor" || user.role === "quality-auditor")
     && canAccessWorkModule(user, visit.workId, visit.module);
-  const startAllowed = assignedAllowed && visit.kind === "audit" && visit.modelId !== null
-    && canStartAudit(user, visit.workId, visit.modelId);
   const hasRevision = Number.isInteger(visit.revision) && (visit.revision ?? 0) > 0;
   const confirmAllowed = assignedAllowed && canReadVisit(user, visit) && visit.confirmationStatus === "pending_confirmation" && hasRevision;
+  const startVisible = !!onStartAudit && assignedAllowed && visit.kind === "audit";
+  const startAllowed = startVisible && available && canBeginScheduledAudit(user, visit, getSaoPauloToday());
   const auditorName = visit.auditorName ?? users.find((entry) => entry.id === visit.auditorId)?.name ?? (visit.auditorId === user.id ? user.name : visit.auditorId);
   const creatorName = visit.createdByName ?? users.find((entry) => entry.id === visit.createdBy)?.name ?? (visit.createdBy === user.id ? user.name : visit.createdBy);
   const [year, month, day] = visit.date.split("-");
   const visitLabel = visit.kind === "follow_up" ? `Acompanhamento da obra · ${moduleLabels[visit.module]}`
     : visit.modelId ? visitTypeLabels[visit.modelId] : "Auditoria";
-
-  const start = () => {
-    setError("");
-    setSuccess("");
-    try {
-      if (!startAllowed || !canReadVisit(user, visit)) throw new Error("Este perfil não está autorizado a iniciar esta auditoria.");
-      onStartAudit(visit);
-    } catch (cause) {
-      setError(errorMessage(cause, "Não foi possível iniciar a auditoria."));
-    }
-  };
 
   const deleteVisit = async () => {
     if (deletingRef.current || mutationPending) return;
@@ -352,7 +373,17 @@ function VisitCard({ visit, user, users, work, available, mutationPending = fals
     }
   };
 
-  return <article className={styles.visitCard} aria-label={`${visitLabel} em ${formatAuditDate(visit.date)}`}>
+  const startAudit = async () => {
+    if (!onStartAudit || startingRef.current || mutationPending || !startAllowed) return;
+    startingRef.current = true;
+    setStarting(true);
+    setError("");
+    try { await onStartAudit(visit); }
+    catch (cause) { setError(errorMessage(cause, "Não foi possível iniciar a auditoria. Atualize a agenda e tente novamente.")); }
+    finally { startingRef.current = false; setStarting(false); }
+  };
+
+  return <article className={styles.visitCard} data-visit-kind={visit.kind} aria-label={`${visitLabel} em ${formatAuditDate(visit.date)}`}>
     <details className={styles.visitDisclosure} open={expanded} onToggle={(event) => {
       setExpanded(event.currentTarget.open);
       if (!event.currentTarget.open) setConfirmDelete(false);
@@ -362,24 +393,25 @@ function VisitCard({ visit, user, users, work, available, mutationPending = fals
         <span className={styles.visitTitle}>
           <strong>{work?.name ?? visit.workId}</strong>
           <span><small>Profissional responsável</small>{auditorName}</span>
+          {showType && <span className={styles.visitType}>{visitLabel}</span>}
         </span>
         <span className={styles.expandIndicator} aria-hidden="true" />
       </summary>
       <div className={styles.visitExpanded}>
-        <div className={styles.visitMeta}><strong>{visitLabel}</strong><span>{visit.id}</span></div>
-        {(manager || assignedAllowed) && <div className={styles.visitActions}>
-          {manager ? <button type="button" className="secondary" disabled={!available || !hasRevision || mutationPending || deleting} aria-expanded={confirmDelete} onClick={() => { setConfirmDelete(!confirmDelete); setError(""); }}>{confirmDelete ? "Voltar" : "Excluir agendamento"}</button> : <>
-            {confirmAllowed && <button type="button" className="primary" disabled={!available || mutationPending || confirming} onClick={() => { void confirm(); }}>{confirming ? "Confirmando…" : "Confirmar data"}</button>}
-            {startAllowed && <button type="button" className={confirmAllowed ? "secondary" : "primary"} disabled={mutationPending} onClick={start}>Iniciar auditoria</button>}
-          </>}
+        {confirmAllowed && <div className={styles.visitActions}>
+          <button type="button" className="primary" disabled={!available || mutationPending || confirming} onClick={() => { void confirm(); }}>{confirming ? "Confirmando…" : "Confirmar data"}</button>
         </div>}
+        <div className={styles.visitAdminRow}>
+          <dl className={styles.visitDetails}>
+            <div><dt>AGENDAMENTO ADMINISTRATIVO</dt><dd>{creatorName}<small>Registrado em <time dateTime={visit.createdAt}>{formatRecordedAt(visit.createdAt)}</time></small></dd></div>
+          </dl>
+          {startVisible && <button type="button" className={`primary ${styles.startAuditButton}`} disabled={!startAllowed || mutationPending || starting} title={!available ? "Agenda indisponível" : visit.confirmationStatus !== "confirmed" ? "Confirme a data da visita antes de iniciar" : visit.date !== getSaoPauloToday() ? "Disponível somente na data agendada" : undefined} onClick={() => { void startAudit(); }}>{starting ? "Abrindo…" : auditStarted ? "Retomar auditoria" : "Iniciar auditoria"}</button>}
+          {manager && <button type="button" className="secondary" disabled={!available || !hasRevision || mutationPending || deleting} aria-expanded={confirmDelete} onClick={() => { setConfirmDelete(!confirmDelete); setError(""); }}>{confirmDelete ? "Voltar" : "Excluir agendamento"}</button>}
+        </div>
         {confirmDelete && manager && <div className={styles.deleteConfirmation}>
           <p>Excluir este agendamento da agenda de todos os perfis? A visita deixará de aparecer no calendário e nas notificações.</p>
           <button type="button" className="secondary" disabled={!available || mutationPending || deleting} onClick={() => { void deleteVisit(); }}>{deleting ? "Excluindo…" : "Confirmar exclusão"}</button>
         </div>}
-        <dl className={styles.visitDetails}>
-          <div><dt>AGENDAMENTO ADMINISTRATIVO</dt><dd>{creatorName}<small>Registrado em <time dateTime={visit.createdAt}>{formatRecordedAt(visit.createdAt)}</time></small></dd></div>
-        </dl>
         {visit.note && <p className={styles.visitNote}><strong>Observação: </strong>{visit.note}</p>}
 
         {error && <p role="alert" className={styles.error}>{error}</p>}
