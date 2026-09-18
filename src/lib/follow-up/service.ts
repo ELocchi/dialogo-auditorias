@@ -8,14 +8,18 @@ import { readAgendaSnapshot } from "../agenda/service.ts";
 type Client = Pick<SupabaseClient, "rpc">;
 export type FollowUpFinding = { id: string; location: string; description: string; correction: string };
 export type FollowUpReport = {
+  id: string;
+  title: string;
   visitId: string;
   revision: number;
-  guidance: string;
+  participants: string;
+  subjects: string;
+  decisions: string;
   findings: FollowUpFinding[];
   updatedAt: string;
 };
 export type FollowUpSnapshot = { available: boolean; reports: FollowUpReport[]; message?: string };
-export type SaveFollowUpInput = Pick<FollowUpReport, "visitId" | "guidance" | "findings"> & { expectedRevision: number };
+export type SaveFollowUpInput = Pick<FollowUpReport, "visitId" | "title" | "participants" | "subjects" | "decisions" | "findings"> & { expectedRevision: number };
 export type SaveFollowUpResult = { status: "success" | "error"; message: string; report?: FollowUpReport };
 
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
@@ -32,7 +36,7 @@ function parseFinding(value: unknown): FollowUpFinding | null {
     description: value.description.trim(), correction: value.correction.trim() };
 }
 
-function parseFindings(value: unknown): FollowUpFinding[] | null {
+export function parseFindings(value: unknown): FollowUpFinding[] | null {
   if (!Array.isArray(value) || value.length > 30) return null;
   const findings = value.map(parseFinding);
   if (findings.some((item) => !item)) return null;
@@ -40,23 +44,43 @@ function parseFindings(value: unknown): FollowUpFinding[] | null {
   return new Set(valid.map((item) => item.id)).size === valid.length ? valid : null;
 }
 
+export function resolveReportFindings(selected: readonly FollowUpFinding[], reported: readonly FollowUpFinding[],
+  drafts: readonly FollowUpFinding[]): FollowUpFinding[] | null {
+  if (selected.length === 0) return null;
+  const available = new Map([...reported, ...drafts].map((finding) => [finding.id, finding]));
+  const resolved = selected.flatMap((finding) => {
+    const current = available.get(finding.id);
+    return current ? [current] : [];
+  });
+  return resolved.length === selected.length ? resolved : null;
+}
+
 function parseReport(value: unknown): FollowUpReport | null {
   if (!record(value) || !uuid(value.visitId) || !Number.isInteger(value.revision)
-    || Number(value.revision) < 1 || !text(value.guidance, 10000, 20)
+    || Number(value.revision) < 1 || !text(value.participants, 5000)
+    || (value.title !== undefined && !text(value.title, 120, 1))
+    || !text(value.subjects, 10000, 1) || !text(value.decisions, 10000)
     || typeof value.updatedAt !== "string" || !Number.isFinite(Date.parse(value.updatedAt))) return null;
   const findings = parseFindings(value.findings);
   if (!findings) return null;
-  return { visitId: value.visitId.toLowerCase(), revision: Number(value.revision),
-    guidance: value.guidance, findings, updatedAt: value.updatedAt };
+  return { id: uuid(value.id) ? value.id.toLowerCase() : value.visitId.toLowerCase(),
+    title: typeof value.title === "string" ? value.title.trim() : "Relatório orientativo",
+    visitId: value.visitId.toLowerCase(), revision: Number(value.revision),
+    participants: value.participants, subjects: value.subjects, decisions: value.decisions,
+    findings, updatedAt: value.updatedAt };
 }
 
 export function parseSaveFollowUp(input: unknown): SaveFollowUpInput | null {
-  if (!record(input) || Object.keys(input).length !== 4 || !uuid(input.visitId)
+  if (!record(input) || Object.keys(input).length !== 7 || !uuid(input.visitId)
     || !Number.isInteger(input.expectedRevision) || Number(input.expectedRevision) < 0
-    || !text(input.guidance, 10000, 20)) return null;
+    || !text(input.title, 120, 1)
+    || !text(input.participants, 5000, 1) || !text(input.subjects, 10000, 1)
+    || !text(input.decisions, 10000, 1)) return null;
   const findings = parseFindings(input.findings);
   return findings ? { visitId: input.visitId.toLowerCase(), expectedRevision: Number(input.expectedRevision),
-    guidance: input.guidance.trim(), findings } : null;
+    title: input.title.trim(),
+    participants: input.participants.trim(), subjects: input.subjects.trim(),
+    decisions: input.decisions.trim(), findings } : null;
 }
 
 export async function readFollowUpReports(client: Client, context: ProfileWorkspaceContext): Promise<FollowUpSnapshot> {
@@ -68,9 +92,10 @@ export async function readFollowUpReports(client: Client, context: ProfileWorksp
       : "Não foi possível consultar os relatórios orientativos. Tente novamente." };
     if (!Array.isArray(data) || data.length > 1000) return { available: false, reports: [] };
     const reports = data.map(parseReport);
-    if (reports.some((item) => !item)) return { available: false, reports: [] };
+    if (reports.some((item) => !item)) return { available: false, reports: [],
+      message: "Os relatórios orientativos precisam da atualização do banco de dados. Atualize a página após a migração." };
     const valid = reports as FollowUpReport[];
-    if (new Set(valid.map((item) => item.visitId)).size !== valid.length) return { available: false, reports: [] };
+    if (new Set(valid.map((item) => item.id)).size !== valid.length) return { available: false, reports: [] };
     return { available: true, reports: valid };
   } catch { return { available: false, reports: [], message: "Não foi possível consultar os relatórios orientativos. Tente novamente." }; }
 }
@@ -78,17 +103,19 @@ export async function readFollowUpReports(client: Client, context: ProfileWorksp
 export async function saveFollowUpReport(client: Client, context: ProfileWorkspaceContext, input: unknown): Promise<SaveFollowUpResult> {
   if (!auditor(context)) return failure("Somente o auditor responsável pode registrar o acompanhamento.");
   const value = parseSaveFollowUp(input);
-  if (!value) return failure("Preencha a orientação e confira os apontamentos antes de salvar.");
+  if (!value) return failure("Informe o nome, preencha os três campos e confira os apontamentos antes de salvar.");
+  if (value.expectedRevision !== 0) return failure("Este relatório já foi fechado. Você pode visualizá-lo ou baixar o PDF.");
   const agenda = await readAgendaSnapshot(client, context);
   const visit = agenda.visits.find((item) => item.id === value.visitId);
   if (!agenda.available || !visit || visit.kind !== "follow_up" || visit.auditorId !== context.user.id
     || visit.confirmationStatus !== "confirmed" || visit.date > getSaoPauloToday()
-    || (value.expectedRevision === 0 && visit.date !== getSaoPauloToday())
     || !canReadVisit(context.user, visit)) return failure("Para criar o relatório, confirme a visita e aguarde a data agendada.");
   try {
     const { data, error } = await client.rpc("save_follow_up_report", {
       p_profile: context.profile, p_visit_id: value.visitId, p_expected_revision: value.expectedRevision,
-      p_guidance: value.guidance, p_findings: value.findings,
+      p_title: value.title,
+      p_participants: value.participants, p_subjects: value.subjects,
+      p_decisions: value.decisions, p_findings: value.findings,
     });
     if (error) {
       if (["PGRST202", "42883"].includes(error.code)) return failure("O salvamento estará disponível após a atualização do banco de dados.");

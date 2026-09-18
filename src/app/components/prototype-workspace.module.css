@@ -6,7 +6,12 @@
 .help { margin-bottom: 18px; }
 .empty { padding-top: 18px; color: var(--muted); font-size: 12px; }
 .auditorLayout { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 24px; }
-.scheduledPanel { min-width: 0; min-height: 460px; }
+.auditorSidebar { display: grid; min-width: 0; gap: 24px; }
+.publishedList { display: grid; gap: 12px; margin: 16px 0 0; padding: 0; list-style: none; }
+.publishedList li { display: grid; gap: 5px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 9px; }
+.publishedList strong { color: var(--navy); font-size: 14px; }
+.publishedList span { color: var(--muted); font-size: 12px; }
+.scheduledPanel { min-width: 0; }
 .scheduledList { display: grid; gap: 12px; max-height: 740px; overflow-y: auto; margin-top: 16px; padding-right: 3px; }
 .scheduledList article { padding: 16px; }
 .auditorCatalog { min-width: 0; max-height: 790px; overflow-y: auto; }
@@ -14,7 +19,7 @@
 .auditorCatalog :global(.catalog-toolbar) { align-items: stretch; flex-direction: column; gap: 8px; }
 .auditorCatalog :global(.criterion-row) { grid-template-columns: 80px minmax(0, 1fr); gap: 12px; padding: 15px; }
 .auditorCatalog :global(.criterion-weight) { grid-column: 2; flex-direction: row; align-items: center; gap: 10px; padding: 0; border-left: 0; }
-@media (max-width: 960px) { .auditorLayout { grid-template-columns: 1fr; } .scheduledPanel { min-height: 280px; } .auditorCatalog { max-height: none; } }
+@media (max-width: 960px) { .auditorLayout { grid-template-columns: 1fr; } .auditorCatalog { max-height: none; } }
 .userList { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-bottom: 20px; }
 .userList > div { border: 1px solid var(--line); padding: 14px; border-radius: 8px; min-width: 0; }
 .userList strong, .userList span, .userList small { display: block; overflow-wrap: anywhere; }

@@ -1,5 +1,43 @@
 # Retomada — Diálogo Auditorias
 
+## Estado local — 18/09/2026 — Nome dos relatórios
+
+Ao clicar em **Salvar relatório**, o usuário informa um nome obrigatório em uma caixa antes da gravação. A lista da visita mostra o nome e a data de salvamento; o PDF usa o nome nos metadados e no arquivo baixado. Relatórios anteriores recebem o nome padrão **Relatório orientativo** e continuam identificados por número na lista. A migração `20260918000700_named_follow_up_reports.sql` adiciona a coluna `title`, atualiza a leitura e exige nome na função de criação. A suíte isolada PGlite B.23 testou dois nomes distintos e rejeição de nome vazio. **Executar 00700 no SQL Editor do Supabase DEV após 00600 para habilitar o salvamento com nome na LAN.**
+
+## Estado local — 18/09/2026 — Vários relatórios por visita
+
+A visita pode ter vários relatórios orientativos fechados. O cartão de acompanhamento exibe um único botão **Relatórios**. Ele abre a página da visita, que lista **Relatório 1**, **Relatório 2** etc. e oferece **Criar novo relatório**. Cada relatório tem ID próprio, URL de visualização e PDF próprio; o download é iniciado ao salvar. A migração `20260918000600_multiple_follow_up_reports.sql` remove a unicidade por visita e atualiza as funções de leitura e criação, preservando os relatórios anteriores. A suíte isolada PGlite B.22 confirmou dois relatórios para a mesma visita e IDs distintos. **Executar 00600 no SQL Editor do Supabase DEV depois de 00400 e 00500 para ativar esse fluxo na LAN.**
+
+## Estado local — 18/09/2026 — Apontamentos por obra sem visita
+
+O botão **+ Adicionar** em Acompanhamento não exige visita agendada. A foto JPG/PNG obrigatória é escolhida ou capturada primeiro; depois aparecem local, descrição, orientação e seleção da obra. O registro persiste em `follow_up_work_findings`, com imagem privada no bucket já existente `follow-up-photos`, usando o ID da obra como pasta. A lista mostra os apontamentos da obra mesmo sem visitas, e o botão **Concluído** os retira da lista ativa preservando o registro. Relatórios de visitas da mesma obra podem selecionar esses apontamentos; o PDF inclui suas fotos. Apontamentos antigos ligados a visitas continuam acessíveis. A migração `20260918000500_work_findings.sql` passou em banco isolado PGlite (B.21). **Para usar na LAN, executar 00500 no SQL Editor do Supabase DEV depois de 00300 e 00400.** O envio e a leitura no Supabase remoto ainda precisam ser confirmados.
+
+## Estado local — 18/09/2026 — Conclusão de pendências e relatório fechado
+
+O botão **Concluído** remove a pendência da lista ativa. Se ela já faz parte de um relatório, a conclusão fica em `follow_up_finding_completions` para manter o PDF histórico intacto; se ainda não faz parte, é removida do rascunho e a foto pode ser excluída. Ao salvar, o relatório inclui os apontamentos selecionados, inicia o download do PDF e passa a exibir somente visualização e download. O serviço rejeita revisões de relatórios salvos e a migração `20260918000400_follow_up_completion_and_lock.sql` bloqueia atualização e exclusão de relatórios no banco. A migração passou na suíte isolada PGlite B.20. **Para usar a conclusão de pendências já incluídas em relatórios e garantir o bloqueio no Supabase DEV, executar essa migração no SQL Editor após a migração de fotos 00300.**
+
+## Estado local — 18/09/2026 — Fotos dos apontamentos
+
+O formulário de apontamentos exige uma foto JPG/PNG por registro, com até 3 MB, escolhida do dispositivo ou capturada pela câmera em aparelhos compatíveis. A visita é selecionada primeiro; os campos de texto aparecem após a escolha da foto. Se o envio falhar, o formulário tenta desfazer o apontamento salvo e mantém os dados para nova tentativa. As imagens são guardadas em um bucket privado do Supabase por usuário e visita, aparecem na lista de apontamentos e na página do relatório, e entram no PDF junto ao apontamento selecionado. Rotas de imagem e PDF exigem o perfil do auditor responsável e conferem a visita e o apontamento antes de ler o arquivo. A migração `20260918000300_follow_up_photos.sql` cria somente o bucket privado e políticas de leitura, envio e remoção para o próprio usuário; não altera apontamentos existentes. Foi validada em PostgreSQL/PGlite isolado com leitura do proprietário e bloqueio de outro usuário. **A migração ainda precisa ser executada no SQL Editor do Supabase DEV para habilitar o envio na LAN.** Testes de formato, PDF com foto, TypeScript e ESLint passaram; envio real ao bucket remoto ainda não foi verificado.
+
+## Estado local — 18/09/2026 — PDF do relatório orientativo
+
+Ao salvar o relatório, a página inicia o download de um PDF e mantém o link **Baixar PDF atual** para gerar novamente o arquivo com a última revisão salva. A rota exige o perfil do auditor responsável e lê os dados persistidos da visita; não aceita texto de PDF enviado pelo navegador. O cabeçalho usa o logo e a estrutura do Word `layout_relatório_orientativo.docx` (o corpo do modelo estava vazio). O PDF inclui obra, data, auditor, Participantes, Assuntos Tratados, Decisões/Deliberações e apenas os apontamentos selecionados. A nova assinatura da função do relatório foi detectada no Supabase DEV por uma chamada anônima rejeitada com `42501`, sem acesso a registros. A geração local foi verificada com acentos e múltiplas páginas; o build de produção não concluiu nesta rodada, mas TypeScript e ESLint passaram e a rota LAN respondeu com redirecionamento de autenticação sem sessão.
+
+Revisão do layout: a primeira página reserva três áreas de mesma altura para Participantes, Assuntos Tratados e Decisões/Deliberações. Os apontamentos começam sempre em nova página com o título **Apontamentos**. O rodapé de todas as páginas mostra **Roteiro Orientativo** à esquerda, obra ao centro e **Elaborado por:** com o nome do auditor à direita. Para textos excepcionalmente longos, páginas de continuação preservam o conteúdo antes de iniciar os apontamentos.
+
+O cabeçalho foi ajustado novamente para seguir a disposição do Word: logo no alto à esquerda, "Sistema de Gestão da Qualidade" centralizado acima, "PROCESSO" abaixo do logo, título centralizado na célula principal e data/folha à direita, sem divisórias verticais decorativas. Só data e numeração de folhas variam entre relatórios.
+
+## Estado local — 18/09/2026 — Três campos no relatório de acompanhamento
+
+A página **Criar relatório orientativo** tem Participantes, Assuntos Tratados e Decisões/Deliberações. O serviço grava os três textos por visita; relatórios anteriores preservam o texto antigo em Assuntos Tratados. A migration `20260918000200_follow_up_report_sections.sql` foi validada em PostgreSQL/PGlite isolado com leitura, escrita, revisão e permissões. Sua nova função foi detectada no Supabase DEV por uma chamada anônima rejeitada com `42501`; nenhuma consulta de conteúdo foi feita nessa verificação. Nenhum deploy no GitHub ou Render foi feito nesta etapa.
+
+Os apontamentos da visita agora têm caixas de seleção na página do relatório. Apenas os marcados entram no relatório salvo; os demais continuam registrados no acompanhamento. Ao editar um relatório, os apontamentos já incluídos começam marcados. O servidor confere os IDs selecionados contra os registros autorizados atuais antes de salvar.
+
+## Estado local — 18/09/2026 — Apontamentos antes do relatório de acompanhamento
+
+Na aba Acompanhamento, o auditor responsável registra apontamentos com obra, local, descrição e orientação antes de criar o relatório. O botão **+ Adicionar** salva cada registro no Supabase DEV; os registros podem ser consultados em outros dispositivos pelo mesmo perfil autorizado. **Criar relatório** abre uma página própria e reúne os apontamentos da visita. A criação pode ocorrer a partir da data confirmada da visita. A migration `20260918000100_follow_up_finding_drafts.sql` foi executada no SQL Editor do projeto DEV pelo responsável; as funções `read_follow_up_finding_drafts` e `save_follow_up_finding_drafts` foram verificadas pela API pública e recusaram acesso anônimo. Testes isolados em PostgreSQL/PGlite verificaram permissões, persistência antes do relatório e criação posterior. Alterações de interface e código permanecem locais, sem deploy no Render.
+
 ## Estado local — 16/09/2026 — Edição dos roteiros na própria página
 
 O lápis em cada cartão administrativo agora troca o documento pela área de edição no corpo da página, sem janela sobreposta. “Voltar ao documento” restaura a visualização. A busca, os campos de itens, os anexos PDF/DOCX, a criação de revisões e as verificações de permissão permanecem; os cartões ficam indisponíveis durante a edição para evitar a troca acidental de roteiro. Nenhuma alteração na estrutura das auditorias. Apenas LAN, sem deploy.
@@ -992,11 +1030,3 @@ npm.cmd run dev
 Manter esse terminal aberto e acessar o endereço indicado no terminal, normalmente **http://localhost:3000**. Com as dependências atuais instaladas, não é necessário reinstalá-las nem executar build para retomar o desenvolvimento. Usar `npm.cmd` e `npx.cmd` no PowerShell; não alterar a política de execução do Windows.
 
 Este registro não afirma que o servidor permanecerá ligado após o encerramento do computador. Nenhum comando de inicialização, reinicialização, limpeza ou publicação foi executado para produzir este documento.
-
-
-
-
-
-
-
-

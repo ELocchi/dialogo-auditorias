@@ -159,6 +159,49 @@ if (!baselineOnly) suites.push({
   migrations: ["20260913000100_access_requests.sql", "20260913000200_access_administration.sql", "20260913000300_multiple_access_profiles.sql", "20260913000400_multiple_engineering_scopes.sql", "20260913000500_work_details.sql", "20260914000100_designated_general_access.sql", "20260914000200_audit_agenda.sql", "20260916000100_catalog_revisions.sql", "20260916000200_full_work_registration.sql", "20260916000300_work_team_access.sql", "20260916000400_ibrahim_general_access.sql", "20260916000500_work_follow_up_visits.sql", "20260917000100_delete_audit_agenda.sql", "20260917000200_administrative_scopes.sql", "20260917000300_auditor_reference_documents.sql", "20260917000400_follow_up_reports.sql"],
   test: "follow_up_reports.sql",
 });
+suites.push({
+  name: "B.17 persistent follow-up findings before report suite",
+  migrations: [...suites[suites.length - 1].migrations, "20260918000100_follow_up_finding_drafts.sql"],
+  test: "follow_up_finding_drafts.sql",
+});
+suites.push({
+  name: "B.18 follow-up report sections suite",
+  migrations: [...suites[suites.length - 1].migrations, "20260918000200_follow_up_report_sections.sql"],
+  test: "follow_up_report_sections.sql",
+});
+suites.push({
+  name: "B.19 private follow-up photos storage permissions suite",
+  migrations: ["20260918000300_follow_up_photos.sql"],
+  test: "follow_up_photos.sql",
+  storageAdapter: true,
+});
+suites.push({
+  name: "B.20 closed follow-up report and finding completion suite",
+  migrations: [...suites[suites.length - 2].migrations, "20260918000400_follow_up_completion_and_lock.sql"],
+  test: "follow_up_completion_and_lock.sql",
+});
+suites.push({
+  name: "B.21 work findings without a visit suite",
+  migrations: [...suites[suites.length - 1].migrations, "20260918000500_work_findings.sql"],
+  test: "follow_up_work_findings.sql",
+});
+suites.push({
+  name: "B.22 multiple immutable reports for one visit suite",
+  migrations: [...suites[suites.length - 1].migrations, "20260918000600_multiple_follow_up_reports.sql"],
+  test: "multiple_follow_up_reports.sql",
+});
+suites.push({
+  name: "B.23 named immutable reports suite",
+  migrations: [...suites[suites.length - 1].migrations, "20260918000700_named_follow_up_reports.sql"],
+  test: "named_follow_up_reports.sql",
+});
+suites.push({
+  name: "B.24 existing report title upgrade suite",
+  migrations: suites[suites.length - 2].migrations,
+  upgradeMigration: "20260918000700_named_follow_up_reports.sql",
+  test: "named_follow_up_reports_upgrade.sql",
+  baselineAuthRows: 2,
+});
 
 const { PGlite } = await loadPGlite();
 for (const suite of suites) {
@@ -166,6 +209,18 @@ for (const suite of suites) {
   let currentSqlFile = "";
   try {
     await db.exec(authAdapter);
+    if (suite.storageAdapter) await db.exec(`
+      create schema storage;
+      create table storage.buckets (id text primary key, name text, public boolean,
+        file_size_limit integer, allowed_mime_types text[]);
+      create table storage.objects (id uuid primary key, name text, bucket_id text);
+      create function storage.foldername(name text) returns text[] language sql immutable
+        as $$select array[split_part(name,'/',1),split_part(name,'/',2)]$$;
+      alter table storage.objects enable row level security;
+      grant usage on schema storage to authenticated;
+      grant select, insert, delete on storage.objects to authenticated;
+      grant execute on function storage.foldername(text) to authenticated;
+    `);
     const version = await db.query("select version() as version");
     console.log(`${suite.name}: ${version.rows[0].version}`);
     for (const migration of suite.migrations) {
@@ -217,4 +272,3 @@ for (const suite of suites) {
 if (!process.exitCode) {
   console.log("Local SQL verification complete. Supabase HTTP/Auth and multi-connection concurrency were not exercised.");
 }
-

@@ -42,13 +42,14 @@ export function Catalog({ model, setModel, query, setQuery, criteria, showItemLi
   const searchId = useId();
   const editorTrigger = useRef<HTMLButtonElement>(null);
   const [editingId, setEditingId] = useState<AuditModelId | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const selectedDocument = Object.values(referenceDocuments).find((entry) => entry.catalogName === model);
   const selectedVersion = selectedDocument && catalogs ? catalogVersion(catalogs, selectedDocument.id) : undefined;
 
   return <>
     <div className={embedded ? "panel-heading" : "page-intro"}>
       <div>
-        {embedded ? <h3>Roteiros e versões</h3> : <h2>Roteiro de auditoria</h2>}
+        {embedded ? <h3>Roteiros</h3> : <h2>Roteiro de auditoria</h2>}
       </div>
       {showItemList && <span className="catalog-total"><strong>{criteria.length}</strong> quesitos{query ? " encontrados" : " no roteiro"}</span>}
     </div>
@@ -62,24 +63,23 @@ export function Catalog({ model, setModel, query, setQuery, criteria, showItemLi
         const total = version?.criteria.length ?? (security ? securityCriteria.length : qualityModels.find((entry) => entry.name === item)?.criteria.length);
         const name = version?.version ? `${security ? "Segurança — IT.07" : item} · ${version.label}` : item;
         const editable = !!reference && !!catalogs && !!actorId && !!onCatalogsSaved;
-        return <div key={item} className={editable ? "model-card editable" : "model-card"}><button
+        return <div key={item} className={`model-card${editable ? " editable" : ""}${reference && model === item ? " has-preview" : ""}`}><button
           type="button"
           disabled={editingId !== null}
           className={model === item ? "model-tab active" : "model-tab"}
           aria-pressed={model === item}
-          aria-controls={reference ? "catalog-reference" : undefined}
-          aria-label={reference ? `Selecionar roteiro e consultar documento de referência: ${name}` : undefined}
-          onClick={() => { setModel(item); setEditingId(null); }}
+          aria-label={reference ? `Selecionar roteiro: ${name}` : undefined}
+          onClick={() => { setModel(item); setEditingId(null); setPreviewOpen(false); }}
         >
           <span>{name}</span>
           <small>{total} quesitos{showWeights ? ` · ${version?.version ? "pesos da revisão" : security ? "peso inicial 1 por subitem" : "pesos documentados"}` : ""}</small>
-        </button>{editable && <button type="button" className="model-edit" disabled={editingId !== null} aria-label={`Editar roteiro: ${name}`} title="Editar itens ou enviar nova revisão" aria-controls="catalog-editor" onClick={(event) => { editorTrigger.current = event.currentTarget; setModel(item); setEditingId(reference.id); }}>
+        </button>{reference && model === item && !editingId && <button type="button" className="model-preview" aria-expanded={previewOpen} aria-controls="catalog-reference" onClick={() => setPreviewOpen(!previewOpen)}>{previewOpen ? "Ocultar prévia" : "Mostrar prévia"}</button>}{editable && <button type="button" className="model-edit" disabled={editingId !== null} aria-label={`Editar roteiro: ${name}`} title="Editar itens ou enviar nova revisão" aria-controls="catalog-editor" onClick={(event) => { editorTrigger.current = event.currentTarget; setModel(item); setPreviewOpen(false); setEditingId(reference.id); }}>
           <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m16 3 5 5M4 15 16 3a2 2 0 0 1 5 5L9 20l-6 1 1-6ZM4 15l5 5" /></svg>
         </button>}</div>;
       })}
     </div>
 
-    {showReferenceDocuments && selectedDocument && !editingId && <ReferenceDocumentViewer key={`${selectedDocument.id}:${selectedVersion?.id ?? "bundled"}`} modelId={selectedDocument.id} revisionId={selectedVersion?.id} revisionLabel={selectedVersion?.label} />}
+    {showReferenceDocuments && selectedDocument && previewOpen && !editingId && <ReferenceDocumentViewer key={`${selectedDocument.id}:${selectedVersion?.id ?? "bundled"}`} modelId={selectedDocument.id} revisionId={selectedVersion?.id} revisionLabel={selectedVersion?.label} />}
 
     {editingId && catalogs && actorId && onCatalogsSaved && <CatalogEditorPanel key={editingId} version={catalogVersion(catalogs, editingId)} available={catalogs.available} setupPending={catalogs.setupPending} actorId={actorId} onSaved={onCatalogsSaved} onClose={() => { setEditingId(null); requestAnimationFrame(() => editorTrigger.current?.focus()); }} />}
 

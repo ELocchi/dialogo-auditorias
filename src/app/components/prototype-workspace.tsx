@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { auditModelLabels, auditVersionLabel, formatAuditDate, type AuditRecord, type WorkRecord } from "@/domain/operational-records";
-import { canEditAudit, canConsultAgenda, canReadVisit, roleLabels, moduleLabels, type DemoUser, type AppModule, type Visit } from "@/domain/prototype-access";
+import { canEditAudit, canConsultAgenda, canReadAudit, canReadVisit, roleLabels, moduleLabels, type DemoUser, type AppModule, type Visit } from "@/domain/prototype-access";
 import { Icon } from "./ui-icon";
 import { WorkRanking } from "./work-ranking";
 import { AdminFindings } from "./admin-findings";
@@ -65,10 +65,11 @@ export function AuditList({ user, audits, works, onOpen }: { user: DemoUser; aud
   </>;
 }
 
-export function AuditorScheduledAudits({ user, visits, works, users, available, mutationPending, onDelete, onConfirm, onStartAudit, startedVisitIds, catalog }: {
+export function AuditorScheduledAudits({ user, visits, works, audits, users, available, mutationPending, onDelete, onConfirm, onStartAudit, startedVisitIds, catalog }: {
   user: DemoUser;
   visits: readonly Visit[];
   works: readonly WorkRecord[];
+  audits: readonly AuditRecord[];
   users: readonly DemoUser[];
   available: boolean;
   mutationPending: boolean;
@@ -82,6 +83,8 @@ export function AuditorScheduledAudits({ user, visits, works, users, available, 
   const scheduled = visits.filter((visit) => visit.kind === "audit" && visit.auditorId === user.id
     && workById.has(visit.workId) && canReadVisit(user, visit))
     .slice().sort((first, second) => first.date.localeCompare(second.date) || first.id.localeCompare(second.id));
+  const published = audits.filter((audit) => audit.status === "Publicada" && workById.has(audit.workId) && canReadAudit(user, audit))
+    .slice().sort((first, second) => second.date.localeCompare(first.date) || second.id.localeCompare(first.id));
 
   return <>
     <div className="page-intro"><h2>Auditorias</h2></div>
@@ -94,7 +97,16 @@ export function AuditorScheduledAudits({ user, visits, works, users, available, 
             onDelete={onDelete} onConfirm={onConfirm} onStartAudit={onStartAudit} auditStarted={startedVisitIds.has(visit.id)} collapsedInitially />)}
         </div> : <p className="muted">Nenhuma auditoria agendada para este perfil.</p>}
       </section>
-      <section className={`panel ${styles.auditorCatalog}`} aria-label="Roteiros e versões">{catalog}</section>
+      <div className={styles.auditorSidebar}>
+        <section className="panel" aria-label="Relatórios publicados de auditoria">
+          <div className="panel-heading"><h3>Relatórios publicados de auditoria</h3></div>
+          {published.length ? <ul className={styles.publishedList}>{published.map((audit) => <li key={audit.id}>
+            <strong>{workById.get(audit.workId)?.name}</strong>
+            <span>{auditModelLabels[audit.modelId].name} · {auditVersionLabel(audit)} · {formatAuditDate(audit.date)}</span>
+          </li>)}</ul> : <p className="muted">Nenhum relatório de auditoria publicado para este perfil.</p>}
+        </section>
+        <section className={`panel ${styles.auditorCatalog}`} aria-label="Roteiros">{catalog}</section>
+      </div>
     </div>
   </>;
 }

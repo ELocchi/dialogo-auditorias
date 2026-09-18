@@ -20,11 +20,12 @@ button.day:hover { background: #e8eef7; }
 .markers { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 3px; min-height: 8px; }
 .auditorDot { display: inline-block; flex: 0 0 auto; width: 8px; height: 8px; border: 1px solid rgb(255 255 255 / 80%); border-radius: 50%; }
 .legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); align-items: start; gap: 7px; max-height: 240px; overflow-y: auto; padding: 12px 3px 18px; }
-.legendProfile { display: grid; grid-template-columns: minmax(0, 1fr) 20px; align-items: center; gap: 8px; min-width: 0; padding: 6px 8px; border: 1px solid var(--line); border-radius: 7px; }
+.legendProfile { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; min-width: 0; padding: 6px 8px; border: 1px solid var(--line); border-radius: 7px; }
 .legendIdentity { display: grid; gap: 2px; min-width: 0; }
 .legendIdentity strong { overflow: hidden; color: var(--navy); font-size: 11px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .legendIdentity small { color: var(--muted); font-size: 10px; }
 .colorTrigger { width: 20px; height: 20px; padding: 0; border: 1px solid rgb(0 0 0 / 12%); border-radius: 50%; }
+.colorSwatch { display: inline-block; flex: 0 0 auto; width: 16px; height: 16px; border: 1px solid rgb(0 0 0 / 12%); border-radius: 50%; }
 .colorTrigger[aria-expanded="true"] { outline: 2px solid var(--navy); outline-offset: 2px; }
 .palette { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(5, 22px); justify-content: space-between; gap: 8px 3px; padding-top: 9px; border-top: 1px solid var(--line); }
 .paletteOption { width: 22px; height: 22px; padding: 0; border: 1px solid rgb(0 0 0 / 12%); border-radius: 50%; }

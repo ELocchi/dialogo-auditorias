@@ -3,7 +3,7 @@
 import { useEffect, useId, useState } from "react";
 import { auditModelLabels, formatAuditDate, type WorkRecord } from "@/domain/operational-records";
 import { moduleLabels, type DemoUser, type AppModule, type Visit } from "@/domain/prototype-access";
-import { assignAuditorColors, auditorColorOptions, validAuditorColor } from "@/domain/auditor-calendar-colors";
+import { assignAuditorColors, assignWorkColors, auditorColorOptions, validAuditorColor } from "@/domain/auditor-calendar-colors";
 import { getCalendarDays, getSaoPauloToday, isCalendarDate, shiftCalendarMonth } from "@/domain/visit-calendar";
 import { Icon } from "./ui-icon";
 import styles from "./admin-visit-calendar.module.css";
@@ -36,8 +36,9 @@ export function AdminVisitCalendar({ visits, works, auditors = [], viewerId, onV
   const days = getCalendarDays(month);
   const monthLabel = monthFormat.format(new Date(`${month}-01T12:00:00Z`));
   const workNames = new Map(works.map((work) => [work.id, work.name]));
-  const storageKey = colorBy === "work" ? `dialogo-work-calendar-colors:${viewerId}` : `dialogo-auditor-calendar-colors:${viewerId}`;
+  const storageKey = `dialogo-auditor-calendar-colors:${viewerId}`;
   useEffect(() => {
+    if (colorBy === "work") return;
     const loadColors = () => {
       try {
         const stored = JSON.parse(localStorage.getItem(storageKey) ?? "{}");
@@ -49,7 +50,7 @@ export function AdminVisitCalendar({ visits, works, auditors = [], viewerId, onV
     const initialLoad = window.setTimeout(loadColors, 0);
     window.addEventListener("storage", loadColors);
     return () => { window.clearTimeout(initialLoad); window.removeEventListener("storage", loadColors); };
-  }, [storageKey]);
+  }, [colorBy, storageKey]);
   const monthVisits = visits.filter((visit) => (includeFollowUps || visit.kind === "audit") && workNames.has(visit.workId) && isCalendarDate(visit.date) && visit.date.startsWith(`${month}-`))
     .sort((left, right) => left.date.localeCompare(right.date) || left.id.localeCompare(right.id));
   const profiles = new Map<string, { id: string; name: string; modules: Set<AppModule>; active: boolean }>();
@@ -68,13 +69,15 @@ export function AdminVisitCalendar({ visits, works, auditors = [], viewerId, onV
   const legendProfiles = (colorBy === "work"
     ? works.filter((work) => visits.some((visit) => visit.workId === work.id)).map((work) => ({ id: work.id, name: work.name, modules: new Set<AppModule>(), active: true }))
     : [...profiles.values()]).sort((left, right) => left.name.localeCompare(right.name, "pt-BR") || left.id.localeCompare(right.id));
-  const colors = assignAuditorColors(legendProfiles.map((profile) => profile.id), colorPreferences);
+  const colors = colorBy === "work"
+    ? assignWorkColors(legendProfiles.map((profile) => profile.id))
+    : assignAuditorColors(legendProfiles.map((profile) => profile.id), colorPreferences);
   const colorKey = (visit: Visit) => colorBy === "work" ? visit.workId : visit.auditorId;
   const changeColor = (entityId: string, value: string) => {
     const color = value.toLowerCase();
     if (!validAuditorColor(color)) return;
     if (Object.entries(colors).some(([id, assigned]) => id !== entityId && assigned === color)) {
-      setColorError(colorBy === "work" ? "Essa cor já está em uso por outra obra." : "Essa cor já está em uso por outro auditor.");
+      setColorError("Essa cor já está em uso por outro auditor.");
       return;
     }
     setColorError("");
@@ -135,13 +138,15 @@ export function AdminVisitCalendar({ visits, works, auditors = [], viewerId, onV
     {showLegend && <div className={styles.legend} aria-label={colorBy === "work" ? "Cores das obras" : "Cores dos auditores"}>
       {legendProfiles.length ? legendProfiles.map((profile) => <div className={styles.legendProfile} key={profile.id}>
         <span className={styles.legendIdentity}><strong>{profile.name}</strong>{colorBy === "auditor" && <small>{[...profile.modules].map((module) => moduleLabels[module]).join(" e ")}{!profile.active ? " · sem acesso ativo" : ""}</small>}</span>
-        <button type="button" className={styles.colorTrigger} style={{ backgroundColor: colors[profile.id] }} aria-label={`Escolher cor de ${profile.name}`} aria-expanded={openColorPicker === profile.id} aria-controls={`${paletteId}-${profile.id}`} title={`Escolher cor de ${profile.name}`} onClick={() => { setColorError(""); setOpenColorPicker((current) => current === profile.id ? null : profile.id); }} />
-        {openColorPicker === profile.id && <div id={`${paletteId}-${profile.id}`} className={styles.palette} role="group" aria-label={`20 cores para ${profile.name}`}>
+        {colorBy === "work"
+          ? <span className={styles.colorSwatch} style={{ backgroundColor: colors[profile.id] }} role="img" aria-label={`Cor de ${profile.name}`} />
+          : <button type="button" className={styles.colorTrigger} style={{ backgroundColor: colors[profile.id] }} aria-label={`Escolher cor de ${profile.name}`} aria-expanded={openColorPicker === profile.id} aria-controls={`${paletteId}-${profile.id}`} title={`Escolher cor de ${profile.name}`} onClick={() => { setColorError(""); setOpenColorPicker((current) => current === profile.id ? null : profile.id); }} />}
+        {colorBy === "auditor" && openColorPicker === profile.id && <div id={`${paletteId}-${profile.id}`} className={styles.palette} role="group" aria-label={`20 cores para ${profile.name}`}>
           {auditorColorOptions.map(({ name, value }) => <button type="button" key={value} className={styles.paletteOption} style={{ backgroundColor: value }} aria-label={`${name} para ${profile.name}`} aria-pressed={colors[profile.id] === value} title={name} disabled={Object.entries(colors).some(([id, assigned]) => id !== profile.id && assigned === value)} onClick={() => changeColor(profile.id, value)} />)}
         </div>}
       </div>) : <span className={styles.legendEmpty}>{colorBy === "work" ? "Nenhuma obra com visitas agendadas." : "Nenhum auditor autorizado nesta disciplina."}</span>}
     </div>}
-    {colorError && <p className={styles.colorError} role="status">{colorError}</p>}
+    {colorBy === "auditor" && colorError && <p className={styles.colorError} role="status">{colorError}</p>}
     {!calendarOnly && <div id={appointmentsId} className={styles.appointments}>
       <div className={styles.appointmentsHeading}>
         <h4 aria-live="polite">{selectedDate ? `Visitas de ${formatAuditDate(selectedDate)}` : "Visitas do mês"}</h4>

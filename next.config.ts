@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  allowedDevOrigins: process.env.LAN_DEV_ORIGIN ? [process.env.LAN_DEV_ORIGIN] : [],
   experimental: { serverActions: { bodySizeLimit: "12mb" } },
   outputFileTracingIncludes: {
     "/api/reference-documents/*": ["./private/reference-documents/*.pdf", "./private/reference-documents/*.docx"],

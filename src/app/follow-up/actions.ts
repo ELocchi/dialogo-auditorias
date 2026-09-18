@@ -3,7 +3,14 @@
 import { requireActiveProfile } from "@/lib/auth/session";
 import { readWorkspaceContext } from "@/lib/access/workspace";
 import { createClient } from "@/lib/supabase/server";
-import { readFollowUpReports, saveFollowUpReport, type FollowUpSnapshot, type SaveFollowUpResult } from "@/lib/follow-up/service";
+import { parseSaveFollowUp, readFollowUpReports, resolveReportFindings, saveFollowUpReport, type FollowUpSnapshot, type SaveFollowUpResult } from "@/lib/follow-up/service";
+import { readFindingDrafts, saveFindingDrafts, type FindingDraftSnapshot, type SaveFindingDraftResult } from "@/lib/follow-up/findings";
+import { detectPhotoType, followUpPhotoBucket, maxPhotoBytes, maxPhotosPerFinding,
+  photoPath, readVisitPhotos, type FindingPhoto } from "@/lib/follow-up/photos";
+import { readAgendaSnapshot } from "@/lib/agenda/service";
+import { canReadVisit } from "@/domain/prototype-access";
+import { getSaoPauloToday } from "@/domain/visit-calendar";
+import { uuidPattern } from "@/lib/access/validation";
 import type { AgendaActorContext } from "@/lib/agenda/contracts";
 
 async function activeContext(expected: AgendaActorContext) {
@@ -11,6 +18,72 @@ async function activeContext(expected: AgendaActorContext) {
   if (!expected || expected.userId !== active.user.id || expected.profile !== active.profile
     || expected.engineeringScope !== active.engineeringScope || expected.administrativeScope !== active.administrativeScope) return null;
   return readWorkspaceContext(active);
+}
+
+export type WorkFinding = { id: string; workId: string; location: string; description: string;
+  correction: string; photoFileName: string; createdAt: string };
+type WorkFindingRow = { id: string; work_id: string; location: string; description: string;
+  correction: string; photo_file_name: string; created_at: string };
+const toWorkFinding = (row: WorkFindingRow): WorkFinding => ({ id: row.id, workId: row.work_id,
+  location: row.location, description: row.description, correction: row.correction,
+  photoFileName: row.photo_file_name, createdAt: row.created_at });
+
+export async function readWorkFindingsAction(expected: AgendaActorContext): Promise<{ available: boolean; findings: WorkFinding[] }> {
+  const context = await activeContext(expected);
+  if (!context) return { available: false, findings: [] };
+  const { data, error } = await (await createClient()).from("follow_up_work_findings")
+    .select("id,work_id,location,description,correction,photo_file_name,created_at")
+    .eq("auditor_auth_user_id", context.user.id).is("completed_at", null).order("created_at", { ascending: false }).limit(1000);
+  if (error || !data) return { available: false, findings: [] };
+  const authorized = new Set(context.works.map((work) => work.id));
+  return { available: true, findings: (data as WorkFindingRow[]).filter((row) => authorized.has(row.work_id)).map(toWorkFinding) };
+}
+
+export async function createWorkFindingAction(formData: FormData, expected: AgendaActorContext): Promise<{
+  status: "success" | "error"; message: string; finding?: WorkFinding;
+}> {
+  const context = await activeContext(expected);
+  const workId = formData.get("workId");
+  const location = formData.get("location");
+  const description = formData.get("description");
+  const correction = formData.get("correction");
+  const photo = formData.get("photo");
+  if (!context || (context.profile !== "AUDITOR_SEGURANCA" && context.profile !== "AUDITOR_QUALIDADE")
+    || typeof workId !== "string" || !uuidPattern.test(workId) || !context.works.some((work) => work.id === workId)
+    || typeof location !== "string" || location.length > 200
+    || typeof description !== "string" || description.trim().length < 5 || description.length > 2000
+    || typeof correction !== "string" || correction.trim().length < 5 || correction.length > 2000
+    || !(photo instanceof File) || photo.size === 0 || photo.size > maxPhotoBytes)
+    return { status: "error", message: "Confira a obra, os textos e a foto do apontamento." };
+  const bytes = new Uint8Array(await photo.arrayBuffer());
+  const kind = detectPhotoType(bytes);
+  if (!kind || photo.type !== kind) return { status: "error", message: "Envie uma foto JPG ou PNG de até 3 MB." };
+  const id = crypto.randomUUID();
+  const fileName = `${id}_${crypto.randomUUID()}.${kind === "image/png" ? "png" : "jpg"}`;
+  const path = photoPath(context.user.id, workId, fileName);
+  if (!path) return { status: "error", message: "Não foi possível preparar a foto." };
+  const client = await createClient({ writableCookies: true });
+  const upload = await client.storage.from(followUpPhotoBucket).upload(path, bytes,
+    { contentType: kind, cacheControl: "3600", upsert: false });
+  if (upload.error) return { status: "error", message: "Não foi possível enviar a foto. Confira o armazenamento do projeto." };
+  const { data, error } = await client.from("follow_up_work_findings").insert({
+    id, work_id: workId, auditor_auth_user_id: context.user.id, location: location.trim(),
+    description: description.trim(), correction: correction.trim(), photo_file_name: fileName,
+  }).select("id,work_id,location,description,correction,photo_file_name,created_at").single();
+  if (error || !data) {
+    await client.storage.from(followUpPhotoBucket).remove([path]);
+    return { status: "error", message: "Não foi possível salvar o apontamento. Confira a atualização do banco de dados." };
+  }
+  return { status: "success", message: "Apontamento e foto salvos na plataforma.", finding: toWorkFinding(data as WorkFindingRow) };
+}
+
+export async function completeWorkFindingAction(id: string, expected: AgendaActorContext): Promise<boolean> {
+  const context = await activeContext(expected);
+  if (!context || !uuidPattern.test(id)) return false;
+  const { data, error } = await (await createClient({ writableCookies: true })).from("follow_up_work_findings")
+    .update({ completed_at: new Date().toISOString() }).eq("id", id)
+    .eq("auditor_auth_user_id", context.user.id).is("completed_at", null).select("id").single();
+  return !error && !!data;
 }
 
 export async function readFollowUpReportsAction(expected: AgendaActorContext): Promise<FollowUpSnapshot> {
@@ -22,5 +95,172 @@ export async function readFollowUpReportsAction(expected: AgendaActorContext): P
 export async function saveFollowUpReportAction(input: unknown, expected: AgendaActorContext): Promise<SaveFollowUpResult> {
   const context = await activeContext(expected);
   if (!context) return { status: "error", message: "Seu acesso mudou. Atualize a página." };
-  return saveFollowUpReport(await createClient({ writableCookies: true }), context, input);
+  if (input && typeof input === "object" && !Array.isArray(input) && !("title" in input))
+    return { status: "error", message: "Esta página está desatualizada. Atualize-a para informar o nome do relatório antes de salvar." };
+  const value = parseSaveFollowUp(input);
+  if (!value) return { status: "error", message: "Confira o nome, os textos e os apontamentos selecionados antes de salvar." };
+  const client = await createClient({ writableCookies: true });
+  const [drafts, reports] = await Promise.all([readFindingDrafts(client, context), readFollowUpReports(client, context)]);
+  if (!drafts.available || !reports.available) return { status: "error", message: "Não foi possível conferir os apontamentos. Atualize a página." };
+  const currentDraft = drafts.drafts.find((entry) => entry.visitId === value.visitId);
+  const agenda = await readAgendaSnapshot(client, context);
+  const visit = agenda.visits.find((entry) => entry.id === value.visitId && entry.auditorId === context.user.id);
+  if (!agenda.available || !visit) return { status: "error", message: "A visita não está disponível para este perfil." };
+  const { data: workRows, error: workError } = await client.from("follow_up_work_findings")
+    .select("id,location,description,correction").eq("work_id", visit.workId)
+    .eq("auditor_auth_user_id", context.user.id).is("completed_at", null).limit(1000);
+  if (workError && !["42P01", "PGRST205"].includes(workError.code))
+    return { status: "error", message: "Não foi possível conferir os apontamentos da obra." };
+  const previousFindings = reports.reports.filter((entry) => entry.visitId === value.visitId).flatMap((entry) => entry.findings);
+  const findings = resolveReportFindings(value.findings, previousFindings, [...(currentDraft?.findings ?? []), ...(workRows ?? [])]);
+  if (!findings) return { status: "error", message: value.findings.length
+    ? "Os apontamentos mudaram. Atualize a página e selecione novamente."
+    : "Selecione pelo menos um apontamento para incluir no relatório." };
+  return saveFollowUpReport(client, context, { ...value, findings });
+}
+
+export async function readFindingDraftsAction(expected: AgendaActorContext): Promise<FindingDraftSnapshot> {
+  const context = await activeContext(expected);
+  if (!context) return { available: false, drafts: [], message: "Seu acesso mudou. Atualize a página." };
+  return readFindingDrafts(await createClient(), context);
+}
+
+export async function saveFindingDraftsAction(input: unknown, expected: AgendaActorContext): Promise<SaveFindingDraftResult> {
+  const context = await activeContext(expected);
+  if (!context) return { status: "error", message: "Seu acesso mudou. Atualize a página." };
+  return saveFindingDrafts(await createClient({ writableCookies: true }), context, input);
+}
+
+export async function completeFindingAction(visitId: string, findingId: string, expected: AgendaActorContext): Promise<{
+  status: "success" | "error"; message: string; draft?: FindingDraftSnapshot["drafts"][number];
+}> {
+  const context = await activeContext(expected);
+  if (!context || !uuidPattern.test(visitId) || !uuidPattern.test(findingId))
+    return { status: "error", message: "Não foi possível concluir o apontamento." };
+  const client = await createClient({ writableCookies: true });
+  const [drafts, reports] = await Promise.all([readFindingDrafts(client, context), readFollowUpReports(client, context)]);
+  if (!drafts.available || !reports.available) return { status: "error", message: "Atualize a página e tente novamente." };
+  const draft = drafts.drafts.find((entry) => entry.visitId === visitId);
+  const reportFindings = reports.reports.filter((entry) => entry.visitId === visitId).flatMap((entry) => entry.findings);
+  if (![...(draft?.findings ?? []), ...reportFindings].some((item) => item.id === findingId))
+    return { status: "error", message: "O apontamento não está mais disponível. Atualize a página." };
+  const inReport = reportFindings.some((item) => item.id === findingId);
+  let updatedDraft = draft;
+  if (draft?.findings.some((item) => item.id === findingId)) {
+    const result = await saveFindingDrafts(client, context, { visitId, expectedRevision: draft.revision,
+      findings: draft.findings.filter((item) => item.id !== findingId) });
+    if (result.status !== "success" || !result.draft) return { status: "error", message: `${result.message} Atualize a página para conferir a pendência.` };
+    updatedDraft = result.draft;
+  }
+  if (inReport) {
+    const { error } = await client.from("follow_up_finding_completions").upsert({
+      visit_id: visitId, finding_id: findingId, auditor_auth_user_id: context.user.id,
+    }, { onConflict: "visit_id,finding_id", ignoreDuplicates: true });
+    if (error) return { status: "error", message: "A conclusão estará disponível após a atualização do banco de dados." };
+  }
+  const photoList = await readVisitPhotos(client, context.user.id, visitId);
+  if (photoList && !inReport) {
+    const paths = photoList.filter((photo) => photo.findingId === findingId)
+      .flatMap((photo) => photoPath(context.user.id, visitId, photo.fileName) ?? []);
+    if (paths.length) await client.storage.from(followUpPhotoBucket).remove(paths);
+  }
+  return { status: "success", message: "Pendência concluída e removida da lista ativa.", draft: updatedDraft };
+}
+
+export async function readCompletedFindingsAction(expected: AgendaActorContext): Promise<string[] | null> {
+  const context = await activeContext(expected);
+  if (!context) return null;
+  const { data, error } = await (await createClient()).from("follow_up_finding_completions")
+    .select("visit_id,finding_id").eq("auditor_auth_user_id", context.user.id);
+  if (error || !data) return null;
+  return data.map((item) => `${item.visit_id}:${item.finding_id}`);
+}
+
+type PhotoResult = { status: "success" | "error"; message: string; photos?: FindingPhoto[] };
+export async function readFindingPhotosAction(visitIds: string[], expected: AgendaActorContext): Promise<{
+  available: boolean; photos: FindingPhoto[]; message?: string;
+}> {
+  const context = await activeContext(expected);
+  if (!context || !Array.isArray(visitIds) || visitIds.length > 100
+    || visitIds.some((id) => !uuidPattern.test(id))) return { available: false, photos: [], message: "Não foi possível consultar as fotos." };
+  const agenda = await readAgendaSnapshot(await createClient(), context);
+  if (!agenda.available) return { available: false, photos: [], message: "Não foi possível consultar as fotos." };
+  const authorized = new Set(agenda.visits.filter((visit) => visit.kind === "follow_up"
+    && visit.auditorId === context.user.id && canReadVisit(context.user, visit)).map((visit) => visit.id));
+  if (visitIds.some((id) => !authorized.has(id))) return { available: false, photos: [], message: "Não foi possível consultar as fotos." };
+  const client = await createClient();
+  const lists = await Promise.all([...new Set(visitIds)].map((id) => readVisitPhotos(client, context.user.id, id)));
+  if (lists.some((list) => !list)) return { available: false, photos: [], message: "As fotos estarão disponíveis após a atualização do armazenamento." };
+  return { available: true, photos: lists.flatMap((list) => list ?? []) };
+}
+
+export async function uploadFindingPhotosAction(formData: FormData, expected: AgendaActorContext): Promise<PhotoResult> {
+  const context = await activeContext(expected);
+  const visitId = formData.get("visitId");
+  const findingId = formData.get("findingId");
+  const files = formData.getAll("photos");
+  if (!context || (context.profile !== "AUDITOR_SEGURANCA" && context.profile !== "AUDITOR_QUALIDADE")
+    || typeof visitId !== "string" || !uuidPattern.test(visitId)
+    || typeof findingId !== "string" || !uuidPattern.test(findingId)
+    || !files.length || files.length > maxPhotosPerFinding || files.some((file) => typeof file === "string"))
+    return { status: "error", message: "Selecione uma foto JPG ou PNG." };
+  const client = await createClient({ writableCookies: true });
+  const [agenda, drafts, reports] = await Promise.all([
+    readAgendaSnapshot(client, context), readFindingDrafts(client, context), readFollowUpReports(client, context),
+  ]);
+  const visit = agenda.visits.find((item) => item.id === visitId && item.kind === "follow_up"
+    && item.auditorId === context.user.id && item.confirmationStatus === "confirmed"
+    && item.date <= getSaoPauloToday() && canReadVisit(context.user, item));
+  if (reports.reports.some((entry) => entry.visitId === visitId && entry.findings.some((item) => item.id === findingId)))
+    return { status: "error", message: "A foto deste relatório fechado não pode ser alterada." };
+  const findingExists = [...(drafts.drafts.find((entry) => entry.visitId === visitId)?.findings ?? []),
+    ...reports.reports.filter((entry) => entry.visitId === visitId).flatMap((entry) => entry.findings)].some((item) => item.id === findingId);
+  if (!agenda.available || !drafts.available || !reports.available || !visit || !findingExists)
+    return { status: "error", message: "O apontamento não está disponível para receber fotos. Atualize a página." };
+  const existing = await readVisitPhotos(client, context.user.id, visitId);
+  if (!existing) return { status: "error", message: "As fotos estarão disponíveis após a atualização do armazenamento." };
+  if (existing.filter((photo) => photo.findingId === findingId).length + files.length > maxPhotosPerFinding)
+    return { status: "error", message: "Cada apontamento aceita uma foto." };
+  const uploaded: string[] = [];
+  try {
+    for (const entry of files) {
+      if (typeof entry === "string" || entry.size === 0 || entry.size > maxPhotoBytes)
+        throw new Error("Cada foto deve ter no máximo 3 MB.");
+      const bytes = new Uint8Array(await entry.arrayBuffer());
+      const kind = detectPhotoType(bytes);
+      if (!kind || entry.type !== kind) throw new Error("Envie apenas fotos JPG ou PNG.");
+      const fileName = `${findingId}_${crypto.randomUUID()}.${kind === "image/png" ? "png" : "jpg"}`;
+      const path = photoPath(context.user.id, visitId, fileName);
+      if (!path) throw new Error("Não foi possível preparar a foto.");
+      const { error } = await client.storage.from(followUpPhotoBucket).upload(path, bytes,
+        { contentType: kind, cacheControl: "3600", upsert: false });
+      if (error) throw new Error("Não foi possível enviar as fotos. Confira o armazenamento do projeto.");
+      uploaded.push(path);
+    }
+  } catch (reason) {
+    if (uploaded.length) await client.storage.from(followUpPhotoBucket).remove(uploaded);
+    return { status: "error", message: reason instanceof Error ? reason.message : "Não foi possível enviar as fotos." };
+  }
+  const photos = await readVisitPhotos(client, context.user.id, visitId);
+  return photos ? { status: "success", message: "Fotos salvas na plataforma.", photos }
+    : { status: "error", message: "As fotos foram enviadas, mas não puderam ser confirmadas. Atualize a página." };
+}
+
+export async function deleteFindingPhotosAction(visitId: string, findingId: string,
+  expected: AgendaActorContext): Promise<boolean> {
+  const context = await activeContext(expected);
+  if (!context || !uuidPattern.test(visitId) || !uuidPattern.test(findingId)) return false;
+  const client = await createClient({ writableCookies: true });
+  const [drafts, reports] = await Promise.all([readFindingDrafts(client, context), readFollowUpReports(client, context)]);
+  if (!drafts.available || !reports.available) return false;
+  const stillUsed = [...(drafts.drafts.find((entry) => entry.visitId === visitId)?.findings ?? []),
+    ...reports.reports.filter((entry) => entry.visitId === visitId).flatMap((entry) => entry.findings)].some((item) => item.id === findingId);
+  if (stillUsed) return false;
+  const photos = await readVisitPhotos(client, context.user.id, visitId);
+  if (!photos) return false;
+  const paths = photos.filter((photo) => photo.findingId === findingId)
+    .flatMap((photo) => photoPath(context.user.id, visitId, photo.fileName) ?? []);
+  if (!paths.length) return true;
+  const { error } = await client.storage.from(followUpPhotoBucket).remove(paths);
+  return !error;
 }

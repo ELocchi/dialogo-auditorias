@@ -31,7 +31,7 @@ export default async function OperationalPage({ searchParams }: { searchParams: 
   ]);
   return <PrototypeApp key={`${active.user.id}:${active.profile}:${active.engineeringScope ?? ""}:${active.administrativeScope ?? ""}`} context={context}
     initialCatalogs={initialCatalogs} initialAgenda={initialAgenda} initialVisitId={typeof query.visita === "string" ? query.visita : undefined}
-    initialScreen={query.secao === "obras" ? "works" : query.secao === "agenda" ? "agenda" : query.secao === "acompanhamento" && (context.profile === "AUDITOR_SEGURANCA" || context.profile === "AUDITOR_QUALIDADE") ? "follow_up" : query.secao === "administracao" && context.administrativeScope === "GERAL" ? "settings" : "overview"}
+    initialScreen={query.secao === "obras" ? "works" : query.secao === "agenda" ? "agenda" : query.secao === "auditorias" ? "audits" : query.secao === "relatorios" ? "report" : query.secao === "acompanhamento" && (context.profile === "AUDITOR_SEGURANCA" || context.profile === "AUDITOR_QUALIDADE") ? "follow_up" : query.secao === "administracao" && context.administrativeScope === "GERAL" ? "settings" : "overview"}
     activeAccountCount={activeAccountCount}
     administrationContent={context.administrativeScope === "GERAL" ? <AccessAdministration embedded pendingPage={parsePage(query.pendentes)} historyPage={parsePage(query.historico)} /> : undefined}
     administrationWorksContent={context.administrativeScope === "GERAL" ? <AccessAdministration embedded view="works" pendingPage={parsePage(query.pendentes)} historyPage={parsePage(query.historico)} /> : undefined} />;

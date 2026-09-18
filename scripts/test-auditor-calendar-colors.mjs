@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { assignAuditorColors, auditorColorOptions, auditorColorPalette } from "../src/domain/auditor-calendar-colors.ts";
+import { assignAuditorColors, assignWorkColors, auditorColorOptions, auditorColorPalette } from "../src/domain/auditor-calendar-colors.ts";
 
 test("Each auditor receives a stable, distinct color across calendar renders", () => {
   const ids = ["auditor-b", "auditor-a", "auditor-c"];
@@ -12,19 +12,44 @@ test("Each auditor receives a stable, distinct color across calendar renders", (
 
 test("Chosen colors take precedence without giving two auditors the same marker", () => {
   const colors = assignAuditorColors(["auditor-a", "auditor-b", "auditor-c"], {
-    "auditor-a": "#2563eb", "auditor-b": "#2563eb", "auditor-c": "not-a-color",
+    "auditor-a": "#1e3a5f", "auditor-b": "#1e3a5f", "auditor-c": "not-a-color",
   });
-  assert.equal(colors["auditor-a"], "#2563eb");
+  assert.equal(colors["auditor-a"], "#1e3a5f");
   assert.equal(new Set(Object.values(colors)).size, 3);
+});
+
+test("Works use the requested color order, then lighter tones", () => {
+  const ids = Array.from({ length: 16 }, (_, index) => `work-${index}`);
+  const colors = assignWorkColors(ids);
+  assert.deepEqual(ids.map((id) => colors[id]), auditorColorPalette.slice(0, 16));
+  assert.deepEqual(auditorColorOptions.slice(0, 8).map(({ name }) => name), [
+    "Azul-marinho", "Vermelho escuro", "Amarelo escuro", "Verde escuro",
+    "Roxo escuro", "Rosa escuro", "Laranja escuro", "Marrom escuro",
+  ]);
+  assert.deepEqual(assignWorkColors(ids), colors);
+});
+
+test("Work colors depend only on displayed order", () => {
+  assert.deepEqual(assignWorkColors(["first", "second", "third"]), {
+    first: "#1e3a5f", second: "#dc2626", third: "#ca8a04",
+  });
+  assert.deepEqual(assignWorkColors(["second", "first", "second"]), {
+    second: "#1e3a5f", first: "#dc2626",
+  });
+  assert.deepEqual(assignWorkColors(["other-profile-work-a", "other-profile-work-b"]), {
+    "other-profile-work-a": "#1e3a5f", "other-profile-work-b": "#dc2626",
+  });
 });
 
 test("The calendar offers exactly 20 fixed colors and ignores old spectrum values", () => {
   assert.equal(auditorColorPalette.length, 20);
   assert.equal(new Set(auditorColorPalette).size, 20);
-  for (const family of ["Azul", "Amarelo", "Vermelho", "Verde", "Rosa", "Laranja", "Marrom", "Preto", "Roxo"]) {
+  assert.ok(auditorColorOptions.some((option) => option.name === "Azul-marinho"));
+  for (const family of ["Amarelo", "Vermelho", "Verde", "Rosa", "Laranja", "Marrom", "Preto", "Roxo"]) {
     assert.ok(auditorColorOptions.some((option) => option.name === `${family} claro`));
     assert.ok(auditorColorOptions.some((option) => option.name === `${family} escuro`));
   }
+  assert.ok(auditorColorOptions.some((option) => option.name === "Azul claro"));
   const colors = assignAuditorColors(["auditor-a"], { "auditor-a": "#123456" });
   assert.ok(auditorColorPalette.includes(colors["auditor-a"]));
 });

@@ -45,8 +45,9 @@ p { margin-bottom: 14px; }
 .summary-item > span { display: block; font-size: 10px; letter-spacing: .35px; color: var(--muted); }
 .summary-item > strong { display: block; color: var(--navy); font-size: 14px; margin-top: 1px; }
 .navigation-bar { background: white; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); box-shadow: 0 5px 15px #213e6b04; }
-.main-navigation { display: flex; align-items: stretch; gap: 12px; max-width: 1460px; padding: 0 36px; margin: auto; overflow-x: auto; scrollbar-width: thin; }
+.main-navigation { display: flex; align-items: stretch; gap: 12px; width: max-content; max-width: min(100%, 1460px); padding: 0 36px; margin: auto; overflow-x: auto; scrollbar-width: thin; }
 .nav-item { display: flex; align-items: center; justify-content: center; gap: 10px; flex-shrink: 0; position: relative; padding: 23px 15px; min-height: 70px; border: 0; background: transparent; color: #6b7788; font-size: 14px; font-weight: 600; }
+.main-navigation a.nav-item { text-decoration: none; }
 .nav-item::after { content: ""; position: absolute; bottom: 9px; height: 3px; left: 15px; right: 15px; background: transparent; }
 .nav-item.active { color: var(--navy); }
 .nav-item.active::after { background: var(--red); }

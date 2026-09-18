@@ -1,5 +1,29 @@
 .layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); align-items: start; gap: 24px; }
-.listPanel, .editorPanel { min-width: 0; }
+.listPanel, .findingsPanel { min-width: 0; }
+.findingHeader { display: grid; grid-template-columns: minmax(0, 1fr) minmax(110px, 180px) 43px; align-items: center; gap: 8px; }
+.findingHeader h3 { min-width: 0; }
+.addFindingButton { width: 43px; min-width: 43px; padding-inline: 0; color: white; font-size: 18px; }
+.workFilter { width: 100%; height: 21px; min-height: 21px; margin: 0; border-color: #ccd4e0; border-radius: 5px; padding: 0 22px 0 8px; background-color: white; color: var(--navy); font-size: 12px; font-weight: 700; line-height: 1; cursor: pointer; }
+.savedFindings { display: grid; gap: 0; max-height: 460px; margin: 0; padding: 0; overflow-y: auto; list-style: none; }
+.savedFindings li { display: grid; gap: 5px; padding: 14px 0; overflow-wrap: anywhere; }
+.savedFindings li + li { border-top: 1px solid var(--line); }
+.savedFindings strong { color: var(--navy); font-size: 13px; }
+.savedFindings span { color: var(--muted); font-size: 11px; }
+.savedFindings p { margin: 0; color: var(--ink); font-size: 12px; }
+.findingTitle { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.findingTitle button { flex: 0 0 auto; font-size: 11px; }
+.addFindingForm { display: grid; gap: 14px; margin-bottom: 16px; padding: 16px; border: 1px solid var(--line); border-radius: 8px; background: #fafbfd; }
+.addFindingForm label { display: grid; gap: 7px; color: var(--navy); font-size: 12px; font-weight: 700; }
+.addFindingForm textarea { min-height: 88px; resize: vertical; }
+.photoField, .addPhotoField, .photoPicker { display: grid; gap: 7px; }
+.photoField > strong, .addPhotoField > strong { color: var(--navy); font-size: 12px; }
+.photoControls { display: flex; flex-wrap: wrap; gap: 8px; }
+.photoPreview { display: block; width: min(100%, 420px); height: auto; max-height: 320px; border: 1px solid var(--line); border-radius: 6px; object-fit: contain; background: #fff; }
+.addPhotoField { margin-top: 6px; }
+.photoList { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.photoList a { display: block; width: 90px; height: 68px; overflow: hidden; border: 1px solid var(--line); border-radius: 5px; }
+.photoList img { width: 100%; height: 100%; object-fit: cover; }
+.findingActions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
 .visitList { display: grid; gap: 12px; max-height: 740px; margin-top: 16px; padding-right: 3px; overflow-y: auto; }
 .visitCard { min-width: 0; padding: 15px 16px; border: 1px solid var(--line); border-left: 4px solid var(--navy); border-radius: 10px; background: var(--surface); color: var(--navy); }
 .visitCard.expanded { box-shadow: inset 0 0 0 1px var(--navy); }
@@ -20,20 +44,10 @@
 .visitCard.expanded .expandIndicator { transform: rotate(225deg); }
 .visitDetails { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--line); }
 .visitStatus { color: var(--muted); font-size: 11px; }
-.visitDetails button { flex: 0 0 auto; }
-.context { margin: 5px 0 0; color: var(--muted); font-size: 12px; }
+.visitDetails button, .visitDetails a { flex: 0 0 auto; }
+.visitDetails a { text-decoration: none; }
 .availability, .success, .error { margin: 0 0 18px; padding: 12px 14px; border: 1px solid #d8e0eb; border-radius: 7px; background: #f3f6fa; color: var(--navy); font-size: 12px; line-height: 1.55; }
 .success { border-color: #b7dcc6; background: #edf7f0; color: #20583b; }
 .error { margin: 16px 0 0; border-color: #edcdd0; background: #fff4f3; color: #a43139; }
-.form fieldset { display: grid; gap: 18px; margin: 0; padding: 0; border: 0; }
-.form label { display: grid; gap: 7px; min-width: 0; color: var(--navy); font-size: 12px; font-weight: 700; }
-.form textarea { min-height: 100px; resize: vertical; }
-.form label:first-child textarea { min-height: 150px; }
-.findingsHeading, .findingHeading, .formFooter { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.findingsHeading { margin-top: 7px; padding-top: 18px; border-top: 1px solid var(--line); }
-.findingsHeading h4 { margin: 0; font-size: 14px; color: var(--navy); }
-.finding { display: grid; gap: 14px; padding: 16px; border: 1px solid var(--line); border-radius: 8px; background: #fafbfd; }
-.findingHeading strong { color: var(--navy); font-size: 12px; }
-.formFooter { justify-content: flex-end; padding-top: 16px; border-top: 1px solid var(--line); }
 @media (max-width: 960px) { .layout { grid-template-columns: 1fr; } .visitList { max-height: 360px; } }
-@media (max-width: 580px) { .findingsHeading, .formFooter, .visitDetails { align-items: stretch; flex-direction: column; } .findingsHeading button, .formFooter button, .visitDetails button { width: 100%; } }
+@media (max-width: 580px) { .visitDetails { align-items: stretch; flex-direction: column; } .visitDetails button, .visitDetails a { width: 100%; } .findingHeader { grid-template-columns: minmax(0, 1fr) minmax(90px, 140px) 43px; } }
