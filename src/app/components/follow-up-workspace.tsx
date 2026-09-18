@@ -236,23 +236,32 @@ export function FollowUpWorkspace({ user, visits, works, actor, agendaAvailable 
         {error && <p className={styles.error} role="alert">{error}</p>}
         {visibleWorkFindings.length + visibleSavedFindings.length ? <ul className={styles.savedFindings}>
           {visibleWorkFindings.map((item) => <li key={`work:${item.id}`}>
-            <div className={styles.findingTitle}><strong>{item.description}</strong><button type="button" className="secondary" disabled={pending} onClick={() => { void completeWorkFinding(item.id); }}>Concluído</button></div>
-            <span>{authorizedWorks.get(item.workId)?.name ?? "Obra"}{item.location ? ` · ${item.location}` : ""}</span>
-            <p>Orientação: {item.correction}</p>
-            <div className={styles.photoList}><a href={`/app/acompanhamento/obras/${item.workId}/fotos/${item.photoFileName}`} target="_blank" rel="noreferrer" aria-label="Abrir foto do apontamento">
-              <Image src={`/app/acompanhamento/obras/${item.workId}/fotos/${item.photoFileName}`} alt={`Foto de ${item.description}`} width={90} height={68} unoptimized /></a></div>
+            <div className={styles.findingMedia}><a href={`/app/acompanhamento/obras/${item.workId}/fotos/${item.photoFileName}`} target="_blank" rel="noreferrer" aria-label="Abrir foto do apontamento">
+              <Image src={`/app/acompanhamento/obras/${item.workId}/fotos/${item.photoFileName}`} alt={`Foto de ${item.description}`} width={90} height={90} unoptimized /></a></div>
+            <div className={styles.findingDetails}>
+              <strong>{item.description}</strong>
+              <span>{authorizedWorks.get(item.workId)?.name ?? "Obra"}{item.location ? ` · ${item.location}` : ""}</span>
+              <p>Orientação: {item.correction}</p>
+            </div>
+            <button type="button" className={`secondary ${styles.findingComplete}`} disabled={pending} onClick={() => { void completeWorkFinding(item.id); }}>Concluído</button>
           </li>)}
-          {visibleSavedFindings.map((item) => <li key={`${item.visitId}:${item.id}`}>
-            <div className={styles.findingTitle}><strong>{item.description}</strong><button type="button" className="secondary" disabled={pending} onClick={() => { void completeFinding(item.visitId, item.id); }}>Concluído</button></div>
-            <span>{item.workName} · {formatAuditDate(item.date)}{item.location ? ` · ${item.location}` : ""}</span>
-            <p>Orientação: {item.correction}</p>
-            {photos.some((photo) => photo.visitId === item.visitId && photo.findingId === item.id) &&
-              <div className={styles.photoList}>{photos.filter((photo) => photo.visitId === item.visitId && photo.findingId === item.id).map((photo) =>
+          {visibleSavedFindings.map((item) => {
+            const itemPhotos = photos.filter((photo) => photo.visitId === item.visitId && photo.findingId === item.id);
+            return <li key={`${item.visitId}:${item.id}`}>
+              <div className={styles.findingMedia}>{itemPhotos.length ? itemPhotos.map((photo) =>
                 <a key={photo.fileName} href={`/app/acompanhamento/fotos/${item.visitId}/${photo.fileName}`} target="_blank" rel="noreferrer" aria-label="Abrir foto do apontamento">
-                  <Image src={`/app/acompanhamento/fotos/${item.visitId}/${photo.fileName}`} alt={`Foto de ${item.description}`} width={90} height={68} unoptimized /></a>)}</div>}
-            {item.source === "saved" && photos.filter((photo) => photo.visitId === item.visitId && photo.findingId === item.id).length < maxPhotosPerFinding &&
-              <div className={styles.addPhotoField}><strong>Adicionar foto</strong><PhotoPicker disabled={pending} onSelect={(file) => { void addPhotosToFinding(file, item.visitId, item.id); }} /></div>}
-          </li>)}
+                  <Image src={`/app/acompanhamento/fotos/${item.visitId}/${photo.fileName}`} alt={`Foto de ${item.description}`} width={90} height={90} unoptimized /></a>)
+                : <span>Sem foto</span>}</div>
+              <div className={styles.findingDetails}>
+                <strong>{item.description}</strong>
+                <span>{item.workName} · {formatAuditDate(item.date)}{item.location ? ` · ${item.location}` : ""}</span>
+                <p>Orientação: {item.correction}</p>
+                {item.source === "saved" && itemPhotos.length < maxPhotosPerFinding &&
+                  <div className={styles.addPhotoField}><strong>Adicionar foto</strong><PhotoPicker disabled={pending} onSelect={(file) => { void addPhotosToFinding(file, item.visitId, item.id); }} /></div>}
+              </div>
+              <button type="button" className={`secondary ${styles.findingComplete}`} disabled={pending} onClick={() => { void completeFinding(item.visitId, item.id); }}>Concluído</button>
+            </li>;
+          })}
         </ul> : <p className="muted">{filterWorkId ? "Nenhum apontamento registrado para esta obra." : "Nenhum apontamento registrado para este perfil."}</p>}
       </section>
     </div>

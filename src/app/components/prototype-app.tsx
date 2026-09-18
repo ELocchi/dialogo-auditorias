@@ -79,11 +79,11 @@ function ProfileWorkspace({ context, initialScreen, initialVisitId, initialAgend
     ...(isAuditor ? [{ key: "follow_up", label: "Acompanhamento", icon: "check" as const }] : []),
     { key: "works", label: "Obras", icon: "works" },
     ...(currentCatalogId && !isAuditor ? [{ key: "criteria", label: isAdmin ? "Roteiros e versões" : "Roteiros", icon: "book" as const }] : []),
-    ...(canDocuments ? [{ key: "report", label: "Relatórios", icon: "report" as const }] : []),
+    ...(canDocuments && !isAuditor ? [{ key: "report", label: "Relatórios", icon: "report" as const }] : []),
     ...(isGeneralAdmin ? [{ key: "settings", label: "Administração", icon: "settings" as const }] : []),
   ];
   const allowed = new Set([...nav.map((item) => item.key), ...(activeAudit && canReadAudit(user, activeAudit) ? ["fill"] : [])]);
-  const currentScreen = allowed.has(screen) ? screen : "overview";
+  const currentScreen = allowed.has(screen) ? screen : isAuditor && screen === "report" ? "audits" : "overview";
   const isAdminOverview = isAdmin && currentScreen === "overview";
   const isAdminAgenda = isAdmin && currentScreen === "agenda";
   const isAdminCatalog = isAdmin && currentScreen === "criteria";

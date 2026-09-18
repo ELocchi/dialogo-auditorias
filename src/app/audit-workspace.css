@@ -178,17 +178,6 @@
 .model-card { position: relative; min-width: 0; }
 .model-card .model-tab { width: 100%; height: 100%; }
 .model-card.editable .model-tab { padding-right: 65px; }
-.model-card.has-preview .model-tab { padding-right: 150px; }
-.model-card.editable.has-preview .model-tab { padding-right: 195px; }
-.model-preview { position: absolute; right: 13px; top: 50%; transform: translateY(-50%); padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--navy); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
-.model-card.editable .model-preview { right: 60px; }
-.model-preview:hover { background: #e8eef7; border-color: var(--navy); }
-.model-preview:focus-visible { outline: 2px solid var(--navy); outline-offset: 3px; }
 .model-edit { position: absolute; right: 13px; top: 16px; display: grid; place-items: center; width: 38px; height: 38px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--navy); cursor: pointer; }
 .model-edit:hover { background: #e8eef7; border-color: var(--navy); }
 .model-edit:focus-visible { outline: 2px solid var(--navy); outline-offset: 3px; }
-@media (max-width: 480px) {
-  .model-card.has-preview .model-tab { padding-right: 20px; padding-bottom: 60px; }
-  .model-card.editable.has-preview .model-tab { padding-right: 65px; }
-  .model-preview, .model-card.editable .model-preview { left: 20px; right: auto; top: auto; bottom: 12px; transform: none; }
-}

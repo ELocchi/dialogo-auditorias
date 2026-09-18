@@ -1,0 +1,12 @@
+.card { position: relative; min-width: 0; }
+.selected .modelButton { padding-right: 150px; }
+.editable.selected .modelButton { padding-right: 195px; }
+.button { position: absolute; right: 13px; top: 50%; transform: translateY(-50%); padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--navy); font-size: 12px; font-weight: 700; cursor: pointer; }
+.editable .button { right: 60px; }
+.button:hover { background: #e8eef7; border-color: var(--navy); }
+.button:focus-visible { outline: 2px solid var(--navy); outline-offset: 3px; }
+@media (max-width: 480px) {
+  .selected .modelButton { padding-right: 20px; padding-bottom: 60px; }
+  .editable.selected .modelButton { padding-right: 65px; }
+  .button, .editable .button { left: 20px; right: auto; top: auto; bottom: 12px; transform: none; }
+}

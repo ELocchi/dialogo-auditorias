@@ -1,17 +1,21 @@
 .layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); align-items: start; gap: 24px; }
 .listPanel, .findingsPanel { min-width: 0; }
-.findingHeader { display: grid; grid-template-columns: minmax(0, 1fr) minmax(110px, 180px) 43px; align-items: center; gap: 8px; }
+.findingHeader { display: grid; grid-template-columns: minmax(0, 1fr) 150px 60px; align-items: center; gap: 8px; }
 .findingHeader h3 { min-width: 0; }
-.addFindingButton { width: 43px; min-width: 43px; padding-inline: 0; color: white; font-size: 18px; }
-.workFilter { width: 100%; height: 21px; min-height: 21px; margin: 0; border-color: #ccd4e0; border-radius: 5px; padding: 0 22px 0 8px; background-color: white; color: var(--navy); font-size: 12px; font-weight: 700; line-height: 1; cursor: pointer; }
-.savedFindings { display: grid; gap: 0; max-height: 460px; margin: 0; padding: 0; overflow-y: auto; list-style: none; }
-.savedFindings li { display: grid; gap: 5px; padding: 14px 0; overflow-wrap: anywhere; }
-.savedFindings li + li { border-top: 1px solid var(--line); }
-.savedFindings strong { color: var(--navy); font-size: 13px; }
+.addFindingButton { width: 100%; height: 43px; padding-inline: 0; color: white; font-size: 18px; }
+.workFilter { width: 100%; height: 43px; min-height: 43px; margin: 0; appearance: none; border: 1px solid #ccd4e0; border-radius: 9px; padding: 0 30px 0 14px; background: white url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='m1 1 5 5 5-5' fill='none' stroke='%23213961' stroke-width='1.8'/%3E%3C/svg%3E") no-repeat right 12px center; color: var(--navy); font-size: 13px; font-weight: 700; cursor: pointer; }
+.workFilter:hover { background-color: #f2f5fa; border-color: #9aaecb; }
+.workFilter option { background: white; color: var(--navy); }
+.savedFindings { display: grid; gap: 12px; max-height: 740px; margin: 16px 0 0; padding: 0 3px 0 0; overflow-y: auto; list-style: none; }
+.savedFindings li { display: grid; grid-template-columns: 76px minmax(0, 1fr) auto; align-items: start; gap: 16px; min-width: 0; padding: 15px 16px; border: 1px solid var(--line); border-left: 4px solid var(--navy); border-radius: 10px; background: var(--surface); overflow-wrap: anywhere; }
+.findingMedia { display: flex; flex-wrap: wrap; gap: 5px; width: 76px; min-height: 76px; }
+.findingMedia a, .findingMedia > span { display: grid; place-items: center; width: 76px; height: 76px; overflow: hidden; border: 1px solid var(--line); border-radius: 8px; background: #f3f7fc; color: var(--muted); font-size: 10px; text-align: center; }
+.findingMedia img { width: 100%; height: 100%; object-fit: cover; }
+.findingDetails { display: grid; min-width: 0; gap: 6px; }
+.savedFindings strong { color: var(--navy); font-size: 15px; }
 .savedFindings span { color: var(--muted); font-size: 11px; }
 .savedFindings p { margin: 0; color: var(--ink); font-size: 12px; }
-.findingTitle { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
-.findingTitle button { flex: 0 0 auto; font-size: 11px; }
+.findingComplete { align-self: center; font-size: 11px; }
 .addFindingForm { display: grid; gap: 14px; margin-bottom: 16px; padding: 16px; border: 1px solid var(--line); border-radius: 8px; background: #fafbfd; }
 .addFindingForm label { display: grid; gap: 7px; color: var(--navy); font-size: 12px; font-weight: 700; }
 .addFindingForm textarea { min-height: 88px; resize: vertical; }
@@ -20,9 +24,6 @@
 .photoControls { display: flex; flex-wrap: wrap; gap: 8px; }
 .photoPreview { display: block; width: min(100%, 420px); height: auto; max-height: 320px; border: 1px solid var(--line); border-radius: 6px; object-fit: contain; background: #fff; }
 .addPhotoField { margin-top: 6px; }
-.photoList { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
-.photoList a { display: block; width: 90px; height: 68px; overflow: hidden; border: 1px solid var(--line); border-radius: 5px; }
-.photoList img { width: 100%; height: 100%; object-fit: cover; }
 .findingActions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
 .visitList { display: grid; gap: 12px; max-height: 740px; margin-top: 16px; padding-right: 3px; overflow-y: auto; }
 .visitCard { min-width: 0; padding: 15px 16px; border: 1px solid var(--line); border-left: 4px solid var(--navy); border-radius: 10px; background: var(--surface); color: var(--navy); }
@@ -50,4 +51,4 @@
 .success { border-color: #b7dcc6; background: #edf7f0; color: #20583b; }
 .error { margin: 16px 0 0; border-color: #edcdd0; background: #fff4f3; color: #a43139; }
 @media (max-width: 960px) { .layout { grid-template-columns: 1fr; } .visitList { max-height: 360px; } }
-@media (max-width: 580px) { .visitDetails { align-items: stretch; flex-direction: column; } .visitDetails button, .visitDetails a { width: 100%; } .findingHeader { grid-template-columns: minmax(0, 1fr) minmax(90px, 140px) 43px; } }
+@media (max-width: 580px) { .visitDetails { align-items: stretch; flex-direction: column; } .visitDetails button, .visitDetails a { width: 100%; } .findingHeader { grid-template-columns: 150px 60px; justify-content: end; } .findingHeader h3 { grid-column: 1 / -1; } .savedFindings li { grid-template-columns: 76px minmax(0, 1fr); } .findingComplete { grid-column: 2; justify-self: end; } }

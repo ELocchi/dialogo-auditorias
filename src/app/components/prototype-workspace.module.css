@@ -6,11 +6,27 @@
 .help { margin-bottom: 18px; }
 .empty { padding-top: 18px; color: var(--muted); font-size: 12px; }
 .auditorLayout { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 24px; }
-.auditorSidebar { display: grid; min-width: 0; gap: 24px; }
-.publishedList { display: grid; gap: 12px; margin: 16px 0 0; padding: 0; list-style: none; }
-.publishedList li { display: grid; gap: 5px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 9px; }
-.publishedList strong { color: var(--navy); font-size: 14px; }
-.publishedList span { color: var(--muted); font-size: 12px; }
+.auditorSidebar { display: grid; grid-auto-rows: max-content; align-self: start; align-content: start; min-width: 0; gap: 24px; }
+.publicationColumns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 16px; }
+.publicationColumn { display: grid; align-content: start; gap: 12px; min-width: 0; }
+.publicationColumn h4 { margin: 0; color: var(--navy); font-size: 13px; }
+.publicationColumn > .muted { margin: 0; }
+.publicationCard { min-width: 0; padding: 12px; border: 1px solid var(--line); border-left: 4px solid var(--red); border-radius: 10px; background: var(--surface); }
+.publicationSummary { display: flex; align-items: center; gap: 9px; width: 100%; padding: 0; border: 0; background: transparent; color: var(--navy); text-align: left; cursor: pointer; }
+.publicationSummary:focus-visible { outline: 2px solid var(--navy); outline-offset: 3px; }
+.publicationDate { display: flex; flex: none; flex-direction: column; align-items: center; justify-content: center; width: 48px; height: 54px; border: 1px solid var(--navy); border-radius: 8px; background: var(--navy); color: white; }
+.publicationDate strong { font-size: 15px; line-height: 1; }
+.publicationDate small { margin-top: 5px; font-size: 9px; }
+.publicationInfo { display: grid; flex: 1; min-width: 0; gap: 3px; overflow-wrap: anywhere; }
+.publicationInfo > strong { font-size: 12px; }
+.publicationInfo > small { color: var(--muted); font-size: 9px; }
+.publicationInfo > span { color: var(--ink); font-size: 10px; }
+.publicationChevron { flex: none; width: 8px; height: 8px; border-right: 2px solid var(--navy); border-bottom: 2px solid var(--navy); transform: rotate(45deg); }
+.publicationSummary[aria-expanded="true"] .publicationChevron { transform: rotate(225deg); }
+.publicationDetails { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.publicationDetails span { color: var(--muted); font-size: 10px; }
+.publicationDetails button { font-size: 10px; }
+@media (max-width: 600px) { .publicationColumns { grid-template-columns: 1fr; } }
 .scheduledPanel { min-width: 0; }
 .scheduledList { display: grid; gap: 12px; max-height: 740px; overflow-y: auto; margin-top: 16px; padding-right: 3px; }
 .scheduledList article { padding: 16px; }

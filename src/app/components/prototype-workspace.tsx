@@ -23,7 +23,7 @@ export function PrototypeDashboard({ user, module, works, audits, visits, audito
   const published = audits.filter((audit) => audit.status === "Publicada");
   const worksCard = <Metric label="Obras disponíveis" value={works.length} description={admin ? "Consultar obras" : undefined} onClick={() => open("works")} />;
   const agendaCard = <Metric label={admin ? "Visitas Agendadas" : auditor ? "Auditorias Agendadas" : "Visitas na agenda"} value={admin && visits.length === 0 ? "--" : auditor ? scheduledAudits : visits.length} description={admin ? "Consultar agenda" : undefined} onClick={works[0] && canConsultAgenda(user, works[0].id, module) ? () => open("agenda") : undefined} />;
-  const profilesCard = <Metric label={admin ? "Perfis cadastrados" : "Relatórios publicados"} value={admin ? activeAccountCount ?? "--" : published.length} description={admin ? "Consultar perfis" : undefined} onClick={() => open(admin ? "settings" : "report")} />;
+  const profilesCard = <Metric label={admin ? "Perfis cadastrados" : "Relatórios publicados"} value={admin ? activeAccountCount ?? "--" : published.length} description={admin ? "Consultar perfis" : auditor ? "Consultar auditorias" : undefined} onClick={() => open(admin ? "settings" : auditor ? "audits" : "report")} />;
   const catalogsCard = <Metric label={admin ? "Roteiros disponíveis" : user.role === "engineering" ? "Auditorias consultáveis" : "Rascunhos próprios"} value={admin ? user.modules.includes("safety") ? 1 + (user.modules.includes("quality") ? 2 : 0) : 2 : user.role === "engineering" ? audits.length : ownDrafts.length} description={admin ? "Consultar roteiros" : undefined} onClick={() => open(admin ? "criteria" : "audits")} />;
   if (safetyAuditor) return <>
     <div className="page-intro"><div><h2>Visão geral</h2><p className="muted">Segurança · Auditor de Segurança</p></div></div>
@@ -85,30 +85,69 @@ export function AuditorScheduledAudits({ user, visits, works, audits, users, ava
     .slice().sort((first, second) => first.date.localeCompare(second.date) || first.id.localeCompare(second.id));
   const published = audits.filter((audit) => audit.status === "Publicada" && workById.has(audit.workId) && canReadAudit(user, audit))
     .slice().sort((first, second) => second.date.localeCompare(first.date) || second.id.localeCompare(first.id));
+  const exampleWork = workById.get(scheduled[0]?.workId ?? "") ?? works[0];
+  const exampleDate = scheduled[0]?.date ?? "2026-09-18";
+  const showExample = process.env.NODE_ENV !== "production" && published.length === 0 && !!exampleWork;
 
   return <>
     <div className="page-intro"><h2>Auditorias</h2></div>
     <div className={styles.auditorLayout}>
-      <section className={`panel ${styles.scheduledPanel}`} aria-label="Auditorias agendadas">
-        <div className="panel-heading"><h3>Auditorias agendadas</h3></div>
-        {scheduled.length ? <div className={styles.scheduledList}>
-          {scheduled.map((visit) => <VisitCard key={visit.id} visit={visit} user={user} users={users}
-            work={workById.get(visit.workId)} available={available} mutationPending={mutationPending}
-            onDelete={onDelete} onConfirm={onConfirm} onStartAudit={onStartAudit} auditStarted={startedVisitIds.has(visit.id)} collapsedInitially />)}
-        </div> : <p className="muted">Nenhuma auditoria agendada para este perfil.</p>}
-      </section>
       <div className={styles.auditorSidebar}>
-        <section className="panel" aria-label="Relatórios publicados de auditoria">
-          <div className="panel-heading"><h3>Relatórios publicados de auditoria</h3></div>
-          {published.length ? <ul className={styles.publishedList}>{published.map((audit) => <li key={audit.id}>
-            <strong>{workById.get(audit.workId)?.name}</strong>
-            <span>{auditModelLabels[audit.modelId].name} · {auditVersionLabel(audit)} · {formatAuditDate(audit.date)}</span>
-          </li>)}</ul> : <p className="muted">Nenhum relatório de auditoria publicado para este perfil.</p>}
+        <section className={`panel ${styles.scheduledPanel}`} aria-label="Auditorias agendadas">
+          <div className="panel-heading"><h3>Auditorias agendadas</h3></div>
+          {scheduled.length ? <div className={styles.scheduledList}>
+            {scheduled.map((visit) => <VisitCard key={visit.id} visit={visit} user={user} users={users}
+              work={workById.get(visit.workId)} available={available} mutationPending={mutationPending}
+              onDelete={onDelete} onConfirm={onConfirm} onStartAudit={onStartAudit} auditStarted={startedVisitIds.has(visit.id)} collapsedInitially />)}
+          </div> : <p className="muted">Nenhuma auditoria agendada para este perfil.</p>}
+        </section>
+        <section className="panel" aria-label="Apontamentos das auditorias">
+          <div className="panel-heading"><h3>Apontamentos das auditorias</h3></div>
+          <p className="muted">Nenhum apontamento incluído em relatório de auditoria publicado.</p>
+        </section>
+      </div>
+      <div className={styles.auditorSidebar}>
+        <section className="panel" aria-label="Auditorias publicadas">
+          <div className="panel-heading"><h3>Auditorias publicadas</h3>{showExample && <span className="badge badge-amber">Prévia de teste</span>}</div>
+          <div className={styles.publicationColumns}>
+            <div className={styles.publicationColumn}>
+              <h4>Auditoria</h4>
+              {published.length ? published.map((audit) => <PublishedDocumentCard key={audit.id} date={audit.date}
+                workName={workById.get(audit.workId)?.name ?? "Obra"} responsible={audit.auditor} />)
+                : showExample ? <PublishedDocumentCard date={exampleDate} workName={exampleWork.name} responsible={user.name} example />
+                  : <p className="muted">Nenhuma auditoria publicada para este perfil.</p>}
+            </div>
+            <div className={styles.publicationColumn}>
+              <h4>Plano de ação</h4>
+              {showExample ? <PublishedDocumentCard date={exampleDate} workName={exampleWork.name} responsible={user.name} example />
+                : <p className="muted">Nenhum plano de ação publicado.</p>}
+            </div>
+          </div>
         </section>
         <section className={`panel ${styles.auditorCatalog}`} aria-label="Roteiros">{catalog}</section>
       </div>
     </div>
   </>;
+}
+
+function PublishedDocumentCard({ date, workName, responsible, example = false }: {
+  date: string; workName: string; responsible: string; example?: boolean;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [year, month] = date.split("-");
+  const monthLabel = `${month}/${year}`;
+  const monthAbbreviation = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"][Number(month) - 1] ?? month;
+  return <article className={styles.publicationCard}>
+    <button type="button" className={styles.publicationSummary} aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
+      <span className={styles.publicationDate}><strong>{monthAbbreviation}</strong><small>{year}</small></span>
+      <span className={styles.publicationInfo}><strong>{workName}</strong><small>Responsável</small><span>{responsible}</span></span>
+      <span className={styles.publicationChevron} aria-hidden="true" />
+    </button>
+    {expanded && <div className={styles.publicationDetails}>
+      <span>{example ? "Exemplo visual, sem publicação" : `Referência: ${monthLabel}`}</span>
+      <button type="button" className="secondary" disabled title="PDF ainda não disponível">Baixar PDF</button>
+    </div>}
+  </article>;
 }
 
 const deferred = {
