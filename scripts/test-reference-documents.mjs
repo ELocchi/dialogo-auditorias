@@ -27,7 +27,7 @@ function reset(profile = "ADMINISTRATIVO", scope = null) {
     user: { id: userId, email: "reference.fixture@dialogo.com.br", email_confirmed_at: "2026-09-16T12:00:00Z" },
     account: { auth_user_id: userId, perfil: "ADMINISTRATIVO", perfis: ["ADMINISTRATIVO", "AUDITOR_SEGURANCA", "AUDITOR_QUALIDADE", "ENGENHARIA"],
       atuacao_engenharia: "EQUIPE_OBRA", atuacoes_engenharia: ["EQUIPE_OBRA", "COORDENACAO"], atuacao_administrativa: "GERAL", ativo: true, approved_at: "2026-09-16T12:00:00Z" },
-    requestStatus: "APROVADO", active: true, administrator: true, administratorError: null, auditorGrant: true, fallbackGrant: true, activeWork: true, authError: null,
+    requestStatus: "APROVADO", active: true, administrator: true, administratorError: null, auditorGrant: true, fallbackGrant: true, grantModule: null, requestedModule: null, activeWork: true, authError: null,
     cookies: [{ value: encodeActiveProfileChoice(userId, profile, scope, profile === "ADMINISTRATIVO" ? "GERAL" : null) }],
     fileReads: [], rpcCalls: [], calls: [], fsError: false,
   };
@@ -35,10 +35,10 @@ function reset(profile = "ADMINISTRATIVO", scope = null) {
   state.client = {
     auth: { async getUser() { state.calls.push("auth"); return { data: { user: state.user }, error: state.authError }; } },
     from(table) { return {
-      select() { return this; }, eq() { return this; }, in() { return this; }, limit() { return this; },
+      select() { return this; }, eq(column, value) { if (table === "access_grants" && column === "modulo") state.requestedModule = value; return this; }, in() { return this; }, limit() { return this; },
       then(resolve, reject) {
         state.calls.push(table);
-        const data = table === "access_grants" ? state.fallbackGrant ? [{ obra_id: otherId }] : []
+        const data = table === "access_grants" ? state.fallbackGrant && (!state.grantModule || state.grantModule === state.requestedModule) ? [{ obra_id: otherId }] : []
           : table === "access_works" ? state.activeWork ? [{ id: otherId }] : [] : [];
         return Promise.resolve({ data, error: null }).then(resolve, reject);
       },
@@ -125,12 +125,22 @@ test("Pending, inactive or database-revoked accounts are rejected before private
   }
 });
 
-test("Engineering profiles cannot open reference documents, including direct download URLs", async () => {
+test("Engineering profiles open reports only for an authorized discipline and active work", async () => {
   for (const [profile, scope] of [
     ["ENGENHARIA", "EQUIPE_OBRA"], ["ENGENHARIA", "COORDENACAO"],
   ]) {
-    for (const query of ["", "?download=original"]) {
-      reset(profile, scope); await assertDenied(await load("quality-f176", query), 403);
+    for (const query of ["?revision=bundled", "?revision=bundled&download=original"]) {
+      reset(profile, scope); state.grantModule = "QUALIDADE";
+      const response = await load("quality-f176", query);
+      assert.equal(response.status, 200); assertPrivate(response);
+      assert.ok(state.calls.indexOf("access_grants") < state.calls.indexOf("readFile"));
+      assert.ok(!state.rpcCalls.includes("read_auditor_catalog_document"));
+      reset(profile, scope); state.grantModule = "QUALIDADE";
+      await assertDenied(await load("security-it07-r02", query), 403);
+      reset(profile, scope); state.fallbackGrant = false;
+      await assertDenied(await load("quality-f176", query), 403);
+      reset(profile, scope); state.activeWork = false;
+      await assertDenied(await load("quality-f176", query), 403);
     }
   }
 });

@@ -23,7 +23,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ mode
   const account = await effectiveAccount(user);
   if (!account) return Response.json({ message: "Consulta não autorizada." }, { status: 403, headers });
   const selected = await readActiveProfileContext(user.id, account);
-  if (!selected || !["ADMINISTRATIVO", "AUDITOR_SEGURANCA", "AUDITOR_QUALIDADE"].includes(selected.profile))
+  if (!selected || !["ADMINISTRATIVO", "AUDITOR_SEGURANCA", "AUDITOR_QUALIDADE", "ENGENHARIA"].includes(selected.profile))
     return Response.json({ message: "Consulta não autorizada neste perfil." }, { status: 403, headers });
 
   const { modelId } = await params;
@@ -42,6 +42,18 @@ export async function GET(request: Request, { params }: { params: Promise<{ mode
     } catch { /* Provider failures must not release a document. */ }
     if (!authorized) return Response.json({ message: "Consulta não autorizada." }, { status: 403, headers });
   }
+  if (selected.profile === "ENGENHARIA") {
+    const client = await createClient();
+    const grants = await client.from("access_grants").select("obra_id")
+      .eq("auth_user_id", user.id).eq("perfil", "ENGENHARIA")
+      .eq("modulo", documentModule === "safety" ? "SEGURANCA" : "QUALIDADE").limit(400);
+    if (grants.error || !grants.data?.length || grants.data.length > 400)
+      return Response.json({ message: "Consulta não autorizada nesta disciplina." }, { status: 403, headers });
+    const workIds = [...new Set(grants.data.map((grant) => grant.obra_id))];
+    const works = await client.from("access_works").select("id").in("id", workIds).eq("ativo", true).limit(1);
+    if (works.error || !works.data?.length)
+      return Response.json({ message: "Consulta não autorizada." }, { status: 403, headers });
+  }
   const query = new URL(request.url).searchParams;
   const original = query.get("download") === "original";
   const revision = query.get("revision");
@@ -49,7 +61,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ mode
   const filename = original ? document.originalFile : document.pdfFile;
   try {
     // For auditors this RPC also validates an active grant before bundled bytes are read.
-    const auditorDocument = selected.profile !== "ADMINISTRATIVO"
+    const auditorDocument = selected.profile === "AUDITOR_SEGURANCA" || selected.profile === "AUDITOR_QUALIDADE"
       ? await (await createClient()).rpc("read_auditor_catalog_document", {
         p_profile: selected.profile, p_model_id: modelId, p_original: original,
         p_revision_id: revision && revision !== "bundled" ? revision : null,

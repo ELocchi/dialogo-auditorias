@@ -2,6 +2,10 @@
 .grid > section { min-width: 0; }
 .findings, .catalogs { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
 .findings li, .catalogs li { display: grid; gap: 5px; padding: 13px 14px; border: 1px solid var(--line); border-left: 4px solid var(--red); border-radius: 10px; background: var(--surface); }
+.catalogs li { grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 14px; }
+.catalogInfo { display: grid; min-width: 0; gap: 5px; }
+.catalogs a { white-space: nowrap; text-align: center; text-decoration: none; }
 .findings strong, .catalogs strong { color: var(--navy); font-size: 14px; overflow-wrap: anywhere; }
 .findings span, .catalogs span { color: var(--muted); font-size: 11px; }
 .findings p { margin: 0; color: var(--ink); font-size: 12px; line-height: 1.45; }
+@media (max-width: 640px) { .catalogs li { grid-template-columns: 1fr; } .catalogs a { width: 100%; } }

@@ -43,8 +43,9 @@ export function EngineeringResourcePanels({ actor, works, module, catalogs }: {
       <div className="panel-heading"><h3>Roteiros</h3></div>
       <ul className={styles.catalogs}>{modelIds.map((modelId) => {
         const version = catalogVersion(catalogs, modelId);
-        return <li key={modelId}><strong>{auditModelLabels[modelId].name}</strong>
-          <span>{version.criteria.length} itens · {auditModelLabels[modelId].version}</span></li>;
+        return <li key={modelId}><div className={styles.catalogInfo}><strong>{auditModelLabels[modelId].name}</strong>
+          <span>{version.criteria.length} itens · {auditModelLabels[modelId].version}</span></div>
+          <a className="secondary" href={`/api/reference-documents/${modelId}?revision=bundled`} target="_blank" rel="noopener noreferrer">Mostrar relatório</a></li>;
       })}</ul>
     </section>
   </div>;
