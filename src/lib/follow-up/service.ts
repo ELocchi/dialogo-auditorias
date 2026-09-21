@@ -26,6 +26,7 @@ const record = (value: unknown): value is Record<string, unknown> => !!value && 
 const uuid = (value: unknown): value is string => typeof value === "string" && uuidPattern.test(value);
 const text = (value: unknown, max: number, min = 0): value is string => typeof value === "string" && value.trim().length >= min && value.length <= max && !value.includes("\u0000");
 const auditor = (context: ProfileWorkspaceContext) => context.profile === "AUDITOR_SEGURANCA" || context.profile === "AUDITOR_QUALIDADE";
+const canReadReports = (context: ProfileWorkspaceContext) => auditor(context) || context.profile === "ENGENHARIA";
 const failure = (message: string): SaveFollowUpResult => ({ status: "error", message });
 
 function parseFinding(value: unknown): FollowUpFinding | null {
@@ -84,10 +85,10 @@ export function parseSaveFollowUp(input: unknown): SaveFollowUpInput | null {
 }
 
 export async function readFollowUpReports(client: Client, context: ProfileWorkspaceContext): Promise<FollowUpSnapshot> {
-  if (!auditor(context)) return { available: false, reports: [] };
+  if (!canReadReports(context)) return { available: false, reports: [] };
   try {
     const { data, error } = await client.rpc("read_follow_up_reports", { p_profile: context.profile });
-    if (error) return { available: false, reports: [], message: ["PGRST202", "42883"].includes(error.code)
+    if (error) return { available: false, reports: [], message: ["PGRST202", "42883", ...(context.profile === "ENGENHARIA" ? ["42501"] : [])].includes(error.code)
       ? "Os relatórios orientativos estarão disponíveis após a atualização do banco de dados."
       : "Não foi possível consultar os relatórios orientativos. Tente novamente." };
     if (!Array.isArray(data) || data.length > 1000) return { available: false, reports: [] };

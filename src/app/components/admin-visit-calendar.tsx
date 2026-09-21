@@ -12,7 +12,7 @@ const weekdays = [["Dom", "Domingo"], ["Seg", "Segunda-feira"], ["Ter", "Terça-
 const monthFormat = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" });
 const dayFormat = new Intl.DateTimeFormat("pt-BR", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
 
-export function AdminVisitCalendar({ visits, works, auditors = [], onViewAgenda, calendarOnly = false, includeFollowUps = false, showLegend = true, colorBy = "auditor", selectedAuditorId = null, onSelectAuditor }: {
+export function AdminVisitCalendar({ visits, works, auditors = [], onViewAgenda, calendarOnly = false, includeFollowUps = false, showLegend = true, colorBy = "auditor", selectedAuditorId = null, onSelectAuditor, highlightAuditDays = false, keepVisitorColors = false }: {
   visits: readonly Visit[];
   works: readonly WorkRecord[];
   auditors?: readonly DemoUser[];
@@ -24,6 +24,8 @@ export function AdminVisitCalendar({ visits, works, auditors = [], onViewAgenda,
   colorBy?: "auditor" | "work";
   selectedAuditorId?: string | null;
   onSelectAuditor?: (auditorId: string | null) => void;
+  highlightAuditDays?: boolean;
+  keepVisitorColors?: boolean;
 }) {
   const [today] = useState(() => getSaoPauloToday());
   const [month, setMonth] = useState(() => today.slice(0, 7));
@@ -34,7 +36,7 @@ export function AdminVisitCalendar({ visits, works, auditors = [], onViewAgenda,
   const days = getCalendarDays(month);
   const monthLabel = monthFormat.format(new Date(`${month}-01T12:00:00Z`));
   const workNames = new Map(works.map((work) => [work.id, work.name]));
-  const effectiveColorBy = selectedAuditorId ? "work" : colorBy;
+  const effectiveColorBy = selectedAuditorId && !keepVisitorColors ? "work" : colorBy;
   const profileHasVisits = new Set(visits.filter((visit) => workNames.has(visit.workId)).map((visit) => visit.auditorId));
   const monthVisits = visits.filter((visit) => (includeFollowUps || visit.kind === "audit") && workNames.has(visit.workId) && isCalendarDate(visit.date) && visit.date.startsWith(`${month}-`)
     && (!selectedAuditorId || visit.auditorId === selectedAuditorId))
@@ -90,6 +92,7 @@ export function AdminVisitCalendar({ visits, works, auditors = [], onViewAgenda,
         {days.slice(week * 7, week * 7 + 7).map((date, index) => {
           if (!date) return <td key={`empty-${index}`} />;
           const scheduled = visitsByDate.get(date) ?? [];
+          const hasAudit = highlightAuditDays && scheduled.some((visit) => visit.kind === "audit");
           const scheduledEntities = [...new Set(scheduled.map(colorKey))];
           const scheduledLabels = selectedAuditorId
             ? scheduled.map((visit) => `${workNames.get(visit.workId) ?? "Obra"} (${visit.kind === "follow_up" ? "acompanhamento" : "auditoria"})`)
@@ -103,9 +106,9 @@ export function AdminVisitCalendar({ visits, works, auditors = [], onViewAgenda,
             <span className={styles.markers} aria-hidden="true">{markerEntries.map((marker) => <span key={marker.id} className={styles.auditorDot} style={{ backgroundColor: colors[marker.colorId] }} />)}</span>
           </>;
           return <td key={date} aria-label={calendarOnly ? label : undefined}>
-            {calendarOnly ? <span className={styles.day} title={label} aria-current={date === today ? "date" : undefined}>
+            {calendarOnly ? <span className={`${styles.day}${hasAudit ? ` ${styles.auditDay}` : ""}`} title={label} aria-current={date === today ? "date" : undefined}>
               {content}
-            </span> : <button type="button" className={styles.day} aria-label={label}
+            </span> : <button type="button" className={`${styles.day}${hasAudit ? ` ${styles.auditDay}` : ""}`} aria-label={label}
               aria-current={date === today ? "date" : undefined} aria-pressed={selectedDate === date} aria-controls={appointmentsId}
               onClick={() => setSelectedDate((previous) => previous === date ? null : date)}>
               {content}

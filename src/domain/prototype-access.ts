@@ -70,8 +70,7 @@ export function canManageAgenda(user: DemoUser): boolean {
 }
 
 export function canConsultAgenda(user: DemoUser, workId: string, module: AppModule): boolean {
-  if (!canAccessWorkModule(user, workId, module)) return false;
-  return user.role !== "engineering" || user.activity !== "coordination" || user.agendaWorkIds.includes(workId);
+  return canAccessWorkModule(user, workId, module);
 }
 
 export function canStartAudit(user: DemoUser, workId: string, modelId: AuditModelId): boolean {

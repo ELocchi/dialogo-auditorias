@@ -28,7 +28,7 @@ test('Engenharia não transforma dois pares obra/módulo em acesso cruzado',()=>
  assert.equal(canStartAudit(eng,a,'security-it07-r02'),false);
  assert.equal(canReadAudit(eng,{workId:a,modelId:'quality-f175',auditorId:id,status:'Publicada'}),false);
  assert.equal(canReadAudit(eng,{workId:a,modelId:'security-it07-r02',auditorId:id,status:'Publicada'}),true);
- assert.equal(canConsultAgenda(eng,a,'safety'),false);
+ assert.equal(canConsultAgenda(eng,a,'safety'),true);
  const team=context('ENGENHARIA',{account:{...account,atuacao_engenharia:'EQUIPE_OBRA',atuacoes_engenharia:['EQUIPE_OBRA']}}).user;
  assert.equal(canConsultAgenda(team,a,'safety'),true); assert.equal(canConsultAgenda(team,a,'quality'),false);
 });

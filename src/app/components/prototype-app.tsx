@@ -6,17 +6,20 @@ import { roleLabels, moduleLabels, modelModule, canAccessWorkModule, canAccessMo
 import { beginScheduledVisitAudit, updatePrototypeResponse, criteriaForAudit, modelDisplayName, type PrototypeAuditState } from "@/domain/prototype-audits";
 import { getSaoPauloToday } from "@/domain/visit-calendar";
 import type { ProfileWorkspaceContext } from "@/lib/access/workspace-context";
-import { unavailableAgenda, type AgendaActionResult, type AgendaSnapshot } from "@/lib/agenda/contracts";
+import { unavailableAgenda, type AgendaActionResult, type AgendaActorContext, type AgendaSnapshot } from "@/lib/agenda/contracts";
 import { createAgendaVisitAction, deleteAgendaVisitAction, confirmAgendaVisitAction } from "@/app/agenda/actions";
 import { catalogVersion, unavailableCatalogs, type CatalogSnapshot } from "@/lib/catalogs/contracts";
 import { Catalog, NewAudit } from "./audit-workspace";
 import { Works, Occurrences } from "./operational-views";
 import { Icon, type IconName } from "./ui-icon";
 import { VisitAgenda } from "./visit-agenda";
-import { PrototypeDashboard, AuditList, AuditorScheduledAudits, DeferredScreen, AdministrativePanel, AuditPreview } from "./prototype-workspace";
+import { PrototypeDashboard, AuditList, AuditorScheduledAudits, PublishedAuditsPanel, DeferredScreen, AdministrativePanel, AuditPreview, type ActionPlanSource } from "./prototype-workspace";
 import { type AdminNotification } from "./auth/AdminNotifications";
 import { AdministrativeHeader } from "./administrative-header";
 import { FollowUpWorkspace } from "./follow-up-workspace";
+import { ActionPlanEditor, type ActionPlanFinding, type ActionPlanRow } from "./action-plan-editor";
+import { EngineeringFollowUpPanel } from "./engineering-follow-up-panel";
+import { EngineeringResourcePanels } from "./engineering-resource-panels";
 import styles from "./prototype-app.module.css";
 
 type PrototypeAppProps = {
@@ -51,6 +54,9 @@ function ProfileWorkspace({ context, initialScreen, initialVisitId, initialAgend
   const [catalogId, setCatalogId] = useState<AuditModelId>("security-it07-r02");
   const [catalogQuery, setCatalogQuery] = useState("");
   const [error, setError] = useState("");
+  const [actionPlanSource, setActionPlanSource] = useState<ActionPlanSource | null>(null);
+  const [actionPlanDrafts, setActionPlanDrafts] = useState<Record<string, readonly ActionPlanRow[]>>({});
+  const [publishedActionPlans, setPublishedActionPlans] = useState<Record<string, { bytes: Uint8Array; fileName: string }>>({});
 
   const availableModules = user.modules.filter((module) => canAccessModule(user, module));
   const auditModule = selectedModule && availableModules.includes(selectedModule) ? selectedModule : availableModules[0] ?? null;
@@ -58,6 +64,7 @@ function ProfileWorkspace({ context, initialScreen, initialVisitId, initialAgend
   const work = availableWorks.find((entry) => entry.id === selectedWorkId) ?? availableWorks[0];
   const isAdmin = user.role === "administrative";
   const isAuditor = user.role === "safety-auditor" || user.role === "quality-auditor";
+  const isEngineering = user.role === "engineering";
   const isGeneralAdmin = isAdmin && context.administrativeScope === "GERAL";
   const catalogModules = isAdmin ? availableModules : auditModule ? [auditModule] : [];
   const modelIds = (["security-it07-r02", "quality-f175", "quality-f176"] as const).filter((id) => catalogModules.includes(modelModule(id)));
@@ -72,7 +79,13 @@ function ProfileWorkspace({ context, initialScreen, initialVisitId, initialAgend
   const preview = activeAudit ?? contextualAudits.find((audit) => canEditAudit(user, audit));
   const criteria = !isAdmin && currentCatalogId ? catalogVersion(catalogs, currentCatalogId).criteria.filter((item) => `${item.code} ${item.text} ${item.group} ${item.subgroup}`.toLocaleLowerCase("pt-BR").includes(catalogQuery.toLocaleLowerCase("pt-BR"))) : [];
 
-  const nav: { key: string; label: string; icon: IconName }[] = [
+  const nav: { key: string; label: string; icon: IconName }[] = isEngineering ? [
+    { key: "overview", label: "Visão geral", icon: "overview" },
+    { key: "agenda", label: "Agenda", icon: "calendar" },
+    { key: "engineering_quality", label: "Qualidade", icon: "audits" },
+    { key: "engineering_safety", label: "Segurança", icon: "check" },
+    { key: "works", label: "Obras", icon: "works" },
+  ] : [
     { key: "overview", label: isAdmin ? "Painel administrativo" : "Visão geral", icon: "overview" },
     ...(canAgenda || (isAdmin && auditModule) ? [{ key: "agenda", label: "Agenda", icon: "calendar" as const }] : []),
     ...(!isAdmin ? [{ key: "audits", label: "Auditorias", icon: "audits" as const }] : []),
@@ -82,7 +95,7 @@ function ProfileWorkspace({ context, initialScreen, initialVisitId, initialAgend
     ...(canDocuments && !isAuditor ? [{ key: "report", label: "Relatórios", icon: "report" as const }] : []),
     ...(isGeneralAdmin ? [{ key: "settings", label: "Administração", icon: "settings" as const }] : []),
   ];
-  const allowed = new Set([...nav.map((item) => item.key), ...(activeAudit && canReadAudit(user, activeAudit) ? ["fill"] : [])]);
+  const allowed = new Set([...nav.map((item) => item.key), ...(activeAudit && canReadAudit(user, activeAudit) ? ["fill"] : []), ...(isEngineering && user.activity === "site-team" && actionPlanSource ? ["action_plan"] : [])]);
   const currentScreen = allowed.has(screen) ? screen : isAuditor && screen === "report" ? "audits" : "overview";
   const isAdminOverview = isAdmin && currentScreen === "overview";
   const isAdminAgenda = isAdmin && currentScreen === "agenda";
@@ -135,19 +148,40 @@ function ProfileWorkspace({ context, initialScreen, initialVisitId, initialAgend
   };
   const auditNav = ["audits", "fill"].includes(currentScreen);
   const profileLabel = `${roleLabels[user.role]}${user.activity === "coordination" ? " · Coordenação" : user.activity === "site-team" ? " · Equipe da obra" : ""}`;
+  const actionPlanAudit = actionPlanSource?.auditId ? session.audits.find((audit) => audit.id === actionPlanSource.auditId) : undefined;
+  const actionPlanResponses = actionPlanAudit ? session.responses[actionPlanAudit.id]?.[actionPlanAudit.modelId] ?? {} : {};
+  const actionPlanFindings: readonly ActionPlanFinding[] = actionPlanAudit ? criteriaForAudit(session, actionPlanAudit).flatMap((criterion) => {
+    const response = actionPlanResponses[criterion.id];
+    const finding = response && (response.answer === "0" || response.answer === "5" || response.answer === "Constatação qualitativa" || response.note.trim());
+    return finding ? [{ id: criterion.id, item: criterion.code, description: criterion.title || criterion.text, nonconformity: response.note.trim() || criterion.text }] : [];
+  }) : actionPlanSource?.example ? testActionPlanFindings[actionPlanSource.module] : [];
+  const actionPlanDraftKey = actionPlanSource ? `${actionPlanSource.auditId ?? "example"}:${actionPlanSource.module}:${actionPlanSource.workId}` : "";
+  const downloadActionPlan = (source: ActionPlanSource) => {
+    const publication = publishedActionPlans[actionPlanSourceKey(source)];
+    if (!publication) return;
+    const url = URL.createObjectURL(new Blob([Uint8Array.from(publication.bytes).buffer], { type: "application/pdf" }));
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = publication.fileName;
+    anchor.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
+  };
 
   return <div className="app-shell">
     <a className="skip-link" href="#main-content">Ir para o conteúdo</a>
     <AdministrativeHeader name={user.name} userId={user.id} scope={isAdmin ? context.administrativeScope : undefined} profileLabel={isAdmin ? undefined : profileLabel} notifications={agenda.notifications} onNavigateAgenda={navigateAgenda} />
-    <div className="navigation-bar"><nav className="main-navigation" aria-label="Navegação principal">{nav.map(({ key, label, icon }) => <button type="button" key={key} className={`nav-item${currentScreen === key || (key === "audits" && auditNav) ? " active" : ""}`} aria-current={currentScreen === key ? "page" : undefined} onClick={() => navigate(key)}><Icon name={icon} /><span>{label}</span></button>)}</nav></div>
+    <div className="navigation-bar"><nav className="main-navigation" aria-label="Navegação principal">{nav.map(({ key, label, icon }) => <button type="button" key={key} className={`nav-item${currentScreen === key || (key === "audits" && auditNav) || (currentScreen === "action_plan" && key === `engineering_${actionPlanSource?.module}`) ? " active" : ""}`} aria-current={currentScreen === key ? "page" : undefined} onClick={() => navigate(key)}><Icon name={icon} /><span>{label}</span></button>)}</nav></div>
     <main className="main-content" id="main-content" tabIndex={-1}><div className="content-wrap">
-      {currentScreen !== "overview" && currentScreen !== "agenda" && currentScreen !== "works" && !(currentScreen === "audits" && isAuditor) && !(currentScreen === "follow_up" && isAuditor) && !isAdminCatalog && !isAdminSettings && <div className={styles.context} aria-label="Contexto autorizado"><label>{isAdmin ? "Disciplina da agenda" : "Módulo"}<select value={auditModule ?? ""} disabled={!availableModules.length} onChange={(event) => { const next = event.target.value as AppModule; if (canAccessModule(user, next)) { setSelectedModule(next); changeContext(); } }}>{!availableModules.length && <option value="">Nenhum módulo autorizado</option>}{availableModules.map((id) => <option value={id} key={id}>{moduleLabels[id]}</option>)}</select></label><label>Obra no contexto<select value={work?.id ?? ""} disabled={!availableWorks.length} onChange={(event) => { if (auditModule && canAccessWorkModule(user, event.target.value, auditModule)) { setSelectedWorkId(event.target.value); changeContext(); } }}>{!availableWorks.length && <option value="">Nenhuma obra autorizada</option>}{availableWorks.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label></div>}
+      {currentScreen !== "overview" && currentScreen !== "agenda" && currentScreen !== "works" && currentScreen !== "action_plan" && !currentScreen.startsWith("engineering_") && !(currentScreen === "audits" && isAuditor) && !(currentScreen === "follow_up" && isAuditor) && !isAdminCatalog && !isAdminSettings && <div className={styles.context} aria-label="Contexto autorizado"><label>{isAdmin ? "Disciplina da agenda" : "Módulo"}<select value={auditModule ?? ""} disabled={!availableModules.length} onChange={(event) => { const next = event.target.value as AppModule; if (canAccessModule(user, next)) { setSelectedModule(next); changeContext(); } }}>{!availableModules.length && <option value="">Nenhum módulo autorizado</option>}{availableModules.map((id) => <option value={id} key={id}>{moduleLabels[id]}</option>)}</select></label><label>Obra no contexto<select value={work?.id ?? ""} disabled={!availableWorks.length} onChange={(event) => { if (auditModule && canAccessWorkModule(user, event.target.value, auditModule)) { setSelectedWorkId(event.target.value); changeContext(); } }}>{!availableWorks.length && <option value="">Nenhuma obra autorizada</option>}{availableWorks.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label></div>}
       {error && <p role="alert" className={styles.error}>{error}</p>}
       {auditNav && !isAuditor && <nav className="subnav" aria-label="Seções de auditorias"><button className={`subnav-item${currentScreen === "audits" ? " active" : ""}`} type="button" onClick={() => navigate("audits")}>Histórico e rascunhos</button>{activeAudit && <button className={`subnav-item${currentScreen === "fill" ? " active" : ""}`} type="button" onClick={() => navigate("fill")}>Preenchimento</button>}</nav>}
       {currentScreen === "report" && canDocuments && <nav className="subnav" aria-label="Seções de relatórios">
         {([ ["reports", "Relatórios"], ["occurrences", "Apontamentos"], ["plans", "Planos de ação"] ] as const).map(([key, label]) => <button key={key} type="button" className={`subnav-item${reportSection === key ? " active" : ""}`} aria-current={reportSection === key ? "page" : undefined} onClick={() => setReportSection(key)}>{label}</button>)}
       </nav>}
-      {currentScreen === "overview" && (auditModule ? <PrototypeDashboard user={user} module={auditModule} works={isAdminOverview ? context.works : availableWorks} audits={isAdminOverview ? session.audits.filter((audit) => canReadAudit(user, audit)) : moduleAudits} visits={isAdminOverview || user.role === "safety-auditor" || user.role === "quality-auditor" ? visits.filter((visit) => canReadVisit(user, visit) && (isAdminOverview || visit.module === auditModule)) : contextualVisits} auditors={isAdminOverview ? agenda.auditors : []} activeAccountCount={activeAccountCount} generalAdministrator={isGeneralAdmin} open={navigate} /> : <section className="panel"><h2>Visão geral</h2><p className="muted">Este perfil ainda não tem obras e módulos autorizados. Consulte seus acessos ou solicite a liberação ao Administrativo.</p></section>)}
+      {currentScreen === "overview" && (auditModule ? <PrototypeDashboard user={user} module={auditModule} works={isAdminOverview || isEngineering ? context.works : availableWorks} audits={isAdminOverview || isEngineering ? session.audits.filter((audit) => canReadAudit(user, audit)) : moduleAudits} visits={isAdminOverview || isEngineering || user.role === "safety-auditor" || user.role === "quality-auditor" ? visits.filter((visit) => canReadVisit(user, visit) && (isAdminOverview || isEngineering || visit.module === auditModule)) : contextualVisits} auditors={isAdminOverview || isEngineering ? agenda.auditors : []} activeAccountCount={activeAccountCount} generalAdministrator={isGeneralAdmin} open={navigate} /> : <section className="panel"><h2>Visão geral</h2><p className="muted">Este perfil ainda não tem obras e módulos autorizados. Consulte seus acessos ou solicite a liberação ao Administrativo.</p></section>)}
+      {currentScreen === "engineering_quality" && isEngineering && <EngineeringSection title="Qualidade" module="quality" user={user} works={context.works} audits={session.audits} visits={visits} actor={agendaActor} catalogs={catalogs} onCreateActionPlan={user.activity === "site-team" ? (source) => { setActionPlanSource(source); setScreen("action_plan"); } : undefined} hasPublishedActionPlan={(source) => Boolean(publishedActionPlans[actionPlanSourceKey(source)])} onDownloadActionPlan={downloadActionPlan} />}
+      {currentScreen === "engineering_safety" && isEngineering && <EngineeringSection title="Segurança" module="safety" user={user} works={context.works} audits={session.audits} visits={visits} actor={agendaActor} catalogs={catalogs} onCreateActionPlan={user.activity === "site-team" ? (source) => { setActionPlanSource(source); setScreen("action_plan"); } : undefined} hasPublishedActionPlan={(source) => Boolean(publishedActionPlans[actionPlanSourceKey(source)])} onDownloadActionPlan={downloadActionPlan} />}
+      {currentScreen === "action_plan" && actionPlanSource && user.activity === "site-team" && <ActionPlanEditor key={actionPlanDraftKey} workName={actionPlanSource.workName} auditDate={actionPlanSource.date} module={actionPlanSource.module} authorName={user.name} findings={actionPlanFindings} draft={actionPlanDrafts[actionPlanDraftKey]} example={actionPlanSource.example} onSave={(rows) => setActionPlanDrafts((current) => ({ ...current, [actionPlanDraftKey]: rows }))} onPublish={(publication) => setPublishedActionPlans((current) => ({ ...current, [actionPlanDraftKey]: publication }))} onBack={() => setScreen(`engineering_${actionPlanSource.module}`)} />}
       {currentScreen === "works" && <Works works={context.works} canManage={isGeneralAdmin} />}
       {currentScreen === "follow_up" && isAuditor && <FollowUpWorkspace user={user} visits={visits} works={context.works} actor={agendaActor} agendaAvailable={agenda.available} />}
       {currentScreen === "settings" && isGeneralAdmin && <AdministrativePanel accessContent={administrationContent} worksContent={administrationWorksContent} />}
@@ -168,6 +202,46 @@ function ProfileWorkspace({ context, initialScreen, initialVisitId, initialAgend
       <footer className="page-footer"><span>Diálogo Engenharia · Auditorias</span><span>{profileLabel}</span></footer>
     </div></main>
   </div>;
+}
+
+function EngineeringSection({ title, module, user, works, audits, visits, actor, catalogs, onCreateActionPlan, hasPublishedActionPlan, onDownloadActionPlan }: {
+  title: "Qualidade" | "Segurança";
+  module: AppModule;
+  user: ProfileWorkspaceContext["user"];
+  works: ProfileWorkspaceContext["works"];
+  audits: readonly AuditRecord[];
+  visits: readonly Visit[];
+  actor: AgendaActorContext;
+  catalogs: CatalogSnapshot;
+  onCreateActionPlan?: (source: ActionPlanSource) => void;
+  hasPublishedActionPlan?: (source: ActionPlanSource) => boolean;
+  onDownloadActionPlan?: (source: ActionPlanSource) => void;
+}) {
+  return <>
+    <div className="page-intro"><div><h2>{title}</h2></div></div>
+    <div className={styles.engineeringSection}>
+      <PublishedAuditsPanel user={user} works={works} audits={audits} module={module} onCreateActionPlan={onCreateActionPlan} hasPublishedActionPlan={hasPublishedActionPlan} onDownloadActionPlan={onDownloadActionPlan} />
+      <EngineeringFollowUpPanel actor={actor} visits={visits} works={works} module={module} />
+      <EngineeringResourcePanels actor={actor} works={works} module={module} catalogs={catalogs} />
+    </div>
+  </>;
+}
+
+const testActionPlanFindings: Record<AppModule, readonly ActionPlanFinding[]> = {
+  quality: [
+    { id: "quality-test-1", item: "F.175-03", description: "Controle de serviços executados", nonconformity: "Registro de inspeção do serviço não localizado no local definido para consulta." },
+    { id: "quality-test-2", item: "F.175-07", description: "Armazenamento e proteção de materiais", nonconformity: "Materiais armazenados diretamente sobre o piso e sem identificação do lote." },
+    { id: "quality-test-3", item: "F.175-09", description: "Tratamento de não conformidades", nonconformity: "Pendência anterior sem evidência de conclusão anexada ao acompanhamento." },
+  ],
+  safety: [
+    { id: "safety-test-1", item: "14.01.01", description: "Proteção contra quedas — áreas internas", nonconformity: "Abertura no piso identificada sem fechamento provisório resistente e fixado." },
+    { id: "safety-test-2", item: "22.01.03", description: "Instalações elétricas provisórias", nonconformity: "Quadro elétrico encontrado destrancado e com circuitos sem identificação." },
+    { id: "safety-test-3", item: "26.01.01", description: "Ordem e limpeza", nonconformity: "Via de circulação com materiais obstruindo parcialmente a passagem." },
+  ],
+};
+
+function actionPlanSourceKey(source: ActionPlanSource) {
+  return `${source.auditId ?? "example"}:${source.module}:${source.workId}`;
 }
 
 function newRequestId() {

@@ -79,13 +79,11 @@ export function buildWorkspaceContext(input: Input): ProfileWorkspaceContext | n
     const user: DemoUser = {
       id: identity.id, name: identity.name.trim(), role: roles[profile], modules,
       workIds: selectedWorks.map((work) => work.id), workModuleScopes: uniqueScopes,
-      // Coordination's conditional agenda permission has not been separately granted.
-      agendaWorkIds: profile === "ENGENHARIA" && engineeringScope === "COORDENACAO" ? [] : selectedWorks.map((work) => work.id),
+      agendaWorkIds: selectedWorks.map((work) => work.id),
       documentWorkIds: [],
       ...(profile === "ENGENHARIA" ? { activity: engineeringScope === "COORDENACAO" ? "coordination" as const : "site-team" as const } : {}),
     };
     return { user, works: selectedWorks, profile, email: identity.email, engineeringScope, administrativeScope };
   } catch { return null; }
 }
-
 

@@ -19,6 +19,7 @@ test("read reports accepts three sections and flags an old database response", a
   const context = { profile: "AUDITOR_SEGURANCA" };
   const client = { rpc: async () => ({ data: [report], error: null }) };
   assert.deepEqual(await readFollowUpReports(client, context), { available: true, reports: [report] });
+  assert.deepEqual(await readFollowUpReports(client, { profile: "ENGENHARIA" }), { available: true, reports: [report] });
   const second = { ...report, id: "d1a80000-0000-4000-8000-000000000011" };
   assert.deepEqual(await readFollowUpReports({ rpc: async () => ({ data: [report, second], error: null }) }, context),
     { available: true, reports: [report, second] });

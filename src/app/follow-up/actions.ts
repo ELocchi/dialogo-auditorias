@@ -43,6 +43,20 @@ export async function readWorkFindingsAction(expected: AgendaActorContext): Prom
   return { available: true, findings: (data as WorkFindingRow[]).filter((row) => authorized.has(row.work_id)).map(toWorkFinding) };
 }
 
+export async function readEngineeringWorkFindingsAction(module: "safety" | "quality", expected: AgendaActorContext): Promise<{ available: boolean; findings: WorkFinding[] }> {
+  const context = await activeContext(expected);
+  if (!context || context.profile !== "ENGENHARIA" || !["safety", "quality"].includes(module))
+    return { available: false, findings: [] };
+  const authorized = new Set(context.works.map((work) => work.id));
+  const { data, error } = await (await createClient()).from("follow_up_work_findings")
+    .select("id,work_id,modulo,location,description,correction,photo_file_name,created_at")
+    .eq("modulo", module === "safety" ? "SEGURANCA" : "QUALIDADE")
+    .is("completed_at", null).order("created_at", { ascending: false }).limit(1000);
+  if (error || !data) return { available: false, findings: [] };
+  return { available: true, findings: (data as WorkFindingRow[])
+    .filter((row) => authorized.has(row.work_id)).map(toWorkFinding) };
+}
+
 export async function createWorkFindingAction(formData: FormData, expected: AgendaActorContext): Promise<{
   status: "success" | "error"; message: string; finding?: WorkFinding;
 }> {

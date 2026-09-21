@@ -39,15 +39,15 @@ test("D01: apenas Administrativo cria visitas", () => {
   }
 });
 
-test("D01 e C†: agenda respeita disciplina, obra e concessão explícita da coordenação", () => {
+test("D01: agenda respeita disciplina e obras autorizadas do perfil", () => {
   assert.equal(canConsultAgenda(safety, "horizonte", "safety"), true);
   assert.equal(canConsultAgenda(safety, "horizonte", "quality"), false);
   assert.equal(canConsultAgenda(quality, "horizonte", "quality"), true);
   assert.equal(canConsultAgenda(site, "horizonte", "safety"), true);
   assert.equal(canConsultAgenda(site, "jardim-norte", "safety"), false);
   assert.equal(canConsultAgenda(coordination, "horizonte", "safety"), true);
-  assert.equal(canConsultAgenda(coordination, "jardim-norte", "safety"), false);
-  assert.equal(canConsultAgenda({ ...coordination, agendaWorkIds: [] }, "horizonte", "safety"), false);
+  assert.equal(canConsultAgenda(coordination, "jardim-norte", "safety"), true);
+  assert.equal(canConsultAgenda({ ...coordination, agendaWorkIds: [] }, "horizonte", "safety"), true);
   assert.equal(canConsultAgenda(admin, "jardim-norte", "quality"), true);
 });
 
@@ -57,7 +57,7 @@ test("visita atribuída a outro auditor não aparece como agenda própria", () =
   assert.equal(canReadVisit(quality, initialVisits[0]), false);
   assert.equal(canReadVisit(site, initialVisits[0]), true);
   assert.equal(canReadVisit(site, initialVisits[1]), false);
-  assert.equal(canReadVisit(coordination, initialVisits[1]), false);
+  assert.equal(canReadVisit(coordination, initialVisits[1]), true);
   assert.equal(canReadVisit(admin, initialVisits[1]), true);
 });
 

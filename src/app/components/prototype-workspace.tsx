@@ -2,17 +2,19 @@
 
 import { useState, type ReactNode } from "react";
 import { auditModelLabels, auditVersionLabel, formatAuditDate, type AuditRecord, type WorkRecord } from "@/domain/operational-records";
-import { canEditAudit, canConsultAgenda, canReadAudit, canReadVisit, roleLabels, moduleLabels, type DemoUser, type AppModule, type Visit } from "@/domain/prototype-access";
+import { canEditAudit, canConsultAgenda, canReadAudit, canReadVisit, modelModule, roleLabels, moduleLabels, type DemoUser, type AppModule, type Visit } from "@/domain/prototype-access";
 import { Icon } from "./ui-icon";
 import { WorkRanking } from "./work-ranking";
 import { AdminFindings } from "./admin-findings";
 import { AdminMonthlyRanking } from "./admin-monthly-ranking";
 import { AdminVisitCalendar } from "./admin-visit-calendar";
+import type { PublishedMonthlyWorkScore } from "@/domain/admin-ranking";
 import { VisitCard } from "./visit-agenda";
 import type { AgendaActionResult } from "@/lib/agenda/contracts";
 import { MaintenanceHistory } from "./maintenance-history";
 import { DialogoLogo } from "./dialogo-logo";
 import styles from "./prototype-workspace.module.css";
+import engineeringStyles from "./engineering-overview.module.css";
 import followUpStyles from "./follow-up-workspace.module.css";
 
 export function PrototypeDashboard({ user, module, works, audits, visits, auditors = [], activeAccountCount, generalAdministrator = false, open }: { user: DemoUser; module: AppModule; works: readonly WorkRecord[]; audits: readonly AuditRecord[]; visits: readonly Visit[]; auditors?: readonly DemoUser[]; activeAccountCount: number | null; generalAdministrator?: boolean; open: (screen: string) => void }) {
@@ -26,6 +28,7 @@ export function PrototypeDashboard({ user, module, works, audits, visits, audito
   const agendaCard = <Metric label={admin ? "Visitas Agendadas" : auditor ? "Auditorias Agendadas" : "Visitas na agenda"} value={admin && visits.length === 0 ? "--" : auditor ? scheduledAudits : visits.length} description={admin ? "Consultar agenda" : undefined} onClick={works[0] && canConsultAgenda(user, works[0].id, module) ? () => open("agenda") : undefined} />;
   const profilesCard = <Metric label={admin ? "Perfis cadastrados" : "Relatórios publicados"} value={admin ? activeAccountCount ?? "--" : published.length} description={admin ? "Consultar perfis" : auditor ? "Consultar auditorias" : undefined} onClick={() => open(admin ? "settings" : auditor ? "audits" : "report")} />;
   const catalogsCard = <Metric label={admin ? "Roteiros disponíveis" : user.role === "engineering" ? "Auditorias consultáveis" : "Rascunhos próprios"} value={admin ? user.modules.includes("safety") ? 1 + (user.modules.includes("quality") ? 2 : 0) : 2 : user.role === "engineering" ? audits.length : ownDrafts.length} description={admin ? "Consultar roteiros" : undefined} onClick={() => open(admin ? "criteria" : "audits")} />;
+  if (user.role === "engineering") return <EngineeringOverview user={user} works={works} audits={audits} visits={visits} auditors={auditors} open={open} />;
   if (auditor) return <>
     <div className="page-intro"><div><h2>Visão geral</h2><p className="muted">{moduleLabels[module]} · {roleLabels[user.role]}</p></div></div>
     <div className="stats-grid stats-grid-admin stats-grid-three">
@@ -54,6 +57,59 @@ export function PrototypeDashboard({ user, module, works, audits, visits, audito
       </section>}
     </div>
   </>;
+}
+
+function EngineeringOverview({ user, works, audits, visits, auditors, open }: {
+  user: DemoUser;
+  works: readonly WorkRecord[];
+  audits: readonly AuditRecord[];
+  visits: readonly Visit[];
+  auditors: readonly DemoUser[];
+  open: (screen: string) => void;
+}) {
+  const [selectedVisitorId, setSelectedVisitorId] = useState<string | null>(null);
+  const workNames = new Map(works.map((work) => [work.id, work.name]));
+  const publishedScores: PublishedMonthlyWorkScore[] = audits.flatMap((audit) => {
+    const workName = workNames.get(audit.workId);
+    if (audit.status !== "Publicada" || typeof audit.finalScore !== "number" || !workName) return [];
+    return [{
+      month: audit.date.slice(0, 7),
+      discipline: audit.modelId.startsWith("security-") ? "safety" as const : "quality" as const,
+      workId: audit.workId,
+      workName,
+      score: audit.finalScore,
+      published: true as const,
+    }];
+  });
+  const now = new Date();
+  const previousMonthDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+  const previousMonth = `${previousMonthDate.getUTCFullYear()}-${String(previousMonthDate.getUTCMonth() + 1).padStart(2, "0")}`;
+  const previousScores = publishedScores.filter((score) => score.month === previousMonth);
+  const previousAverage = previousScores.length
+    ? new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(previousScores.reduce((total, score) => total + score.score, 0) / previousScores.length)
+    : "--";
+
+  return <>
+    <div className="page-intro"><div><h2>Visão geral</h2><p className="muted">Engenharia · {user.activity === "coordination" ? "Coordenação" : "Equipe da obra"}</p></div></div>
+    <div className={engineeringStyles.metrics}>
+      <EngineeringMetric label="Apontamentos" value="--" />
+      <EngineeringMetric label="Planos de ação" value="--" detail="Pendentes" />
+      <EngineeringMetric label="Nota" value={previousAverage} detail="Mês anterior" accent />
+    </div>
+    <div className={engineeringStyles.content}>
+      <AdminMonthlyRanking modules={["safety", "quality"]} publishedMonthlyScores={publishedScores} />
+      <AdminVisitCalendar visits={visits} works={works} auditors={auditors} viewerId={user.id} calendarOnly includeFollowUps
+        colorBy="auditor" selectedAuditorId={selectedVisitorId} onSelectAuditor={setSelectedVisitorId} keepVisitorColors highlightAuditDays onViewAgenda={() => open("agenda")} />
+    </div>
+  </>;
+}
+
+function EngineeringMetric({ label, value, detail, accent = false }: { label: string; value: string; detail?: string; accent?: boolean }) {
+  return <section className={`${engineeringStyles.metric}${accent ? ` ${engineeringStyles.metricAccent}` : ""}`} aria-label={label}>
+    <h3>{label}</h3>
+    {detail && <span>{detail}</span>}
+    <strong>{value}</strong>
+  </section>;
 }
 
 function Metric({ label, value, description, onClick }: { label: string; value: number | string; description?: string; onClick?: () => void }) {
@@ -139,8 +195,74 @@ export function AuditorScheduledAudits({ user, visits, works, audits, users, ava
   </>;
 }
 
-function PublishedDocumentCard({ date, workName, responsible, example = false }: {
-  date: string; workName: string; responsible: string; example?: boolean;
+export type ActionPlanSource = {
+  auditId: string | null;
+  workId: string;
+  workName: string;
+  date: string;
+  module: AppModule;
+  example: boolean;
+};
+
+export function PublishedAuditsPanel({ user, works, audits, module, onCreateActionPlan, hasPublishedActionPlan, onDownloadActionPlan }: {
+  user: DemoUser;
+  works: readonly WorkRecord[];
+  audits: readonly AuditRecord[];
+  module: AppModule;
+  onCreateActionPlan?: (source: ActionPlanSource) => void;
+  hasPublishedActionPlan?: (source: ActionPlanSource) => boolean;
+  onDownloadActionPlan?: (source: ActionPlanSource) => void;
+}) {
+  const [publicationWorkId, setPublicationWorkId] = useState("");
+  const workById = new Map(works.map((work) => [work.id, work]));
+  const published = audits.filter((audit) => audit.status === "Publicada" && modelModule(audit.modelId) === module
+    && workById.has(audit.workId) && canReadAudit(user, audit))
+    .slice().sort((first, second) => second.date.localeCompare(first.date) || second.id.localeCompare(first.id));
+  const visiblePublished = published.filter((audit) => !publicationWorkId || audit.workId === publicationWorkId);
+  const exampleWork = works[0];
+  const exampleDate = "2026-09-18";
+  const showExample = process.env.NODE_ENV !== "production" && published.length === 0 && !!exampleWork;
+  const showFilteredExample = showExample && (!publicationWorkId || publicationWorkId === exampleWork.id);
+
+  return <section className="panel" aria-label={`Auditorias publicadas de ${moduleLabels[module]}`}>
+    <div className={`panel-heading ${styles.publicationHeading}`}><h3>Auditorias publicadas</h3>
+      <select className={followUpStyles.workFilter} aria-label="Filtrar auditorias publicadas por obra" value={publicationWorkId} onChange={(event) => setPublicationWorkId(event.target.value)}>
+        <option value="">Todas as obras</option>{works.map((work) => <option key={work.id} value={work.id}>{work.name}</option>)}
+      </select>
+      {showExample && <span className="badge badge-amber">Prévia de teste</span>}
+    </div>
+    <div className={styles.publicationColumns}>
+      <div className={styles.publicationColumn}>
+        <h4>Auditoria</h4>
+        {visiblePublished.length ? visiblePublished.map((audit) => <PublishedDocumentCard key={audit.id} date={audit.date}
+          workName={workById.get(audit.workId)?.name ?? "Obra"} responsible={audit.auditor} />)
+          : showFilteredExample ? <PublishedDocumentCard date={exampleDate} workName={exampleWork.name} responsible={user.name} example />
+            : <p className="muted">Nenhuma auditoria publicada para este perfil.</p>}
+      </div>
+      <div className={styles.publicationColumn}>
+        <h4>Plano de ação</h4>
+        {visiblePublished.length ? visiblePublished.map((audit) => {
+          const workName = workById.get(audit.workId)?.name ?? "Obra";
+          const source: ActionPlanSource = { auditId: audit.id, workId: audit.workId, workName, date: audit.date, module, example: false };
+          const publishedPlan = hasPublishedActionPlan?.(source) ?? false;
+          return <PublishedDocumentCard key={audit.id} date={audit.date} workName={workName} responsible={user.name}
+            actionLabel={publishedPlan ? "Baixar PDF do plano publicado" : onCreateActionPlan ? "Criar plano de ação" : undefined}
+            onAction={publishedPlan && onDownloadActionPlan ? () => onDownloadActionPlan(source) : onCreateActionPlan ? () => onCreateActionPlan(source) : undefined} />;
+        }) : showFilteredExample ? (() => {
+          const source: ActionPlanSource = { auditId: null, workId: exampleWork.id, workName: exampleWork.name, date: exampleDate, module, example: true };
+          const publishedPlan = hasPublishedActionPlan?.(source) ?? false;
+          return <PublishedDocumentCard date={exampleDate} workName={exampleWork.name} responsible={user.name} example
+            actionLabel={publishedPlan ? "Baixar PDF do plano publicado" : onCreateActionPlan ? "Criar plano de ação" : undefined}
+            onAction={publishedPlan && onDownloadActionPlan ? () => onDownloadActionPlan(source) : onCreateActionPlan ? () => onCreateActionPlan(source) : undefined} />;
+        })()
+          : <p className="muted">Nenhum plano de ação publicado.</p>}
+      </div>
+    </div>
+  </section>;
+}
+
+function PublishedDocumentCard({ date, workName, responsible, example = false, actionLabel, onAction }: {
+  date: string; workName: string; responsible: string; example?: boolean; actionLabel?: string; onAction?: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [year, month] = date.split("-");
@@ -154,7 +276,8 @@ function PublishedDocumentCard({ date, workName, responsible, example = false }:
     </button>
     {expanded && <div className={styles.publicationDetails}>
       <span>{example ? "Exemplo visual, sem publicação" : `Referência: ${monthLabel}`}</span>
-      <button type="button" className="secondary" disabled title="PDF ainda não disponível">Baixar PDF</button>
+      {onAction && actionLabel ? <button type="button" className="primary" onClick={onAction}>{actionLabel}</button>
+        : <button type="button" className="secondary" disabled title="PDF ainda não disponível">Baixar PDF</button>}
     </div>}
   </article>;
 }

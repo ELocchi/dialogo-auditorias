@@ -52,6 +52,7 @@ const months = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "
 export function VisitAgenda(props: VisitAgendaProps) {
   if (canManageAgenda(props.user)) return <AdministrativeAgenda {...props} />;
   if (props.user.role === "safety-auditor" || props.user.role === "quality-auditor") return <AuditorAgenda {...props} />;
+  if (props.user.role === "engineering") return <EngineeringAgenda {...props} />;
   return <AgendaContext key={`${props.user.id}:${props.module}:${props.workId}`} {...props} />;
 }
 
@@ -154,6 +155,42 @@ function AuditorAgenda({ user, works, users, visits, available, mutationPending 
         </div>}
       </section>
       <AdminVisitCalendar visits={visibleVisits} works={authorizedWorks} viewerId={user.id} calendarOnly includeFollowUps colorBy="work" />
+    </div>
+  </>;
+}
+
+function EngineeringAgenda({ user, works, users, visits, available, mutationPending = false, syncError, onDelete, onConfirm }: VisitAgendaProps) {
+  const listId = useId();
+  const [selectedVisitorId, setSelectedVisitorId] = useState<string | null>(null);
+  const authorizedWorks = works.filter((work) => user.modules.some((discipline) => canConsultAgenda(user, work.id, discipline)));
+  const workIds = new Set(authorizedWorks.map((work) => work.id));
+  const authorizedVisits = visits.filter((visit) => workIds.has(visit.workId) && canReadVisit(user, visit) && isCalendarDate(visit.date));
+  const visibleVisits = authorizedVisits.filter((visit) => !selectedVisitorId || visit.auditorId === selectedVisitorId)
+    .slice().sort((first, second) => first.date.localeCompare(second.date) || first.id.localeCompare(second.id));
+  const selectedVisitor = users.find((entry) => entry.id === selectedVisitorId)
+    ?? authorizedVisits.find((visit) => visit.auditorId === selectedVisitorId)?.auditorName;
+
+  return <>
+    <div className="page-intro"><h2>Agenda de visitas</h2></div>
+    {(!available || syncError) && <p role="status" className={styles.availability}>{syncError || "A agenda está indisponível no momento. Tente novamente após a atualização."}</p>}
+    <div className={styles.administrativeLayout}>
+      <section className={`panel ${styles.scheduledPanel}`} aria-labelledby={listId}>
+        <div className={styles.scheduledHeading}>
+          <div><h3 id={listId}>{selectedVisitor ? `Agenda de ${typeof selectedVisitor === "string" ? selectedVisitor : selectedVisitor.name}` : "Visitas agendadas"}</h3>
+            {selectedVisitorId && <button type="button" className={styles.clearProfile} onClick={() => setSelectedVisitorId(null)}>Ver todos os perfis</button>}
+          </div>
+        </div>
+        {visibleVisits.length ? <div className={styles.visitList}>
+          {visibleVisits.map((visit) => <VisitCard key={visit.id} visit={visit} user={user} users={users}
+            work={authorizedWorks.find((work) => work.id === visit.workId)} available={available} mutationPending={mutationPending}
+            onDelete={onDelete} onConfirm={onConfirm} collapsedInitially />)}
+        </div> : <div className={styles.scheduledEmpty}>
+          <CalendarIcon />
+          <p>{!available ? "Aguardando acesso à agenda." : authorizedWorks.length ? "Nenhuma visita agendada nas obras autorizadas." : "Nenhuma obra disponível na agenda."}</p>
+        </div>}
+      </section>
+      <AdminVisitCalendar visits={authorizedVisits} works={authorizedWorks} auditors={users} viewerId={user.id} calendarOnly includeFollowUps
+        colorBy="auditor" selectedAuditorId={selectedVisitorId} onSelectAuditor={setSelectedVisitorId} keepVisitorColors highlightAuditDays />
     </div>
   </>;
 }

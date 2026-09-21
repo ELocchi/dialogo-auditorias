@@ -1,0 +1,11 @@
+.heading { align-items: center; gap: 16px; }
+.heading div { display: grid; gap: 5px; }
+.heading p { margin: 0; color: var(--muted); font-size: .9rem; }
+.heading select { min-width: 190px; max-width: 240px; }
+.list { display: grid; gap: 12px; }
+.card { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px; border: 1px solid var(--line); border-left: 5px solid var(--red); border-radius: 14px; }
+.cardContent { min-width: 0; display: grid; gap: 4px; color: var(--navy); }
+.cardContent strong, .cardContent span { overflow-wrap: anywhere; }
+.cardContent small { color: var(--muted); }
+.date { color: var(--muted); font-size: .84rem; font-weight: 700; }
+@media (max-width: 640px) { .heading, .card { align-items: stretch; flex-direction: column; } .heading select { max-width: none; width: 100%; } .card a { text-align: center; } }

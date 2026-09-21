@@ -19,23 +19,23 @@ export async function GET(request: Request, { params }: { params: Promise<{ visi
   if (reportId && !uuidPattern.test(reportId)) notFound();
   const active = await requireActiveProfile();
   const context = await readWorkspaceContext(active);
-  if (!context || (context.profile !== "AUDITOR_SEGURANCA" && context.profile !== "AUDITOR_QUALIDADE")) notFound();
+  if (!context || !["AUDITOR_SEGURANCA", "AUDITOR_QUALIDADE", "ENGENHARIA"].includes(context.profile)) notFound();
   const client = await createClient();
-  const [agenda, reports, allPhotos] = await Promise.all([
-    readAgendaSnapshot(client, context), readFollowUpReports(client, context),
-    readVisitPhotos(client, context.user.id, visitId),
-  ]);
-  if (!agenda.available || !reports.available || !allPhotos) return new Response("Relatório indisponível.", { status: 503 });
+  const [agenda, reports] = await Promise.all([readAgendaSnapshot(client, context), readFollowUpReports(client, context)]);
+  if (!agenda.available || !reports.available) return new Response("Relatório indisponível.", { status: 503 });
+  const engineering = context.profile === "ENGENHARIA";
   const visit = agenda.visits.find((entry) => entry.id === visitId && entry.kind === "follow_up"
-    && entry.auditorId === context.user.id && canReadVisit(context.user, entry));
+    && (engineering || entry.auditorId === context.user.id) && canReadVisit(context.user, entry));
   const work = visit && context.works.find((entry) => entry.id === visit.workId);
   const visitReports = reports.reports.filter((entry) => entry.visitId === visitId);
   const report = reportId ? visitReports.find((entry) => entry.id === reportId)
     : visitReports.length === 1 ? visitReports[0] : undefined;
   if (!visit || !work || !report) notFound();
+  const allPhotos = await readVisitPhotos(client, visit.auditorId, visitId);
+  if (!allPhotos) return new Response("Relatório indisponível.", { status: 503 });
   const findingIds = new Set(report.findings.map((finding) => finding.id));
   const { data: workRows, error: workError } = await client.from("follow_up_work_findings")
-    .select("id,photo_file_name").eq("work_id", work.id).eq("auditor_auth_user_id", context.user.id)
+    .select("id,photo_file_name").eq("work_id", work.id).eq("auditor_auth_user_id", visit.auditorId)
     .in("id", [...findingIds]).limit(30);
   if (workError && !["42P01", "PGRST205"].includes(workError.code))
     return new Response("Não foi possível carregar as fotos do relatório.", { status: 503 });
@@ -46,7 +46,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ visi
       .map((row) => ({ findingId: row.id, fileName: row.photo_file_name, scopeId: work.id })),
   ];
   const photos = await Promise.all(selectedPhotos.map(async (photo) => {
-    const path = photoPath(context.user.id, photo.scopeId, photo.fileName);
+    const path = photoPath(visit.auditorId, photo.scopeId, photo.fileName);
     if (!path) return null;
     const { data, error } = await client.storage.from(followUpPhotoBucket).download(path);
     if (error || !data) return null;
@@ -56,7 +56,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ visi
   }));
   if (photos.some((photo) => !photo)) return new Response("Não foi possível carregar as fotos do relatório.", { status: 503 });
   const bytes = await createFollowUpReportPdf({ report, workName: work.name,
-    visitDate: visit.date, auditorName: context.user.name, photos: photos.filter((photo) => photo !== null) });
+    visitDate: visit.date, auditorName: visit.auditorName ?? "Profissional responsável", photos: photos.filter((photo) => photo !== null) });
   const titleSlug = report.title.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     .toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) || "relatorio";
   return new Response(new Uint8Array(bytes), { headers: {
