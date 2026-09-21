@@ -91,14 +91,14 @@ export function CatalogEditorPanel({ version, available, setupPending, actorId, 
     if (savingRef.current || saved) return;
     setFeedback(null);
     if (!available) { setFeedback({ status: "error", message: unavailableMessage }); return; }
-    if (!revisionLabel.trim() || !changeNote.trim()) {
+    if (mode === "upload" && (!revisionLabel.trim() || !changeNote.trim())) {
       setFeedback({ status: "error", message: "Informe o nome da nova revisão e o motivo da alteração." }); return;
     }
     if (mode === "upload" && !pdf) {
       setFeedback({ status: "error", message: "Selecione o PDF da nova revisão." }); return;
     }
-    if (original && !pdf) { setFeedback({ status: "error", message: "Envie o PDF junto com o Word original." }); return; }
-    const fileError = validateFile(pdf, "pdf", pdfLimit) ?? validateFile(original, "docx", originalLimit);
+    if (mode === "upload" && original && !pdf) { setFeedback({ status: "error", message: "Envie o PDF junto com o Word original." }); return; }
+    const fileError = mode === "upload" ? validateFile(pdf, "pdf", pdfLimit) ?? validateFile(original, "docx", originalLimit) : null;
     if (fileError) { setFeedback({ status: "error", message: fileError }); return; }
 
     const submittedCriteria: Criterion[] = [];
@@ -127,12 +127,12 @@ export function CatalogEditorPanel({ version, available, setupPending, actorId, 
       formData.set("requestId", requestIdRef.current);
       formData.set("modelId", base.modelId);
       formData.set("expectedVersion", String(base.version));
-      formData.set("revisionLabel", revisionLabel.trim());
-      formData.set("changeNote", changeNote.trim());
+      formData.set("revisionLabel", mode === "upload" ? revisionLabel.trim() : `${base.label.slice(0, 55)} — ajuste ${base.version + 1}`);
+      formData.set("changeNote", mode === "upload" ? changeNote.trim() : "Itens do roteiro atualizados.");
       formData.set("criteria", JSON.stringify(submittedCriteria));
       formData.set("actorId", actorId);
-      if (pdf) formData.set("pdf", pdf);
-      if (original) formData.set("original", original);
+      if (mode === "upload" && pdf) formData.set("pdf", pdf);
+      if (mode === "upload" && original) formData.set("original", original);
     } catch {
       setFeedback({ status: "error", message: "Não foi possível preparar o envio. Seus campos foram mantidos; tente novamente." }); return;
     }
@@ -203,11 +203,11 @@ export function CatalogEditorPanel({ version, available, setupPending, actorId, 
             </div> : <p className={styles.empty}>Nenhum item corresponde à busca.</p>}
           </section> : <section className={styles.uploadIntroduction}><h3>Arquivos da nova revisão</h3><p>Envie o PDF atualizado e, se disponível, o original em DOCX.</p></section>}
 
-          <section className={styles.files} aria-label="Arquivos de referência">
+          {mode === "upload" && <><section className={styles.files} aria-label="Arquivos de referência">
             <p>O arquivo de referência não altera os itens automaticamente. Confira os itens antes de salvar.</p>
             <div className={styles.fileGrid}>
-              <label>PDF da revisão {mode === "upload" ? "(obrigatório)" : "(opcional)"}
-                <input type="file" accept=".pdf,application/pdf" required={mode === "upload"}
+              <label>PDF da revisão (obrigatório)
+                <input type="file" accept=".pdf,application/pdf" required
                   onChange={(event) => { changed(); setPdf(event.target.files?.[0] ?? null); }} />
                 <small>Até 5 MB. {pdf ? `Selecionado: ${pdf.name}` : "Sem envio, o PDF atual será mantido."}</small>
               </label>
@@ -223,13 +223,13 @@ export function CatalogEditorPanel({ version, available, setupPending, actorId, 
             <label>Nome da nova revisão<input required maxLength={80} value={revisionLabel} onChange={(event) => { changed(); setRevisionLabel(event.target.value); }} /></label>
             <label>Motivo da alteração<textarea required rows={3} maxLength={2000} value={changeNote} placeholder="Descreva o que mudou nesta revisão."
               onChange={(event) => { changed(); setChangeNote(event.target.value); }} /></label>
-          </section>
+          </section></>}
         </fieldset>
         {feedback && <p className={feedback.status === "error" ? styles.error : styles.success} role={feedback.status === "error" ? "alert" : "status"}>{feedback.message}</p>}
       </div>
       <footer className={styles.footer}>
         <span>{pending ? "Salvando a nova revisão…" : saved ? "Revisão salva." : `${criteria.length} itens na nova revisão`}</span>
-        <button type="submit" className="primary" disabled={!available || blocked || !criteria.length}>{pending ? "Salvando…" : saved ? "Revisão salva" : "Salvar nova revisão"}</button>
+        <button type="submit" className="primary" disabled={!available || blocked || !criteria.length}>{pending ? "Salvando…" : saved ? "Revisão salva" : mode === "upload" ? "Salvar nova revisão" : "Salvar alterações"}</button>
       </footer>
     </form>
   </section>;
