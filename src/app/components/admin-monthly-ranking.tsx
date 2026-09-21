@@ -86,14 +86,14 @@ export function AdminMonthlyRanking({ month, onMonthChange, year, onYearChange, 
       <div className={styles.filters}>
         <label className={styles.period} htmlFor={periodId}>
           <span className={styles.srOnly}>Período do ranking</span>
-          <select id={periodId} value={period} onChange={(event) => setPeriod(event.target.value as "month" | "year")}>
+          <select className="filter-select" id={periodId} value={period} onChange={(event) => setPeriod(event.target.value as "month" | "year")}>
             <option value="month">Mensal</option>
             <option value="year">Anual</option>
           </select>
         </label>
         {annual ? <label className={styles.year} htmlFor={yearId}>
           <span className={styles.srOnly}>Ano de referência</span>
-          <select id={yearId} value={selectedYear} disabled={year !== undefined && !onYearChange}
+          <select className="filter-select" id={yearId} value={selectedYear} disabled={year !== undefined && !onYearChange}
             onChange={(event) => {
               const nextYear = event.target.value;
               if (!/^(?!0000)\d{4}$/.test(nextYear)) return;

@@ -15,7 +15,6 @@ import { MaintenanceHistory } from "./maintenance-history";
 import { DialogoLogo } from "./dialogo-logo";
 import styles from "./prototype-workspace.module.css";
 import engineeringStyles from "./engineering-overview.module.css";
-import followUpStyles from "./follow-up-workspace.module.css";
 
 export function PrototypeDashboard({ user, module, works, audits, visits, auditors = [], activeAccountCount, generalAdministrator = false, open }: { user: DemoUser; module: AppModule; works: readonly WorkRecord[]; audits: readonly AuditRecord[]; visits: readonly Visit[]; auditors?: readonly DemoUser[]; activeAccountCount: number | null; generalAdministrator?: boolean; open: (screen: string) => void }) {
   const admin = user.role === "administrative";
@@ -169,7 +168,7 @@ export function AuditorScheduledAudits({ user, visits, works, audits, users, ava
       <div className={styles.auditorSidebar}>
         <section className="panel" aria-label="Auditorias publicadas">
           <div className={`panel-heading ${styles.publicationHeading}`}><h3>Auditorias publicadas</h3>
-            <select className={followUpStyles.workFilter} aria-label="Filtrar auditorias publicadas por obra" value={publicationWorkId} onChange={(event) => setPublicationWorkId(event.target.value)}>
+            <select className="filter-select" aria-label="Filtrar auditorias publicadas por obra" value={publicationWorkId} onChange={(event) => setPublicationWorkId(event.target.value)}>
               <option value="">Todas as obras</option>{works.map((work) => <option key={work.id} value={work.id}>{work.name}</option>)}
             </select>
             {showExample && <span className="badge badge-amber">Prévia de teste</span>}
@@ -226,7 +225,7 @@ export function PublishedAuditsPanel({ user, works, audits, module, onCreateActi
 
   return <section className="panel" aria-label={`Auditorias publicadas de ${moduleLabels[module]}`}>
     <div className={`panel-heading ${styles.publicationHeading}`}><h3>Auditorias publicadas</h3>
-      <select className={followUpStyles.workFilter} aria-label="Filtrar auditorias publicadas por obra" value={publicationWorkId} onChange={(event) => setPublicationWorkId(event.target.value)}>
+      <select className="filter-select" aria-label="Filtrar auditorias publicadas por obra" value={publicationWorkId} onChange={(event) => setPublicationWorkId(event.target.value)}>
         <option value="">Todas as obras</option>{works.map((work) => <option key={work.id} value={work.id}>{work.name}</option>)}
       </select>
       {showExample && <span className="badge badge-amber">Prévia de teste</span>}

@@ -210,7 +210,7 @@ export function FollowUpWorkspace({ user, visits, works, actor, agendaAvailable 
       </section>
       <section className={`panel ${styles.findingsPanel}`} aria-label="Apontamentos de acompanhamento">
         <div className={`panel-heading ${styles.findingHeader}`}><h3>Apontamentos</h3>
-          <select className={styles.workFilter} aria-label="Filtrar apontamentos por obra" value={filterWorkId} onChange={(event) => setFilterWorkId(event.target.value)}>
+          <select className="filter-select" aria-label="Filtrar apontamentos por obra" value={filterWorkId} onChange={(event) => setFilterWorkId(event.target.value)}>
             <option value="">Todas as obras</option>
             {works.map((work) => <option key={work.id} value={work.id}>{work.name}</option>)}
           </select>

@@ -32,7 +32,7 @@ export function Works({ works, canManage = false }: { works: readonly WorkRecord
 
     <div className="operational-filters work-filters" role="search" aria-label="Filtrar obras">
       <label>Buscar obra<input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nome da obra ou cidade" /></label>
-      <label>Status<select value={status} onChange={(event) => setStatus(event.target.value)}><option value="all">Todos os status</option><option>Ativa</option><option>Planejada</option></select></label>
+      <label>Status<select className="filter-select" value={status} onChange={(event) => setStatus(event.target.value)}><option value="all">Todos os status</option><option>Ativa</option><option>Planejada</option></select></label>
       <button type="button" className="secondary operational-clear" onClick={resetFilters} disabled={!query && status === "all"}>Limpar filtros</button>
     </div>
     <p className="operational-result-count" role="status">{filteredWorks.length} {filteredWorks.length === 1 ? "obra encontrada" : "obras encontradas"}</p>
@@ -59,7 +59,7 @@ export function Occurrences({ works, records = [] }: { works: readonly WorkRecor
     <div className="page-intro"><div><p className="kicker">CONSULTA DOS ACHADOS</p><h2>Apontamentos da inspeção</h2><p className="muted">Consulta por obra, código e local. A integração dos apontamentos publicados está em preparação.</p></div></div>
     <div className="operational-filters occurrence-filters" role="search" aria-label="Filtrar ocorrências">
       <label>Buscar ocorrência<input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Código, item ou local" /></label>
-      <label>Obra<select value={work} onChange={(event) => setWork(event.target.value)}><option value="all">Todas as obras</option>{works.map((entry) => <option key={entry.id}>{entry.name}</option>)}</select></label>
+      <label>Obra<select className="filter-select" value={work} onChange={(event) => setWork(event.target.value)}><option value="all">Todas as obras</option>{works.map((entry) => <option key={entry.id}>{entry.name}</option>)}</select></label>
       <button type="button" className="secondary operational-clear" onClick={resetFilters} disabled={!query && work === "all"}>Limpar filtros</button>
     </div>
     <p className="operational-result-count" role="status">{filteredOccurrences.length} {filteredOccurrences.length === 1 ? "ocorrência encontrada" : "ocorrências encontradas"}</p>
@@ -75,4 +75,3 @@ export function Occurrences({ works, records = [] }: { works: readonly WorkRecor
     {filteredOccurrences.length === 0 && <div className="operational-empty"><h3>Nenhuma ocorrência encontrada</h3><p>Altere os filtros para consultar os achados disponíveis.</p><button type="button" className="secondary" onClick={resetFilters}>Limpar filtros</button></div>}
   </div>;
 }
-

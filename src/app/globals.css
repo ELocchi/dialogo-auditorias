@@ -84,6 +84,10 @@ label > input, label > select, label > textarea { margin-top: 7px; }
 input::placeholder, textarea::placeholder { color: #7b8796; }
 textarea { min-height: 112px; resize: vertical; line-height: 1.6; }
 select { padding-right: 30px; }
+.filter-select { width: 100%; height: 43px; min-height: 43px; margin: 0; appearance: none; border: 1px solid #ccd4e0; border-radius: 9px; padding: 0 30px 0 14px; background: white url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='m1 1 5 5 5-5' fill='none' stroke='%23213961' stroke-width='1.8'/%3E%3C/svg%3E") no-repeat right 12px center; color: var(--navy); font-size: 13px; font-weight: 700; cursor: pointer; }
+.filter-select:hover { background-color: #f2f5fa; border-color: #9aaecb; }
+.filter-select:disabled { cursor: not-allowed; opacity: .62; }
+.filter-select option { background: white; color: var(--navy); }
 input:hover, select:hover, textarea:hover { border-color: #a8b7c9; }
 input:focus, select:focus, textarea:focus { outline: 2px solid #c2d3ec; outline-offset: 1px; border-color: #6b88b1; }
 .panel { background: white; border: 1px solid var(--line); border-radius: 13px; padding: 24px; box-shadow: 0 3px 8px #213e6b03; min-width: 0; }

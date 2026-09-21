@@ -11,7 +11,7 @@
 .heading h3 { flex: 1 1 200px; margin: 0; font-size: 18px; }
 .filters { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; max-width: 100%; }
 .month, .year, .period { display: grid; min-width: 0; max-width: 100%; }
-.month input, .year select, .period select {
+.month input {
   max-width: 100%;
   min-height: 38px;
   padding: 7px 9px;

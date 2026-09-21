@@ -7,7 +7,6 @@ import { formatAuditDate, type WorkRecord } from "@/domain/operational-records";
 import type { AgendaActorContext } from "@/lib/agenda/contracts";
 import type { FollowUpReport } from "@/lib/follow-up/service";
 import styles from "./engineering-follow-up-panel.module.css";
-import filterStyles from "./follow-up-workspace.module.css";
 
 export function EngineeringFollowUpPanel({ actor, visits, works, module }: {
   actor: AgendaActorContext;
@@ -44,7 +43,7 @@ export function EngineeringFollowUpPanel({ actor, visits, works, module }: {
   return <section className="panel" aria-label={`Acompanhamento de ${moduleLabels[module]}`}>
     <div className={`panel-heading ${styles.heading}`}>
       <div><h3>Acompanhamento</h3><p>Relatórios orientativos publicados</p></div>
-      {works.length > 1 && <select className={filterStyles.workFilter} value={workId} onChange={(event) => setWorkId(event.target.value)} aria-label="Filtrar relatórios orientativos por obra">
+      {works.length > 1 && <select className="filter-select" value={workId} onChange={(event) => setWorkId(event.target.value)} aria-label="Filtrar relatórios orientativos por obra">
         <option value="">Todas as obras</option>{works.map((work) => <option key={work.id} value={work.id}>{work.name}</option>)}
       </select>}
     </div>
