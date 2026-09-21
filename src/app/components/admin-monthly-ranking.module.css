@@ -13,13 +13,16 @@
 .month, .year, .period { display: grid; min-width: 0; max-width: 100%; }
 .month input {
   max-width: 100%;
-  min-height: 38px;
-  padding: 7px 9px;
-  border: 1px solid var(--line);
-  border-radius: 7px;
+  height: 43px;
+  min-height: 43px;
+  margin: 0;
+  padding: 0 14px;
+  border: 1px solid #ccd4e0;
+  border-radius: 9px;
   color: var(--navy);
-  background: var(--surface);
-  font-size: 12px;
+  background: white;
+  font-size: 13px;
+  font-weight: 700;
 }
 .month input { width: 164px; }
 .year select { width: 92px; }
