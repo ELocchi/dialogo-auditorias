@@ -32,6 +32,8 @@ const monthFormatter = new Intl.DateTimeFormat("en-CA", {
 const scoreFormatter = new Intl.NumberFormat("pt-BR", {
   minimumFractionDigits: 2, maximumFractionDigits: 2,
 });
+const monthNames = ["janeiro", "fevereiro", "março", "abril", "maio", "junho",
+  "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
 
 function currentMonth() {
   const parts = monthFormatter.formatToParts(new Date());
@@ -74,6 +76,13 @@ export function AdminMonthlyRanking({ month, onMonthChange, year, onYearChange, 
     selectedYear,
     ...(publishedMonthlyScores ?? []).map((result) => result.month.slice(0, 4)),
   ])].filter((value) => /^(?!0000)\d{4}$/.test(value)).sort((left, right) => right.localeCompare(left));
+  const monthYears = [...new Set([currentMonth().slice(0, 4), selectedMonth.slice(0, 4),
+    ...(publishedMonthlyScores ?? []).map((result) => result.month.slice(0, 4))])]
+    .filter((value) => /^(?!0000)\d{4}$/.test(value)).sort((left, right) => right.localeCompare(left));
+  const monthOptions = monthYears.flatMap((optionYear) => monthNames.map((label, index) => ({
+    value: `${optionYear}-${String(index + 1).padStart(2, "0")}`,
+    label: `${label} de ${optionYear}`,
+  }))).sort((left, right) => right.value.localeCompare(left.value));
   const annual = period === "year";
   const safetyRanking = annual ? getAnnualAdminRanking(publishedMonthlyScores ?? [], selectedYear, "safety")
     : publishedMonthlyScores ? getMonthlyAdminRanking(publishedMonthlyScores, selectedMonth, "safety") : safetyRows;
@@ -104,14 +113,14 @@ export function AdminMonthlyRanking({ month, onMonthChange, year, onYearChange, 
           </select>
         </label> : <label className={styles.month} htmlFor={monthId}>
           <span className={styles.srOnly}>Mês de referência</span>
-          <input id={monthId} type="month" value={selectedMonth} min="0001-01" max="9999-12"
-            required readOnly={month !== undefined && !onMonthChange}
+          <select className="filter-select" id={monthId} value={selectedMonth}
+            required disabled={month !== undefined && !onMonthChange}
             onChange={(event) => {
               const nextMonth = event.target.value;
               if (!/^(?!0000)\d{4}-(0[1-9]|1[0-2])$/.test(nextMonth)) return;
               if (month === undefined) setLocalMonth(nextMonth);
               onMonthChange?.(nextMonth);
-            }} />
+            }}>{monthOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select>
         </label>}
       </div>
     </div>
