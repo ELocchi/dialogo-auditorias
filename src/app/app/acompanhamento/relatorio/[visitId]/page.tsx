@@ -41,9 +41,11 @@ export default async function ReportPage({ params, searchParams }: {
   const selectedReport = reportId ? visitReports.find((entry) => entry.id === reportId) : undefined;
   if (reportId && !selectedReport) notFound();
   const { data: workFindingRows } = await client.from("follow_up_work_findings")
-    .select("id,work_id,location,description,correction,photo_file_name,created_at")
-    .eq("work_id", work.id).eq("auditor_auth_user_id", context.user.id).is("completed_at", null).limit(1000);
+    .select("id,work_id,modulo,location,description,correction,photo_file_name,created_at")
+    .eq("work_id", work.id).eq("auditor_auth_user_id", context.user.id)
+    .eq("modulo", visit.module === "safety" ? "SEGURANCA" : "QUALIDADE").is("completed_at", null).limit(1000);
   const workFindings = (workFindingRows ?? []).map((row) => ({ id: row.id, workId: row.work_id,
+    module: row.modulo === "SEGURANCA" ? "safety" as const : "quality" as const,
     location: row.location, description: row.description, correction: row.correction,
     photoFileName: row.photo_file_name, createdAt: row.created_at }));
   const sortedReports = visitReports.slice().sort((a, b) => a.updatedAt.localeCompare(b.updatedAt));

@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef, useState, type FormEvent } from "react";
+import { useId, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import {
   canAccessWorkModule,
   canManageAgenda,
@@ -51,7 +51,7 @@ const months = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "
 
 export function VisitAgenda(props: VisitAgendaProps) {
   if (canManageAgenda(props.user)) return <AdministrativeAgenda {...props} />;
-  if (props.user.role === "safety-auditor") return <SafetyAuditorAgenda {...props} />;
+  if (props.user.role === "safety-auditor" || props.user.role === "quality-auditor") return <AuditorAgenda {...props} />;
   return <AgendaContext key={`${props.user.id}:${props.module}:${props.workId}`} {...props} />;
 }
 
@@ -60,10 +60,38 @@ function AdministrativeAgenda({ user, works, users, visits, module, workId, avai
   const addButtonRef = useRef<HTMLButtonElement>(null);
   const listId = useId();
   const dialogTitleId = useId();
+  const [selectedAuditorId, setSelectedAuditorId] = useState<string | null>(null);
+  const [draftVisits, setDraftVisits] = useState<{ id: string; input: VisitInput }[]>([]);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState("");
   const authorizedWorks = works.filter((work) => user.modules.some((discipline) => canConsultAgenda(user, work.id, discipline)));
   const workIds = new Set(authorizedWorks.map((work) => work.id));
-  const visibleVisits = visits.filter((visit) => workIds.has(visit.workId) && canReadVisit(user, visit) && isCalendarDate(visit.date))
+  const authorizedVisits = visits.filter((visit) => workIds.has(visit.workId) && canReadVisit(user, visit) && isCalendarDate(visit.date));
+  const visibleVisits = authorizedVisits.filter((visit) => !selectedAuditorId || visit.auditorId === selectedAuditorId)
     .sort((first, second) => first.date.localeCompare(second.date) || first.id.localeCompare(second.id));
+  const selectedAuditor = users.find((entry) => entry.id === selectedAuditorId);
+  const previewVisits: Visit[] = draftVisits.map(({ id, input }) => ({
+    ...input, id, createdBy: user.id, createdAt: new Date().toISOString(), history: [],
+    auditorName: users.find((entry) => entry.id === input.auditorId)?.name,
+  }));
+  const sendAgenda = async () => {
+    if (exporting || mutationPending || draftVisits.length === 0) return;
+    setExporting(true);
+    setExportError("");
+    let exported = 0;
+    try {
+      for (const draft of draftVisits) {
+        const result = await onCreate(draft.input);
+        if (result.status !== "success") throw new Error(`${exported} de ${draftVisits.length} agendamentos foram enviados. ${result.message}`);
+        exported += 1;
+      }
+      setDraftVisits([]);
+      dialogRef.current?.close();
+    } catch (cause) {
+      if (exported > 0) setDraftVisits((current) => current.slice(exported));
+      setExportError(errorMessage(cause, "Não foi possível exportar a agenda. Confira os itens restantes e tente novamente."));
+    } finally { setExporting(false); }
+  };
 
   return <>
     <div className="page-intro">
@@ -74,7 +102,7 @@ function AdministrativeAgenda({ user, works, users, visits, module, workId, avai
     <div className={styles.administrativeLayout}>
       <section className={`panel ${styles.scheduledPanel}`} aria-labelledby={listId}>
         <div className={styles.scheduledHeading}>
-          <h3 id={listId}>Visitas agendadas</h3>
+          <div><h3 id={listId}>{selectedAuditor ? `Agenda de ${selectedAuditor.name}` : "Visitas agendadas"}</h3>{selectedAuditor && <button type="button" className={styles.clearProfile} onClick={() => setSelectedAuditorId(null)}>Ver todos os perfis</button>}</div>
           <button ref={addButtonRef} type="button" className={styles.addVisit} aria-label="Agendar visita" title="Agendar visita" aria-haspopup="dialog" disabled={mutationPending} onClick={() => dialogRef.current?.showModal()}><Icon name="plus" /></button>
         </div>
         {visibleVisits.length ? <div className={styles.visitList}>
@@ -86,21 +114,28 @@ function AdministrativeAgenda({ user, works, users, visits, module, workId, avai
           <p>{!available ? "Aguardando acesso à agenda." : authorizedWorks.length ? "Nenhuma visita agendada." : "Nenhuma obra disponível para agendamento."}</p>
         </div>}
       </section>
-      <AdminVisitCalendar visits={visibleVisits} works={authorizedWorks} auditors={users} viewerId={user.id} calendarOnly />
+      <AdminVisitCalendar visits={authorizedVisits} works={authorizedWorks} auditors={users} viewerId={user.id} calendarOnly includeFollowUps={Boolean(selectedAuditorId)} selectedAuditorId={selectedAuditorId} onSelectAuditor={setSelectedAuditorId} />
     </div>
     <dialog ref={dialogRef} className={styles.scheduleDialog} aria-labelledby={dialogTitleId} onCancel={(event) => { if (mutationPending) event.preventDefault(); }} onClose={() => addButtonRef.current?.focus()}>
       <button type="button" className={`secondary ${styles.closeDialog}`} disabled={mutationPending} onClick={() => dialogRef.current?.close()}>Fechar</button>
       <CreateVisitForm user={user} works={authorizedWorks} users={users} module={module} workId={workId}
-        available={available} mutationPending={mutationPending} onCreate={onCreate} headingId={dialogTitleId} />
+        available={available} mutationPending={mutationPending} onCreate={onCreate} headingId={dialogTitleId}
+        draftCount={draftVisits.length} onStage={(input) => setDraftVisits((current) => [...current, { id: `draft-${crypto.randomUUID()}`, input }])}
+        previewVisits={previewVisits} exporting={exporting} exportError={exportError}
+        onRemoveDraft={(draftId) => setDraftVisits((current) => current.filter((entry) => entry.id !== draftId))}
+        onUpdateDraft={(draftId, input) => setDraftVisits((current) => current.map((entry) => entry.id === draftId ? { ...entry, input } : entry))}
+        drafts={draftVisits} onImport={(inputs) => setDraftVisits((current) => [...current, ...inputs.map((input) => ({ id: `draft-${crypto.randomUUID()}`, input }))])}
+        onSend={() => { void sendAgenda(); }} />
     </dialog>
   </>;
 }
 
-function SafetyAuditorAgenda({ user, works, users, visits, available, mutationPending = false, syncError, onDelete, onConfirm }: VisitAgendaProps) {
+function AuditorAgenda({ user, works, users, visits, available, mutationPending = false, syncError, onDelete, onConfirm }: VisitAgendaProps) {
   const listId = useId();
-  const authorizedWorks = works.filter((work) => canConsultAgenda(user, work.id, "safety"));
+  const discipline: AppModule = user.role === "quality-auditor" ? "quality" : "safety";
+  const authorizedWorks = works.filter((work) => canConsultAgenda(user, work.id, discipline));
   const workIds = new Set(authorizedWorks.map((work) => work.id));
-  const visibleVisits = visits.filter((visit) => visit.module === "safety" && workIds.has(visit.workId) && canReadVisit(user, visit) && isCalendarDate(visit.date))
+  const visibleVisits = visits.filter((visit) => visit.module === discipline && workIds.has(visit.workId) && canReadVisit(user, visit) && isCalendarDate(visit.date))
     .slice().sort((first, second) => first.date.localeCompare(second.date) || first.id.localeCompare(second.id));
 
   return <>
@@ -178,7 +213,19 @@ function AgendaContext({ user, works, users, visits, module, workId, available, 
   </>;
 }
 
-function CreateVisitForm({ user, works, users, module, workId, available, mutationPending = false, onCreate, headingId }: Pick<VisitAgendaProps, "user" | "works" | "users" | "module" | "workId" | "available" | "mutationPending" | "onCreate"> & { headingId?: string }) {
+function CreateVisitForm({ user, works, users, module, workId, available, mutationPending = false, onCreate, headingId, draftCount = 0, onStage, previewVisits = [], drafts = [], exporting = false, exportError = "", onRemoveDraft, onUpdateDraft, onImport, onSend }: Pick<VisitAgendaProps, "user" | "works" | "users" | "module" | "workId" | "available" | "mutationPending" | "onCreate"> & {
+  headingId?: string;
+  draftCount?: number;
+  onStage?: (input: VisitInput) => void;
+  previewVisits?: readonly Visit[];
+  drafts?: readonly { id: string; input: VisitInput }[];
+  exporting?: boolean;
+  exportError?: string;
+  onRemoveDraft?: (draftId: string) => void;
+  onUpdateDraft?: (draftId: string, input: VisitInput) => void;
+  onImport?: (inputs: VisitInput[]) => void;
+  onSend?: () => void;
+}) {
   const disciplines = (["safety", "quality"] as const).filter((discipline) =>
     works.some((work) => canConsultAgenda(user, work.id, discipline)));
   const initialModule = disciplines.includes(module) ? module : disciplines[0] ?? module;
@@ -195,9 +242,10 @@ function CreateVisitForm({ user, works, users, module, workId, available, mutati
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [downloadingTemplate, setDownloadingTemplate] = useState(false);
   const submittingRef = useRef(false);
-  const auditorHelpId = useId();
-  const models = modelIds.filter((modelId) => modelModule(modelId) === input.module);
+  const importInputRef = useRef<HTMLInputElement>(null);
   const eligibleWorks = works.filter((work) => canConsultAgenda(user, work.id, input.module));
   const auditors = users.filter((candidate) =>
     candidate.role === (input.module === "safety" ? "safety-auditor" : "quality-auditor")
@@ -207,6 +255,108 @@ function CreateVisitForm({ user, works, users, module, workId, available, mutati
     setInput((current) => ({ ...current, ...change }));
     setError("");
     setSuccess("");
+  };
+
+  const importAgenda = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || !onImport || importing) return;
+    setImporting(true);
+    setError("");
+    setSuccess("");
+    const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLocaleLowerCase("pt-BR");
+    const dateValue = (value: unknown, text: string) => {
+      if (value instanceof Date && !Number.isNaN(value.getTime())) return `${value.getUTCFullYear().toString().padStart(4, "0")}-${(value.getUTCMonth() + 1).toString().padStart(2, "0")}-${value.getUTCDate().toString().padStart(2, "0")}`;
+      const raw = text.trim();
+      const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+      if (iso) return raw;
+      const brazilian = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(raw);
+      return brazilian ? `${brazilian[3]}-${brazilian[2]}-${brazilian[1]}` : "";
+    };
+    try {
+      if (!file.name.toLocaleLowerCase("pt-BR").endsWith(".xlsx")) throw new Error("Selecione uma planilha Excel no formato .xlsx.");
+      const { Workbook } = await import("exceljs");
+      const workbook = new Workbook();
+      await workbook.xlsx.load(await file.arrayBuffer());
+      const sheet = workbook.worksheets[0];
+      if (!sheet) throw new Error("A planilha não possui uma aba com dados.");
+      const columns = new Map<string, number>();
+      sheet.getRow(1).eachCell((cell, column) => columns.set(normalize(cell.text), column));
+      const required = ["obra", "disciplina", "finalidade", "tipo de auditoria", "profissional", "data", "observacao"];
+      if (required.some((header) => !columns.has(header))) throw new Error("A primeira linha deve conter: Obra, Disciplina, Finalidade, Tipo de auditoria, Profissional, Data e Observação.");
+      const cell = (row: number, header: string) => sheet.getRow(row).getCell(columns.get(header) ?? 0);
+      const imported: VisitInput[] = [];
+      for (let rowNumber = 2; rowNumber <= sheet.rowCount; rowNumber += 1) {
+        if (!required.some((header) => cell(rowNumber, header).text.trim())) continue;
+        const workText = cell(rowNumber, "obra").text.trim();
+        const work = works.find((entry) => normalize(entry.name) === normalize(workText) || entry.id === workText);
+        if (!work) throw new Error(`Linha ${rowNumber}: obra não encontrada ou não autorizada.`);
+        const disciplineText = normalize(cell(rowNumber, "disciplina").text);
+        const importedModule: AppModule | null = disciplineText === "seguranca" ? "safety" : disciplineText === "qualidade" ? "quality" : null;
+        if (!importedModule || !canConsultAgenda(user, work.id, importedModule)) throw new Error(`Linha ${rowNumber}: disciplina inválida para esta obra.`);
+        const purpose = normalize(cell(rowNumber, "finalidade").text);
+        const kind: VisitInput["kind"] | null = purpose === "auditoria" ? "audit" : purpose === "acompanhamento" || purpose === "acompanhamento da obra" ? "follow_up" : null;
+        if (!kind) throw new Error(`Linha ${rowNumber}: finalidade inválida.`);
+        const modelText = normalize(cell(rowNumber, "tipo de auditoria").text);
+        const modelId = kind === "follow_up" ? null : importedModule === "safety" ? "security-it07-r02"
+          : modelIds.find((id) => modelModule(id) === "quality" && (normalize(visitTypeLabels[id]) === modelText || id === cell(rowNumber, "tipo de auditoria").text.trim())) ?? null;
+        if (kind === "audit" && !modelId) throw new Error(`Linha ${rowNumber}: informe um tipo de auditoria de Qualidade válido.`);
+        const professionalText = cell(rowNumber, "profissional").text.trim();
+        const eligible = users.filter((candidate) => candidate.role === (importedModule === "safety" ? "safety-auditor" : "quality-auditor") && canAccessWorkModule(candidate, work.id, importedModule));
+        const professional = eligible.find((candidate) => normalize(candidate.name) === normalize(professionalText) || candidate.id === professionalText);
+        if (!professional) throw new Error(`Linha ${rowNumber}: profissional não encontrado ou sem acesso à obra.`);
+        const dateCell = cell(rowNumber, "data");
+        const date = dateValue(dateCell.value, dateCell.text);
+        if (!isCalendarDate(date)) throw new Error(`Linha ${rowNumber}: data inválida. Use DD/MM/AAAA.`);
+        imported.push({ workId: work.id, module: importedModule, kind, modelId, auditorId: professional.id, date,
+          note: cell(rowNumber, "observacao").text.trim() });
+      }
+      if (imported.length === 0) throw new Error("A planilha não possui agendamentos para importar.");
+      onImport(imported);
+      setSuccess(`${imported.length} ${imported.length === 1 ? "agendamento importado" : "agendamentos importados"} para verificação.`);
+    } catch (cause) {
+      setError(errorMessage(cause, "Não foi possível importar a agenda. Confira a planilha e tente novamente."));
+    } finally { setImporting(false); }
+  };
+
+  const downloadTemplate = async () => {
+    if (downloadingTemplate) return;
+    setDownloadingTemplate(true);
+    setError("");
+    try {
+      const { Workbook } = await import("exceljs");
+      const workbook = new Workbook();
+      const agendaSheet = workbook.addWorksheet("Agenda", { views: [{ state: "frozen", ySplit: 1 }] });
+      const headers = ["Obra", "Disciplina", "Finalidade", "Tipo de auditoria", "Profissional", "Data", "Observação"];
+      agendaSheet.addRow(headers);
+      agendaSheet.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
+      agendaSheet.getRow(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E3A5F" } };
+      agendaSheet.columns = [{ width: 28 }, { width: 16 }, { width: 25 }, { width: 35 }, { width: 28 }, { width: 15 }, { width: 45 }];
+      agendaSheet.autoFilter = "A1:G1";
+      const lists = workbook.addWorksheet("Listas");
+      const workNames = [...new Set(works.map((work) => work.name))];
+      const professionalNames = [...new Set(users.filter((candidate) => candidate.role === "safety-auditor" || candidate.role === "quality-auditor").map((candidate) => candidate.name))];
+      const listColumns = [workNames, professionalNames, ["Segurança", "Qualidade"], ["Auditoria", "Acompanhamento da obra"], Object.values(visitTypeLabels)];
+      listColumns.forEach((values, columnIndex) => values.forEach((value, rowIndex) => { lists.getCell(rowIndex + 1, columnIndex + 1).value = value; }));
+      lists.state = "veryHidden";
+      for (let row = 2; row <= 201; row += 1) {
+        agendaSheet.getCell(`A${row}`).dataValidation = { type: "list", allowBlank: false, formulae: [`Listas!$A$1:$A$${Math.max(workNames.length, 1)}`] };
+        agendaSheet.getCell(`B${row}`).dataValidation = { type: "list", allowBlank: false, formulae: ["Listas!$C$1:$C$2"] };
+        agendaSheet.getCell(`C${row}`).dataValidation = { type: "list", allowBlank: false, formulae: ["Listas!$D$1:$D$2"] };
+        agendaSheet.getCell(`D${row}`).dataValidation = { type: "list", allowBlank: true, formulae: [`Listas!$E$1:$E$${Object.keys(visitTypeLabels).length}`] };
+        agendaSheet.getCell(`E${row}`).dataValidation = { type: "list", allowBlank: false, formulae: [`Listas!$B$1:$B$${Math.max(professionalNames.length, 1)}`] };
+        agendaSheet.getCell(`F${row}`).numFmt = "dd/mm/yyyy";
+      }
+      const data = await workbook.xlsx.writeBuffer();
+      const url = URL.createObjectURL(new Blob([data as BlobPart], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "planilha-padrao-agenda.xlsx";
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (cause) {
+      setError(errorMessage(cause, "Não foi possível gerar a planilha padrão."));
+    } finally { setDownloadingTemplate(false); }
   };
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
@@ -223,9 +373,16 @@ function CreateVisitForm({ user, works, users, module, workId, available, mutati
         || !auditors.some((auditor) => auditor.id === input.auditorId)) {
         throw new Error("Selecione uma obra e um profissional autorizados para esta visita.");
       }
-      const result = await onCreate({ ...input, note: input.note.trim() });
-      if (result.status !== "success") throw new Error(result.message);
-      setSuccess(result.message);
+      if (!isCalendarDate(input.date)) throw new Error("Selecione uma data válida para a visita.");
+      const prepared = { ...input, note: input.note.trim() };
+      if (onStage) {
+        onStage(prepared);
+        setSuccess("Visita adicionada à agenda para verificação.");
+      } else {
+        const result = await onCreate(prepared);
+        if (result.status !== "success") throw new Error(result.message);
+        setSuccess(result.message);
+      }
       setInput((current) => ({ ...current, auditorId: "", date: "", note: "" }));
     } catch (cause) {
       setError(errorMessage(cause, "Não foi possível agendar a visita. Confira os campos e tente novamente."));
@@ -240,64 +397,81 @@ function CreateVisitForm({ user, works, users, module, workId, available, mutati
       <CalendarIcon />
       <div><h3 id={headingId}>Agendar visita</h3><p>Escolha a obra, a finalidade da visita e o dia de cada profissional.</p></div>
     </div>
+    {onStage && <div className={styles.schedulePreview}>
+      <AdminVisitCalendar visits={previewVisits} works={works} viewerId={`${user.id}:draft`} calendarOnly includeFollowUps colorBy="work" />
+    </div>}
     <form onSubmit={submit} aria-busy={submitting}>
       <fieldset className={styles.formFields} disabled={submitting || mutationPending}>
-      <div className={styles.formGrid}>
-        <label>Obra
-          <select required value={input.workId} onChange={(event) => changeInput({ workId: event.target.value, auditorId: "" })}>
-            {eligibleWorks.length === 0 && <option value="">Nenhuma obra disponível</option>}
-            {eligibleWorks.map((work) => <option value={work.id} key={work.id}>{work.name}</option>)}
-          </select>
-        </label>
-        <label>Disciplina
-          <select value={input.module} onChange={(event) => {
-            const nextModule = event.target.value as AppModule;
-            const nextWorks = works.filter((work) => canConsultAgenda(user, work.id, nextModule));
-            changeInput({ module: nextModule, modelId: input.kind === "follow_up" ? null
-              : nextModule === "safety" ? "security-it07-r02" : "quality-f175",
-              workId: nextWorks.some((work) => work.id === input.workId) ? input.workId : nextWorks[0]?.id ?? "", auditorId: "" });
-          }}>
-            {disciplines.map((discipline) => <option key={discipline} value={discipline}>{moduleLabels[discipline]}</option>)}
-          </select>
-        </label>
-        <label>Finalidade da visita
-          <select value={input.kind} onChange={(event) => {
-            const kind = event.target.value as VisitInput["kind"];
-            changeInput({ kind, modelId: kind === "audit" ? (input.module === "safety" ? "security-it07-r02" : "quality-f175") : null });
-          }}>
-            <option value="audit">Auditoria</option>
-            <option value="follow_up">Acompanhamento da obra</option>
-          </select>
-        </label>
-        {input.kind === "audit" && <label>Tipo de auditoria
-          <select value={input.modelId ?? ""} onChange={(event) => changeInput({ modelId: event.target.value as AuditModelId })}>
-            {models.map((modelId) => <option key={modelId} value={modelId}>{visitTypeLabels[modelId]}</option>)}
-          </select>
-        </label>}
-        <label>Profissional responsável
-          <select required value={input.auditorId} aria-label="Profissional responsável" aria-describedby={auditorHelpId} onChange={(event) => changeInput({ auditorId: event.target.value })}>
-            <option value="">Selecione o profissional</option>
-            {auditors.map((auditor) => <option value={auditor.id} key={auditor.id}>{auditor.name}</option>)}
-          </select>
-          <small id={auditorHelpId} className={styles.fieldHelp}>{!available ? "O agendamento está indisponível no momento." : auditors.length > 0 ? `Profissionais de ${moduleLabels[input.module]} autorizados para esta obra.` : `Nenhum profissional de ${moduleLabels[input.module]} está autorizado para esta obra.`}</small>
-        </label>
-        <label>Dia da visita
-          <input required type="date" value={input.date} onChange={(event) => changeInput({ date: event.target.value })} />
-        </label>
-        <label className={styles.wideField}>Observação da visita (opcional)
-          <textarea maxLength={2000} value={input.note} onChange={(event) => changeInput({ note: event.target.value })} placeholder="Informações para organizar a visita…" />
-        </label>
-        {input.kind === "follow_up" && <p className={`${styles.wideField} ${styles.followUpNotice}`}>O acompanhamento será registrado na agenda e enviado ao profissional para confirmação. Ele não gera auditoria nem entra na nota mensal da obra.</p>}
+      <div className={styles.draftTableWrap}>
+        <table className={`${styles.draftTable} ${styles.editableTable}`} aria-label="Planilha editável de agendamentos">
+          <thead><tr><th>Obra</th><th>Disciplina</th><th>Finalidade</th><th>Tipo de auditoria</th><th>Profissional</th><th>Data</th><th>Observação</th><th><span className={styles.actionLabel}>Ação</span></th></tr></thead>
+          <tbody>
+            {drafts.map((draft) => <EditableAgendaRow key={draft.id} input={draft.input} user={user} works={works} users={users} disabled={exporting}
+              onChange={(next) => onUpdateDraft?.(draft.id, next)} onRemove={onRemoveDraft ? () => onRemoveDraft(draft.id) : undefined} />)}
+            <EditableAgendaRow input={input} user={user} works={works} users={users} disabled={exporting || !available || eligibleWorks.length === 0 || auditors.length === 0} newRow onChange={(next) => changeInput(next)} />
+          </tbody>
+        </table>
       </div>
       <div className={styles.formFooter}>
-        <p>Agende uma visita por profissional, obra e dia. A pessoa selecionada receberá a solicitação para confirmar a data no aplicativo.</p>
-        <button type="submit" className="primary" disabled={!available || eligibleWorks.length === 0 || auditors.length === 0}>{submitting ? "Agendando…" : "Agendar visita"}</button>
+        {!onStage && <p>Agende uma visita por profissional, obra e dia. A pessoa selecionada receberá a solicitação para confirmar a data no aplicativo.</p>}
+        <div className={styles.formActions}>
+          {onImport && <button type="button" className="secondary" disabled={downloadingTemplate || importing || exporting || mutationPending} onClick={() => { void downloadTemplate(); }}>{downloadingTemplate ? "Preparando…" : "Baixar planilha padrão"}</button>}
+          {onImport && <><input ref={importInputRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" tabIndex={-1} aria-hidden="true" style={{ display: "none" }} onChange={(event) => { void importAgenda(event); }} /><button type="button" className="secondary" disabled={importing || exporting || mutationPending} onClick={() => importInputRef.current?.click()}>{importing ? "Importando…" : "Importar planilha"}</button></>}
+          {onSend && <button type="button" className="primary" disabled={draftCount === 0 || exporting || mutationPending} onClick={onSend}>{exporting ? "Enviando…" : `Enviar para confirmação (${draftCount})`}</button>}
+        </div>
       </div>
       </fieldset>
       {error && <p role="alert" className={styles.error}>{error}</p>}
       {success && <p role="status" className={styles.success}>{success}</p>}
+      {exportError && <p role="alert" className={styles.error}>{exportError}</p>}
     </form>
   </section>;
+}
+
+function EditableAgendaRow({ input, user, works, users, disabled, newRow = false, onChange, onRemove }: {
+  input: VisitInput;
+  user: DemoUser;
+  works: readonly WorkRecord[];
+  users: readonly DemoUser[];
+  disabled: boolean;
+  newRow?: boolean;
+  onChange: (input: VisitInput) => void;
+  onRemove?: () => void;
+}) {
+  const disciplines = (["safety", "quality"] as const).filter((discipline) => works.some((work) => canConsultAgenda(user, work.id, discipline)));
+  const eligibleWorks = works.filter((work) => canConsultAgenda(user, work.id, input.module));
+  const models = modelIds.filter((modelId) => modelModule(modelId) === input.module);
+  const auditors = users.filter((candidate) => candidate.role === (input.module === "safety" ? "safety-auditor" : "quality-auditor")
+    && canAccessWorkModule(candidate, input.workId, input.module));
+  const update = (change: Partial<VisitInput>) => onChange({ ...input, ...change });
+
+  return <tr className={newRow ? styles.newDraftRow : undefined}>
+    <td data-label="Obra"><select required value={input.workId} aria-label="Obra" disabled={disabled} onChange={(event) => update({ workId: event.target.value, auditorId: "" })}>
+      {eligibleWorks.length === 0 && <option value="">Nenhuma obra</option>}
+      {eligibleWorks.map((work) => <option value={work.id} key={work.id}>{work.name}</option>)}
+    </select></td>
+    <td data-label="Disciplina">{disciplines.length > 1 ? <select value={input.module} aria-label="Disciplina" disabled={disabled} onChange={(event) => {
+      const nextModule = event.target.value as AppModule;
+      const nextWorks = works.filter((work) => canConsultAgenda(user, work.id, nextModule));
+      update({ module: nextModule, modelId: input.kind === "follow_up" ? null : nextModule === "safety" ? "security-it07-r02" : "quality-f175",
+        workId: nextWorks.some((work) => work.id === input.workId) ? input.workId : nextWorks[0]?.id ?? "", auditorId: "" });
+    }}>{disciplines.map((discipline) => <option key={discipline} value={discipline}>{moduleLabels[discipline]}</option>)}</select>
+      : <span className={styles.tableFixedValue}>{moduleLabels[input.module]}</span>}</td>
+    <td data-label="Finalidade"><select value={input.kind} aria-label="Finalidade" disabled={disabled} onChange={(event) => {
+      const kind = event.target.value as VisitInput["kind"];
+      update({ kind, modelId: kind === "audit" ? input.module === "safety" ? "security-it07-r02" : "quality-f175" : null });
+    }}><option value="audit">Auditoria</option><option value="follow_up">Acompanhamento</option></select></td>
+    <td data-label="Tipo de auditoria">{input.kind === "audit" && input.module === "quality" && models.length > 1
+      ? <select value={input.modelId ?? ""} aria-label="Tipo de auditoria" disabled={disabled} onChange={(event) => update({ modelId: event.target.value as AuditModelId })}>{models.map((modelId) => <option key={modelId} value={modelId}>{visitTypeLabels[modelId]}</option>)}</select>
+      : <span className={styles.tableFixedValue}>{input.kind === "audit" && input.modelId ? visitTypeLabels[input.modelId] : "—"}</span>}</td>
+    <td data-label="Profissional"><select required value={input.auditorId} aria-label="Profissional responsável" disabled={disabled} onChange={(event) => update({ auditorId: event.target.value })}>
+      <option value="">Selecione</option>{auditors.map((auditor) => <option value={auditor.id} key={auditor.id}>{auditor.name}</option>)}
+    </select></td>
+    <td data-label="Data"><input required type="date" value={input.date} aria-label="Data da visita" disabled={disabled} onChange={(event) => update({ date: event.target.value })} /></td>
+    <td data-label="Observação"><textarea maxLength={2000} value={input.note} aria-label="Observação" disabled={disabled} placeholder="Opcional" onChange={(event) => update({ note: event.target.value })} /></td>
+    <td data-label="Ação">{onRemove ? <button type="button" className="secondary" disabled={disabled} onClick={onRemove}>Retirar</button>
+      : <button type="submit" className="primary" disabled={disabled}>Adicionar</button>}</td>
+  </tr>;
 }
 
 type VisitCardProps = Pick<VisitAgendaProps, "user" | "users" | "available" | "mutationPending" | "onDelete" | "onConfirm"> & {

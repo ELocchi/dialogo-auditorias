@@ -55,12 +55,18 @@ reset role;
 
 set local role authenticated;
 set local "request.jwt.claim.sub"='d1b60000-0000-4000-8000-000000000002';
-insert into public.follow_up_work_findings(id,work_id,auditor_auth_user_id,description,correction,photo_file_name)
-values ('d1b60000-0000-4000-8000-000000000401','d1b60000-0000-4000-8000-000000000101',auth.uid(),
+insert into public.follow_up_work_findings(id,work_id,auditor_auth_user_id,modulo,description,correction,photo_file_name)
+values ('d1b60000-0000-4000-8000-000000000401','d1b60000-0000-4000-8000-000000000101',auth.uid(),'SEGURANCA',
  'Proteção incompleta','Instalar proteção',
  'd1b60000-0000-4000-8000-000000000401_d1b60000-0000-4000-8000-000000000402.jpg');
 select pg_temp.assert_true((select count(*) from public.follow_up_work_findings)=1,
  'auditor can read own work finding without a visit');
+select pg_temp.expect_error($sql$
+ insert into public.follow_up_work_findings(id,work_id,auditor_auth_user_id,modulo,description,correction,photo_file_name)
+ values ('d1b60000-0000-4000-8000-000000000411','d1b60000-0000-4000-8000-000000000101',auth.uid(),'QUALIDADE',
+  'Qualidade indevida','Não deve salvar',
+  'd1b60000-0000-4000-8000-000000000411_d1b60000-0000-4000-8000-000000000412.jpg')
+$sql$,'42501');
 update public.follow_up_work_findings set completed_at=clock_timestamp()
  where id='d1b60000-0000-4000-8000-000000000401';
 select pg_temp.assert_true((select count(*) from public.follow_up_work_findings where completed_at is not null)=1,

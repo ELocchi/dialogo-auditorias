@@ -40,9 +40,10 @@ function PhotoPicker({ onSelect, disabled, previewUrl }: { onSelect: (file: File
 }
 
 export function FollowUpWorkspace({ user, visits, works, actor, agendaAvailable }: Props) {
+  const discipline = user.role === "quality-auditor" ? "quality" : "safety";
   const authorizedWorks = new Map(works.map((work) => [work.id, work]));
   const scheduled = visits.filter((visit) => visit.kind === "follow_up" && visit.auditorId === user.id
-    && authorizedWorks.has(visit.workId) && canReadVisit(user, visit))
+    && visit.module === discipline && authorizedWorks.has(visit.workId) && canReadVisit(user, visit))
     .slice().sort((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id));
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [reports, setReports] = useState<FollowUpSnapshot | null>(null);

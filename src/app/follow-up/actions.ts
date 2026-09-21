@@ -20,20 +20,24 @@ async function activeContext(expected: AgendaActorContext) {
   return readWorkspaceContext(active);
 }
 
-export type WorkFinding = { id: string; workId: string; location: string; description: string;
+export type WorkFinding = { id: string; workId: string; module: "safety" | "quality"; location: string; description: string;
   correction: string; photoFileName: string; createdAt: string };
-type WorkFindingRow = { id: string; work_id: string; location: string; description: string;
+type WorkFindingRow = { id: string; work_id: string; modulo: "SEGURANCA" | "QUALIDADE"; location: string; description: string;
   correction: string; photo_file_name: string; created_at: string };
 const toWorkFinding = (row: WorkFindingRow): WorkFinding => ({ id: row.id, workId: row.work_id,
+  module: row.modulo === "SEGURANCA" ? "safety" : "quality",
   location: row.location, description: row.description, correction: row.correction,
   photoFileName: row.photo_file_name, createdAt: row.created_at });
 
+const findingModule = (profile: string) => profile === "AUDITOR_SEGURANCA" ? "SEGURANCA" : profile === "AUDITOR_QUALIDADE" ? "QUALIDADE" : null;
+
 export async function readWorkFindingsAction(expected: AgendaActorContext): Promise<{ available: boolean; findings: WorkFinding[] }> {
   const context = await activeContext(expected);
-  if (!context) return { available: false, findings: [] };
+  const findingDiscipline = context ? findingModule(context.profile) : null;
+  if (!context || !findingDiscipline) return { available: false, findings: [] };
   const { data, error } = await (await createClient()).from("follow_up_work_findings")
-    .select("id,work_id,location,description,correction,photo_file_name,created_at")
-    .eq("auditor_auth_user_id", context.user.id).is("completed_at", null).order("created_at", { ascending: false }).limit(1000);
+    .select("id,work_id,modulo,location,description,correction,photo_file_name,created_at")
+    .eq("auditor_auth_user_id", context.user.id).eq("modulo", findingDiscipline).is("completed_at", null).order("created_at", { ascending: false }).limit(1000);
   if (error || !data) return { available: false, findings: [] };
   const authorized = new Set(context.works.map((work) => work.id));
   return { available: true, findings: (data as WorkFindingRow[]).filter((row) => authorized.has(row.work_id)).map(toWorkFinding) };
@@ -43,12 +47,13 @@ export async function createWorkFindingAction(formData: FormData, expected: Agen
   status: "success" | "error"; message: string; finding?: WorkFinding;
 }> {
   const context = await activeContext(expected);
+  const findingDiscipline = context ? findingModule(context.profile) : null;
   const workId = formData.get("workId");
   const location = formData.get("location");
   const description = formData.get("description");
   const correction = formData.get("correction");
   const photo = formData.get("photo");
-  if (!context || (context.profile !== "AUDITOR_SEGURANCA" && context.profile !== "AUDITOR_QUALIDADE")
+  if (!context || !findingDiscipline
     || typeof workId !== "string" || !uuidPattern.test(workId) || !context.works.some((work) => work.id === workId)
     || typeof location !== "string" || location.length > 200
     || typeof description !== "string" || description.trim().length < 5 || description.length > 2000
@@ -67,9 +72,9 @@ export async function createWorkFindingAction(formData: FormData, expected: Agen
     { contentType: kind, cacheControl: "3600", upsert: false });
   if (upload.error) return { status: "error", message: "Não foi possível enviar a foto. Confira o armazenamento do projeto." };
   const { data, error } = await client.from("follow_up_work_findings").insert({
-    id, work_id: workId, auditor_auth_user_id: context.user.id, location: location.trim(),
+    id, work_id: workId, modulo: findingDiscipline, auditor_auth_user_id: context.user.id, location: location.trim(),
     description: description.trim(), correction: correction.trim(), photo_file_name: fileName,
-  }).select("id,work_id,location,description,correction,photo_file_name,created_at").single();
+  }).select("id,work_id,modulo,location,description,correction,photo_file_name,created_at").single();
   if (error || !data) {
     await client.storage.from(followUpPhotoBucket).remove([path]);
     return { status: "error", message: "Não foi possível salvar o apontamento. Confira a atualização do banco de dados." };
@@ -79,10 +84,11 @@ export async function createWorkFindingAction(formData: FormData, expected: Agen
 
 export async function completeWorkFindingAction(id: string, expected: AgendaActorContext): Promise<boolean> {
   const context = await activeContext(expected);
-  if (!context || !uuidPattern.test(id)) return false;
+  const findingDiscipline = context ? findingModule(context.profile) : null;
+  if (!context || !findingDiscipline || !uuidPattern.test(id)) return false;
   const { data, error } = await (await createClient({ writableCookies: true })).from("follow_up_work_findings")
     .update({ completed_at: new Date().toISOString() }).eq("id", id)
-    .eq("auditor_auth_user_id", context.user.id).is("completed_at", null).select("id").single();
+    .eq("auditor_auth_user_id", context.user.id).eq("modulo", findingDiscipline).is("completed_at", null).select("id").single();
   return !error && !!data;
 }
 
@@ -108,7 +114,7 @@ export async function saveFollowUpReportAction(input: unknown, expected: AgendaA
   if (!agenda.available || !visit) return { status: "error", message: "A visita não está disponível para este perfil." };
   const { data: workRows, error: workError } = await client.from("follow_up_work_findings")
     .select("id,location,description,correction").eq("work_id", visit.workId)
-    .eq("auditor_auth_user_id", context.user.id).is("completed_at", null).limit(1000);
+    .eq("auditor_auth_user_id", context.user.id).eq("modulo", visit.module === "safety" ? "SEGURANCA" : "QUALIDADE").is("completed_at", null).limit(1000);
   if (workError && !["42P01", "PGRST205"].includes(workError.code))
     return { status: "error", message: "Não foi possível conferir os apontamentos da obra." };
   const previousFindings = reports.reports.filter((entry) => entry.visitId === value.visitId).flatMap((entry) => entry.findings);

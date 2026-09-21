@@ -182,7 +182,7 @@ suites.push({
 });
 suites.push({
   name: "B.21 work findings without a visit suite",
-  migrations: [...suites[suites.length - 1].migrations, "20260918000500_work_findings.sql"],
+  migrations: [...suites[suites.length - 1].migrations, "20260918000500_work_findings.sql", "20260921000100_follow_up_findings_by_module.sql"],
   test: "follow_up_work_findings.sql",
 });
 suites.push({

@@ -23,6 +23,10 @@ button.day:hover { background: #e8eef7; }
 .legendProfile { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; min-width: 0; padding: 6px 8px; border: 1px solid var(--line); border-radius: 7px; }
 .legendIdentity { display: grid; gap: 2px; min-width: 0; }
 .legendIdentity strong { overflow: hidden; color: var(--navy); font-size: 11px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.profileButton { max-width: 100%; padding: 0; overflow: hidden; border: 0; background: transparent; color: var(--navy); font-size: 11px; font-weight: 600; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+.profileButton:hover { text-decoration: underline; }
+.profileButton[aria-pressed="true"] { font-weight: 800; text-decoration: underline; }
+.profileButton:focus-visible { outline: 2px solid var(--navy); outline-offset: 3px; border-radius: 2px; }
 .legendIdentity small { color: var(--muted); font-size: 10px; }
 .colorTrigger { width: 20px; height: 20px; padding: 0; border: 1px solid rgb(0 0 0 / 12%); border-radius: 50%; }
 .colorSwatch { display: inline-block; flex: 0 0 auto; width: 16px; height: 16px; border: 1px solid rgb(0 0 0 / 12%); border-radius: 50%; }

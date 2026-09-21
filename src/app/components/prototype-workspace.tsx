@@ -13,6 +13,7 @@ import type { AgendaActionResult } from "@/lib/agenda/contracts";
 import { MaintenanceHistory } from "./maintenance-history";
 import { DialogoLogo } from "./dialogo-logo";
 import styles from "./prototype-workspace.module.css";
+import followUpStyles from "./follow-up-workspace.module.css";
 
 export function PrototypeDashboard({ user, module, works, audits, visits, auditors = [], activeAccountCount, generalAdministrator = false, open }: { user: DemoUser; module: AppModule; works: readonly WorkRecord[]; audits: readonly AuditRecord[]; visits: readonly Visit[]; auditors?: readonly DemoUser[]; activeAccountCount: number | null; generalAdministrator?: boolean; open: (screen: string) => void }) {
   const admin = user.role === "administrative";
@@ -25,17 +26,17 @@ export function PrototypeDashboard({ user, module, works, audits, visits, audito
   const agendaCard = <Metric label={admin ? "Visitas Agendadas" : auditor ? "Auditorias Agendadas" : "Visitas na agenda"} value={admin && visits.length === 0 ? "--" : auditor ? scheduledAudits : visits.length} description={admin ? "Consultar agenda" : undefined} onClick={works[0] && canConsultAgenda(user, works[0].id, module) ? () => open("agenda") : undefined} />;
   const profilesCard = <Metric label={admin ? "Perfis cadastrados" : "Relatórios publicados"} value={admin ? activeAccountCount ?? "--" : published.length} description={admin ? "Consultar perfis" : auditor ? "Consultar auditorias" : undefined} onClick={() => open(admin ? "settings" : auditor ? "audits" : "report")} />;
   const catalogsCard = <Metric label={admin ? "Roteiros disponíveis" : user.role === "engineering" ? "Auditorias consultáveis" : "Rascunhos próprios"} value={admin ? user.modules.includes("safety") ? 1 + (user.modules.includes("quality") ? 2 : 0) : 2 : user.role === "engineering" ? audits.length : ownDrafts.length} description={admin ? "Consultar roteiros" : undefined} onClick={() => open(admin ? "criteria" : "audits")} />;
-  if (safetyAuditor) return <>
-    <div className="page-intro"><div><h2>Visão geral</h2><p className="muted">Segurança · Auditor de Segurança</p></div></div>
+  if (auditor) return <>
+    <div className="page-intro"><div><h2>Visão geral</h2><p className="muted">{moduleLabels[module]} · {roleLabels[user.role]}</p></div></div>
     <div className="stats-grid stats-grid-admin stats-grid-three">
       <Metric label="Auditorias Agendadas" value={scheduledAudits} description="Consultar agenda" onClick={() => open("agenda")} />
       <Metric label="Obras relacionadas" value={works.length} description="Consultar obras" onClick={() => open("works")} />
-      <Metric label="Roteiros disponíveis" value={1} description="Consultar roteiro" onClick={() => open("criteria")} />
+      <Metric label="Roteiros disponíveis" value={module === "safety" ? 1 : 2} description="Consultar roteiro" onClick={() => open("criteria")} />
     </div>
     <AdminFindings />
     <div className="overview-grid">
-      <AdminMonthlyRanking modules={["safety"]} />
-      <AdminVisitCalendar visits={visits} works={works} auditors={[user]} viewerId={user.id} onViewAgenda={() => open("agenda")} includeFollowUps showLegend={false} />
+      <AdminMonthlyRanking modules={[module]} />
+      <AdminVisitCalendar visits={visits} works={works} auditors={[user]} viewerId={user.id} onViewAgenda={() => open("agenda")} includeFollowUps showLegend={false} colorBy="work" />
     </div>
   </>;
   return <>
@@ -79,15 +80,18 @@ export function AuditorScheduledAudits({ user, visits, works, audits, users, ava
   startedVisitIds: ReadonlySet<string>;
   catalog: ReactNode;
 }) {
+  const [publicationWorkId, setPublicationWorkId] = useState("");
   const workById = new Map(works.map((work) => [work.id, work]));
   const scheduled = visits.filter((visit) => visit.kind === "audit" && visit.auditorId === user.id
     && workById.has(visit.workId) && canReadVisit(user, visit))
     .slice().sort((first, second) => first.date.localeCompare(second.date) || first.id.localeCompare(second.id));
   const published = audits.filter((audit) => audit.status === "Publicada" && workById.has(audit.workId) && canReadAudit(user, audit))
     .slice().sort((first, second) => second.date.localeCompare(first.date) || second.id.localeCompare(first.id));
+  const visiblePublished = published.filter((audit) => !publicationWorkId || audit.workId === publicationWorkId);
   const exampleWork = workById.get(scheduled[0]?.workId ?? "") ?? works[0];
   const exampleDate = scheduled[0]?.date ?? "2026-09-18";
   const showExample = process.env.NODE_ENV !== "production" && published.length === 0 && !!exampleWork;
+  const showFilteredExample = showExample && (!publicationWorkId || publicationWorkId === exampleWork.id);
 
   return <>
     <div className="page-intro"><h2>Auditorias</h2></div>
@@ -108,18 +112,23 @@ export function AuditorScheduledAudits({ user, visits, works, audits, users, ava
       </div>
       <div className={styles.auditorSidebar}>
         <section className="panel" aria-label="Auditorias publicadas">
-          <div className="panel-heading"><h3>Auditorias publicadas</h3>{showExample && <span className="badge badge-amber">Prévia de teste</span>}</div>
+          <div className={`panel-heading ${styles.publicationHeading}`}><h3>Auditorias publicadas</h3>
+            <select className={followUpStyles.workFilter} aria-label="Filtrar auditorias publicadas por obra" value={publicationWorkId} onChange={(event) => setPublicationWorkId(event.target.value)}>
+              <option value="">Todas as obras</option>{works.map((work) => <option key={work.id} value={work.id}>{work.name}</option>)}
+            </select>
+            {showExample && <span className="badge badge-amber">Prévia de teste</span>}
+          </div>
           <div className={styles.publicationColumns}>
             <div className={styles.publicationColumn}>
               <h4>Auditoria</h4>
-              {published.length ? published.map((audit) => <PublishedDocumentCard key={audit.id} date={audit.date}
+              {visiblePublished.length ? visiblePublished.map((audit) => <PublishedDocumentCard key={audit.id} date={audit.date}
                 workName={workById.get(audit.workId)?.name ?? "Obra"} responsible={audit.auditor} />)
-                : showExample ? <PublishedDocumentCard date={exampleDate} workName={exampleWork.name} responsible={user.name} example />
+                : showFilteredExample ? <PublishedDocumentCard date={exampleDate} workName={exampleWork.name} responsible={user.name} example />
                   : <p className="muted">Nenhuma auditoria publicada para este perfil.</p>}
             </div>
             <div className={styles.publicationColumn}>
               <h4>Plano de ação</h4>
-              {showExample ? <PublishedDocumentCard date={exampleDate} workName={exampleWork.name} responsible={user.name} example />
+              {showFilteredExample ? <PublishedDocumentCard date={exampleDate} workName={exampleWork.name} responsible={user.name} example />
                 : <p className="muted">Nenhum plano de ação publicado.</p>}
             </div>
           </div>

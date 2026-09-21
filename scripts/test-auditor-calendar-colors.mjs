@@ -2,12 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { assignAuditorColors, assignWorkColors, auditorColorOptions, auditorColorPalette } from "../src/domain/auditor-calendar-colors.ts";
 
-test("Each auditor receives a stable, distinct color across calendar renders", () => {
+test("Auditors use the same color sequence as works in displayed order", () => {
   const ids = ["auditor-b", "auditor-a", "auditor-c"];
-  const first = assignAuditorColors(ids);
-  const reversed = assignAuditorColors([...ids].reverse());
-  assert.deepEqual(first, reversed);
-  assert.equal(new Set(Object.values(first)).size, ids.length);
+  assert.deepEqual(assignAuditorColors(ids), {
+    "auditor-b": "#1e3a5f", "auditor-a": "#dc2626", "auditor-c": "#ca8a04",
+  });
+  assert.deepEqual(assignAuditorColors([...ids].reverse()), {
+    "auditor-c": "#1e3a5f", "auditor-a": "#dc2626", "auditor-b": "#ca8a04",
+  });
 });
 
 test("Chosen colors take precedence without giving two auditors the same marker", () => {

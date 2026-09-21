@@ -32,15 +32,9 @@ export function assignWorkColors(ids: readonly string[]): Record<string, string>
   return Object.fromEntries(uniqueIds.map((id, index) => [id, auditorColorPalette[index % auditorColorPalette.length]]));
 }
 
-function hashId(id: string) {
-  let hash = 2166136261;
-  for (const char of id) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619);
-  return hash >>> 0;
-}
-
-/** Stable per-ID defaults, while keeping every visible auditor's color distinct. */
+/** Auditors follow their displayed order, using the same sequence as works. */
 export function assignAuditorColors(ids: readonly string[], preferences: Record<string, string> = {}): Record<string, string> {
-  const uniqueIds = [...new Set(ids)].sort();
+  const uniqueIds = [...new Set(ids)];
   const colors: Record<string, string> = {};
   const used = new Set<string>();
   for (const id of uniqueIds) {
@@ -50,9 +44,9 @@ export function assignAuditorColors(ids: readonly string[], preferences: Record<
       used.add(preferred);
     }
   }
-  for (const id of uniqueIds) {
+  for (const [index, id] of uniqueIds.entries()) {
     if (colors[id]) continue;
-    const start = hashId(id) % auditorColorPalette.length;
+    const start = index % auditorColorPalette.length;
     const available = Array.from({ length: auditorColorPalette.length }, (_, offset) => auditorColorPalette[(start + offset) % auditorColorPalette.length])
       .find((color) => !used.has(color));
     // More than 20 simultaneous auditors necessarily reuse one of the fixed colors.
