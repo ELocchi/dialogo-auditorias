@@ -18,6 +18,10 @@ type CatalogEditorPanelProps = {
 
 const pdfLimit = 5 * 1024 * 1024;
 const originalLimit = 2 * 1024 * 1024;
+const verificationRules = [
+  { value: "Conforme/Não Conforme", label: "Correto / Não conforme" },
+  { value: "Dividido pela quantidade verificada", label: "Dividido pela quantidade de itens verificados" },
+] as const;
 
 function newRequestId(): string {
   if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
@@ -51,6 +55,7 @@ export function CatalogEditorPanel({ version, available, setupPending, actorId, 
   const [changeNote, setChangeNote] = useState("");
   const [pdf, setPdf] = useState<File | null>(null);
   const [original, setOriginal] = useState<File | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [feedback, setFeedback] = useState<{ status: "success" | "error"; message: string } | null>(null);
   const [saved, setSaved] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -72,11 +77,73 @@ export function CatalogEditorPanel({ version, available, setupPending, actorId, 
   const changed = () => {
     requestIdRef.current = null;
     setFeedback(null);
+    setPreviewOpen(false);
   };
-  const changeItem = (patch: Partial<Pick<Criterion, "text" | "verificationRule" | "sourceNote">>) => {
+  const changeItem = (patch: Partial<Pick<Criterion, "code" | "title" | "text" | "group" | "subgroup" | "source" | "locator" | "verificationRule" | "sourceNote" | "interpretation">>) => {
     if (!selected) return;
     changed();
     setCriteria((items) => items.map((item) => item.id === selected.id ? { ...item, ...patch } : item));
+  };
+
+  const criteriaWithWeights = (): Criterion[] => criteria.map((item) => {
+    const rawWeight = weights[item.id];
+    if (rawWeight === undefined) return item;
+    const updated = { ...item };
+    const normalizedWeight = rawWeight.trim().replace(",", ".");
+    if (normalizedWeight) updated.configuredWeight = Number(normalizedWeight);
+    else delete updated.configuredWeight;
+    return updated;
+  });
+
+  const validateCriteria = (): Criterion[] | null => {
+    const submittedCriteria = criteriaWithWeights();
+    for (const item of submittedCriteria) {
+      const rawWeight = weights[item.id];
+      const normalizedWeight = rawWeight?.trim().replace(",", ".");
+      if (!item.id.trim() || !item.code.trim() || !item.title.trim() || !item.text.trim() || !item.group.trim() || !item.source.trim()
+        || item.orientations.some((orientation) => !orientation.text.trim()) || (normalizedWeight && (!/^\d+(?:\.\d+)?$/.test(normalizedWeight)
+        || !Number.isFinite(Number(normalizedWeight)) || Number(normalizedWeight) < 0 || Number(normalizedWeight) > 1000))) {
+        setMode("items"); setQuery(""); setSelectedId(item.id);
+        setFeedback({ status: "error", message: `Preencha os campos obrigatórios e confira a nota final do item ${item.code || "sem código"}. Use um valor entre 0 e 1000.` });
+        return null;
+      }
+    }
+    if (!submittedCriteria.length) { setFeedback({ status: "error", message: "A revisão precisa ter pelo menos um item." }); return null; }
+    if (new Set(submittedCriteria.map((item) => item.id.trim())).size !== submittedCriteria.length
+      || new Set(submittedCriteria.map((item) => item.code.trim())).size !== submittedCriteria.length) {
+      setFeedback({ status: "error", message: "Cada item precisa ter código e identificação únicos." }); return null;
+    }
+    return submittedCriteria;
+  };
+
+  const preparePreview = () => {
+    setFeedback(null);
+    if (!available) { setFeedback({ status: "error", message: unavailableMessage }); return; }
+    if (mode === "upload" && (!revisionLabel.trim() || !changeNote.trim() || !pdf)) {
+      setFeedback({ status: "error", message: "Selecione o PDF e informe o nome e o motivo da nova revisão." }); return;
+    }
+    const fileError = mode === "upload" ? validateFile(pdf, "pdf", pdfLimit) ?? validateFile(original, "docx", originalLimit) : null;
+    if (fileError) { setFeedback({ status: "error", message: fileError }); return; }
+    if (!validateCriteria()) return;
+    setPreviewOpen(true);
+    requestAnimationFrame(() => document.getElementById(`${formId}-preview`)?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  };
+
+  const addItem = () => {
+    const usedCodes = new Set(criteria.map((item) => item.code));
+    let number = criteria.length + 1;
+    while (usedCodes.has(`NOVO-${number}`)) number += 1;
+    const id = `ITEM-${newRequestId()}`;
+    const item: Criterion = {
+      id, code: `NOVO-${number}`, title: "Novo item", text: "Descreva o item de auditoria",
+      group: "Novo módulo", subgroup: "", source: referenceDocuments[base.modelId].catalogName,
+      locator: "Novo item", documentedWeight: null, configuredWeight: 0,
+      verificationRule: verificationRules[0].value, orientations: [],
+    };
+    changed();
+    setCriteria((items) => [...items, item]);
+    setQuery("");
+    setSelectedId(id);
   };
   const changeOrientation = (index: number, text: string) => {
     if (!selected) return;
@@ -101,24 +168,8 @@ export function CatalogEditorPanel({ version, available, setupPending, actorId, 
     const fileError = mode === "upload" ? validateFile(pdf, "pdf", pdfLimit) ?? validateFile(original, "docx", originalLimit) : null;
     if (fileError) { setFeedback({ status: "error", message: fileError }); return; }
 
-    const submittedCriteria: Criterion[] = [];
-    for (const item of criteria) {
-      const rawWeight = weights[item.id];
-      const normalizedWeight = rawWeight?.trim().replace(",", ".");
-      if (!item.text.trim() || item.orientations.some((orientation) => !orientation.text.trim()) || (normalizedWeight && (!/^\d+(?:\.\d+)?$/.test(normalizedWeight)
-        || !Number.isFinite(Number(normalizedWeight)) || Number(normalizedWeight) < 0 || Number(normalizedWeight) > 1000))) {
-        setMode("items"); setQuery(""); setSelectedId(item.id);
-        setFeedback({ status: "error", message: `Confira o texto, as orientações e o peso do item ${item.code}. Use um peso entre 0 e 1000.` });
-        return;
-      }
-      const updated = { ...item };
-      if (rawWeight !== undefined) {
-        if (normalizedWeight) updated.configuredWeight = Number(normalizedWeight);
-        else delete updated.configuredWeight;
-      }
-      submittedCriteria.push(updated);
-    }
-    if (!submittedCriteria.length) { setFeedback({ status: "error", message: "Nenhum item disponível para esta revisão." }); return; }
+    const submittedCriteria = validateCriteria();
+    if (!submittedCriteria) return;
 
     let formData: FormData;
     try {
@@ -166,7 +217,7 @@ export function CatalogEditorPanel({ version, available, setupPending, actorId, 
       <div className={styles.body}>
         {!available && <p className={styles.availability} role="status">{unavailableMessage}</p>}
         <p className={styles.introduction}>As alterações valerão para as próximas auditorias. As auditorias existentes manterão a revisão usada na abertura.</p>
-        <fieldset className={styles.fields} disabled={blocked}>
+        {!previewOpen && <fieldset className={styles.fields} disabled={blocked}>
           <div className={styles.modes} role="group" aria-label="Como revisar o roteiro">
             <button type="button" aria-pressed={mode === "items"} className={mode === "items" ? styles.activeMode : undefined}
               onClick={() => { changed(); setMode("items"); }}>Editar itens</button>
@@ -181,17 +232,32 @@ export function CatalogEditorPanel({ version, available, setupPending, actorId, 
                 {!filtered.length && <option value="">Nenhum item encontrado</option>}
                 {filtered.map((item) => <option key={item.id} value={item.id}>{item.code} — {item.text}</option>)}
               </select></label>
+              <button type="button" className={styles.addItem} onClick={addItem}>+ Adicionar novo item</button>
               <p className={styles.hint} role="status">{filtered.length} de {criteria.length} itens</p>
               {selected && <div className={styles.source}><strong>{selected.code}</strong><span>{selected.group}</span>{selected.subgroup && <span>{selected.subgroup}</span>}<small>{selected.source} · {selected.locator}</small></div>}
             </aside>
             {selected ? <div className={styles.itemFields}>
+              <div className={styles.identityFields}>
+                <label>Código<input required maxLength={100} value={selected.code} onChange={(event) => changeItem({ code: event.target.value })} /></label>
+                <label>Título<input required maxLength={2000} value={selected.title} onChange={(event) => changeItem({ title: event.target.value })} /></label>
+                <label>Módulo / grupo<input required maxLength={2000} value={selected.group} onChange={(event) => changeItem({ group: event.target.value })} /></label>
+                <label>Subgrupo<input maxLength={2000} value={selected.subgroup} onChange={(event) => changeItem({ subgroup: event.target.value })} /></label>
+              </div>
               <label>Texto do item<textarea rows={5} maxLength={30000} required value={selected.text} onChange={(event) => changeItem({ text: event.target.value })} /></label>
-              <label>Peso<input type="text" inputMode="decimal" value={weights[selected.id] ?? String(getCriterionWeight(selected) ?? "")}
+              <label>Nota final do item<input type="text" inputMode="decimal" value={weights[selected.id] ?? String(getCriterionWeight(selected) ?? "")}
                 onChange={(event) => { changed(); setWeights((current) => ({ ...current, [selected.id]: event.target.value })); }} />
-                <small>Peso da fonte: {selected.documentedWeight === null ? "não informado" : selected.documentedWeight.toLocaleString("pt-BR")}. Deixe em branco para usar o peso da fonte.</small>
+                <small>Nota da fonte: {selected.documentedWeight === null ? "não informada" : selected.documentedWeight.toLocaleString("pt-BR")}. Deixe em branco para usar a nota da fonte.</small>
               </label>
-              <label>Critério de verificação<textarea rows={3} value={selected.verificationRule ?? ""} onChange={(event) => changeItem({ verificationRule: event.target.value })} /></label>
+              <label>Critério de verificação<select value={selected.verificationRule ?? ""} onChange={(event) => changeItem({ verificationRule: event.target.value || undefined })}>
+                <option value="">Não definido</option>
+                {verificationRules.map((rule) => <option value={rule.value} key={rule.value}>{rule.label}</option>)}
+              </select><small>Define se o item recebe uma resposta única ou se a nota será distribuída entre os itens verificados.</small></label>
               <label>Observação<textarea rows={3} value={selected.sourceNote ?? ""} onChange={(event) => changeItem({ sourceNote: event.target.value })} /></label>
+              <label>Interpretação<textarea rows={3} value={selected.interpretation ?? ""} onChange={(event) => changeItem({ interpretation: event.target.value })} /></label>
+              <div className={styles.identityFields}>
+                <label>Fonte<input required maxLength={1000} value={selected.source} onChange={(event) => changeItem({ source: event.target.value })} /></label>
+                <label>Localizador<input maxLength={2000} value={selected.locator} onChange={(event) => changeItem({ locator: event.target.value })} /></label>
+              </div>
               {selected.orientations.length > 0 && <details className={styles.orientations}>
                 <summary>Orientações existentes ({selected.orientations.length})</summary>
                 {selected.orientations.map((orientation, index) => <label key={`${selected.id}:${orientation.id}:${index}`}>
@@ -224,12 +290,30 @@ export function CatalogEditorPanel({ version, available, setupPending, actorId, 
             <label>Motivo da alteração<textarea required rows={3} maxLength={2000} value={changeNote} placeholder="Descreva o que mudou nesta revisão."
               onChange={(event) => { changed(); setChangeNote(event.target.value); }} /></label>
           </section></>}
-        </fieldset>
+        </fieldset>}
+        {previewOpen && <section id={`${formId}-preview`} className={styles.preview} aria-label="Pré-visualização para o auditor">
+          <div className={styles.previewHeader}>
+            <div><span className={styles.eyebrow}>ANTES DE CONFIRMAR</span><h3>Pré-visualização para o auditor</h3><p>Confira a ordem, os módulos, os textos e a nota final de cada item.</p></div>
+            <button type="button" className="secondary" onClick={() => setPreviewOpen(false)}>Voltar à edição</button>
+          </div>
+          <div className={styles.previewList}>
+            {criteriaWithWeights().map((item, index) => <article className={styles.previewCard} key={item.id}>
+              <div className={styles.previewCardHeader}><span>Item {index + 1} de {criteria.length}</span><strong>{getCriterionWeight(item)?.toLocaleString("pt-BR") ?? "Sem nota"}</strong></div>
+              <p className={styles.previewPath}>{item.group}{item.subgroup ? ` · ${item.subgroup}` : ""}</p>
+              <h4>{item.code} · {item.title}</h4>
+              <p className={styles.previewText}>{item.text}</p>
+              {item.verificationRule && <div><b>Critério de verificação</b><p>{item.verificationRule}</p></div>}
+              {item.sourceNote && <div><b>Observação</b><p>{item.sourceNote}</p></div>}
+              {item.interpretation && <div><b>Interpretação</b><p>{item.interpretation}</p></div>}
+              {item.orientations.length > 0 && <details><summary>Orientações ({item.orientations.length})</summary>{item.orientations.map((orientation) => <p key={orientation.id}>{orientation.text}</p>)}</details>}
+            </article>)}
+          </div>
+        </section>}
         {feedback && <p className={feedback.status === "error" ? styles.error : styles.success} role={feedback.status === "error" ? "alert" : "status"}>{feedback.message}</p>}
       </div>
       <footer className={styles.footer}>
         <span>{pending ? "Salvando a nova revisão…" : saved ? "Revisão salva." : `${criteria.length} itens na nova revisão`}</span>
-        <button type="submit" className="primary" disabled={!available || blocked || !criteria.length}>{pending ? "Salvando…" : saved ? "Revisão salva" : mode === "upload" ? "Salvar nova revisão" : "Salvar alterações"}</button>
+        <button type={previewOpen ? "submit" : "button"} className="primary" disabled={!available || blocked || !criteria.length} onClick={previewOpen ? undefined : preparePreview}>{pending ? "Salvando…" : saved ? "Revisão salva" : previewOpen ? "Confirmar e salvar alterações" : "Pré-visualizar alterações"}</button>
       </footer>
     </form>
   </section>;

@@ -21,10 +21,12 @@
 .modes button:disabled { cursor: default; }
 .editor { display: grid; grid-template-columns: minmax(210px, .85fr) minmax(0, 2fr); gap: 24px; align-items: start; }
 .selection { display: grid; gap: 14px; padding: 16px; border: 1px solid var(--line); border-radius: 8px; background: #f7f8fa; }
+.addItem { width: 100%; padding: 11px 14px; border: 1px solid var(--navy); border-radius: 7px; background: var(--navy); color: white; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
 .hint { margin: 0; color: var(--muted); font-size: 12px; }
 .source { display: grid; gap: 8px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
 .source strong { font-size: 15px; }
 .itemFields { display: grid; gap: 16px; }
+.identityFields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .orientations { padding-top: 14px; border-top: 1px solid var(--line); }
 .orientations summary { padding: 4px 0; font-size: 13px; font-weight: 600; cursor: pointer; }
 .orientations label { margin-top: 16px; }
@@ -40,6 +42,21 @@
 .availability { background: #f4f6fa; }
 .error { margin: 20px 0 0; border-color: #e6b6bb; background: #fff6f7; color: #9d2230; }
 .success { margin: 20px 0 0; border-color: #bdd8c8; background: #f0f8f3; color: #226942; }
+.preview { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.previewHeader { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding: 18px; border-bottom: 1px solid var(--line); background: #f7f8fa; }
+.previewHeader h3 { margin: 0; font-size: 19px; }
+.previewHeader p { margin: 7px 0 0; color: var(--muted); font-size: 12px; }
+.previewList { display: grid; gap: 14px; max-height: 65vh; padding: 18px; overflow: auto; background: #eef1f5; }
+.previewCard { padding: 18px; border: 1px solid var(--line); border-left: 5px solid var(--red); border-radius: 8px; background: white; }
+.previewCardHeader { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; }
+.previewCardHeader strong { padding: 6px 9px; border-radius: 6px; background: var(--navy); color: white; font-size: 12px; }
+.previewPath { margin: 14px 0 5px; color: var(--muted); font-size: 12px; }
+.previewCard h4 { margin: 0; font-size: 17px; }
+.previewText { margin: 12px 0; font-size: 14px; line-height: 1.6; white-space: pre-wrap; }
+.previewCard > div:not(.previewCardHeader) { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.previewCard b, .previewCard summary { font-size: 12px; }
+.previewCard div p, .previewCard details p { margin: 6px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; white-space: pre-wrap; }
+.previewCard details { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
 .footer { display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 24px; border-top: 1px solid var(--line); background: var(--surface); }
 .footer > span { color: var(--muted); font-size: 12px; }
 @media (max-width: 720px) {
@@ -47,11 +64,13 @@
   .header { padding: 16px; gap: 12px; }
   .header h2 { font-size: 20px; }
   .body { padding: 16px; }
-  .editor, .fileGrid { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+  .editor, .fileGrid, .identityFields { grid-template-columns: minmax(0, 1fr); gap: 18px; }
   .source { gap: 5px; }
   .modes button { padding: 11px 8px; font-size: 12px; }
   .footer { padding: 12px 16px; gap: 10px; }
   .footer button { font-size: 12px; padding: 12px; }
+  .previewHeader { align-items: stretch; flex-direction: column; }
+  .previewList { max-height: none; }
 }
 @media (max-width: 400px) {
   .footer { align-items: stretch; flex-direction: column; }

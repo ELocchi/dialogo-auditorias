@@ -17,22 +17,40 @@ function form(model = "security-it07-r02") {
 const pdf = () => new File(["%PDF-1.7\nfixture"], "Revisão 03.pdf", { type: "application/pdf" });
 const word = () => new File([new Uint8Array([80,75,3,4,0])], "Original.docx");
 
-test("All full built-in catalogs and weights are accepted without mutating their provenance", () => {
+test("All catalog fields can be edited without mutating the bundled source", () => {
   for (const id of catalogModelIds) {
     const source = bundledCatalog(id).criteria;
     assert.ok(parseCriteria(source), "Full catalog must parse: " + id);
     assert.deepEqual(parseCriteria(source), source);
     const input = form(id), changed = structuredClone(source);
+    changed[0].code = `REV-${changed[0].code}`; changed[0].title = "Título revisado";
+    changed[0].group = "Módulo revisado"; changed[0].subgroup = "Subgrupo revisado";
     changed[0].text = "Texto revisado"; changed[0].configuredWeight = 7.25;
-    changed[0].source = "forged source"; changed[0].documentedWeight = 123;
+    changed[0].source = "Fonte revisada"; changed[0].locator = "Localizador revisado"; changed[0].documentedWeight = 123;
+    changed[0].interpretation = "Interpretação revisada";
     if (changed[0].orientations.length) changed[0].orientations[0].text = "Orientação revisada";
     input.set("criteria", JSON.stringify(changed));
     const parsed = parseRevisionForm(input); assert.ok(parsed);
+    assert.equal(parsed.criteria[0].title, "Título revisado"); assert.equal(parsed.criteria[0].group, "Módulo revisado");
     assert.equal(parsed.criteria[0].text, "Texto revisado"); assert.equal(parsed.criteria[0].configuredWeight, 7.25);
-    assert.equal(parsed.criteria[0].source, source[0].source); assert.equal(parsed.criteria[0].documentedWeight, source[0].documentedWeight);
+    assert.equal(parsed.criteria[0].source, "Fonte revisada"); assert.equal(parsed.criteria[0].documentedWeight, 123);
     assert.equal(parsed.criteria[0].weightConfigurationId, "manual:" + request);
     assert.deepEqual(source, bundledCatalog(id).criteria);
   }
+});
+
+test("A new audit item is accepted and persisted in the selected order", () => {
+  const input = form("quality-f175");
+  const items = JSON.parse(input.get("criteria"));
+  items.splice(1, 0, {
+    id: "ITEM-d1a80000-0000-4000-8000-000000000099", code: "NOVO-11", title: "Novo item",
+    text: "Verificar o novo requisito", group: "Novo módulo", subgroup: "Teste", source: "Revisão administrativa",
+    locator: "Item incluído", documentedWeight: null, configuredWeight: 4, orientations: [],
+  });
+  input.set("criteria", JSON.stringify(items));
+  const parsed = parseRevisionForm(input);
+  assert.ok(parsed); assert.equal(parsed.criteria.length, 11); assert.equal(parsed.criteria[1].code, "NOVO-11");
+  assert.equal(parsed.criteria[1].weightConfigurationId, "manual:" + request);
 });
 
 test("Invalid, duplicate or expanded form fields, IDs and criteria are rejected", () => {
@@ -43,6 +61,7 @@ test("Invalid, duplicate or expanded form fields, IDs and criteria are rejected"
     (f) => f.set("criteria", "bad json"), (f) => f.set("criteria", "[]"),
     (f) => { const items = bundledCatalog("security-it07-r02").criteria; items[0].id = items[1].id; f.set("criteria",JSON.stringify(items)); },
     (f) => { const items = bundledCatalog("quality-f175").criteria; items[0].configuredWeight = -1; f.set("criteria",JSON.stringify(items)); },
+    (f) => { const items = bundledCatalog("quality-f175").criteria; items[0].verificationRule = "Regra livre"; f.set("criteria",JSON.stringify(items)); },
     (f) => { const items = bundledCatalog("security-it07-r02").criteria; items[0].orientations[0].text = ""; f.set("criteria",JSON.stringify(items)); },
   ]) { const input = form(); mutate(input); assert.equal(parseRevisionForm(input), null); }
 });

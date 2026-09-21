@@ -1,6 +1,6 @@
 import type { Criterion } from "../../domain/catalogs.ts";
 import { uuidPattern } from "../access/validation.ts";
-import { bundledCatalog, catalogModelIds } from "./contracts.ts";
+import { catalogModelIds } from "./contracts.ts";
 import type { AuditModelId } from "../../domain/operational-records.ts";
 
 export const MAX_CRITERIA_BYTES = 4 * 1024 * 1024;
@@ -11,6 +11,7 @@ export const isUuid = (value: unknown): value is string => typeof value === "str
 export const validText = (value: unknown, max: number): value is string => typeof value === "string" && value.length <= max && !value.includes("\u0000");
 export const isModel = (value: unknown): value is AuditModelId => catalogModelIds.includes(value as AuditModelId);
 const weight = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1000;
+const verificationRules = new Set(["Conforme/Não Conforme", "Dividido pela quantidade verificada"]);
 
 export function parseCriteria(value: unknown): Criterion[] | null {
   if (!Array.isArray(value) || !value.length || value.length > 500 || Buffer.byteLength(JSON.stringify(value)) > MAX_CRITERIA_BYTES) return null;
@@ -40,32 +41,22 @@ export function parseCriteria(value: unknown): Criterion[] | null {
   return structuredClone(value) as Criterion[];
 }
 
-/** Keep identities and documentary provenance while editing the supported fields.
- * Normalization depends on the request, not the latest revision, making retries stable. */
+/** Normalize the complete edited catalog. The request ID makes manual weight metadata stable on retries. */
 export function normalizeEditedCriteria(modelId: AuditModelId, value: unknown, requestId: string): Criterion[] | null {
   const edited = parseCriteria(value);
-  const baseline = bundledCatalog(modelId).criteria;
-  if (!edited || edited.length !== baseline.length) return null;
-  const result: Criterion[] = [];
-  for (let index = 0; index < baseline.length; index++) {
-    const original = baseline[index];
-    const item = edited[index];
-    if (item.id !== original.id || item.code !== original.code || item.orientations.length !== original.orientations.length
-      || item.orientations.some((entry, i) => entry.id !== original.orientations[i].id)) return null;
-    const next = { ...original, text: item.text.trim(),
-      orientations: original.orientations.map((entry, i) => ({ ...entry, text: item.orientations[i].text.trim() })) };
-    for (const key of ["verificationRule", "sourceNote"] as const) {
-      if (item[key] !== undefined) next[key] = item[key].trim();
+  if (!edited || !catalogModelIds.includes(modelId)
+    || edited.some((item) => item.verificationRule !== undefined && !verificationRules.has(item.verificationRule.trim()))) return null;
+  return edited.map((item) => {
+    const next = { ...item, id: item.id.trim(), code: item.code.trim(), title: item.title.trim(), text: item.text.trim(),
+      group: item.group.trim(), subgroup: item.subgroup.trim(), source: item.source.trim(), locator: item.locator.trim(),
+      orientations: item.orientations.map((orientation) => ({ ...orientation, scope: orientation.scope.trim(), text: orientation.text.trim() })) };
+    for (const key of ["verificationRule", "sourceNote", "interpretation"] as const) {
+      if (next[key] !== undefined) next[key] = next[key]!.trim();
     }
-    delete next.configuredWeight;
-    delete next.weightConfigurationId;
-    if (item.configuredWeight !== undefined) {
-      next.configuredWeight = item.configuredWeight;
-      next.weightConfigurationId = item.configuredWeight === original.configuredWeight && original.weightConfigurationId ? original.weightConfigurationId : `manual:${requestId}`;
-    }
-    result.push(next);
-  }
-  return result;
+    if (next.configuredWeight !== undefined) next.weightConfigurationId = `manual:${requestId}`;
+    else delete next.weightConfigurationId;
+    return next;
+  });
 }
 
 function field(form: FormData, key: string): string | null {

@@ -140,34 +140,46 @@ function CriterionRow({ item, showWeights }: { item: Criterion; showWeights: boo
 
 type NewAuditProps = {
   model: string;
-  setModel: (model: string) => void;
   criteria: Criterion[];
   activeIndex: number;
   setActiveIndex: (index: number) => void;
   drafts: AuditDrafts;
   updateDraft: (response: { answer?: DraftAnswer; note: string }) => void;
-  jumpOpen: boolean;
-  setJumpOpen: (open: boolean) => void;
   details: { date: string; auditor: string };
-  setDetails: (details: { date: string; auditor: string }) => void;
   workName?: string;
   responseKey?: string;
-  lockedContext?: boolean;
   readOnly?: boolean;
   showWeights?: boolean;
 };
 
-export function NewAudit({ model, setModel, criteria, activeIndex, setActiveIndex, drafts, updateDraft, jumpOpen, setJumpOpen, details, setDetails, workName = "Residencial Horizonte · Guarulhos", responseKey = model, lockedContext = false, readOnly = false, showWeights = true }: NewAuditProps) {
+function displayAuditDate(value: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : value;
+}
+
+function itemResponseScore(answer: DraftAnswer | undefined): string {
+  if (answer === "0" || answer === "5" || answer === "10") return `Nota ${answer}`;
+  if (answer === "N/A") return "Nota N/A";
+  return "Nota pendente";
+}
+
+export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts, updateDraft, details, workName = "Residencial Horizonte · Guarulhos", responseKey = model, readOnly = false, showWeights = true }: NewAuditProps) {
+  const [selectedItemOpen, setSelectedItemOpen] = useState(false);
   const criterion = criteria[activeIndex] ?? criteria[0];
   const response = criterion ? getItemResponse(drafts, responseKey, criterion) : { note: "" };
   const security = model.startsWith("Segurança");
   const answered = criteria.filter((item) => getItemResponse(drafts, responseKey, item).answer !== undefined).length;
   const progress = criteria.length ? Math.floor(answered / criteria.length * 1000) / 10 : 0;
+  const awardedScores = criteria.flatMap((item) => {
+    const answer = getItemResponse(drafts, responseKey, item).answer;
+    return answer === "0" || answer === "5" || answer === "10" ? [Number(answer)] : [];
+  });
+  const partialScore = awardedScores.length ? awardedScores.reduce((total, score) => total + score, 0) / awardedScores.length : null;
   const pickerId = useId();
   const answerHelpId = useId();
   const noteHelpId = useId();
   const measurementHelpId = useId();
-  const move = (direction: -1 | 1) => setActiveIndex(getAdjacentIndex(activeIndex, criteria.length, direction));
+  const move = (direction: -1 | 1) => { setActiveIndex(getAdjacentIndex(activeIndex, criteria.length, direction)); setSelectedItemOpen(true); };
   const options: DraftAnswer[] = security ? ["0", "5", "10", "N/A"] : ["Não verificado", "Constatação qualitativa"];
 
   return <>
@@ -180,37 +192,33 @@ export function NewAudit({ model, setModel, criteria, activeIndex, setActiveInde
       <span className="badge badge-amber">Rascunho nesta sessão</span>
     </div>
 
-    <section className="form-panel" aria-label="Dados da auditoria">
-      <label>OBRA<select disabled={lockedContext || readOnly}><option>{workName}</option></select></label>
-      <label>DATA DA AUDITORIA<input type="date" value={details.date} readOnly={lockedContext || readOnly} onChange={(event) => setDetails({ ...details, date: event.target.value })} /></label>
-      <label>MODELO E VERSÃO<select value={model} disabled={lockedContext || readOnly} onChange={(event) => setModel(event.target.value)}>{(lockedContext ? [model] : models).map((item) => <option key={item}>{item}</option>)}</select></label>
-      <label>AUDITOR RESPONSÁVEL<input value={details.auditor} readOnly={lockedContext || readOnly} onChange={(event) => setDetails({ ...details, auditor: event.target.value })} /></label>
-    </section>
+    <section className="audit-fill-panel" aria-label="Preenchimento da auditoria">
+    <div className="form-panel audit-reference-panel" aria-label="Dados de referência da auditoria">
+      <div className="audit-reference"><small>OBRA</small><p>{workName}</p></div>
+      <div className="audit-reference"><small>DATA DA AUDITORIA</small><p>{displayAuditDate(details.date)}</p></div>
+      <div className="audit-reference"><small>MODELO</small><p>{model}</p></div>
+      <div className="audit-reference"><small>AUDITOR RESPONSÁVEL</small><p>{details.auditor}</p></div>
+    </div>
 
     <section className="audit-progress" aria-label="Andamento do preenchimento">
       <div className="progress-description">
-        <strong>Preenchimento do roteiro</strong>
-        <span><b>{answered}</b> de {criteria.length} itens com resposta selecionada</span>
+        <strong>Preenchimento da auditoria</strong>
+        <span><b>{answered}</b> de {criteria.length} itens</span>
+        <div className="progress-meter">
+          <progress value={answered} max={criteria.length || 1} aria-label={`${progress.toLocaleString("pt-BR")}% dos itens preenchidos`} />
+          <small className="progress-percentage">{progress.toLocaleString("pt-BR")}%</small>
+        </div>
       </div>
-      <div className="progress-meter">
-        <progress value={answered} max={criteria.length || 1} aria-label="Itens com resposta selecionada" />
-        <strong>{progress.toLocaleString("pt-BR")}%</strong>
-      </div>
+      <div className="partial-score"><small>NOTA PARCIAL</small><strong>{partialScore === null ? "—" : partialScore.toFixed(2).replace(".", ",")}</strong></div>
     </section>
 
     <section className="question-card" aria-label="Quesito da auditoria">
-      <div className="item-navigation">
-        <div className="item-navigation-steps">
-          <button type="button" className="secondary" disabled={activeIndex === 0 || !criterion} onClick={() => move(-1)}><span aria-hidden="true">←</span> Anterior</button>
-          <strong aria-live="polite">Item {criterion ? activeIndex + 1 : 0} <span>de {criteria.length}</span></strong>
-          <button type="button" className="secondary" disabled={activeIndex >= criteria.length - 1} onClick={() => move(1)}>Próximo <span aria-hidden="true">→</span></button>
-        </div>
-        <button type="button" className="secondary picker-toggle" aria-expanded={jumpOpen} aria-controls={pickerId} onClick={() => setJumpOpen(!jumpOpen)}>{jumpOpen ? "Fechar lista de itens" : "Ir para item"} <span aria-hidden="true">{jumpOpen ? "−" : "+"}</span></button>
-      </div>
+      <ItemPicker id={pickerId} model={responseKey} criteria={criteria} drafts={drafts} activeId={selectedItemOpen ? criterion?.id : undefined} showWeights={showWeights} onSelect={(index) => {
+        if (selectedItemOpen && index === activeIndex) setSelectedItemOpen(false);
+        else { setActiveIndex(index); setSelectedItemOpen(true); }
+      }} />
 
-      {jumpOpen && <ItemPicker id={pickerId} model={responseKey} criteria={criteria} drafts={drafts} activeId={criterion?.id} onSelect={(index) => { setActiveIndex(index); setJumpOpen(false); }} />}
-
-      {criterion ? <div className="question-content">
+      {selectedItemOpen && criterion ? <div className="question-content">
         <div className="question-context">
           <span className="question-code">ITEM {criterion.code}</span>
           <span>{criterion.group}{criterion.subgroup && ` · ${criterion.subgroup}`}</span>
@@ -253,43 +261,44 @@ export function NewAudit({ model, setModel, criteria, activeIndex, setActiveInde
           <div><span>Resposta: <strong>{getResponseLabel(response)}</strong></span>{showWeights && <span>Peso: <strong>{getCriterionWeight(criterion)?.toFixed(2).replace(".", ",") ?? "A definir"}</strong></span>}</div>
           <p className="draft-status"><span aria-hidden="true">✓</span> Respostas mantidas nesta sessão</p>
         </div>
-      </div> : <div className="catalog-empty"><h3>Nenhum quesito disponível</h3><p>Selecione outro modelo de auditoria.</p></div>}
+      </div> : criteria.length === 0 ? <div className="catalog-empty"><h3>Nenhum quesito disponível</h3><p>Selecione outro modelo de auditoria.</p></div> : null}
     </section>
 
-    <div className="item-navigation-bottom">
+    {selectedItemOpen && criterion && <div className="item-navigation-bottom">
       <button type="button" className="secondary" disabled={activeIndex === 0 || !criterion} onClick={() => move(-1)}><span aria-hidden="true">←</span> Anterior</button>
       <span>Item <strong>{criterion ? activeIndex + 1 : 0}</strong> de {criteria.length}</span>
       <button type="button" className="primary" disabled={activeIndex >= criteria.length - 1} onClick={() => move(1)}>Próximo item <span aria-hidden="true">→</span></button>
-    </div>
+    </div>}
+    </section>
   </>;
 }
 
-function ItemPicker({ id, model, criteria, drafts, activeId, onSelect }: { id: string; model: string; criteria: Criterion[]; drafts: AuditDrafts; activeId?: string; onSelect: (index: number) => void }) {
-  const [search, setSearch] = useState("");
-  const searchId = useId();
+function ItemPicker({ id, model, criteria, drafts, activeId, showWeights, onSelect }: { id: string; model: string; criteria: Criterion[]; drafts: AuditDrafts; activeId?: string; showWeights: boolean; onSelect: (index: number) => void }) {
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set());
   const grouped = criteria.reduce<Record<string, { criterion: Criterion; index: number }[]>>((groups, criterion, index) => {
-    if (`${criterion.code} ${criterion.text} ${criterion.group} ${criterion.subgroup}`.toLowerCase().includes(search.toLowerCase())) {
-      (groups[criterion.group] ??= []).push({ criterion, index });
-    }
+    (groups[criterion.group] ??= []).push({ criterion, index });
     return groups;
   }, {});
 
   return <div className="item-picker" id={id}>
-    <label className="picker-search" htmlFor={searchId}>LOCALIZAR ITEM
-      <span className="search-field"><SearchIcon /><input id={searchId} type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por código, grupo ou texto" /></span>
-    </label>
     <div className="item-picker-results">
-      {Object.entries(grouped).map(([group, entries]) => <div className="item-picker-group" key={group}>
-        <h4>{group}</h4>
-        {entries.map(({ criterion, index }) => {
+      {Object.entries(grouped).map(([group, entries]) => {
+        const collapsed = collapsedGroups.has(group);
+        return <div className="item-picker-group" key={group}>
+        <h4><button type="button" aria-expanded={!collapsed} onClick={() => setCollapsedGroups((current) => {
+          const next = new Set(current);
+          if (next.has(group)) next.delete(group); else next.add(group);
+          return next;
+        })}><span>{group}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m7 10 5 5 5-5" /></svg></button></h4>
+        {!collapsed && entries.map(({ criterion, index }) => {
           const answer = getItemResponse(drafts, model, criterion);
           return <button type="button" key={criterion.id} className={criterion.id === activeId ? "item-result active" : "item-result"} aria-pressed={criterion.id === activeId} onClick={() => onSelect(index)}>
             <span><b>{criterion.code}</b> {criterion.text}<small>{criterion.subgroup}</small></span>
-            <em className={answer.answer !== undefined ? "has-answer" : undefined}>{getResponseLabel(answer)}</em>
+            <span className="item-result-summary"><em className={answer.answer !== undefined ? "has-answer" : undefined}>{getResponseLabel(answer)}</em>{showWeights && <strong>{itemResponseScore(answer.answer)}</strong>}</span>
           </button>;
         })}
-      </div>)}
-      {Object.keys(grouped).length === 0 && <p className="picker-empty" role="status">Nenhum item encontrado. Experimente outro código ou texto.</p>}
+      </div>})}
+      {Object.keys(grouped).length === 0 && <p className="picker-empty" role="status">Nenhum item disponível nesta auditoria.</p>}
     </div>
   </div>;
 }
