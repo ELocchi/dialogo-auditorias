@@ -183,14 +183,14 @@ export function CatalogEditorPanel({ version, available, setupPending, actorId, 
     return submittedCriteria;
   };
 
-  const addItem = (group = selected?.group ?? criteria[0]?.group ?? "1. Novo grupo") => {
+  const addItem = (group = selected?.group ?? criteria[0]?.group ?? "1. Novo grupo", subgroup = selected?.group === group ? selected.subgroup : "") => {
     const usedCodes = new Set(criteria.map((item) => item.code));
     let number = criteria.length + 1;
     while (usedCodes.has(`NOVO-${number}`)) number += 1;
     const id = `ITEM-${newRequestId()}`;
     const item: Criterion = {
       id, code: `NOVO-${number}`, title: "Novo item", text: "Descreva o item de auditoria",
-      group, subgroup: "", source: referenceDocuments[base.modelId].catalogName,
+      group, subgroup, source: referenceDocuments[base.modelId].catalogName,
       locator: "Novo item", documentedWeight: null, configuredWeight: base.modelId === "security-it07-r02" ? securityWeightConfiguration.itemWeight : 0,
       groupWeight: base.modelId === "security-it07-r02" ? criteria.find((entry) => entry.group === group)?.groupWeight ?? 1 : undefined,
       verificationRule: base.modelId === "security-it07-r02" ? undefined : verificationRules[0].value,
@@ -199,7 +199,20 @@ export function CatalogEditorPanel({ version, available, setupPending, actorId, 
     changed();
     setCriteria((items) => [...items, item]);
     setCollapsedGroups((current) => { const next = new Set(current); next.delete(group); return next; });
+    if (subgroup) setCollapsedSubgroups((current) => { const next = new Set(current); next.delete(`${group}:${subgroup}`); return next; });
     setSelectedId(id);
+  };
+  const addSubgroup = (group: string) => {
+    const groupItems = criteria.filter((item) => item.group === group);
+    const existingSubgroups = new Set(groupItems.map((item) => item.subgroup).filter(Boolean));
+    const groupCode = groupParts(group).code || String(Object.keys(groupedCriteria).indexOf(group) + 1).padStart(2, "0");
+    let number = existingSubgroups.size + 1;
+    let subgroup = `${groupCode}.${String(number).padStart(2, "0")} — Novo subgrupo`;
+    while (existingSubgroups.has(subgroup)) {
+      number += 1;
+      subgroup = `${groupCode}.${String(number).padStart(2, "0")} — Novo subgrupo`;
+    }
+    addItem(group, subgroup);
   };
   const addGroup = () => {
     const groups = new Set(criteria.map((item) => item.group));
@@ -364,9 +377,9 @@ export function CatalogEditorPanel({ version, available, setupPending, actorId, 
                           if (next.has(subgroupKey)) next.delete(subgroupKey); else next.add(subgroupKey);
                           return next;
                         })}><span><strong>{subgroupParts(subgroup, subgroupItems[0]?.code ?? "").code}</strong><span className={styles.treeTitle}>{subgroupParts(subgroup, subgroupItems[0]?.code ?? "").title}</span></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5" /></svg></button>
-                        {!subgroupCollapsed && <div className={styles.editorItems}>{subgroupItems.map((item) => <button type="button" key={item.id} className={item.id === selected?.id ? styles.selectedEditorItem : undefined} aria-pressed={item.id === selected?.id} onClick={() => setSelectedId(item.id)}><strong>{item.code}</strong><span>{item.title}</span></button>)}</div>}
+                        {!subgroupCollapsed && <><div className={styles.editorItems}>{subgroupItems.map((item) => <button type="button" key={item.id} className={item.id === selected?.id ? styles.selectedEditorItem : undefined} aria-pressed={item.id === selected?.id} onClick={() => setSelectedId(item.id)}><strong>{item.code}</strong><span>{item.title}</span></button>)}</div><button type="button" className={`${styles.groupAddItem} ${styles.itemAddButton}`} onClick={() => addItem(group, subgroup)}>+ Adicionar item</button></>}
                       </section>;
-                    })}</div><button type="button" className={styles.groupAddItem} onClick={() => addItem(group)}>+ Adicionar item ao grupo</button></>}
+                    })}</div><button type="button" className={styles.groupAddItem} onClick={() => addSubgroup(group)}>+ Adicionar subgrupo</button></>}
                   </section>;
                 })}
               </div>
