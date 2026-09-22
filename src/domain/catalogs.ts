@@ -14,9 +14,11 @@ export interface Criterion {
   documentedWeight: number | null;
   /** Configuração da plataforma, independente do peso transcrito da fonte. */
   configuredWeight?: number;
+  groupWeight?: number;
   weightConfigurationId?: string;
   orientations: CatalogOrientation[];
   verificationRule?: string;
+  analysisCriterion?: string;
   sourceNote?: string;
   interpretation?: string;
 }
@@ -82,6 +84,10 @@ interface SecuritySourceCatalog {
 }
 
 import securitySource from "../../CATALOGO_SEGURANCA_IT07_R02.json" with { type: "json" };
+import securityItemTitles from "./security-item-titles.json" with { type: "json" };
+const securityTitles = securityItemTitles as Record<string, string>;
+
+export const getCriterionDisplayTitle = (criterion: Criterion): string => criterion.title !== criterion.group ? criterion.title : securityTitles[criterion.code] ?? criterion.text;
 
 export interface QualityModel {
   id: "F175" | "F176";
@@ -105,6 +111,7 @@ export const securityGroups = [
 ] as const;
 
 const securityCatalog = securitySource as SecuritySourceCatalog;
+const securityGroupWeights = new Map<string, number>(securityGroups.map(([code, , weight]) => [code, weight]));
 const securityGroupNames = new Map(securityCatalog.grupos.map((group) => [group.codigo, group.nome_original]));
 const securitySubgroups = new Map(securityCatalog.subgrupos.map((subgroup) => [subgroup.id_tecnico, subgroup]));
 const securityOrientations = new Map(securityCatalog.orientacoes.map((orientation) => [orientation.id_tecnico, orientation]));
@@ -138,17 +145,18 @@ const orientationsForItem = (item: SecuritySourceItem): CatalogOrientation[] => 
  */
 export const securityWeightConfiguration = {
   id: "IT07-R02-PESOS-INICIAIS-2026-09-14",
-  itemWeight: 1,
-  source: "Definição do responsável em 14/09/2026",
+  itemWeight: Number((10 / securityCatalog.itens.length).toFixed(8)),
+  source: "Peso total 10 distribuído igualmente entre os itens",
 } as const;
 
 export const securityCriteria: Criterion[] = securityCatalog.itens.map((item) => {
   const subgroup = securitySubgroups.get(item.subgrupo_id);
   const groupName = securityGroupNames.get(item.grupo_codigo) ?? item.grupo_codigo;
+  const orientations = orientationsForItem(item);
   return {
     id: `IT07-${item.codigo}`,
     code: item.codigo,
-    title: groupName,
+    title: securityTitles[item.codigo] ?? item.texto_original,
     text: item.texto_original,
     group: `${item.grupo_codigo} — ${groupName}`,
     subgroup: subgroup?.nome_original ?? item.subgrupo_id,
@@ -156,14 +164,16 @@ export const securityCriteria: Criterion[] = securityCatalog.itens.map((item) =>
     locator: `página${item.paginas_fonte.length === 1 ? "" : "s"} ${item.paginas_fonte.join(", ")}`,
     documentedWeight: item.peso_individual,
     configuredWeight: securityWeightConfiguration.itemWeight,
+    groupWeight: securityGroupWeights.get(item.grupo_codigo) ?? 1,
     weightConfigurationId: securityWeightConfiguration.id,
-    orientations: orientationsForItem(item),
+    orientations,
+    analysisCriterion: orientations.map((orientation) => orientation.text).join("\n\n"),
   };
 });
 
 const quality = (id: string, name: string, hide: boolean | null, rows: [string, string, number | null, string, string][]): QualityModel => ({
   id: id as "F175" | "F176", name, version: "00", source: `${id} - Roteiro Farol da Qualidade ${id === "F175" ? "Simplificado" : "Completo"}.docx`, hideWeightsInPublishedForm: hide,
-  criteria: rows.map(([code, text, weight, group, locator]) => ({ id: `${id}-${code}`, code, text: qualityTextOverrides[code] ?? text, title: group, group, subgroup: "", source: id, locator, documentedWeight: weight, orientations: [], verificationRule: qualityVerificationRules[code], sourceNote: qualitySourceNotes[code], interpretation: text.includes("quantidade") ? "Rateio documental preservado; quantidade zero ou ausente não redistribui peso automaticamente." : undefined })),
+  criteria: rows.map(([code, text, weight, group, locator]) => ({ id: `${id}-${code}`, code, text: qualityTextOverrides[code] ?? text, title: qualityTextOverrides[code] ?? text, group, subgroup: "", source: id, locator, documentedWeight: weight, orientations: [], verificationRule: qualityVerificationRules[code] })),
 });
 
 const qualityTextOverrides: Record<string, string> = {
@@ -183,12 +193,8 @@ const qualityTextOverrides: Record<string, string> = {
 };
 
 const qualityVerificationRules: Record<string, string> = {
-  "F175-Q01": "Dividido pela quantidade verificada", "F175-Q02": "Conforme/Não Conforme", "F175-Q03": "Conforme/Não Conforme", "F175-Q04": "Dividido pela quantidade verificada", "F175-Q05": "Conforme/Não Conforme", "F175-Q06": "Conforme/Não Conforme", "F175-Q07": "Conforme/Não Conforme", "F175-Q08": "Conforme/Não Conforme", "F175-Q09": "Conforme/Não Conforme", "F175-Q10": "Dividido pela quantidade verificada",
+  "F175-Q01": "Dividido pela quantidade verificada", "F175-Q02": "Conforme/Não Conforme", "F175-Q03": "Conforme/Não Conforme", "F175-Q04": "Dividido pela quantidade verificada", "F175-Q05": "Conforme/Não Conforme", "F175-Q06": "Conforme/Não Conforme", "F175-Q07": "Conforme/Não Conforme/Não Aplicável", "F175-Q08": "Conforme/Não Conforme", "F175-Q09": "Conforme/Não Conforme", "F175-Q10": "Dividido pela quantidade verificada",
   "F176-Q01": "Conforme/Não Conforme", "F176-Q02": "Conforme/Não Conforme", "F176-Q03": "Conforme/Não Conforme", "F176-Q04": "Conforme/Não Conforme", "F176-Q05": "Conforme/Não Conforme", "F176-Q06": "Dividido pela quantidade verificada", "F176-Q07": "Conforme/Não Conforme", "F176-Q08": "Conforme/Não Conforme", "F176-Q09": "Dividido pela quantidade verificada", "F176-Q10": "Conforme/Não Conforme", "F176-Q11": "Conforme/Não Conforme", "F176-Q12": "Conforme/Não Conforme", "F176-Q13": "Dividido pela quantidade verificada", "F176-Q14": "Conforme/Não Conforme", "F176-Q15": "Conforme/Não Conforme", "F176-Q16": "Conforme/Não Conforme", "F176-Q17": "Conforme/Não Conforme", "F176-Q18": "Dividido pela quantidade verificada", "F176-Q19": "Dividido pela quantidade verificada", "F176-Q20": "Dividido pela quantidade verificada", "F176-Q21": "Dividido pela quantidade verificada", "F176-Q22": "Conforme/Não Conforme", "F176-Q23": "Conforme/Não Conforme",
-};
-
-const qualitySourceNotes: Record<string, string> = {
-  "F175-Q07": "pode ser não aplicavel, dividir entre as outras notas",
 };
 
 export const qualityModels: QualityModel[] = [

@@ -7,7 +7,7 @@ const user=demoUsers.find(u=>u.id==="auditor-safety"); const work=workRecords.fi
 const modelId="security-it07-r02";
 const empty=()=>({audits:[],responses:{}});
 const version=(number)=>({id:"revision-"+number,version:number,label:"R"+number,criteria:structuredClone(criteriaForModel(modelId))});
-const start=(state,id,revision,visit)=>beginPrototypeAudit(state,user,{id,work,modelId,date:"2026-09-16",catalogRevision:revision,visit});
+const start=(state,id,revision,visit)=>beginPrototypeAudit(state,user,{id,work,modelId,date:visit?.date ?? "2026-09-16",catalogRevision:revision,visit});
 
 test("New revisions affect only new audits, including deeply nested orientation text and weights",()=>{
  const v1=version(1); const first=start(empty(),"A1",v1); const original=structuredClone(criteriaForAudit(first.state,first.state.audits[0]));

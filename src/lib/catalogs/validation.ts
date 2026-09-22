@@ -11,19 +11,20 @@ export const isUuid = (value: unknown): value is string => typeof value === "str
 export const validText = (value: unknown, max: number): value is string => typeof value === "string" && value.length <= max && !value.includes("\u0000");
 export const isModel = (value: unknown): value is AuditModelId => catalogModelIds.includes(value as AuditModelId);
 const weight = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1000;
-const verificationRules = new Set(["Conforme/Não Conforme", "Dividido pela quantidade verificada"]);
+const verificationRules = new Set(["Conforme/Não Conforme", "Conforme/Não Conforme/Não Aplicável", "Dividido pela quantidade verificada"]);
 
 export function parseCriteria(value: unknown): Criterion[] | null {
   if (!Array.isArray(value) || !value.length || value.length > 500 || Buffer.byteLength(JSON.stringify(value)) > MAX_CRITERIA_BYTES) return null;
   const required = { id: 200, code: 100, title: 2000, text: 30000, group: 2000, subgroup: 2000, source: 1000, locator: 2000 };
-  const optional = ["verificationRule", "sourceNote", "interpretation", "weightConfigurationId"];
-  const allowed = [...Object.keys(required), ...optional, "documentedWeight", "configuredWeight", "orientations"];
+  const optional = ["verificationRule", "analysisCriterion", "sourceNote", "interpretation", "weightConfigurationId"];
+  const allowed = [...Object.keys(required), ...optional, "documentedWeight", "configuredWeight", "groupWeight", "orientations"];
   for (const item of value) {
     if (!isRecord(item) || Object.keys(item).some((key) => !allowed.includes(key))
       || Object.entries(required).some(([key, max]) => !validText(item[key], max))
       || !String(item.id).trim() || !String(item.code).trim() || !String(item.text).trim()
       || (item.documentedWeight !== null && !weight(item.documentedWeight))
       || (item.configuredWeight !== undefined && !weight(item.configuredWeight))
+      || (item.groupWeight !== undefined && !weight(item.groupWeight))
       || ["title", "group", "source"].some((key) => !String(item[key]).trim())
       || (item.weightConfigurationId !== undefined && (!validText(item.weightConfigurationId, 200) || !item.weightConfigurationId.trim()))
       || optional.some((key) => item[key] !== undefined && !validText(item[key], 30000))
@@ -44,13 +45,20 @@ export function parseCriteria(value: unknown): Criterion[] | null {
 /** Normalize the complete edited catalog. The request ID makes manual weight metadata stable on retries. */
 export function normalizeEditedCriteria(modelId: AuditModelId, value: unknown, requestId: string): Criterion[] | null {
   const edited = parseCriteria(value);
+  const securityGroups = edited?.reduce<Record<string, Criterion[]>>((groups, item) => {
+    (groups[item.group] ??= []).push(item);
+    return groups;
+  }, {});
   if (!edited || !catalogModelIds.includes(modelId)
-    || edited.some((item) => item.verificationRule !== undefined && !verificationRules.has(item.verificationRule.trim()))) return null;
+    || edited.some((item) => item.verificationRule !== undefined && !verificationRules.has(item.verificationRule.trim()))
+    || (modelId === "security-it07-r02" && (edited.some((item) => !item.analysisCriterion?.trim() || (item.configuredWeight ?? item.documentedWeight ?? 0) <= 0)
+      || Object.values(securityGroups ?? {}).some((items) => !items[0]?.groupWeight || items.some((item) => item.groupWeight !== items[0].groupWeight))))
+    || Math.abs(edited.reduce((total, item) => total + (item.configuredWeight ?? item.documentedWeight ?? 0), 0) - 10) > 0.000001) return null;
   return edited.map((item) => {
     const next = { ...item, id: item.id.trim(), code: item.code.trim(), title: item.title.trim(), text: item.text.trim(),
       group: item.group.trim(), subgroup: item.subgroup.trim(), source: item.source.trim(), locator: item.locator.trim(),
       orientations: item.orientations.map((orientation) => ({ ...orientation, scope: orientation.scope.trim(), text: orientation.text.trim() })) };
-    for (const key of ["verificationRule", "sourceNote", "interpretation"] as const) {
+    for (const key of ["verificationRule", "analysisCriterion", "sourceNote", "interpretation"] as const) {
       if (next[key] !== undefined) next[key] = next[key]!.trim();
     }
     if (next.configuredWeight !== undefined) next.weightConfigurationId = `manual:${requestId}`;
@@ -64,13 +72,13 @@ function field(form: FormData, key: string): string | null {
   return entries.length === 1 && typeof entries[0] === "string" ? entries[0] : null;
 }
 export function parseRevisionForm(form: FormData) {
-  const permitted = ["requestId", "actorId", "modelId", "expectedVersion", "revisionLabel", "changeNote", "criteria", "pdf", "original"];
+  const permitted = ["requestId", "actorId", "modelId", "expectedVersion", "revisionLabel", "changeNote", "criteria", "pdf"];
   if ([...form.keys()].some((key) => !permitted.includes(key))) return null;
   const requestId = field(form, "requestId"), actorId = field(form, "actorId"), modelId = field(form, "modelId");
   const version = field(form, "expectedVersion"), label = field(form, "revisionLabel"), note = field(form, "changeNote"), raw = field(form, "criteria");
   if (!isUuid(requestId) || !isUuid(actorId) || !isModel(modelId) || !version || !/^\d{1,9}$/.test(version)
     || !validText(label, 80) || !label.trim() || !validText(note, 2000) || !note.trim()
-    || !raw || Buffer.byteLength(raw) > MAX_CRITERIA_BYTES || form.getAll("pdf").length > 1 || form.getAll("original").length > 1) return null;
+    || !raw || Buffer.byteLength(raw) > MAX_CRITERIA_BYTES || form.getAll("pdf").length > 1) return null;
   try {
     const criteria = normalizeEditedCriteria(modelId, JSON.parse(raw), requestId.toLowerCase());
     if (!criteria) return null;

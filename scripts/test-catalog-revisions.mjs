@@ -25,14 +25,15 @@ test("All catalog fields can be edited without mutating the bundled source", () 
     const input = form(id), changed = structuredClone(source);
     changed[0].code = `REV-${changed[0].code}`; changed[0].title = "Título revisado";
     changed[0].group = "Módulo revisado"; changed[0].subgroup = "Subgrupo revisado";
-    changed[0].text = "Texto revisado"; changed[0].configuredWeight = 7.25;
+    changed[0].text = "Texto revisado"; changed[0].configuredWeight = 0.02;
+    changed[1].configuredWeight = (changed[1].configuredWeight ?? changed[1].documentedWeight ?? 0) + ((source[0].configuredWeight ?? source[0].documentedWeight ?? 0) - 0.02);
     changed[0].source = "Fonte revisada"; changed[0].locator = "Localizador revisado"; changed[0].documentedWeight = 123;
     changed[0].interpretation = "Interpretação revisada";
     if (changed[0].orientations.length) changed[0].orientations[0].text = "Orientação revisada";
     input.set("criteria", JSON.stringify(changed));
     const parsed = parseRevisionForm(input); assert.ok(parsed);
     assert.equal(parsed.criteria[0].title, "Título revisado"); assert.equal(parsed.criteria[0].group, "Módulo revisado");
-    assert.equal(parsed.criteria[0].text, "Texto revisado"); assert.equal(parsed.criteria[0].configuredWeight, 7.25);
+    assert.equal(parsed.criteria[0].text, "Texto revisado"); assert.equal(parsed.criteria[0].configuredWeight, 0.02);
     assert.equal(parsed.criteria[0].source, "Fonte revisada"); assert.equal(parsed.criteria[0].documentedWeight, 123);
     assert.equal(parsed.criteria[0].weightConfigurationId, "manual:" + request);
     assert.deepEqual(source, bundledCatalog(id).criteria);
@@ -45,8 +46,9 @@ test("A new audit item is accepted and persisted in the selected order", () => {
   items.splice(1, 0, {
     id: "ITEM-d1a80000-0000-4000-8000-000000000099", code: "NOVO-11", title: "Novo item",
     text: "Verificar o novo requisito", group: "Novo módulo", subgroup: "Teste", source: "Revisão administrativa",
-    locator: "Item incluído", documentedWeight: null, configuredWeight: 4, orientations: [],
+    locator: "Item incluído", documentedWeight: null, configuredWeight: .25, orientations: [],
   });
+  items.at(-1).configuredWeight = (items.at(-1).configuredWeight ?? items.at(-1).documentedWeight) - .25;
   input.set("criteria", JSON.stringify(items));
   const parsed = parseRevisionForm(input);
   assert.ok(parsed); assert.equal(parsed.criteria.length, 11); assert.equal(parsed.criteria[1].code, "NOVO-11");
@@ -64,13 +66,18 @@ test("Invalid, duplicate or expanded form fields, IDs and criteria are rejected"
     (f) => { const items = bundledCatalog("quality-f175").criteria; items[0].verificationRule = "Regra livre"; f.set("criteria",JSON.stringify(items)); },
     (f) => { const items = bundledCatalog("security-it07-r02").criteria; items[0].orientations[0].text = ""; f.set("criteria",JSON.stringify(items)); },
   ]) { const input = form(); mutate(input); assert.equal(parseRevisionForm(input), null); }
+  const invalidTotal = form("quality-f175");
+  const qualityItems = JSON.parse(invalidTotal.get("criteria")); qualityItems[0].configuredWeight = 1;
+  invalidTotal.set("criteria", JSON.stringify(qualityItems)); assert.equal(parseRevisionForm(invalidTotal), null);
+  const invalidSecurityTotal = form("security-it07-r02");
+  const securityItems = JSON.parse(invalidSecurityTotal.get("criteria")); securityItems[0].configuredWeight += 1;
+  invalidSecurityTotal.set("criteria", JSON.stringify(securityItems)); assert.equal(parseRevisionForm(invalidSecurityTotal), null);
 });
 
-test("Clearing the configured weight restores the documented weight, including no documented weight", () => {
+test("Security revisions reject an item without a positive configured or documented weight", () => {
   const input = form(); const items = JSON.parse(input.get("criteria")); delete items[0].configuredWeight;
   input.set("criteria",JSON.stringify(items)); const result = parseRevisionForm(input);
-  assert.equal(result.criteria[0].configuredWeight, undefined); assert.equal(result.criteria[0].weightConfigurationId, undefined);
-  assert.equal(result.criteria[0].documentedWeight, null);
+  assert.equal(result, null);
 });
 
 test("PDF/Word boundaries, traversal filenames and signature mismatches are checked before RPC", async () => {
@@ -85,7 +92,7 @@ test("PDF/Word boundaries, traversal filenames and signature mismatches are chec
   ]) await assert.rejects(parseUpload(file,kind));
 });
 
-test("Unauthorized roles, wrong actors and Word without PDF never call persistence", async () => {
+test("Unauthorized roles, wrong actors and DOCX uploads never call persistence", async () => {
   const client = { rpc: async () => assert.fail("Unexpected RPC") };
   for (const changed of [{...context, profile:"AUDITOR_SEGURANCA"}, {...context,user:{...context.user,id:revisionId}}]) {
     assert.equal((await saveCatalogRevision(form(),changed,client)).status,"error");
@@ -99,11 +106,12 @@ test("Save passes complete criteria/documents atomically and normalization stays
     if(name === "save_audit_catalog_revision") { payloads.push(params); return {data:revisionId,error:null}; }
     assert.equal(name,"read_audit_catalogs"); return {data:[revision()],error:null};
   }};
-  const input=form(); input.set("pdf",pdf()); input.set("original",word());
+  const input=form(); input.set("pdf",pdf());
   const first=await saveCatalogRevision(input,context,client); const retry=await saveCatalogRevision(input,context,client);
   assert.equal(first.status,"success"); assert.equal(retry.status,"success"); assert.equal(first.snapshot.available,true);
   assert.deepEqual(payloads[0],payloads[1]); assert.equal(payloads[0].p_criteria.length,205);
   assert.equal(Buffer.from(payloads[0].p_pdf_base64,"base64").subarray(0,5).toString(),"%PDF-");
+  assert.equal(payloads[0].p_original_base64, null); assert.equal(payloads[0].p_original_name, null);
 });
 
 test("Conflicts, revocations, missing migration and unknown save failures never announce success", async () => {

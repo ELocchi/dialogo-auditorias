@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { demoUsers, initialVisits, canBeginScheduledAudit } from "../src/domain/prototype-access.ts";
 import { workRecords, auditRecords } from "../src/domain/operational-records.ts";
-import { getItemResponse, getResponseLabel } from "../src/domain/audit-draft.ts";
+import { calculateSecurityFinalScore, calculateSecurityGroupScore, getItemResponse, getResponseLabel } from "../src/domain/audit-draft.ts";
 import {
   criteriaForModel, modelDisplayName, beginPrototypeAudit, beginScheduledVisitAudit,
-  updatePrototypeResponse, updatePrototypeAuditDate,
+  completePrototypeAudit, validatePrototypeAuditCompletion, updatePrototypeResponse, updatePrototypeAuditDate,
 } from "../src/domain/prototype-audits.ts";
 
 // Todas as auditorias criadas abaixo são fixtures isoladas e não representam publicação real.
@@ -34,6 +34,37 @@ function deepFreeze(value) {
   }
   return value;
 }
+
+test("nota de Segurança pondera itens e grupos e retira N/A do cálculo", () => {
+  const criteria = [
+    { ...first, id: "A1", group: "A", configuredWeight: 1, groupWeight: 2 },
+    { ...first, id: "A2", group: "A", configuredWeight: 3, groupWeight: 2 },
+    { ...first, id: "B1", group: "B", configuredWeight: 2, groupWeight: 1 },
+  ];
+  const drafts = { security: {
+    A1: { answer: "10", note: "" },
+    A2: { answer: "N/A", note: "" },
+    B1: { answer: "5", note: "" },
+  } };
+  assert.equal(calculateSecurityGroupScore(criteria.slice(0, 2), drafts, "security"), 10);
+  assert.equal(calculateSecurityFinalScore(criteria, drafts, "security"), 25 / 3);
+
+  const onlySecondGroup = { security: {
+    A1: { answer: "N/A", note: "" },
+    A2: { answer: "N/A", note: "" },
+    B1: { answer: "5", note: "" },
+  } };
+  assert.equal(calculateSecurityFinalScore(criteria, onlySecondGroup, "security"), 5);
+});
+
+test("roteiro de Segurança usa o mesmo peso nos itens e mantém os pesos dos grupos", () => {
+  const criteria = criteriaForModel(SECURITY);
+  assert.equal(new Set(criteria.map((item) => item.configuredWeight)).size, 1);
+  assert.ok(Math.abs(criteria.reduce((total, item) => total + item.configuredWeight, 0) - 10) < 0.000001);
+  assert.ok(criteria.every((item) => typeof item.groupWeight === "number" && item.groupWeight > 0));
+  const drafts = { security: Object.fromEntries(criteria.map((item) => [item.id, { answer: "10", note: "" }])) };
+  assert.equal(calculateSecurityFinalScore(criteria, drafts, "security"), 10);
+});
 
 test("roteiros continuam distintos e preservam as contagens e os primeiros códigos", () => {
   assert.equal(criteriaForModel(SECURITY).length, 205);
@@ -123,9 +154,9 @@ test("itens de outro modelo ou versão são recusados, sem misturar F.175/F.176"
   assert.throws(() => updatePrototypeResponse(qualityAudit.state, safety, securityAudit.auditId, { ...first, id: "OUTRA-VERSAO-01" }, { note: "" }), /não pertence/);
 });
 
-test("Segurança e Qualidade não compartilham escala ou atribuem notas automáticas", () => {
+test("Segurança e Qualidade não compartilham escalas de resposta", () => {
   const securityAudit = begin();
-  for (const answer of ["Não verificado", "Constatação qualitativa"]) {
+  for (const answer of ["Não verificado", "Constatação qualitativa", "Não conforme", "Conforme"]) {
     assert.throws(() => updatePrototypeResponse(securityAudit.state, safety, securityAudit.auditId, first, { answer, note: "" }), /incompatível/);
   }
   for (const modelId of [F175, F176]) {
@@ -135,11 +166,32 @@ test("Segurança e Qualidade não compartilham escala ou atribuem notas automát
       assert.throws(() => updatePrototypeResponse(qualityAudit.state, quality, qualityAudit.auditId, criterion, { answer, note: "" }), /incompatível/);
     }
     for (const answer of ["Não verificado", "Constatação qualitativa"]) {
+      assert.throws(() => updatePrototypeResponse(qualityAudit.state, quality, qualityAudit.auditId, criterion, { answer, note: "" }), /incompatível/);
+    }
+    for (const answer of ["Não conforme", "Conforme"]) {
       const state = updatePrototypeResponse(qualityAudit.state, quality, qualityAudit.auditId, criterion, { answer, note: "Observação de Qualidade" });
       assert.equal(responseOf(state, qualityAudit.auditId, criterion).answer, answer);
       assert.equal(state.audits[0].finalScore, null);
     }
   }
+});
+
+test("fechamento abre revisão somente completo e publicação grava a nota na sessão", () => {
+  const started = begin(emptyState(), quality, { id: "AUD-REVISAO", modelId: F175 });
+  assert.throws(() => validatePrototypeAuditCompletion(started.state, quality, started.auditId), /Responda o item/);
+  let state = started.state;
+  for (const criterion of criteriaForModel(F175)) {
+    const response = criterion.verificationRule === "Dividido pela quantidade verificada"
+      ? { note: "", checks: [{ id: `${criterion.id}-1`, label: "Item verificado 1", compliant: true }] }
+      : { answer: "Conforme", note: "" };
+    state = updatePrototypeResponse(state, quality, started.auditId, criterion, response);
+  }
+  assert.doesNotThrow(() => validatePrototypeAuditCompletion(state, quality, started.auditId));
+  const published = completePrototypeAudit(state, quality, started.auditId);
+  assert.equal(published.audits[0].status, "Publicada");
+  assert.equal(published.audits[0].collectionStatus, "Coleta concluída");
+  assert.equal(published.audits[0].calculationStatus, "Disponível");
+  assert.equal(published.audits[0].finalScore, 10);
 });
 
 test("visita inicia uma vez e retomada mantém o mesmo rascunho sem duplicar", () => {

@@ -45,18 +45,16 @@ export async function saveCatalogRevision(form: FormData, context: ProfileWorksp
   const value = parseRevisionForm(form);
   if (!value || value.actorId !== context.user.id) return failure("Confira os campos e o usuário antes de salvar a revisão.");
   if (!context.user.modules.includes(modelModule(value.modelId))) return failure("Este roteiro não pertence à disciplina selecionada.");
-  let pdf, original;
+  let pdf;
   try {
     pdf = await parseUpload(form.get("pdf"), "pdf");
-    original = await parseUpload(form.get("original"), "original");
-    if (original && !pdf) return failure("Envie o PDF da revisão junto com o Word original.");
   } catch (reason) { return failure(reason instanceof Error ? reason.message : "Não foi possível ler o arquivo."); }
   try {
     const { data, error } = await client.rpc("save_audit_catalog_revision", {
       p_request_id: value.requestId, p_model_id: value.modelId, p_expected_version: value.expectedVersion,
       p_revision_label: value.label, p_change_note: value.note, p_criteria: value.criteria,
       p_pdf_base64: pdf?.base64 ?? null, p_pdf_name: pdf?.name ?? null,
-      p_original_base64: original?.base64 ?? null, p_original_name: original?.name ?? null,
+      p_original_base64: null, p_original_name: null,
     });
     if (error) {
       if (missingCatalogMigration(error)) return failure("O salvamento de revisões estará disponível após a atualização da plataforma.");

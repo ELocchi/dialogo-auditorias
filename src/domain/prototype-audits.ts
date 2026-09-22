@@ -1,5 +1,5 @@
 import { securityCriteria, qualityModels, type Criterion } from "./catalogs.ts";
-import { updateItemResponse, type AuditDrafts, type ItemResponse } from "./audit-draft.ts";
+import { calculateAuditFinalScore, updateItemResponse, type AuditDrafts, type ItemResponse } from "./audit-draft.ts";
 import { canBeginScheduledAudit, canStartAudit, canEditAudit, type DemoUser, type Visit } from "./prototype-access.ts";
 import type { AuditRecord, AuditModelId, WorkRecord } from "./operational-records";
 
@@ -70,9 +70,38 @@ export function updatePrototypeResponse(state: PrototypeAuditState, user: DemoUs
   if (!audit || !canEditAudit(user, audit)) throw new Error("Sem permissão para editar esta auditoria.");
   const pinnedCriterion = criteriaForAudit(state, audit).find((entry) => entry.id === criterion.id);
   if (!pinnedCriterion) throw new Error("O item não pertence à versão desta auditoria.");
-  const allowedAnswers = audit.modelId === "security-it07-r02" ? ["0", "5", "10", "N/A"] : ["Não verificado", "Constatação qualitativa"];
+  const allowsNotApplicable = pinnedCriterion.verificationRule === "Conforme/Não Conforme/Não Aplicável" || pinnedCriterion.sourceNote?.toLocaleLowerCase("pt-BR").includes("não aplic");
+  const allowedAnswers = audit.modelId === "security-it07-r02" ? ["0", "5", "10", "N/A"] : allowsNotApplicable ? ["Não conforme", "Conforme", "N/A"] : ["Não conforme", "Conforme"];
   if (response.answer !== undefined && !allowedAnswers.includes(response.answer)) throw new Error("Resposta incompatível com o modelo.");
   return { ...state, responses: { ...state.responses, [audit.id]: updateItemResponse(state.responses[audit.id] ?? {}, audit.modelId, pinnedCriterion, response) } };
+}
+
+export function validatePrototypeAuditCompletion(state: PrototypeAuditState, user: DemoUser, auditId: string): void {
+  const audit = state.audits.find((entry) => entry.id === auditId);
+  if (!audit || !canEditAudit(user, audit)) throw new Error("Sem permissão para fechar esta auditoria.");
+  const responses = state.responses[audit.id]?.[audit.modelId] ?? {};
+  for (const criterion of criteriaForAudit(state, audit)) {
+    const response = responses[criterion.id];
+    if (!response) throw new Error(`Responda o item ${criterion.code} antes de fechar o relatório.`);
+    if (criterion.verificationRule === "Dividido pela quantidade verificada") {
+      if (!response.checks?.length || response.checks.some((check) => check.compliant === null)) throw new Error(`Conclua as verificações do item ${criterion.code}.`);
+      if (response.checks.some((check) => check.compliant === false && !check.photos?.length)) throw new Error(`Adicione uma foto em cada verificação não conforme do item ${criterion.code}.`);
+    } else {
+      if (response.answer === undefined) throw new Error(`Responda o item ${criterion.code} antes de fechar o relatório.`);
+      if ((response.answer === "Não conforme" || response.answer === "0" || response.answer === "5") && !response.photos?.length) throw new Error(`Adicione uma foto ao item não conforme ${criterion.code}.`);
+    }
+  }
+}
+
+export function completePrototypeAudit(state: PrototypeAuditState, user: DemoUser, auditId: string): PrototypeAuditState {
+  validatePrototypeAuditCompletion(state, user, auditId);
+  const audit = state.audits.find((entry) => entry.id === auditId)!;
+  const finalScore = calculateAuditFinalScore(criteriaForAudit(state, audit), state.responses[audit.id] ?? {}, audit.modelId);
+  if (finalScore === null) throw new Error("Não foi possível calcular a nota final desta auditoria.");
+  return {
+    ...state,
+    audits: state.audits.map((entry) => entry.id === auditId ? { ...entry, status: "Publicada", collectionStatus: "Coleta concluída", calculationStatus: "Disponível", finalScore } : entry),
+  };
 }
 
 export function updatePrototypeAuditDate(state: PrototypeAuditState, user: DemoUser, auditId: string, date: string): PrototypeAuditState {
