@@ -235,7 +235,7 @@
 .verification-mark.unanswered { color: #9aa6b5; }
 .verification-mark.missing-photo { color: var(--red); text-decoration: underline; text-decoration-color: #f09aa3; text-underline-offset: 4px; }
 .question-verification { position: absolute; top: 0; right: 0; display: grid; width: 90px; min-height: 90px; place-items: center; align-content: center; gap: 8px; padding: 8px 5px; border: 1px solid var(--line); border-radius: 9px; background: white; }
-.question-verification small { display: block; color: var(--muted); font-size: 8px; font-weight: 700; letter-spacing: .6px; line-height: 1; }
+.question-verification small { display: block; color: var(--muted); font-size: 7px; font-weight: 700; letter-spacing: .45px; line-height: 1; white-space: nowrap; }
 .question-verification .verification-mark { min-width: 58px; font-size: 23px; }
 .question-verification.noncompliant { border-color: #d4313d; background: #d4313d; }
 .question-verification.partial { border-color: #d88a14; background: #d88a14; }
