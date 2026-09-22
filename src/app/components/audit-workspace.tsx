@@ -34,6 +34,11 @@ function getGroupHeading(group: string) {
   };
 }
 
+function getSubgroupHeading(item: Criterion) {
+  const match = item.subgroup.match(/^([\d.]+)\s*(?:—|–|-)\s*(.+)$/);
+  return { code: match?.[1] ?? item.code.split(".").slice(0, -1).join("."), title: match?.[2] ?? item.subgroup };
+}
+
 type CatalogProps = {
   model: string;
   setModel: (model: string) => void;
@@ -338,11 +343,12 @@ async function createSecurityAuditReportPdf({ modelId, workName, details, criter
       (result[item.subgroup || "Itens do grupo"] ??= []).push(item);
       return result;
     }, {});
-    for (const [subgroup, subgroupItems] of Object.entries(summarySubgroups)) {
+    for (const subgroupItems of Object.values(summarySubgroups)) {
       if (summaryY < 68) startSummaryPage();
       const subgroupScore = calculateSecurityGroupScore(subgroupItems, drafts, modelId);
       summary.drawRectangle({ x: left + 8, y: summaryY - 5, width: right - left - 8, height: 17, color: rgb(.94, .96, .98) });
-      summaryY = writeWrapped(summary, subgroup, left + 14, summaryY, right - left - 72, 7.2, bold, navy, 9);
+      const subgroupHeading = getSubgroupHeading(subgroupItems[0]);
+      summaryY = writeWrapped(summary, `${subgroupHeading.code}  ${subgroupHeading.title}`, left + 14, summaryY, right - left - 72, 7.2, bold, navy, 9);
       const subgroupScoreLabel = subgroupScore === null ? "—" : subgroupScore.toFixed(1).replace(".", ",");
       summary.drawText(subgroupScoreLabel, { x: right - bold.widthOfTextAtSize(subgroupScoreLabel, 7), y: summaryY + 9, size: 7, font: bold, color: navy });
       summaryY -= 5;
@@ -372,7 +378,10 @@ async function createSecurityAuditReportPdf({ modelId, workName, details, criter
       page.drawText(heading.title, { x: left + 31, y: 472, size: 8.5, font: bold, color: navy });
       const groupScoreLabel = groupScore === null ? "—" : groupScore.toFixed(1).replace(".", ",");
       page.drawText(groupScoreLabel, { x: right - bold.widthOfTextAtSize(groupScoreLabel, 9), y: 472, size: 9, font: bold, color: navy });
-      if (item.subgroup) page.drawText(item.subgroup, { x: left, y: 442, size: 7, font: regular, color: muted });
+      if (item.subgroup) {
+        const subgroup = getSubgroupHeading(item);
+        page.drawText(`${subgroup.code}  ${subgroup.title}`, { x: left, y: 442, size: 7, font: regular, color: muted });
+      }
       page.drawText(item.code, { x: left, y: 414, size: 8, font: bold, color: navy });
       const titleBottom = writeWrapped(page, getCriterionDisplayTitle(item), left + 54, 414, right - left - 80, 11, bold, navy, 14);
       drawStatus(page, response, right - 13, 412, 1.15);
@@ -630,9 +639,10 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
         <div className="question-group-heading">
           <span className="question-group-number">{getGroupHeading(criterion.group).number}</span>
           <span className="question-group-title">{getGroupHeading(criterion.group).title}</span>
+          <div className={`question-verification ${verificationVisual(response)?.tone ?? "unanswered"}${missingRequiredPhoto ? " missing-photo" : ""}`}><small>VERIFICAÇÃO</small><VerificationMark response={response} /></div>
         </div>
-        {criterion.subgroup && <div className="question-context"><span>{criterion.subgroup}</span></div>}
-        <div className="question-title-row"><div className="question-title-content"><span className="question-code">{criterion.code}</span><h3>{getCriterionDisplayTitle(criterion)}</h3></div><div className={`question-verification ${verificationVisual(response)?.tone ?? "unanswered"}${missingRequiredPhoto ? " missing-photo" : ""}`}><small>VERIFICAÇÃO</small><VerificationMark response={response} /></div></div>
+        {criterion.subgroup && <div className="question-context"><span className="question-code">{getSubgroupHeading(criterion).code}</span><span className="question-subgroup-title">{getSubgroupHeading(criterion).title}</span></div>}
+        <div className="question-title-row"><div className="question-title-content"><span className="question-code">{criterion.code}</span><h3>{getCriterionDisplayTitle(criterion)}</h3></div></div>
         <p className="criterion-description"><strong>Descrição:</strong> {criterion.text}</p>
         {(security ? securityAnalysisCriterion : criterion.verificationRule) && <p className="criterion-detail"><strong>{security ? "Critério de análise" : "Critério de verificação"}:</strong> {security ? securityAnalysisCriterion : criterion.verificationRule}</p>}
         {criterion.interpretation && criterion.verificationRule !== "Dividido pela quantidade verificada" && <p className="criterion-detail">{criterion.interpretation}</p>}
@@ -777,7 +787,7 @@ function ItemPicker({ id, model, criteria, drafts, previousAudits, activeId, sec
               const next = new Set(current);
               if (next.has(subgroupKey)) next.delete(subgroupKey); else next.add(subgroupKey);
               return next;
-            })}><span>{entries[0]?.criterion.code.slice(0, 5)} — {subgroup}</span><span className="tree-score">{scoreLabel(subgroupScore)}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m7 10 5 5 5-5" /></svg></button></h5>
+            })}><span>{entries[0] ? `${getSubgroupHeading(entries[0].criterion).code} — ${getSubgroupHeading(entries[0].criterion).title}` : subgroup}</span><span className="tree-score">{scoreLabel(subgroupScore)}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m7 10 5 5 5-5" /></svg></button></h5>
             {!subgroupCollapsed && entries.map(renderItem)}
           </section>;
         }) : groupEntries.map(renderItem))}

@@ -45,14 +45,21 @@ function groupHeading(group: string) {
   return { number: match?.[1] ?? "1", title: (match?.[2] ?? group).toLocaleUpperCase("pt-BR") };
 }
 
+function previewSubgroupHeading(item: Criterion) {
+  const match = item.subgroup.match(/^([\d.]+)\s*(?:—|–|-)\s*(.+)$/);
+  return { code: match?.[1] ?? item.code.split(".").slice(0, -1).join("."), title: match?.[2] ?? item.subgroup };
+}
+
 function AuditorFormPreview({ item, security }: { item: Criterion; security: boolean }) {
   const group = groupHeading(item.group);
+  const subgroup = previewSubgroupHeading(item);
   const quantitative = item.verificationRule === "Dividido pela quantidade verificada";
   const notApplicable = item.verificationRule === "Conforme/Não Conforme/Não Aplicável";
   return <section className={styles.auditorPreview} aria-label="Visualização do preenchimento pelo auditor">
     <header><span className={styles.eyebrow}>VISUALIZAÇÃO DO AUDITOR</span><h3>Preenchimento do item</h3></header>
     <div className="question-content">
       <div className="question-group-heading"><span className="question-group-number">{group.number}</span><span className="question-group-title">{group.title}</span></div>
+      {item.subgroup && <div className="question-context"><span className="question-code">{subgroup.code}</span><span className="question-subgroup-title">{subgroup.title}</span></div>}
       <div className="question-title-row"><div className="question-title-content"><span className="question-code">{item.code}</span><h3>{getCriterionDisplayTitle(item)}</h3></div><div className="question-score"><small>NOTA</small><strong>—</strong></div></div>
       <p className="criterion-description"><strong>Descrição:</strong> {item.text}</p>
       {(security ? item.analysisCriterion : item.verificationRule) && <p className="criterion-detail"><strong>Critério de análise:</strong> {security ? item.analysisCriterion : item.verificationRule}</p>}
