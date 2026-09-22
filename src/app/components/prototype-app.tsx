@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { startTransition, useEffect, useRef, useState, type ReactNode } from "react";
 import { type AuditModelId, type AuditRecord } from "@/domain/operational-records";
 import { roleLabels, moduleLabels, modelModule, canAccessWorkModule, canAccessModule, canReadVisit, canBeginScheduledAudit, canConsultAgenda, canReadAudit, canEditAudit, canReadTechnicalWeights, canReadOperationalDocuments, type AppModule, type Visit, type VisitInput } from "@/domain/prototype-access";
 import { beginScheduledVisitAudit, completePrototypeAudit, validatePrototypeAuditCompletion, updatePrototypeResponse, criteriaForAudit, modelDisplayName, type PrototypeAuditState } from "@/domain/prototype-audits";
@@ -37,17 +37,31 @@ export function PrototypeApp({ context, initialScreen = "overview", initialVisit
   return <ProfileWorkspace key={JSON.stringify([context.user, context.profile, context.works, initialScreen, initialVisitId])} context={context} initialScreen={initialScreen} initialVisitId={initialVisitId} initialAgenda={initialAgenda} initialCatalogs={initialCatalogs} administrationContent={administrationContent} administrationWorksContent={administrationWorksContent} activeAccountCount={activeAccountCount} />;
 }
 
-function ProfileWorkspace({ context, initialScreen, initialVisitId, initialAgenda, initialCatalogs, administrationContent, administrationWorksContent, activeAccountCount }: Required<Pick<PrototypeAppProps, "context" | "initialScreen" | "initialAgenda" | "initialCatalogs" | "activeAccountCount">> & Pick<PrototypeAppProps, "initialVisitId" | "administrationContent" | "administrationWorksContent">) {
+function ProfileWorkspace({ context: providedContext, initialScreen, initialVisitId, initialAgenda, initialCatalogs, administrationContent, administrationWorksContent, activeAccountCount }: Required<Pick<PrototypeAppProps, "context" | "initialScreen" | "initialAgenda" | "initialCatalogs" | "activeAccountCount">> & Pick<PrototypeAppProps, "initialVisitId" | "administrationContent" | "administrationWorksContent">) {
+  const localAuditFlow = process.env.NODE_ENV === "development" && providedContext.user.role === "safety-auditor";
+  const localTestWork = { id: "00000000-0000-4000-8000-000000000901", name: "Obra Teste — Fluxo da Auditoria", city: "São Paulo, SP", engineer: "Responsável de teste", coordinator: "Coordenação de teste", status: "Ativa" as const, isDemo: true };
+  const context = localAuditFlow ? {
+    ...providedContext,
+    user: {
+      ...providedContext.user,
+      workIds: [...providedContext.user.workIds, localTestWork.id],
+      agendaWorkIds: [...providedContext.user.agendaWorkIds, localTestWork.id],
+      workModuleScopes: [...(providedContext.user.workModuleScopes ?? []), { workId: localTestWork.id, module: "safety" as const }],
+    },
+    works: [...providedContext.works, localTestWork],
+  } : providedContext;
   const { user } = context;
   const initialVisit = initialScreen === "agenda" ? initialAgenda.visits.find((visit) => visit.id === initialVisitId && canReadVisit(user, visit)) : undefined;
   const [selectedModule, setSelectedModule] = useState<AppModule | null>(initialVisit?.module ?? user.modules[0] ?? null);
-  const [selectedWorkId, setSelectedWorkId] = useState(initialVisit?.workId ?? "");
+  const [selectedWorkId, setSelectedWorkId] = useState(initialVisit?.workId ?? (localAuditFlow ? localTestWork.id : ""));
   const [screen, setScreen] = useState<string>(initialScreen);
   const [reportSection, setReportSection] = useState<"reports" | "occurrences" | "plans">("reports");
   const [catalogs, setCatalogs] = useState(initialCatalogs);
   const [session, setSession] = useState<PrototypeAuditState>({ audits: [], responses: {} });
-  const { agenda, agendaSyncError, mutationPending, runAgendaAction } = useAgenda(initialAgenda, user.id, context.profile, context.engineeringScope, context.administrativeScope);
-  const visits = agenda.visits;
+  const { agenda: syncedAgenda, agendaSyncError, mutationPending, runAgendaAction } = useAgenda(initialAgenda, user.id, context.profile, context.engineeringScope, context.administrativeScope);
+  const localTestVisit: Visit = { id: "local-audit-flow-today", workId: localTestWork.id, module: "safety", kind: "audit", modelId: "security-it07-r02", auditorId: user.id, date: getSaoPauloToday(), note: "Agendamento local para teste integral do fluxo de auditoria.", createdBy: user.id, createdAt: `${getSaoPauloToday()}T12:00:00.000-03:00`, revision: 1, confirmationStatus: "confirmed", confirmedAt: `${getSaoPauloToday()}T12:00:00.000-03:00`, auditorName: user.name, createdByName: "Teste local", history: [] };
+  const visits = localAuditFlow ? [localTestVisit, ...syncedAgenda.visits.filter((visit) => visit.id !== localTestVisit.id)] : syncedAgenda.visits;
+  const agenda = localAuditFlow ? { ...syncedAgenda, available: true, visits } : syncedAgenda;
   const [activeAuditId, setActiveAuditId] = useState<string | null>(null);
   const [positions, setPositions] = useState<Record<string, number>>({});
   const [catalogId, setCatalogId] = useState<AuditModelId>("security-it07-r02");
@@ -75,8 +89,40 @@ function ProfileWorkspace({ context, initialScreen, initialVisitId, initialAgend
   const contextualAudits = moduleAudits.filter((audit) => audit.workId === work?.id);
   const contextualVisits = visits.filter((visit) => visit.workId === work?.id && visit.module === auditModule && canReadVisit(user, visit));
   const activeAudit = contextualAudits.find((audit) => audit.id === activeAuditId);
+  const activeAuditHistory = activeAudit ? session.audits
+    .filter((audit) => audit.id !== activeAudit.id && audit.workId === activeAudit.workId && audit.modelId === activeAudit.modelId && audit.status === "Publicada")
+    .sort((left, right) => right.date.localeCompare(left.date))
+    .slice(0, 3)
+    .map((audit) => ({ id: audit.id, date: audit.date, drafts: session.responses[audit.id] ?? {} })) : [];
   const preview = activeAudit ?? contextualAudits.find((audit) => canEditAudit(user, audit));
   const criteria = !isAdmin && currentCatalogId ? catalogVersion(catalogs, currentCatalogId).criteria.filter((item) => `${item.code} ${item.text} ${item.group} ${item.subgroup}`.toLocaleLowerCase("pt-BR").includes(catalogQuery.toLocaleLowerCase("pt-BR"))) : [];
+
+  useEffect(() => {
+    if (!localAuditFlow || !activeAudit || activeAudit.workId !== localTestWork.id || activeAudit.modelId !== "security-it07-r02") return;
+    if (Object.keys(session.responses[activeAudit.id]?.[activeAudit.modelId] ?? {}).length) return;
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setSession((current) => {
+        let filled = current;
+        criteriaForAudit(current, activeAudit).forEach((criterion, index) => {
+          const answer = index % 17 === 0 ? "0" : index % 11 === 0 ? "5" : index % 13 === 0 ? "N/A" : "10";
+          const needsEvidence = answer === "0" || answer === "5";
+          filled = updatePrototypeResponse(filled, user, activeAudit.id, criterion, {
+            answer,
+            note: answer === "0" ? "Não conformidade fictícia identificada durante a inspeção. Recomenda-se correção imediata e registro da tratativa."
+              : answer === "5" ? "Atendimento parcial fictício. O item requer adequação e acompanhamento pela equipe responsável."
+              : answer === "N/A" ? "" : "Item verificado em conformidade durante o teste do fluxo.",
+            ...(needsEvidence ? { photos: [`Evidência fictícia - ${criterion.code}.jpg`] } : {}),
+          });
+        });
+        return filled;
+      });
+      setError("");
+      setScreen("audit_review");
+    });
+    return () => { cancelled = true; };
+  }, [activeAudit, localAuditFlow, localTestWork.id, session.responses, user]);
 
   const nav: { key: string; label: string; icon: IconName }[] = isEngineering ? [
     { key: "overview", label: "Visão geral", icon: "overview" },
@@ -113,9 +159,8 @@ function ProfileWorkspace({ context, initialScreen, initialVisitId, initialAgend
     if (!work || !canReadAudit(user, audit) || audit.workId !== work.id || modelModule(audit.modelId) !== auditModule) return;
     setActiveAuditId(audit.id); setReportSection("reports"); setScreen(audit.status === "Publicada" ? "report" : "fill");
   };
-  const agendaActor = useMemo(() => ({ userId: user.id, profile: context.profile,
-    engineeringScope: context.engineeringScope ?? null, administrativeScope: context.administrativeScope }),
-  [user.id, context.profile, context.engineeringScope, context.administrativeScope]);
+  const agendaActor = { userId: user.id, profile: context.profile,
+    engineeringScope: context.engineeringScope ?? null, administrativeScope: context.administrativeScope };
   const agendaActions = {
     onCreate: (input: VisitInput) => runAgendaAction("create", input, (requestId) => createAgendaVisitAction({ ...input, requestId }, agendaActor)),
     onDelete: (visitId: string, expectedRevision: number) => runAgendaAction(`delete:${visitId}`, { visitId, expectedRevision }, (requestId) => deleteAgendaVisitAction({ visitId, expectedRevision, requestId }, agendaActor)),
@@ -124,13 +169,17 @@ function ProfileWorkspace({ context, initialScreen, initialVisitId, initialAgend
   const startScheduledAudit = async (visit: Visit) => {
     if (!isAuditor || !agenda.available || !canBeginScheduledAudit(user, visit, getSaoPauloToday()))
       throw new Error("Esta auditoria só pode ser iniciada pelo profissional responsável na data confirmada.");
-    const response = await fetch("/api/agenda", { credentials: "same-origin", cache: "no-store" });
-    if (!response.ok) throw new Error("Não foi possível conferir o agendamento. Tente novamente.");
-    const fresh: unknown = await response.json();
-    if (!isAgendaSnapshot(fresh) || !fresh.available) throw new Error("Não foi possível conferir o agendamento. Tente novamente.");
-    const current = fresh.visits.find((entry) => entry.id === visit.id);
-    if (!current || current.revision !== visit.revision || !canBeginScheduledAudit(user, current, getSaoPauloToday()))
-      throw new Error("O agendamento mudou ou não está mais disponível para iniciar. Atualize a agenda.");
+    let current = visit;
+    if (visit.id !== localTestVisit.id) {
+      const response = await fetch("/api/agenda", { credentials: "same-origin", cache: "no-store" });
+      if (!response.ok) throw new Error("Não foi possível conferir o agendamento. Tente novamente.");
+      const fresh: unknown = await response.json();
+      if (!isAgendaSnapshot(fresh) || !fresh.available) throw new Error("Não foi possível conferir o agendamento. Tente novamente.");
+      const persisted = fresh.visits.find((entry) => entry.id === visit.id);
+      if (!persisted || persisted.revision !== visit.revision || !canBeginScheduledAudit(user, persisted, getSaoPauloToday()))
+        throw new Error("O agendamento mudou ou não está mais disponível para iniciar. Atualize a agenda.");
+      current = persisted;
+    }
     const selectedWork = context.works.find((entry) => entry.id === current.workId);
     if (!selectedWork || !current.modelId) throw new Error("Esta obra ou roteiro não está autorizado neste perfil.");
     const version = catalogVersion(catalogs, current.modelId);
@@ -189,7 +238,7 @@ function ProfileWorkspace({ context, initialScreen, initialVisitId, initialAgend
       {isAdminAgenda && auditModule && <VisitAgenda key={user.id} user={user} works={context.works} users={agenda.auditors} visits={visits} module={auditModule} workId={work?.id ?? ""} available={agenda.available} mutationPending={mutationPending} syncError={agendaSyncError} {...agendaActions} />}
       {currentScreen === "agenda" && !isAdmin && canAgenda && <VisitAgenda key={user.id} user={user} works={context.works} users={agenda.auditors} visits={visits} module={auditModule ?? "safety"} workId={work?.id ?? ""} available={agenda.available} mutationPending={mutationPending} syncError={agendaSyncError} {...agendaActions} />}
       {work && auditModule && <>
-        {currentScreen === "fill" && activeAudit && activeAudit.status !== "Publicada" && <NewAudit key={activeAudit.id} model={modelDisplayName(activeAudit.modelId).replace(" rev. 02", "")} responseKey={activeAudit.modelId} workName={work.name} readOnly={!canEditAudit(user, activeAudit)} showWeights={canReadTechnicalWeights(user, auditModule)} criteria={criteriaForAudit(session, activeAudit)} activeIndex={positions[activeAudit.id] ?? 0} setActiveIndex={(index) => setPositions((previous) => ({ ...previous, [activeAudit.id]: index }))} drafts={session.responses[activeAudit.id] ?? {}} updateDraft={(response) => { try { const item = criteriaForAudit(session, activeAudit)[positions[activeAudit.id] ?? 0]; setSession(updatePrototypeResponse(session, user, activeAudit.id, item, response)); } catch (reason) { setError(reason instanceof Error ? reason.message : "Edição indisponível."); } }} onFinish={() => { try { validatePrototypeAuditCompletion(session, user, activeAudit.id); setError(""); setScreen("audit_review"); } catch (reason) { setError(reason instanceof Error ? reason.message : "Não foi possível revisar o relatório."); } }} details={{ date: activeAudit.date, auditor: activeAudit.auditor }} />}
+        {currentScreen === "fill" && activeAudit && activeAudit.status !== "Publicada" && <NewAudit key={activeAudit.id} model={modelDisplayName(activeAudit.modelId).replace(" rev. 02", "")} responseKey={activeAudit.modelId} workName={work.name} readOnly={!canEditAudit(user, activeAudit)} showWeights={canReadTechnicalWeights(user, auditModule)} previousAudits={activeAuditHistory} criteria={criteriaForAudit(session, activeAudit)} activeIndex={positions[activeAudit.id] ?? 0} setActiveIndex={(index) => setPositions((previous) => ({ ...previous, [activeAudit.id]: index }))} drafts={session.responses[activeAudit.id] ?? {}} updateDraft={(response) => { try { const item = criteriaForAudit(session, activeAudit)[positions[activeAudit.id] ?? 0]; setSession(updatePrototypeResponse(session, user, activeAudit.id, item, response)); } catch (reason) { setError(reason instanceof Error ? reason.message : "Edição indisponível."); } }} onFinish={() => { try { validatePrototypeAuditCompletion(session, user, activeAudit.id); setError(""); setScreen("audit_review"); } catch (reason) { setError(reason instanceof Error ? reason.message : "Não foi possível revisar o relatório."); } }} details={{ date: activeAudit.date, auditor: activeAudit.auditor }} />}
         {currentScreen === "fill" && !activeAudit && <p className="muted">Selecione um rascunho autorizado no histórico.</p>}
         {currentScreen === "audit_review" && activeAudit && <AuditReview model={modelDisplayName(activeAudit.modelId).replace(" rev. 02", "")} modelId={activeAudit.modelId} workName={work.name} details={{ date: activeAudit.date, auditor: activeAudit.auditor }} criteria={criteriaForAudit(session, activeAudit)} drafts={session.responses[activeAudit.id] ?? {}} onBack={() => { if (activeAudit.status !== "Publicada") { setError(""); setScreen("fill"); } }} onPublish={() => { try { setSession(completePrototypeAudit(session, user, activeAudit.id)); setError(""); return true; } catch (reason) { setError(reason instanceof Error ? reason.message : "Não foi possível publicar a auditoria."); return false; } }} />}
         {currentScreen === "report" && reportSection === "reports" && <>{preview && canEditAudit(user, preview) ? <AuditPreview audit={preview} work={work} /> : <section className="panel"><h2>Relatórios publicados</h2><p className="muted">Nenhum documento publicado disponível neste contexto. A publicação oficial está em preparação.</p></section>}</>}

@@ -92,6 +92,7 @@ export function CatalogEditorPanel({ version, available, setupPending, actorId, 
   const [mode, setMode] = useState<"items" | "weights" | "upload">("items");
   const [selectedId, setSelectedId] = useState(version.criteria[0]?.id ?? "");
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set(version.criteria.map((item) => item.group)));
+  const [collapsedSubgroups, setCollapsedSubgroups] = useState<Set<string>>(() => new Set(version.criteria.map((item) => `${item.group}:${item.subgroup || "Itens do grupo"}`)));
   const [collapsedWeightGroups, setCollapsedWeightGroups] = useState<Set<string>>(() => new Set(version.criteria.map((item) => item.group)));
   const [weights, setWeights] = useState<Record<string, string>>({});
   const [revisionLabel, setRevisionLabel] = useState(() => version.label.split(/\s+—\s+ajuste\s+\d+/i)[0].trim());
@@ -206,11 +207,42 @@ export function CatalogEditorPanel({ version, available, setupPending, actorId, 
     while ([...groups].some((group) => group.startsWith(`${number}.`) || group.startsWith(`${number} —`))) number += 1;
     addItem(`${number}. Novo grupo`);
   };
-  const changeGroup = (group: string) => {
+  const groupParts = (group: string) => {
+    const match = group.match(/^([^\s.—–-]+)\s*(?:\.|—|–|-)\s*(.+)$/);
+    return { code: match?.[1] ?? "", title: match?.[2] ?? group };
+  };
+  const changeGroupParts = (code: string, title: string) => {
     if (!selected) return;
     const previousGroup = selected.group;
+    const previousCode = groupParts(previousGroup).code;
+    const nextGroup = [code.trim(), title.trim()].filter(Boolean).join(" — ");
     changed();
-    setCriteria((items) => items.map((item) => item.group === previousGroup ? { ...item, group } : item));
+    setCriteria((items) => items.map((item) => {
+      if (item.group !== previousGroup) return item;
+      const nextCode = previousCode && code.trim() && item.code.startsWith(`${previousCode}.`)
+        ? `${code.trim()}${item.code.slice(previousCode.length)}` : item.code;
+      const nextSubgroup = previousCode && code.trim() && item.subgroup.startsWith(`${previousCode}.`)
+        ? `${code.trim()}${item.subgroup.slice(previousCode.length)}` : item.subgroup;
+      return { ...item, code: nextCode, subgroup: nextSubgroup, group: nextGroup };
+    }));
+  };
+  const subgroupParts = (subgroup: string, itemCode: string) => {
+    const match = subgroup.match(/^([\d.]+)\s*(?:—|–|-)\s*(.+)$/);
+    return { code: match?.[1] ?? itemCode.split(".").slice(0, -1).join("."), title: match?.[2] ?? subgroup };
+  };
+  const changeSubgroupParts = (code: string, title: string) => {
+    if (!selected) return;
+    const previousGroup = selected.group;
+    const previousSubgroup = selected.subgroup;
+    const previousCode = subgroupParts(previousSubgroup, selected.code).code;
+    const nextSubgroup = [code.trim(), title.trim()].filter(Boolean).join(" — ");
+    changed();
+    setCriteria((items) => items.map((item) => {
+      if (item.group !== previousGroup || item.subgroup !== previousSubgroup) return item;
+      const nextCode = previousCode && code.trim() && item.code.startsWith(`${previousCode}.`)
+        ? `${code.trim()}${item.code.slice(previousCode.length)}` : item.code;
+      return { ...item, code: nextCode, subgroup: nextSubgroup };
+    }));
   };
   const removeItem = () => {
     if (!selected || criteria.length <= 1) return;
@@ -313,13 +345,28 @@ export function CatalogEditorPanel({ version, available, setupPending, actorId, 
               <div className={styles.editorTree}>
                 {Object.entries(groupedCriteria).map(([group, items]) => {
                   const collapsed = collapsedGroups.has(group);
+                  const subgroups = items.reduce<Record<string, Criterion[]>>((result, item) => {
+                    (result[item.subgroup || "Itens do grupo"] ??= []).push(item);
+                    return result;
+                  }, {});
                   return <section className={styles.editorGroup} key={group}>
                     <button type="button" className={styles.editorGroupToggle} aria-expanded={!collapsed} onClick={() => setCollapsedGroups((current) => {
                       const next = new Set(current);
                       if (next.has(group)) next.delete(group); else next.add(group);
                       return next;
-                    })}><span><strong>{group}</strong><small>{items.length} {items.length === 1 ? "item" : "itens"}</small></span><span aria-hidden="true">⌄</span></button>
-                    {!collapsed && <><div className={styles.editorItems}>{items.map((item) => <button type="button" key={item.id} className={item.id === selected?.id ? styles.selectedEditorItem : undefined} aria-pressed={item.id === selected?.id} onClick={() => setSelectedId(item.id)}><strong>{item.code}</strong><span>{item.title}</span></button>)}</div><button type="button" className={styles.groupAddItem} onClick={() => addItem(group)}>+ Adicionar item ao grupo</button></>}
+                    })}><span><strong>{groupParts(group).code}</strong><span className={styles.treeTitle}>{groupParts(group).title}</span></span><span aria-hidden="true">⌄</span></button>
+                    {!collapsed && <><div className={styles.editorSubgroups}>{Object.entries(subgroups).map(([subgroup, subgroupItems]) => {
+                      const subgroupKey = `${group}:${subgroup}`;
+                      const subgroupCollapsed = collapsedSubgroups.has(subgroupKey);
+                      return <section className={styles.editorSubgroup} key={subgroupKey}>
+                        <button type="button" className={styles.editorSubgroupToggle} aria-expanded={!subgroupCollapsed} onClick={() => setCollapsedSubgroups((current) => {
+                          const next = new Set(current);
+                          if (next.has(subgroupKey)) next.delete(subgroupKey); else next.add(subgroupKey);
+                          return next;
+                        })}><span><strong>{subgroupParts(subgroup, subgroupItems[0]?.code ?? "").code}</strong><span className={styles.treeTitle}>{subgroupParts(subgroup, subgroupItems[0]?.code ?? "").title}</span></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5" /></svg></button>
+                        {!subgroupCollapsed && <div className={styles.editorItems}>{subgroupItems.map((item) => <button type="button" key={item.id} className={item.id === selected?.id ? styles.selectedEditorItem : undefined} aria-pressed={item.id === selected?.id} onClick={() => setSelectedId(item.id)}><strong>{item.code}</strong><span>{item.title}</span></button>)}</div>}
+                      </section>;
+                    })}</div><button type="button" className={styles.groupAddItem} onClick={() => addItem(group)}>+ Adicionar item ao grupo</button></>}
                   </section>;
                 })}
               </div>
@@ -327,10 +374,17 @@ export function CatalogEditorPanel({ version, available, setupPending, actorId, 
             </aside>
             {selected ? <div className={styles.itemFields}>
               <div className={styles.identityFields}>
-                <label>Código<input required maxLength={100} value={selected.code} onChange={(event) => changeItem({ code: event.target.value })} /></label>
-                <label>Título do grupo<input required maxLength={2000} value={selected.group} onChange={(event) => changeGroup(event.target.value)} /></label>
+                <label>Código do grupo<input required maxLength={100} value={groupParts(selected.group).code} onChange={(event) => changeGroupParts(event.target.value, groupParts(selected.group).title)} /></label>
+                <label>Título do grupo<input required maxLength={2000} value={groupParts(selected.group).title} onChange={(event) => changeGroupParts(groupParts(selected.group).code, event.target.value)} /></label>
               </div>
-              <label>Título do item<input required maxLength={2000} value={selected.title} onChange={(event) => changeItem({ title: event.target.value })} /></label>
+              <div className={styles.identityFields}>
+                <label>Código do subgrupo<input maxLength={100} value={subgroupParts(selected.subgroup, selected.code).code} onChange={(event) => changeSubgroupParts(event.target.value, subgroupParts(selected.subgroup, selected.code).title)} /></label>
+                <label>Título do subgrupo<input maxLength={2000} value={subgroupParts(selected.subgroup, selected.code).title} onChange={(event) => changeSubgroupParts(subgroupParts(selected.subgroup, selected.code).code, event.target.value)} placeholder="Itens do grupo" /></label>
+              </div>
+              <div className={styles.identityFields}>
+                <label>Código do item<input required maxLength={100} value={selected.code} onChange={(event) => changeItem({ code: event.target.value })} /></label>
+                <label>Título do item<input required maxLength={2000} value={selected.title} onChange={(event) => changeItem({ title: event.target.value })} /></label>
+              </div>
               <label>Descrição<textarea rows={4} maxLength={30000} required value={selected.text} onChange={(event) => changeItem({ text: event.target.value })} /></label>
               {base.modelId === "security-it07-r02" ? <label>Critério de análise<textarea rows={4} maxLength={30000} required value={selected.analysisCriterion ?? ""} onChange={(event) => changeItem({ analysisCriterion: event.target.value })} /></label> : <label>Critério<select className={`filter-select ${styles.platformFilter}`} value={selected.verificationRule ?? ""} onChange={(event) => changeItem({ verificationRule: event.target.value || undefined })}>
                 <option value="">Não definido</option>

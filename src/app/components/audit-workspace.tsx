@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
+import { PDFDocument, PDFName, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import { useId, useRef, useState } from "react";
 import { useEffect } from "react";
 import { getCriterionDisplayTitle, getCriterionWeight, qualityModels, type Criterion } from "@/domain/catalogs";
@@ -162,6 +162,7 @@ type NewAuditProps = {
   responseKey?: string;
   readOnly?: boolean;
   showWeights?: boolean;
+  previousAudits?: readonly { id: string; date: string; drafts: AuditDrafts }[];
 };
 
 type AuditReviewProps = {
@@ -195,6 +196,7 @@ function wrapPdfText(text: string, font: PDFFont, size: number, maxWidth: number
 }
 
 async function createAuditReviewPdf({ model, modelId, workName, details, criteria, drafts }: Omit<AuditReviewProps, "onBack" | "onPublish">): Promise<Uint8Array> {
+  if (modelId === "security-it07-r02") return createSecurityAuditReportPdf({ model, modelId, workName, details, criteria, drafts });
   const document = await PDFDocument.create();
   document.setTitle(`Relatório de auditoria - ${workName}`);
   document.setAuthor("Diálogo Engenharia");
@@ -261,6 +263,170 @@ async function createAuditReviewPdf({ model, modelId, workName, details, criteri
     centered(workName, pdfPageSize.width / 2, 35, regular, 7, muted);
     const author = `Elaborado por: ${details.auditor}`;
     sheet.drawText(author, { x: pdfRight - regular.widthOfTextAtSize(author, 7), y: 35, size: 7, font: regular, color: muted });
+  });
+  return document.save();
+}
+
+async function createSecurityAuditReportPdf({ modelId, workName, details, criteria, drafts }: Omit<AuditReviewProps, "onBack" | "onPublish" | "model"> & { model?: string }): Promise<Uint8Array> {
+  const document = await PDFDocument.create();
+  document.setTitle(`Relatório de Auditoria de Segurança - ${workName}`);
+  document.setAuthor("Diálogo Engenharia");
+  document.setSubject("Segurança do Trabalho");
+  const regular = await document.embedFont(StandardFonts.Helvetica);
+  const bold = await document.embedFont(StandardFonts.HelveticaBold);
+  const logo = await fetch("/logo-relatorio-orientativo.png").then(async (response) => response.ok ? document.embedPng(await response.arrayBuffer()) : null).catch(() => null);
+  const width = 445.5, height = 631.5, left = 34, right = width - 33;
+  const navy = rgb(.07, .24, .47), red = rgb(.86, .12, .18), muted = rgb(.39, .47, .57), lineColor = rgb(.87, .90, .94);
+  const green = rgb(.10, .55, .34), orange = rgb(.85, .48, .07), gray = rgb(.40, .46, .54);
+  const pages: PDFPage[] = [];
+  const summaryLinks: { source: PDFPage; itemId: string; rect: [number, number, number, number] }[] = [];
+  const detailPages = new Map<string, PDFPage>();
+  const addPage = () => { const page = document.addPage([width, height]); pages.push(page); return page; };
+  const writeWrapped = (page: PDFPage, text: string, x: number, y: number, maxWidth: number, size = 8, font = regular, color = navy, leading = size + 3) => {
+    const lines = wrapPdfText(text || "—", font, size, maxWidth);
+    lines.forEach((value, index) => page.drawText(value, { x, y: y - index * leading, size, font, color }));
+    return y - lines.length * leading;
+  };
+  const drawLabel = (page: PDFPage, value: string, x: number, y: number) => page.drawText(value, { x, y, size: 5.5, font: bold, color: muted });
+  const drawStatus = (page: PDFPage, response: ItemResponse, x: number, y: number, scale = 1) => {
+    const answer = response.answer;
+    const color = answer === "0" || answer === "Não conforme" ? red : answer === "5" ? orange : answer === "10" || answer === "Conforme" ? green : gray;
+    const size = 7 * scale;
+    if (answer === "10" || answer === "Conforme") {
+      page.drawLine({ start: { x: x - size * .75, y }, end: { x: x - size * .15, y: y - size * .65 }, thickness: 1.8 * scale, color });
+      page.drawLine({ start: { x: x - size * .15, y: y - size * .65 }, end: { x: x + size * .85, y: y + size * .75 }, thickness: 1.8 * scale, color });
+    } else if (answer === "0" || answer === "Não conforme") {
+      page.drawLine({ start: { x: x - size * .65, y: y - size * .65 }, end: { x: x + size * .65, y: y + size * .65 }, thickness: 1.7 * scale, color });
+      page.drawLine({ start: { x: x - size * .65, y: y + size * .65 }, end: { x: x + size * .65, y: y - size * .65 }, thickness: 1.7 * scale, color });
+    } else if (answer === "5") page.drawText("!", { x: x - size * .2, y: y - size * .7, size: size * 1.7, font: bold, color });
+    else page.drawLine({ start: { x: x - size * .8, y }, end: { x: x + size * .8, y }, thickness: 1.7 * scale, color });
+  };
+  const cover = addPage();
+  if (logo) cover.drawImage(logo, { x: left, y: 554, width: 93, height: 36 });
+  cover.drawText("DIÁLOGO AUDITORIAS", { x: right - 75, y: 578, size: 5.5, font: bold, color: navy });
+  cover.drawText("RELATÓRIO TÉCNICO", { x: right - 62, y: 570, size: 4.5, font: regular, color: muted });
+  cover.drawLine({ start: { x: left, y: 548 }, end: { x: right, y: 548 }, thickness: .6, color: navy });
+  cover.drawLine({ start: { x: left, y: 543 }, end: { x: right, y: 543 }, thickness: 1.3, color: red });
+  cover.drawText("RELATÓRIO DE AUDITORIA", { x: left, y: 422, size: 6, font: bold, color: muted });
+  cover.drawText("Segurança do", { x: left, y: 385, size: 18, font: bold, color: navy });
+  cover.drawText("Trabalho", { x: left, y: 361, size: 18, font: bold, color: navy });
+  cover.drawLine({ start: { x: left, y: 335 }, end: { x: left + 31, y: 335 }, thickness: 2, color: red });
+  drawLabel(cover, "OBRA AUDITADA", left, 292);
+  writeWrapped(cover, workName, left, 270, right - left, 14, bold, navy, 17);
+  drawLabel(cover, "IDENTIFICAÇÃO", left, 247);
+  cover.drawText("Auditoria de Segurança do Trabalho", { x: left, y: 235, size: 6.5, font: regular, color: muted });
+  cover.drawLine({ start: { x: left, y: 205 }, end: { x: right, y: 205 }, thickness: .5, color: lineColor });
+  const finalScore = calculateAuditFinalScore(criteria, drafts, modelId);
+  const coverFields = [["DATA DA AUDITORIA", displayAuditDate(details.date)], ["AUDITOR RESPONSÁVEL", details.auditor], ["NOTA FINAL", finalScore?.toFixed(2).replace(".", ",") ?? "—"]] as const;
+  coverFields.forEach(([label, value], index) => { const x = left + index * 126; drawLabel(cover, label, x, 184); writeWrapped(cover, value, x, 166, 112, 8, index === 2 ? bold : regular, navy, 10); });
+  cover.drawLine({ start: { x: left, y: 143 }, end: { x: right, y: 143 }, thickness: .5, color: lineColor });
+
+  const groups = criteria.reduce<Record<string, Criterion[]>>((result, criterion) => { (result[criterion.group] ??= []).push(criterion); return result; }, {});
+  const drawSummaryTitle = (page: PDFPage) => page.drawText("SUMÁRIO", { x: left, y: 514, size: 13, font: bold, color: navy });
+  let summary = addPage(), summaryY = 486;
+  drawSummaryTitle(summary);
+  const startSummaryPage = () => { summary = addPage(); summaryY = 510; };
+  for (const [group, items] of Object.entries(groups)) {
+    if (summaryY < 82) startSummaryPage();
+    const heading = getGroupHeading(group);
+    summary.drawText(heading.number, { x: left, y: summaryY, size: 13, font: bold, color: navy });
+    summary.drawText(heading.title, { x: left + 31, y: summaryY + 1, size: 8.5, font: bold, color: navy });
+    const groupResult = calculateSecurityGroupScore(items, drafts, modelId);
+    summary.drawText(groupResult === null ? "—" : groupResult.toFixed(1).replace(".", ","), { x: right - 19, y: summaryY, size: 8, font: bold, color: navy });
+    summaryY -= 18;
+    const summarySubgroups = items.reduce<Record<string, Criterion[]>>((result, item) => {
+      (result[item.subgroup || "Itens do grupo"] ??= []).push(item);
+      return result;
+    }, {});
+    for (const [subgroup, subgroupItems] of Object.entries(summarySubgroups)) {
+      if (summaryY < 68) startSummaryPage();
+      const subgroupScore = calculateSecurityGroupScore(subgroupItems, drafts, modelId);
+      summary.drawRectangle({ x: left + 8, y: summaryY - 5, width: right - left - 8, height: 17, color: rgb(.94, .96, .98) });
+      summaryY = writeWrapped(summary, subgroup, left + 14, summaryY, right - left - 72, 7.2, bold, navy, 9);
+      const subgroupScoreLabel = subgroupScore === null ? "—" : subgroupScore.toFixed(1).replace(".", ",");
+      summary.drawText(subgroupScoreLabel, { x: right - bold.widthOfTextAtSize(subgroupScoreLabel, 7), y: summaryY + 9, size: 7, font: bold, color: navy });
+      summaryY -= 5;
+      for (const item of subgroupItems) {
+        if (summaryY < 52) startSummaryPage();
+        const response = getItemResponse(drafts, modelId, item);
+        const itemTop = summaryY + 8;
+        summaryY = writeWrapped(summary, `${item.code}  ${getCriterionDisplayTitle(item)}`, left + 20, summaryY, right - left - 60, 6.8, regular, navy, 9);
+        summaryLinks.push({ source: summary, itemId: item.id, rect: [left + 16, summaryY, right, itemTop] });
+        drawStatus(summary, response, right - 15, summaryY + 8, .75);
+        summary.drawLine({ start: { x: left + 20, y: summaryY + 2 }, end: { x: right, y: summaryY + 2 }, thickness: .35, color: lineColor });
+        summaryY -= 7;
+      }
+      summaryY -= 3;
+    }
+    summaryY -= 8;
+  }
+
+  for (const [group, items] of Object.entries(groups)) {
+    for (const item of items) {
+      const response = getItemResponse(drafts, modelId, item);
+      const page = addPage();
+      detailPages.set(item.id, page);
+      const heading = getGroupHeading(group);
+      const groupScore = calculateSecurityGroupScore(items, drafts, modelId);
+      page.drawText(heading.number, { x: left, y: 471, size: 13, font: bold, color: navy });
+      page.drawText(heading.title, { x: left + 31, y: 472, size: 8.5, font: bold, color: navy });
+      const groupScoreLabel = groupScore === null ? "—" : groupScore.toFixed(1).replace(".", ",");
+      page.drawText(groupScoreLabel, { x: right - bold.widthOfTextAtSize(groupScoreLabel, 9), y: 472, size: 9, font: bold, color: navy });
+      if (item.subgroup) page.drawText(item.subgroup, { x: left, y: 442, size: 7, font: regular, color: muted });
+      page.drawText(item.code, { x: left, y: 414, size: 8, font: bold, color: navy });
+      const titleBottom = writeWrapped(page, getCriterionDisplayTitle(item), left + 54, 414, right - left - 80, 11, bold, navy, 14);
+      drawStatus(page, response, right - 13, 412, 1.15);
+      let y = Math.min(382, titleBottom - 12);
+      drawLabel(page, "DESCRIÇÃO", left, y); y = writeWrapped(page, item.text, left, y - 14, right - left, 7.2, regular, muted, 10) - 13;
+      drawLabel(page, "CRITÉRIO DE ANÁLISE", left, y);
+      const analysis = item.analysisCriterion ?? (item.orientations.map((orientation) => orientation.text).join(" ") || "Não informado.");
+      y = writeWrapped(page, analysis, left, y - 14, right - left, 7.2, regular, muted, 10) - 13;
+      drawLabel(page, "OBSERVAÇÕES", left, y); y = writeWrapped(page, response.note || "Sem observações registradas.", left, y - 14, right - left, 7.2, regular, muted, 10) - 16;
+      drawLabel(page, "EVIDÊNCIAS FOTOGRÁFICAS", left, y);
+      const photos = response.photos ?? [];
+      if (photos.length) {
+        photos.slice(0, 3).forEach((name, index) => {
+          const boxX = left + index * 121;
+          page.drawRectangle({ x: boxX, y: Math.max(68, y - 89), width: 108, height: 68, borderWidth: .6, borderColor: lineColor, color: rgb(.97, .98, .99) });
+          page.drawText(`FOTO ${String(index + 1).padStart(2, "0")}`, { x: boxX + 37, y: Math.max(105, y - 52), size: 6, font: bold, color: muted });
+          writeWrapped(page, name, boxX + 6, Math.max(80, y - 75), 96, 5, regular, muted, 7);
+        });
+      } else page.drawText("Nenhuma fotografia anexada a este item.", { x: left, y: y - 17, size: 7, font: regular, color: muted });
+    }
+  }
+
+  const annotations = new Map<PDFPage, ReturnType<typeof document.context.register>[]>();
+  summaryLinks.forEach(({ source, itemId, rect }) => {
+    const target = detailPages.get(itemId);
+    if (!target) return;
+    const annotation = document.context.register(document.context.obj({
+      Type: "Annot", Subtype: "Link", Rect: rect, Border: [0, 0, 0],
+      Dest: [target.ref, "XYZ", null, null, null],
+    }));
+    const pageAnnotations = annotations.get(source) ?? [];
+    pageAnnotations.push(annotation);
+    annotations.set(source, pageAnnotations);
+  });
+  annotations.forEach((references, source) => source.node.set(PDFName.of("Annots"), document.context.obj(references)));
+
+  const date = displayAuditDate(details.date);
+  pages.forEach((page, index) => {
+    if (index > 0) {
+      if (logo) page.drawImage(logo, { x: left, y: 558, width: 73, height: 28 });
+      page.drawText("Segurança do Trabalho", { x: 119, y: 568, size: 8.2, font: bold, color: navy });
+      drawLabel(page, "PROCESSO", 245, 581);
+      page.drawText("RELATÓRIO DE AUDITORIA", { x: 245, y: 561, size: 7.8, font: bold, color: navy });
+      drawLabel(page, "DATA", 370, 581);
+      page.drawText(date, { x: 370, y: 561, size: 7, font: bold, color: navy });
+      page.drawLine({ start: { x: left, y: 545 }, end: { x: right, y: 545 }, thickness: .6, color: navy });
+      page.drawLine({ start: { x: left, y: 540 }, end: { x: right, y: 540 }, thickness: 1.3, color: red });
+    }
+    page.drawLine({ start: { x: left, y: 34 }, end: { x: right, y: 34 }, thickness: .45, color: lineColor });
+    page.drawText("Diálogo Auditorias", { x: left, y: 20, size: 5, font: regular, color: muted });
+    const center = index === 0 ? "Abrir sumário" : index === 1 ? "Sumário" : "Voltar ao sumário";
+    page.drawText(center, { x: width / 2 - regular.widthOfTextAtSize(center, 5) / 2, y: 20, size: 5, font: regular, color: muted });
+    const pageNumber = `${String(index + 1).padStart(2, "0")} / ${String(pages.length).padStart(2, "0")}`;
+    page.drawText(pageNumber, { x: right - regular.widthOfTextAtSize(pageNumber, 5), y: 20, size: 5, font: regular, color: index === 0 ? red : muted });
   });
   return document.save();
 }
@@ -346,6 +512,36 @@ function scoreLabel(score: number | null, answer?: DraftAnswer): string {
   return score === null ? "--" : score.toFixed(2).replace(".", ",");
 }
 
+function verificationVisual(response: ItemResponse): { icon: string; label: string; tone: string } | null {
+  if (response.answer === "0" || response.answer === "Não conforme") return { icon: "×", label: "Totalmente não conforme", tone: "noncompliant" };
+  if (response.answer === "5") return { icon: "!", label: "Parcialmente não conforme", tone: "partial" };
+  if (response.answer === "10" || response.answer === "Conforme") return { icon: "✓", label: "Conforme", tone: "compliant" };
+  if (response.answer === "N/A") return { icon: "—", label: "Não aplicável", tone: "not-applicable" };
+  return null;
+}
+
+function VerificationMark({ response, missingPhoto = false }: { response: ItemResponse; missingPhoto?: boolean }) {
+  const visual = verificationVisual(response);
+  return visual ? <span className={`verification-mark ${visual.tone}${missingPhoto ? " missing-photo" : ""}`} aria-label={visual.label} title={visual.label}>{visual.icon}</span>
+    : <span className="verification-mark unanswered" aria-label="Não respondido" title="Não respondido">·</span>;
+}
+
+function previewAuditHistory(date: string, model: string, criteria: readonly Criterion[]): readonly { id: string; date: string; drafts: AuditDrafts }[] {
+  const base = /^\d{4}-\d{2}-\d{2}$/.test(date) ? new Date(`${date}T12:00:00Z`) : new Date();
+  const answers: DraftAnswer[] = model === "security-it07-r02"
+    ? ["10", "10", "10", "5", "0", "N/A"]
+    : ["Conforme", "Conforme", "Conforme", "Não conforme", "N/A"];
+  return [1, 2, 3].map((monthsAgo) => {
+    const previous = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth() - monthsAgo, Math.min(base.getUTCDate(), 28), 12));
+    const previousDate = previous.toISOString().slice(0, 10);
+    const responses = Object.fromEntries(criteria.map((criterion, index) => {
+      const seed = [...criterion.id].reduce((total, character) => total + character.charCodeAt(0), monthsAgo * 17 + index);
+      return [criterion.id, { answer: answers[seed % answers.length], note: "" } satisfies ItemResponse];
+    }));
+    return { id: `preview-${previousDate}`, date: previousDate, drafts: { [model]: responses } };
+  });
+}
+
 function isRequiredPhotoMissing(criterion: Criterion, response: ItemResponse): boolean {
   if (criterion.verificationRule === "Dividido pela quantidade verificada") {
     return response.checks?.some((check) => check.compliant === false && !check.photos?.length) === true;
@@ -353,7 +549,7 @@ function isRequiredPhotoMissing(criterion: Criterion, response: ItemResponse): b
   return (response.answer === "0" || response.answer === "5" || response.answer === "Não conforme") && !response.photos?.length;
 }
 
-export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts, updateDraft, onFinish, details, workName = "Residencial Horizonte · Guarulhos", responseKey = model, readOnly = false, showWeights = true }: NewAuditProps) {
+export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts, updateDraft, onFinish, details, workName = "Residencial Horizonte · Guarulhos", responseKey = model, readOnly = false, previousAudits = [] }: NewAuditProps) {
   const [selectedItemOpen, setSelectedItemOpen] = useState(false);
   const [itemPhotos, setItemPhotos] = useState<Record<string, File[]>>({});
   const [photoTarget, setPhotoTarget] = useState("item");
@@ -361,6 +557,9 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
   const criterion = criteria[activeIndex] ?? criteria[0];
   const response = criterion ? getItemResponse(drafts, responseKey, criterion) : { note: "" };
   const security = model.startsWith("Segurança");
+  const displayedPreviousAudits = previousAudits.length
+    ? [...previousAudits].sort((left, right) => right.date.localeCompare(left.date))
+    : previewAuditHistory(details.date, responseKey, criteria);
   const securityAnalysisCriterion = security && criterion ? criterion.analysisCriterion ?? criterion.orientations.map((orientation) => orientation.text).join("\n\n") : undefined;
   const requiresEvidence = response.answer === "0" || response.answer === "5" || response.answer === "Não conforme" || response.checks?.some((check) => check.compliant === false);
   const missingRequiredPhoto = criterion ? isRequiredPhotoMissing(criterion, response) : false;
@@ -422,7 +621,7 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
     </section>
 
     <section className="question-card" aria-label="Quesito da auditoria">
-      <ItemPicker key={responseKey} id={pickerId} model={responseKey} criteria={criteria} drafts={drafts} activeId={selectedItemOpen ? criterion?.id : undefined} showWeights={showWeights} security={security} onSelect={(index) => {
+      <ItemPicker key={responseKey} id={pickerId} model={responseKey} criteria={criteria} drafts={drafts} previousAudits={displayedPreviousAudits} activeId={selectedItemOpen ? criterion?.id : undefined} security={security} onSelect={(index) => {
         if (selectedItemOpen && index === activeIndex) setSelectedItemOpen(false);
         else { setActiveIndex(index); setSelectedItemOpen(true); }
       }} />
@@ -433,7 +632,7 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
           <span className="question-group-title">{getGroupHeading(criterion.group).title}</span>
         </div>
         {criterion.subgroup && <div className="question-context"><span>{criterion.subgroup}</span></div>}
-        <div className="question-title-row"><div className="question-title-content"><span className="question-code">{criterion.code}</span><h3>{getCriterionDisplayTitle(criterion)}</h3></div><div className={missingRequiredPhoto ? "question-score missing-photo" : "question-score"}><small>NOTA</small><strong>{awardedItemScore(criterion, response, security)?.toFixed(2).replace(".", ",") ?? "—"}</strong></div></div>
+        <div className="question-title-row"><div className="question-title-content"><span className="question-code">{criterion.code}</span><h3>{getCriterionDisplayTitle(criterion)}</h3></div><div className={`question-verification ${verificationVisual(response)?.tone ?? "unanswered"}${missingRequiredPhoto ? " missing-photo" : ""}`}><small>VERIFICAÇÃO</small><VerificationMark response={response} /></div></div>
         <p className="criterion-description"><strong>Descrição:</strong> {criterion.text}</p>
         {(security ? securityAnalysisCriterion : criterion.verificationRule) && <p className="criterion-detail"><strong>{security ? "Critério de análise" : "Critério de verificação"}:</strong> {security ? securityAnalysisCriterion : criterion.verificationRule}</p>}
         {criterion.interpretation && criterion.verificationRule !== "Dividido pela quantidade verificada" && <p className="criterion-detail">{criterion.interpretation}</p>}
@@ -534,7 +733,7 @@ function AuditPhotoThumbnail({ file, onAdd, onDelete }: { file?: File; onAdd: ()
   </span> : null;
 }
 
-function ItemPicker({ id, model, criteria, drafts, activeId, showWeights, security, onSelect }: { id: string; model: string; criteria: Criterion[]; drafts: AuditDrafts; activeId?: string; showWeights: boolean; security: boolean; onSelect: (index: number) => void }) {
+function ItemPicker({ id, model, criteria, drafts, previousAudits, activeId, security, onSelect }: { id: string; model: string; criteria: Criterion[]; drafts: AuditDrafts; previousAudits: readonly { id: string; date: string; drafts: AuditDrafts }[]; activeId?: string; security: boolean; onSelect: (index: number) => void }) {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set(criteria.map((criterion) => criterion.group)));
   const [collapsedSubgroups, setCollapsedSubgroups] = useState<Set<string>>(() => new Set(criteria.filter((criterion) => criterion.subgroup).map((criterion) => `${criterion.group}:${criterion.subgroup}`)));
   const grouped = criteria.reduce<Record<string, Record<string, { criterion: Criterion; index: number }[]>>>((groups, criterion, index) => {
@@ -550,11 +749,10 @@ function ItemPicker({ id, model, criteria, drafts, activeId, showWeights, securi
   const renderItem = ({ criterion, index }: { criterion: Criterion; index: number }) => {
     const answer = getItemResponse(drafts, model, criterion);
     const answered = answer.answer !== undefined || answer.checks?.some((check) => check.compliant !== null);
-    const itemScore = awardedItemScore(criterion, answer, security);
     const missingRequiredPhoto = isRequiredPhotoMissing(criterion, answer);
     return <button type="button" key={criterion.id} className={criterion.id === activeId ? "item-result active" : "item-result"} aria-pressed={criterion.id === activeId} onClick={() => onSelect(index)}>
       <span><b>{criterion.code}</b> {getCriterionDisplayTitle(criterion)}</span>
-      <span className="item-result-summary"><em className={answered ? "has-answer" : undefined}>{answered ? "Respondido" : "Não respondido"}</em>{showWeights && <strong className={missingRequiredPhoto ? "missing-photo-score" : undefined}>{scoreLabel(itemScore, answer.answer)}</strong>}</span>
+      <span className="item-result-summary">{!answered && <em>Não respondido</em>}<span className="audit-result-columns">{[...previousAudits].reverse().map((audit) => <span key={audit.id}><small>{displayAuditDate(audit.date)}</small><VerificationMark response={getItemResponse(audit.drafts, model, criterion)} /></span>)}<span><small>ATUAL</small><VerificationMark response={answer} missingPhoto={missingRequiredPhoto} /></span></span></span>
     </button>;
   };
 

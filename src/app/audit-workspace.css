@@ -220,6 +220,26 @@
 .item-result .item-result-summary { display: flex; flex-shrink: 0; align-items: flex-end; flex-direction: column; gap: 6px; min-width: 100px; }
 .item-result-summary strong { color: var(--navy); font-size: 11px; white-space: nowrap; }
 .item-result-summary strong.missing-photo-score { color: var(--red); }
+.audit-result-columns { display: flex; direction: ltr; align-items: stretch; gap: 6px; }
+.audit-result-columns > span { display: grid; min-width: 55px; place-items: center; gap: 4px; padding-left: 6px; border-left: 1px solid var(--line); }
+.audit-result-columns small { margin: 0; color: var(--muted); font-size: 8px; font-weight: 700; letter-spacing: .25px; white-space: nowrap; }
+.verification-mark { display: block; min-width: 28px; color: var(--navy); font-size: 18px; font-weight: 800; line-height: 1; text-align: center; }
+.verification-mark.noncompliant { color: #d92f3d; }
+.verification-mark.partial { color: #d98216; }
+.verification-mark.compliant { color: #18875f; }
+.verification-mark.not-applicable { color: #65758a; }
+.verification-mark.unanswered { color: #9aa6b5; }
+.verification-mark.missing-photo { color: var(--red); text-decoration: underline; text-decoration-color: #f09aa3; text-underline-offset: 4px; }
+.question-verification { position: absolute; top: 0; right: 0; display: grid; width: 90px; min-height: 90px; place-items: center; align-content: center; gap: 8px; padding: 8px 5px; border: 1px solid var(--line); border-radius: 9px; background: white; }
+.question-verification small { display: block; color: var(--muted); font-size: 8px; font-weight: 700; letter-spacing: .6px; line-height: 1; }
+.question-verification .verification-mark { min-width: 58px; font-size: 23px; }
+.question-verification.noncompliant { border-color: #d4313d; background: #d4313d; }
+.question-verification.partial { border-color: #d88a14; background: #d88a14; }
+.question-verification.compliant { border-color: #23854a; background: #23854a; }
+.question-verification.not-applicable { border-color: #59687b; background: #59687b; }
+.question-verification.noncompliant small, .question-verification.partial small, .question-verification.compliant small, .question-verification.not-applicable small,
+.question-verification.noncompliant .verification-mark, .question-verification.partial .verification-mark, .question-verification.compliant .verification-mark, .question-verification.not-applicable .verification-mark { color: white; }
+.question-verification.missing-photo { box-shadow: 0 0 0 3px #f8c8cd; }
   .item-result:hover, .item-result.active { border-color: #8799b1; background: #edf2f8; }
 .item-result.active { box-shadow: inset 3px 0 var(--red); }
 .picker-empty { padding: 12px 0; margin: 0; color: var(--muted); font-size: 13px; }

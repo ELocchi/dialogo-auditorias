@@ -37,8 +37,20 @@
 .editorGroupToggle > span:first-child { display: grid; gap: 4px; }
 .editorGroupToggle strong { font-size: 12px; line-height: 1.4; }
 .editorGroupToggle small { color: var(--muted); font-size: 10px; }
+.treeTitle { color: var(--muted); font-size: 11px; font-weight: 400; line-height: 1.4; }
 .editorGroupToggle > span:last-child { font-size: 17px; transition: transform .18s ease; }
 .editorGroupToggle[aria-expanded="false"] > span:last-child { transform: rotate(-90deg); }
+.editorSubgroups { display: grid; width: 100%; gap: 8px; padding: 9px; }
+.editorSubgroup { width: 100%; overflow: hidden; border: 1px solid var(--line); border-radius: 7px; background: white; box-shadow: none; }
+.editorSubgroupToggle { display: flex; width: 100%; min-height: 56px; appearance: none; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 0; border-left: 3px solid var(--red); border-radius: 0; background: #eef2f7; box-shadow: none; color: var(--navy); font-family: Arial, sans-serif; font-size: 11px; font-weight: 400; line-height: 1.4; text-align: left; cursor: pointer; }
+.editorSubgroupToggle > span:first-child { display: grid; min-width: 0; gap: 3px; }
+.editorSubgroupToggle strong { font-size: 11px; line-height: 1.4; }
+.editorSubgroupToggle small { color: var(--muted); font-size: 9px; }
+.editorSubgroupToggle svg { width: 15px; height: 15px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform .18s ease; }
+.editorSubgroupToggle[aria-expanded="false"] svg { transform: rotate(-90deg); }
+.editorSubgroupToggle:hover { background: #e7edf5; }
+.editorSubgroupToggle:focus-visible { outline: 2px solid #6e92c9; outline-offset: -2px; }
+.editorSubgroup .editorItems { padding: 8px; }
 .editorItems { display: grid; gap: 7px; padding: 9px; }
 .editorItems button { display: grid; gap: 4px; padding: 10px; border: 1px solid var(--line); border-radius: 6px; background: white; color: var(--navy); font: inherit; text-align: left; cursor: pointer; }
 .editorItems button strong { font-size: 11px; }
