@@ -60,11 +60,13 @@ export async function saveCatalogRevision(form: FormData, context: ProfileWorksp
       if (missingCatalogMigration(error)) return failure("O salvamento de revisões estará disponível após a atualização da plataforma.");
       if (error.code === "40001") return failure("Outra revisão foi salva. Atualize a página e confira os itens antes de editar novamente.");
       if (error.code === "42501") return failure("Seu acesso mudou. Entre novamente e selecione o perfil Administrativo.");
-      if (error.code === "22023") return failure("Confira os itens, os arquivos e a identificação da revisão.");
+      if (error.code === "22023" && error.message === "invalid_catalog_criteria") return failure("Confira os campos obrigatórios dos itens. Alterações de títulos e descrições não exigem novo arquivo nem nova identificação da revisão de referência.");
+      if (error.code === "22023" && error.message === "invalid_catalog_document") return failure("Confira o arquivo e a identificação da nova revisão de referência.");
+      if (error.code === "22023") return failure("Confira os dados informados antes de salvar.");
       return failure("Não foi possível confirmar o salvamento. Mantenha esta janela aberta e tente novamente.");
     }
     if (!isUuid(data)) return failure("Não foi possível confirmar o salvamento. Atualize a página para conferir as revisões.");
     const snapshot = await readCatalogSnapshot(client, context);
-    return { status: "success", message: snapshot.available ? "Revisão salva para as próximas auditorias." : "Revisão salva. Atualize a página para consultar o roteiro.", snapshot };
+    return { status: "success", message: snapshot.available ? "Alterações salvas para as próximas auditorias." : "Alterações salvas. Atualize a página para consultar o roteiro.", snapshot };
   } catch { return failure("Não foi possível confirmar o salvamento. Mantenha esta janela aberta e tente novamente."); }
 }

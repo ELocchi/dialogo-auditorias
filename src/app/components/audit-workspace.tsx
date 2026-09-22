@@ -285,7 +285,7 @@ async function createSecurityAuditReportPdf({ modelId, workName, details, criter
   const green = rgb(.10, .55, .34), orange = rgb(.85, .48, .07), gray = rgb(.40, .46, .54);
   const pages: PDFPage[] = [];
   const summaryLinks: { source: PDFPage; itemId: string; rect: [number, number, number, number] }[] = [];
-  const detailPages = new Map<string, PDFPage>();
+  const detailPages = new Map<string, { page: PDFPage; y: number }>();
   const addPage = () => { const page = document.addPage([width, height]); pages.push(page); return page; };
   const writeWrapped = (page: PDFPage, text: string, x: number, y: number, maxWidth: number, size = 8, font = regular, color = navy, leading = size + 3) => {
     const lines = wrapPdfText(text || "—", font, size, maxWidth);
@@ -305,6 +305,18 @@ async function createSecurityAuditReportPdf({ modelId, workName, details, criter
       page.drawLine({ start: { x: x - size * .65, y: y + size * .65 }, end: { x: x + size * .65, y: y - size * .65 }, thickness: 1.7 * scale, color });
     } else if (answer === "5") page.drawText("!", { x: x - size * .2, y: y - size * .7, size: size * 1.7, font: bold, color });
     else page.drawLine({ start: { x: x - size * .8, y }, end: { x: x + size * .8, y }, thickness: 1.7 * scale, color });
+  };
+  const drawRoundedCode = (page: PDFPage, value: string, x: number, y: number, boxWidth: number, boxHeight: number,
+    size: number, background: ReturnType<typeof rgb>, foreground: ReturnType<typeof rgb>) => {
+    const radius = Math.min(4, boxHeight / 2);
+    page.drawRectangle({ x: x + radius, y, width: boxWidth - radius * 2, height: boxHeight, color: background });
+    page.drawRectangle({ x, y: y + radius, width: boxWidth, height: boxHeight - radius * 2, color: background });
+    page.drawCircle({ x: x + radius, y: y + radius, size: radius, color: background });
+    page.drawCircle({ x: x + boxWidth - radius, y: y + radius, size: radius, color: background });
+    page.drawCircle({ x: x + radius, y: y + boxHeight - radius, size: radius, color: background });
+    page.drawCircle({ x: x + boxWidth - radius, y: y + boxHeight - radius, size: radius, color: background });
+    const textWidth = bold.widthOfTextAtSize(value, size);
+    page.drawText(value, { x: x + (boxWidth - textWidth) / 2, y: y + (boxHeight - size) / 2 + 1.5, size, font: bold, color: foreground });
   };
   const cover = addPage();
   if (logo) cover.drawImage(logo, { x: left, y: 554, width: 93, height: 36 });
@@ -367,40 +379,105 @@ async function createSecurityAuditReportPdf({ modelId, workName, details, criter
     summaryY -= 8;
   }
 
+  const detailTop = 510, detailBottom = 52, detailWidth = right - left;
+  const sentenceCase = (value: string) => {
+    const normalized = value.trim().toLocaleLowerCase("pt-BR");
+    return normalized ? normalized[0].toLocaleUpperCase("pt-BR") + normalized.slice(1) : normalized;
+  };
+  const detailLayout = (item: Criterion, response: ItemResponse, showGroup: boolean, showSubgroup: boolean) => {
+    const analysis = item.analysisCriterion ?? (item.orientations.map((orientation) => orientation.text).join(" ") || "Não informado.");
+    const title = wrapPdfText(sentenceCase(getCriterionDisplayTitle(item)), bold, 8, detailWidth - 66);
+    const description = wrapPdfText(item.text || "—", regular, 6.2, detailWidth);
+    const analysisLines = wrapPdfText(analysis, regular, 6.2, detailWidth);
+    const observations = wrapPdfText(response.note || "Sem observações registradas.", regular, 6.2, detailWidth);
+    const photos = (response.photos ?? []).slice(0, 3);
+    const photoHeight = photos.length ? 49 : 13;
+    const height = (showGroup ? 30 : 0) + (showSubgroup && item.subgroup ? 24 : 0) + Math.max(11, title.length * 9) + 12
+      + description.length * 7.8 + 11 + analysisLines.length * 7.8 + 11
+      + observations.length * 7.8 + 13 + photoHeight + 18;
+    return { analysis, title, description, analysisLines, observations, photos, photoHeight, height, showGroup, showSubgroup };
+  };
+  const drawDetailItem = (page: PDFPage, group: string, groupItems: Criterion[], item: Criterion, response: ItemResponse,
+    layout: ReturnType<typeof detailLayout>, top: number) => {
+    let cursor = top;
+    if (layout.showGroup) {
+      const heading = getGroupHeading(group);
+      const groupScore = calculateSecurityGroupScore(groupItems, drafts, modelId);
+      drawRoundedCode(page, heading.number, left, cursor - 8, 24, 21, 9.5, navy, rgb(1, 1, 1));
+      page.drawText(heading.title, { x: left + 34, y: cursor, size: 10.5, font: bold, color: navy });
+      const titleWidth = Math.min(detailWidth - 80, bold.widthOfTextAtSize(heading.title, 10.5));
+      page.drawLine({ start: { x: left + 34, y: cursor - 7 }, end: { x: left + 34 + titleWidth, y: cursor - 7 }, thickness: 1.6, color: red });
+      const groupScoreLabel = groupScore === null ? "—" : groupScore.toFixed(1).replace(".", ",");
+      page.drawText(groupScoreLabel, { x: right - bold.widthOfTextAtSize(groupScoreLabel, 8), y: cursor, size: 8, font: bold, color: navy });
+      cursor -= 30;
+    }
+    if (layout.showSubgroup && item.subgroup) {
+      const subgroup = getSubgroupHeading(item);
+      drawRoundedCode(page, subgroup.code, left, cursor - 6, 32, 17, 6.8, red, rgb(1, 1, 1));
+      page.drawText(sentenceCase(subgroup.title), { x: left + 41, y: cursor, size: 8.5, font: bold, color: navy });
+      cursor -= 24;
+    }
+    drawRoundedCode(page, item.code, left, cursor - 6, 43, 17, 6.8, rgb(.93, .95, .98), navy);
+    layout.title.forEach((value, index) => page.drawText(value, { x: left + 52, y: cursor - index * 9, size: 8, font: bold, color: navy }));
+    drawStatus(page, response, right - 11, cursor - 1, .85);
+    cursor -= Math.max(11, layout.title.length * 9) + 7;
+    const section = (label: string, lines: string[]) => {
+      drawLabel(page, label, left, cursor);
+      cursor -= 9;
+      lines.forEach((value) => { page.drawText(value, { x: left, y: cursor, size: 6.2, font: regular, color: muted }); cursor -= 7.8; });
+      cursor -= 3;
+    };
+    section("DESCRIÇÃO", layout.description);
+    section("CRITÉRIO DE ANÁLISE", layout.analysisLines);
+    section("OBSERVAÇÕES", layout.observations);
+    drawLabel(page, "EVIDÊNCIAS FOTOGRÁFICAS", left, cursor);
+    cursor -= 9;
+    if (layout.photos.length) {
+      const gap = 8;
+      const boxWidth = (detailWidth - gap * (layout.photos.length - 1)) / layout.photos.length;
+      const boxHeight = layout.photoHeight - 4;
+      layout.photos.forEach((name, index) => {
+        const boxX = left + index * (boxWidth + gap);
+        page.drawRectangle({ x: boxX, y: cursor - boxHeight, width: boxWidth, height: boxHeight, borderWidth: .5, borderColor: lineColor, color: rgb(.97, .98, .99) });
+        page.drawText(`FOTO ${String(index + 1).padStart(2, "0")}`, { x: boxX + 5, y: cursor - 11, size: 5.2, font: bold, color: muted });
+        const nameLines = wrapPdfText(name, regular, 4.6, boxWidth - 10).slice(0, 3);
+        nameLines.forEach((value, lineIndex) => page.drawText(value, { x: boxX + 5, y: cursor - 21 - lineIndex * 5.7, size: 4.6, font: regular, color: muted }));
+      });
+      cursor -= layout.photoHeight;
+    } else {
+      page.drawText("Nenhuma fotografia anexada a este item.", { x: left, y: cursor, size: 6.2, font: regular, color: muted });
+      cursor -= layout.photoHeight;
+    }
+    page.drawLine({ start: { x: left, y: cursor - 4 }, end: { x: right, y: cursor - 4 }, thickness: .35, color: lineColor });
+    return cursor - 12;
+  };
+
+  let detailPage: PDFPage | null = null;
+  let detailY = detailTop;
+  let itemsOnDetailPage = 0;
+  let previousDetailGroup = "";
+  let previousDetailSubgroup = "";
   for (const [group, items] of Object.entries(groups)) {
     for (const item of items) {
       const response = getItemResponse(drafts, modelId, item);
-      const page = addPage();
-      detailPages.set(item.id, page);
-      const heading = getGroupHeading(group);
-      const groupScore = calculateSecurityGroupScore(items, drafts, modelId);
-      page.drawText(heading.number, { x: left, y: 471, size: 13, font: bold, color: navy });
-      page.drawText(heading.title, { x: left + 31, y: 472, size: 8.5, font: bold, color: navy });
-      const groupScoreLabel = groupScore === null ? "—" : groupScore.toFixed(1).replace(".", ",");
-      page.drawText(groupScoreLabel, { x: right - bold.widthOfTextAtSize(groupScoreLabel, 9), y: 472, size: 9, font: bold, color: navy });
-      if (item.subgroup) {
-        const subgroup = getSubgroupHeading(item);
-        page.drawText(`${subgroup.code}  ${subgroup.title}`, { x: left, y: 442, size: 7, font: regular, color: muted });
+      let showGroup = !detailPage || previousDetailGroup !== group;
+      let showSubgroup = showGroup || previousDetailSubgroup !== item.subgroup;
+      let layout = detailLayout(item, response, showGroup, showSubgroup);
+      if (!detailPage || itemsOnDetailPage >= 3 || detailY - layout.height < detailBottom) {
+        detailPage = addPage();
+        detailY = detailTop;
+        itemsOnDetailPage = 0;
+        previousDetailGroup = "";
+        previousDetailSubgroup = "";
+        showGroup = true;
+        showSubgroup = true;
+        layout = detailLayout(item, response, showGroup, showSubgroup);
       }
-      page.drawText(item.code, { x: left, y: 414, size: 8, font: bold, color: navy });
-      const titleBottom = writeWrapped(page, getCriterionDisplayTitle(item), left + 54, 414, right - left - 80, 11, bold, navy, 14);
-      drawStatus(page, response, right - 13, 412, 1.15);
-      let y = Math.min(382, titleBottom - 12);
-      drawLabel(page, "DESCRIÇÃO", left, y); y = writeWrapped(page, item.text, left, y - 14, right - left, 7.2, regular, muted, 10) - 13;
-      drawLabel(page, "CRITÉRIO DE ANÁLISE", left, y);
-      const analysis = item.analysisCriterion ?? (item.orientations.map((orientation) => orientation.text).join(" ") || "Não informado.");
-      y = writeWrapped(page, analysis, left, y - 14, right - left, 7.2, regular, muted, 10) - 13;
-      drawLabel(page, "OBSERVAÇÕES", left, y); y = writeWrapped(page, response.note || "Sem observações registradas.", left, y - 14, right - left, 7.2, regular, muted, 10) - 16;
-      drawLabel(page, "EVIDÊNCIAS FOTOGRÁFICAS", left, y);
-      const photos = response.photos ?? [];
-      if (photos.length) {
-        photos.slice(0, 3).forEach((name, index) => {
-          const boxX = left + index * 121;
-          page.drawRectangle({ x: boxX, y: Math.max(68, y - 89), width: 108, height: 68, borderWidth: .6, borderColor: lineColor, color: rgb(.97, .98, .99) });
-          page.drawText(`FOTO ${String(index + 1).padStart(2, "0")}`, { x: boxX + 37, y: Math.max(105, y - 52), size: 6, font: bold, color: muted });
-          writeWrapped(page, name, boxX + 6, Math.max(80, y - 75), 96, 5, regular, muted, 7);
-        });
-      } else page.drawText("Nenhuma fotografia anexada a este item.", { x: left, y: y - 17, size: 7, font: regular, color: muted });
+      detailPages.set(item.id, { page: detailPage, y: detailY });
+      detailY = drawDetailItem(detailPage, group, items, item, response, layout, detailY);
+      itemsOnDetailPage += 1;
+      previousDetailGroup = group;
+      previousDetailSubgroup = item.subgroup;
     }
   }
 
@@ -410,7 +487,7 @@ async function createSecurityAuditReportPdf({ modelId, workName, details, criter
     if (!target) return;
     const annotation = document.context.register(document.context.obj({
       Type: "Annot", Subtype: "Link", Rect: rect, Border: [0, 0, 0],
-      Dest: [target.ref, "XYZ", null, null, null],
+      Dest: [target.page.ref, "XYZ", null, target.y + 20, null],
     }));
     const pageAnnotations = annotations.get(source) ?? [];
     pageAnnotations.push(annotation);

@@ -312,7 +312,7 @@ export function CatalogEditorPanel({ version, available, setupPending, actorId, 
       formData.set("modelId", base.modelId);
       formData.set("expectedVersion", String(base.version));
       formData.set("revisionLabel", mode === "upload" ? revisionLabel.trim() : baseLabel);
-      formData.set("changeNote", mode === "upload" ? "Documento de referência atualizado." : "Itens do roteiro atualizados.");
+      formData.set("changeNote", mode === "upload" ? "Documento de referência atualizado." : "Conteúdo do roteiro atualizado sem alterar a revisão de referência.");
       formData.set("criteria", JSON.stringify(submittedCriteria));
       formData.set("actorId", actorId);
       if (mode === "upload" && pdf) formData.set("pdf", pdf);
