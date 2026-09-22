@@ -201,7 +201,7 @@ function wrapPdfText(text: string, font: PDFFont, size: number, maxWidth: number
 }
 
 async function createAuditReviewPdf({ model, modelId, workName, details, criteria, drafts }: Omit<AuditReviewProps, "onBack" | "onPublish">): Promise<Uint8Array> {
-  if (modelId === "security-it07-r02") return createSecurityAuditReportPdf({ model, modelId, workName, details, criteria, drafts });
+  if (["security-it07-r02", "quality-f175", "quality-f176"].includes(modelId)) return createSecurityAuditReportPdf({ model, modelId, workName, details, criteria, drafts });
   const document = await PDFDocument.create();
   document.setTitle(`Relatório de auditoria - ${workName}`);
   document.setAuthor("Diálogo Engenharia");
@@ -272,11 +272,13 @@ async function createAuditReviewPdf({ model, modelId, workName, details, criteri
   return document.save();
 }
 
-async function createSecurityAuditReportPdf({ modelId, workName, details, criteria, drafts }: Omit<AuditReviewProps, "onBack" | "onPublish" | "model"> & { model?: string }): Promise<Uint8Array> {
+async function createSecurityAuditReportPdf({ model, modelId, workName, details, criteria, drafts }: Omit<AuditReviewProps, "onBack" | "onPublish">): Promise<Uint8Array> {
   const document = await PDFDocument.create();
-  document.setTitle(`Relatório de Auditoria de Segurança - ${workName}`);
+  const security = modelId === "security-it07-r02";
+  const disciplineTitle = security ? "Segurança do Trabalho" : modelId === "quality-f175" ? "Qualidade Simplificada" : "Qualidade Completa";
+  document.setTitle(`Relatório de Auditoria - ${workName}`);
   document.setAuthor("Diálogo Engenharia");
-  document.setSubject("Segurança do Trabalho");
+  document.setSubject(disciplineTitle);
   const regular = await document.embedFont(StandardFonts.Helvetica);
   const bold = await document.embedFont(StandardFonts.HelveticaBold);
   const logo = await fetch("/logo-relatorio-orientativo.png").then(async (response) => response.ok ? document.embedPng(await response.arrayBuffer()) : null).catch(() => null);
@@ -293,6 +295,25 @@ async function createSecurityAuditReportPdf({ modelId, workName, details, criter
     return y - lines.length * leading;
   };
   const drawLabel = (page: PDFPage, value: string, x: number, y: number) => page.drawText(value, { x, y, size: 5.5, font: bold, color: muted });
+  const calculateGroupScore = (items: Criterion[]) => {
+    if (security) return calculateSecurityGroupScore(items, drafts, modelId);
+    let obtained = 0, possible = 0;
+    items.forEach((item) => {
+      const response = getItemResponse(drafts, modelId, item);
+      const weight = getCriterionWeight(item) ?? 0;
+      if (response.answer === "N/A") return;
+      if (item.verificationRule === "Dividido pela quantidade verificada") {
+        const checks = (response.checks ?? []).filter((check) => check.compliant !== null);
+        if (!checks.length) return;
+        possible += weight;
+        obtained += weight * checks.filter((check) => check.compliant).length / checks.length;
+      } else if (response.answer === "Conforme" || response.answer === "Não conforme") {
+        possible += weight;
+        if (response.answer === "Conforme") obtained += weight;
+      }
+    });
+    return possible > 0 ? obtained / possible * 10 : null;
+  };
   const drawStatus = (page: PDFPage, response: ItemResponse, x: number, y: number, scale = 1) => {
     const answer = response.answer;
     const color = answer === "0" || answer === "Não conforme" ? red : answer === "5" ? orange : answer === "10" || answer === "Conforme" ? green : gray;
@@ -318,6 +339,14 @@ async function createSecurityAuditReportPdf({ modelId, workName, details, criter
     const textWidth = bold.widthOfTextAtSize(value, size);
     page.drawText(value, { x: x + (boxWidth - textWidth) / 2, y: y + (boxHeight - size) / 2 + 1.5, size, font: bold, color: foreground });
   };
+  const drawItemScore = (page: PDFPage, item: Criterion, response: ItemResponse, x: number, y: number, compact = false) => {
+    const value = scoreLabel(awardedItemScore(item, response, false), response.answer);
+    const boxWidth = compact ? 30 : 38;
+    const boxHeight = compact ? 16 : 25;
+    page.drawRectangle({ x, y: y - boxHeight / 2, width: boxWidth, height: boxHeight, borderWidth: .65, borderColor: navy, color: rgb(1, 1, 1) });
+    page.drawText("NOTA", { x: x + (boxWidth - bold.widthOfTextAtSize("NOTA", compact ? 3.5 : 4.2)) / 2, y: y + (compact ? 2 : 4), size: compact ? 3.5 : 4.2, font: bold, color: muted });
+    page.drawText(value, { x: x + (boxWidth - bold.widthOfTextAtSize(value, compact ? 6 : 8)) / 2, y: y - (compact ? 6 : 8), size: compact ? 6 : 8, font: bold, color: navy });
+  };
   const cover = addPage();
   if (logo) cover.drawImage(logo, { x: left, y: 554, width: 93, height: 36 });
   cover.drawText("DIÁLOGO AUDITORIAS", { x: right - 75, y: 578, size: 5.5, font: bold, color: navy });
@@ -325,13 +354,12 @@ async function createSecurityAuditReportPdf({ modelId, workName, details, criter
   cover.drawLine({ start: { x: left, y: 548 }, end: { x: right, y: 548 }, thickness: .6, color: navy });
   cover.drawLine({ start: { x: left, y: 543 }, end: { x: right, y: 543 }, thickness: 1.3, color: red });
   cover.drawText("RELATÓRIO DE AUDITORIA", { x: left, y: 422, size: 6, font: bold, color: muted });
-  cover.drawText("Segurança do", { x: left, y: 385, size: 18, font: bold, color: navy });
-  cover.drawText("Trabalho", { x: left, y: 361, size: 18, font: bold, color: navy });
+  writeWrapped(cover, disciplineTitle, left, 385, right - left, 18, bold, navy, 22);
   cover.drawLine({ start: { x: left, y: 335 }, end: { x: left + 31, y: 335 }, thickness: 2, color: red });
   drawLabel(cover, "OBRA AUDITADA", left, 292);
   writeWrapped(cover, workName, left, 270, right - left, 14, bold, navy, 17);
   drawLabel(cover, "IDENTIFICAÇÃO", left, 247);
-  cover.drawText("Auditoria de Segurança do Trabalho", { x: left, y: 235, size: 6.5, font: regular, color: muted });
+  cover.drawText(`Auditoria de ${disciplineTitle} · ${model}`, { x: left, y: 235, size: 6.5, font: regular, color: muted });
   cover.drawLine({ start: { x: left, y: 205 }, end: { x: right, y: 205 }, thickness: .5, color: lineColor });
   const finalScore = calculateAuditFinalScore(criteria, drafts, modelId);
   const coverFields = [["DATA DA AUDITORIA", displayAuditDate(details.date)], ["AUDITOR RESPONSÁVEL", details.auditor], ["NOTA FINAL", finalScore?.toFixed(2).replace(".", ",") ?? "—"]] as const;
@@ -348,7 +376,7 @@ async function createSecurityAuditReportPdf({ modelId, workName, details, criter
     const heading = getGroupHeading(group);
     summary.drawText(heading.number, { x: left, y: summaryY, size: 13, font: bold, color: navy });
     summary.drawText(heading.title, { x: left + 31, y: summaryY + 1, size: 8.5, font: bold, color: navy });
-    const groupResult = calculateSecurityGroupScore(items, drafts, modelId);
+    const groupResult = calculateGroupScore(items);
     summary.drawText(groupResult === null ? "—" : groupResult.toFixed(1).replace(".", ","), { x: right - 19, y: summaryY, size: 8, font: bold, color: navy });
     summaryY -= 18;
     const summarySubgroups = items.reduce<Record<string, Criterion[]>>((result, item) => {
@@ -357,7 +385,7 @@ async function createSecurityAuditReportPdf({ modelId, workName, details, criter
     }, {});
     for (const subgroupItems of Object.values(summarySubgroups)) {
       if (summaryY < 68) startSummaryPage();
-      const subgroupScore = calculateSecurityGroupScore(subgroupItems, drafts, modelId);
+      const subgroupScore = calculateGroupScore(subgroupItems);
       summary.drawRectangle({ x: left + 8, y: summaryY - 5, width: right - left - 8, height: 17, color: rgb(.94, .96, .98) });
       const subgroupHeading = getSubgroupHeading(subgroupItems[0]);
       summaryY = writeWrapped(summary, `${subgroupHeading.code}  ${subgroupHeading.title}`, left + 14, summaryY, right - left - 72, 7.2, bold, navy, 9);
@@ -370,7 +398,8 @@ async function createSecurityAuditReportPdf({ modelId, workName, details, criter
         const itemTop = summaryY + 8;
         summaryY = writeWrapped(summary, `${item.code}  ${getCriterionDisplayTitle(item)}`, left + 20, summaryY, right - left - 60, 6.8, regular, navy, 9);
         summaryLinks.push({ source: summary, itemId: item.id, rect: [left + 16, summaryY, right, itemTop] });
-        drawStatus(summary, response, right - 15, summaryY + 8, .75);
+        if (security) drawStatus(summary, response, right - 15, summaryY + 8, .75);
+        else drawItemScore(summary, item, response, right - 32, summaryY + 8, true);
         summary.drawLine({ start: { x: left + 20, y: summaryY + 2 }, end: { x: right, y: summaryY + 2 }, thickness: .35, color: lineColor });
         summaryY -= 7;
       }
@@ -385,24 +414,32 @@ async function createSecurityAuditReportPdf({ modelId, workName, details, criter
     return normalized ? normalized[0].toLocaleUpperCase("pt-BR") + normalized.slice(1) : normalized;
   };
   const detailLayout = (item: Criterion, response: ItemResponse, showGroup: boolean, showSubgroup: boolean) => {
-    const analysis = item.analysisCriterion ?? (item.orientations.map((orientation) => orientation.text).join(" ") || "Não informado.");
+    const analysis = security
+      ? item.analysisCriterion ?? (item.orientations.map((orientation) => orientation.text).join(" ") || "Não informado.")
+      : item.verificationRule || "Não informado.";
     const title = wrapPdfText(sentenceCase(getCriterionDisplayTitle(item)), bold, 8, detailWidth - 66);
     const description = wrapPdfText(item.text || "—", regular, 6.2, detailWidth);
     const analysisLines = wrapPdfText(analysis, regular, 6.2, detailWidth);
     const observations = wrapPdfText(response.note || "Sem observações registradas.", regular, 6.2, detailWidth);
-    const photos = (response.photos ?? []).slice(0, 3);
+    const verifiedChecks = item.verificationRule === "Dividido pela quantidade verificada" ? response.checks ?? [] : [];
+    const checkRows = verifiedChecks.map((check) => ({
+      check,
+      lines: wrapPdfText(check.label || "Item verificado", regular, 6.2, detailWidth - 32),
+    }));
+    const checksHeight = checkRows.length ? 12 + checkRows.reduce((total, row) => total + Math.max(9, row.lines.length * 7.2) + 2, 0) : 0;
+    const photos = [...(response.photos ?? []), ...verifiedChecks.flatMap((check) => check.photos ?? [])].slice(0, 3);
     const photoHeight = photos.length ? 49 : 13;
     const height = (showGroup ? 30 : 0) + (showSubgroup && item.subgroup ? 24 : 0) + Math.max(11, title.length * 9) + 12
       + description.length * 7.8 + 11 + analysisLines.length * 7.8 + 11
-      + observations.length * 7.8 + 13 + photoHeight + 18;
-    return { analysis, title, description, analysisLines, observations, photos, photoHeight, height, showGroup, showSubgroup };
+      + checksHeight + observations.length * 7.8 + 13 + photoHeight + 18;
+    return { analysis, title, description, analysisLines, observations, checkRows, photos, photoHeight, height, showGroup, showSubgroup };
   };
   const drawDetailItem = (page: PDFPage, group: string, groupItems: Criterion[], item: Criterion, response: ItemResponse,
     layout: ReturnType<typeof detailLayout>, top: number) => {
     let cursor = top;
     if (layout.showGroup) {
       const heading = getGroupHeading(group);
-      const groupScore = calculateSecurityGroupScore(groupItems, drafts, modelId);
+      const groupScore = calculateGroupScore(groupItems);
       drawRoundedCode(page, heading.number, left, cursor - 8, 24, 21, 9.5, navy, rgb(1, 1, 1));
       page.drawText(heading.title, { x: left + 34, y: cursor, size: 10.5, font: bold, color: navy });
       const titleWidth = Math.min(detailWidth - 80, bold.widthOfTextAtSize(heading.title, 10.5));
@@ -419,7 +456,8 @@ async function createSecurityAuditReportPdf({ modelId, workName, details, criter
     }
     drawRoundedCode(page, item.code, left, cursor - 6, 43, 17, 6.8, rgb(.93, .95, .98), navy);
     layout.title.forEach((value, index) => page.drawText(value, { x: left + 52, y: cursor - index * 9, size: 8, font: bold, color: navy }));
-    drawStatus(page, response, right - 11, cursor - 1, .85);
+    if (security) drawStatus(page, response, right - 11, cursor - 1, .85);
+    else drawItemScore(page, item, response, right - 38, cursor + 1);
     cursor -= Math.max(11, layout.title.length * 9) + 7;
     const section = (label: string, lines: string[]) => {
       drawLabel(page, label, left, cursor);
@@ -428,7 +466,19 @@ async function createSecurityAuditReportPdf({ modelId, workName, details, criter
       cursor -= 3;
     };
     section("DESCRIÇÃO", layout.description);
-    section("CRITÉRIO DE ANÁLISE", layout.analysisLines);
+    section(security ? "CRITÉRIO DE ANÁLISE" : "CRITÉRIO DE VERIFICAÇÃO", layout.analysisLines);
+    if (layout.checkRows.length) {
+      drawLabel(page, "ITENS VERIFICADOS", left, cursor);
+      cursor -= 9;
+      layout.checkRows.forEach(({ check, lines }, index) => {
+        const rowTop = cursor;
+        page.drawText(`${String(index + 1).padStart(2, "0")}.`, { x: left, y: rowTop, size: 6.2, font: bold, color: navy });
+        lines.forEach((value, lineIndex) => page.drawText(value, { x: left + 17, y: rowTop - lineIndex * 7.2, size: 6.2, font: regular, color: muted }));
+        drawStatus(page, { answer: check.compliant === true ? "Conforme" : check.compliant === false ? "Não conforme" : undefined, note: "" }, right - 8, rowTop + 1, .55);
+        cursor -= Math.max(9, lines.length * 7.2) + 2;
+      });
+      cursor -= 3;
+    }
     section("OBSERVAÇÕES", layout.observations);
     drawLabel(page, "EVIDÊNCIAS FOTOGRÁFICAS", left, cursor);
     cursor -= 9;
@@ -499,7 +549,7 @@ async function createSecurityAuditReportPdf({ modelId, workName, details, criter
   pages.forEach((page, index) => {
     if (index > 0) {
       if (logo) page.drawImage(logo, { x: left, y: 558, width: 73, height: 28 });
-      page.drawText("Segurança do Trabalho", { x: 119, y: 568, size: 8.2, font: bold, color: navy });
+      page.drawText(disciplineTitle, { x: 119, y: 568, size: 8.2, font: bold, color: navy });
       drawLabel(page, "PROCESSO", 245, 581);
       page.drawText("RELATÓRIO DE AUDITORIA", { x: 245, y: 561, size: 7.8, font: bold, color: navy });
       drawLabel(page, "DATA", 370, 581);
@@ -716,10 +766,10 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
         <div className="question-group-heading">
           <span className="question-group-number">{getGroupHeading(criterion.group).number}</span>
           <span className="question-group-title">{getGroupHeading(criterion.group).title}</span>
-          <div className={`question-verification ${verificationVisual(response)?.tone ?? "unanswered"}${missingRequiredPhoto ? " missing-photo" : ""}`}><small>VERIFICAÇÃO</small><VerificationMark response={response} /></div>
+          {security && <div className={`question-verification ${verificationVisual(response)?.tone ?? "unanswered"}${missingRequiredPhoto ? " missing-photo" : ""}`}><small>VERIFICAÇÃO</small><VerificationMark response={response} /></div>}
         </div>
         {criterion.subgroup && <div className="question-context"><span className="question-code">{getSubgroupHeading(criterion).code}</span><span className="question-subgroup-title">{getSubgroupHeading(criterion).title}</span></div>}
-        <div className="question-title-row"><div className="question-title-content"><span className="question-code">{criterion.code}</span><h3>{getCriterionDisplayTitle(criterion)}</h3></div></div>
+        <div className="question-title-row"><div className="question-title-content"><span className="question-code">{criterion.code}</span><h3>{getCriterionDisplayTitle(criterion)}</h3></div>{!security && <div className={`question-score${missingRequiredPhoto ? " missing-photo" : ""}`}><small>NOTA</small><strong>{scoreLabel(awardedItemScore(criterion, response, false), response.answer)}</strong></div>}</div>
         <p className="criterion-description"><strong>Descrição:</strong> {criterion.text}</p>
         {(security ? securityAnalysisCriterion : criterion.verificationRule) && <p className="criterion-detail"><strong>{security ? "Critério de análise" : "Critério de verificação"}:</strong> {security ? securityAnalysisCriterion : criterion.verificationRule}</p>}
         {criterion.interpretation && criterion.verificationRule !== "Dividido pela quantidade verificada" && <p className="criterion-detail">{criterion.interpretation}</p>}

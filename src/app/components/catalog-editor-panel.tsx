@@ -58,9 +58,9 @@ function AuditorFormPreview({ item, security }: { item: Criterion; security: boo
   return <section className={styles.auditorPreview} aria-label="Visualização do preenchimento pelo auditor">
     <header><span className={styles.eyebrow}>VISUALIZAÇÃO DO AUDITOR</span><h3>Preenchimento do item</h3></header>
     <div className="question-content">
-      <div className="question-group-heading"><span className="question-group-number">{group.number}</span><span className="question-group-title">{group.title}</span><div className="question-verification unanswered"><small>VERIFICAÇÃO</small><span className="verification-mark unanswered">—</span></div></div>
+      <div className="question-group-heading"><span className="question-group-number">{group.number}</span><span className="question-group-title">{group.title}</span>{security && <div className="question-verification unanswered"><small>VERIFICAÇÃO</small><span className="verification-mark unanswered">—</span></div>}</div>
       {item.subgroup && <div className="question-context"><span className="question-code">{subgroup.code}</span><span className="question-subgroup-title">{subgroup.title}</span></div>}
-      <div className="question-title-row"><div className="question-title-content"><span className="question-code">{item.code}</span><h3>{getCriterionDisplayTitle(item)}</h3></div></div>
+      <div className="question-title-row"><div className="question-title-content"><span className="question-code">{item.code}</span><h3>{getCriterionDisplayTitle(item)}</h3></div>{!security && <div className="question-score"><small>NOTA</small><strong>—</strong></div>}</div>
       <p className="criterion-description"><strong>Descrição:</strong> {item.text}</p>
       {(security ? item.analysisCriterion : item.verificationRule) && <p className="criterion-detail"><strong>Critério de análise:</strong> {security ? item.analysisCriterion : item.verificationRule}</p>}
       <div className="answer-fieldset">
