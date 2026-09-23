@@ -23,6 +23,19 @@ export function PrototypeDashboard({ user, module, works, audits, visits, audito
   const scheduledAudits = visits.filter((visit) => visit.kind === "audit").length;
   const ownDrafts = audits.filter((audit) => canEditAudit(user, audit));
   const published = audits.filter((audit) => audit.status === "Publicada");
+  const workNames = new Map(works.map((work) => [work.id, work.name]));
+  const publishedMonthlyScores: PublishedMonthlyWorkScore[] = published.flatMap((audit) => {
+    const workName = workNames.get(audit.workId);
+    if (typeof audit.finalScore !== "number" || !workName) return [];
+    return [{
+      month: audit.date.slice(0, 7),
+      discipline: audit.modelId.startsWith("security-") ? "safety" as const : "quality" as const,
+      workId: audit.workId,
+      workName,
+      score: audit.finalScore,
+      published: true as const,
+    }];
+  });
   const worksCard = <Metric label="Obras disponíveis" value={works.length} description={admin ? "Consultar obras" : undefined} onClick={() => open("works")} />;
   const agendaCard = <Metric label={admin ? "Visitas Agendadas" : auditor ? "Auditorias Agendadas" : "Visitas na agenda"} value={admin && visits.length === 0 ? "--" : auditor ? scheduledAudits : visits.length} description={admin ? "Consultar agenda" : undefined} onClick={works[0] && canConsultAgenda(user, works[0].id, module) ? () => open("agenda") : undefined} />;
   const profilesCard = <Metric label={admin ? "Perfis cadastrados" : "Relatórios publicados"} value={admin ? activeAccountCount ?? "--" : published.length} description={admin ? "Consultar perfis" : auditor ? "Consultar auditorias" : undefined} onClick={() => open(admin ? "settings" : auditor ? "audits" : "report")} />;
@@ -37,7 +50,7 @@ export function PrototypeDashboard({ user, module, works, audits, visits, audito
     </div>
     <AdminFindings />
     <div className="overview-grid">
-      <AdminMonthlyRanking modules={[module]} />
+      <AdminMonthlyRanking modules={[module]} publishedMonthlyScores={publishedMonthlyScores} />
       <AdminVisitCalendar visits={visits} works={works} auditors={[user]} viewerId={user.id} onViewAgenda={() => open("agenda")} includeFollowUps showLegend={false} colorBy="work" />
     </div>
   </>;
@@ -48,7 +61,7 @@ export function PrototypeDashboard({ user, module, works, audits, visits, audito
     </div>
     {admin && <AdminFindings />}
     <div className="overview-grid">
-      {admin ? <AdminMonthlyRanking modules={user.modules} /> : module === "safety" ? <WorkRanking works={works} audits={audits} onViewWorks={() => open("works")} /> : <section className="panel"><span className="section-label">QUALIDADE</span><h3>Roteiros independentes</h3><p className="muted">F.175/00: 10 quesitos. F.176/00: 23 quesitos. Pesos e critérios disponíveis nos roteiros; cálculo automático e Farol em preparação.</p><button className="secondary" type="button" onClick={() => open("criteria")}>Consultar roteiros</button></section>}
+      {admin ? <AdminMonthlyRanking modules={user.modules} publishedMonthlyScores={publishedMonthlyScores} /> : module === "safety" ? <WorkRanking works={works} audits={audits} onViewWorks={() => open("works")} /> : <AdminMonthlyRanking modules={["quality"]} publishedMonthlyScores={publishedMonthlyScores} />}
       {admin ? <AdminVisitCalendar visits={visits} works={works} auditors={auditors} viewerId={user.id} onViewAgenda={() => open("agenda")} /> : <section className="panel"><div className="panel-heading"><div><span className="section-label">REGISTROS AUTORIZADOS</span><h3>Auditorias recentes</h3></div><span className="icon-tile"><Icon name="calendar" /></span></div>
         {[...audits].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 3).map((audit) => <div className="visit-card" key={audit.id}><div className="visit-info"><strong>{auditModelLabels[audit.modelId].name}</strong><small>{formatAuditDate(audit.date)} · {auditVersionLabel(audit)}</small></div><span className="badge">{audit.status}</span></div>)}
         {audits.length === 0 && <p className={styles.empty}>Nenhum registro disponível neste contexto.</p>}
@@ -177,7 +190,9 @@ export function AuditorScheduledAudits({ user, visits, works, audits, users, ava
             <div className={styles.publicationColumn}>
               <h4>Auditoria</h4>
               {visiblePublished.length ? visiblePublished.map((audit) => <PublishedDocumentCard key={audit.id} date={audit.date}
-                workName={workById.get(audit.workId)?.name ?? "Obra"} responsible={audit.auditor} />)
+                workName={workById.get(audit.workId)?.name ?? "Obra"} responsible={audit.auditor}
+                actionLabel={audit.reportUrl ? "Abrir PDF da auditoria" : undefined}
+                onAction={audit.reportUrl ? () => window.open(audit.reportUrl, "_blank", "noopener,noreferrer") : undefined} />)
                 : showFilteredExample ? <PublishedDocumentCard date={exampleDate} workName={exampleWork.name} responsible={user.name} example />
                   : <p className="muted">Nenhuma auditoria publicada para este perfil.</p>}
             </div>
@@ -234,7 +249,9 @@ export function PublishedAuditsPanel({ user, works, audits, module, onCreateActi
       <div className={styles.publicationColumn}>
         <h4>Auditoria</h4>
         {visiblePublished.length ? visiblePublished.map((audit) => <PublishedDocumentCard key={audit.id} date={audit.date}
-          workName={workById.get(audit.workId)?.name ?? "Obra"} responsible={audit.auditor} />)
+          workName={workById.get(audit.workId)?.name ?? "Obra"} responsible={audit.auditor}
+          actionLabel={audit.reportUrl ? "Abrir PDF da auditoria" : undefined}
+          onAction={audit.reportUrl ? () => window.open(audit.reportUrl, "_blank", "noopener,noreferrer") : undefined} />)
           : showFilteredExample ? <PublishedDocumentCard date={exampleDate} workName={exampleWork.name} responsible={user.name} example />
             : <p className="muted">Nenhuma auditoria publicada para este perfil.</p>}
       </div>

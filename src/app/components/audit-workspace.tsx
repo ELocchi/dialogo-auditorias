@@ -1,10 +1,11 @@
 "use client";
 
 import Image from "next/image";
-import { PDFDocument, PDFName, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
+import { PDFDocument, PDFName, PDFString, StandardFonts, rgb, type PDFFont, type PDFImage, type PDFPage } from "pdf-lib";
 import { useId, useRef, useState } from "react";
 import { useEffect } from "react";
 import { getCriterionDisplayTitle, getCriterionWeight, qualityModels, type Criterion } from "@/domain/catalogs";
+import { fvsServices } from "@/domain/fvs-services";
 import type { AuditModelId } from "@/domain/operational-records";
 import { referenceDocuments } from "@/domain/reference-documents";
 import { ReferenceDocumentViewer } from "./reference-document-viewer";
@@ -13,8 +14,10 @@ import previewStyles from "./catalog-preview-control.module.css";
 import { catalogVersion, type CatalogSnapshot } from "@/lib/catalogs/contracts";
 import {
   calculateAuditFinalScore,
+  calculateChecksCompliance,
   calculateSecurityFinalScore,
   calculateSecurityGroupScore,
+  getDraftCheckWeight,
   getAdjacentIndex,
   getItemResponse,
   getResponseLabel,
@@ -25,18 +28,85 @@ import {
 
 const securityModel = "Segurança — IT.07 rev. 02";
 const models = [securityModel, ...qualityModels.map((item) => item.name)];
+const auditPhotoFiles = new Map<string, File>();
+
+function localTestEvidenceUrl(reference: string): string | null {
+  if (/^https:\/\//.test(reference)) return reference;
+  return /^p\d{2}-\d{2}\.png$/.test(reference)
+    ? `/local-test-evidence/boulevard/${encodeURIComponent(reference)}`
+    : null;
+}
+
+async function loadLocalTestEvidence(reference: string): Promise<File | null> {
+  const existing = auditPhotoFiles.get(reference);
+  if (existing) return existing;
+  const url = localTestEvidenceUrl(reference);
+  if (!url) return null;
+  const result = await fetch(url, { cache: "no-store" });
+  if (!result.ok) return null;
+  const blob = await result.blob();
+  const file = new File([blob], reference, { type: blob.type || "image/png" });
+  auditPhotoFiles.set(reference, file);
+  return file;
+}
+
+async function createTestEvidenceImage(label: string): Promise<ArrayBuffer> {
+  const canvas = document.createElement("canvas");
+  canvas.width = 960;
+  canvas.height = 640;
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Não foi possível criar a evidência de teste.");
+  const gradient = context.createLinearGradient(0, 0, 960, 640);
+  gradient.addColorStop(0, "#dce8f5");
+  gradient.addColorStop(1, "#829bb7");
+  context.fillStyle = gradient;
+  context.fillRect(0, 0, 960, 640);
+  context.fillStyle = "#b8c8d8";
+  context.fillRect(0, 390, 960, 250);
+  context.fillStyle = "#f2f4f7";
+  context.fillRect(105, 155, 520, 310);
+  context.fillStyle = "#173f75";
+  context.fillRect(105, 155, 520, 34);
+  context.fillStyle = "#cf3540";
+  context.fillRect(670, 215, 115, 250);
+  context.strokeStyle = "#637a94";
+  context.lineWidth = 12;
+  context.strokeRect(145, 225, 175, 175);
+  context.strokeRect(385, 225, 175, 175);
+  context.fillStyle = "rgba(7, 28, 55, .82)";
+  context.fillRect(0, 515, 960, 125);
+  context.fillStyle = "white";
+  context.font = "700 32px Arial";
+  context.fillText("EVIDÊNCIA FOTOGRÁFICA DE TESTE", 38, 560);
+  context.font = "22px Arial";
+  const shortened = label.length > 72 ? `${label.slice(0, 69)}...` : label;
+  context.fillText(shortened, 38, 603);
+  return fetch(canvas.toDataURL("image/jpeg", .82)).then((response) => response.arrayBuffer());
+}
 
 function getGroupHeading(group: string) {
   const match = group.match(/^([^\s.—–-]+)\s*(?:\.|—|–|-)\s*(.+)$/);
   return {
     number: match?.[1] ?? group,
-    title: (match?.[2] ?? group).toLocaleUpperCase("pt-BR"),
+    title: match?.[2] ?? group,
   };
 }
 
 function getSubgroupHeading(item: Criterion) {
   const match = item.subgroup.match(/^([\d.]+)\s*(?:—|–|-)\s*(.+)$/);
   return { code: match?.[1] ?? item.code.split(".").slice(0, -1).join("."), title: match?.[2] ?? item.subgroup };
+}
+
+function usesPerCheckWeights(item: Criterion): boolean {
+  return /\bfvs\b/i.test(`${item.title} ${item.text}`);
+}
+
+function isQuantitativeResponseComplete(item: Criterion, response: ItemResponse): boolean {
+  const checks = response.checks ?? [];
+  if (!checks.length) return false;
+  return checks.every((check) => check.compliant !== null
+    && check.label.trim().length > 0
+    && (!usesPerCheckWeights(item) || getDraftCheckWeight(check) !== null));
 }
 
 type CatalogProps = {
@@ -275,26 +345,68 @@ async function createAuditReviewPdf({ model, modelId, workName, details, criteri
 async function createSecurityAuditReportPdf({ model, modelId, workName, details, criteria, drafts }: Omit<AuditReviewProps, "onBack" | "onPublish">): Promise<Uint8Array> {
   const document = await PDFDocument.create();
   const security = modelId === "security-it07-r02";
-  const disciplineTitle = security ? "Segurança do Trabalho" : modelId === "quality-f175" ? "Qualidade Simplificada" : "Qualidade Completa";
+  const disciplineTitle = security ? "Segurança do Trabalho" : "Farol da Qualidade";
   document.setTitle(`Relatório de Auditoria - ${workName}`);
   document.setAuthor("Diálogo Engenharia");
   document.setSubject(disciplineTitle);
   const regular = await document.embedFont(StandardFonts.Helvetica);
   const bold = await document.embedFont(StandardFonts.HelveticaBold);
   const logo = await fetch("/logo-relatorio-orientativo.png").then(async (response) => response.ok ? document.embedPng(await response.arrayBuffer()) : null).catch(() => null);
+  const photoReferences = [...new Set(criteria.flatMap((criterion) => {
+    const response = getItemResponse(drafts, modelId, criterion);
+    return [...(response.photos ?? []), ...(response.checks ?? []).flatMap((check) => check.photos ?? [])];
+  }))];
+  const embeddedPhotos = new Map<string, PDFImage>();
+  const photoUrls = new Map<string, string>();
+  for (const reference of photoReferences) {
+    try {
+      const file = auditPhotoFiles.get(reference);
+      if (file) {
+        const bytes = await file.arrayBuffer();
+        embeddedPhotos.set(reference, file.type === "image/png" ? await document.embedPng(bytes) : await document.embedJpg(bytes));
+        photoUrls.set(reference, URL.createObjectURL(file));
+      } else if (localTestEvidenceUrl(reference)) {
+        const localFile = await loadLocalTestEvidence(reference);
+        if (!localFile) continue;
+        const bytes = await localFile.arrayBuffer();
+        embeddedPhotos.set(reference, localFile.type === "image/png" ? await document.embedPng(bytes) : await document.embedJpg(bytes));
+        photoUrls.set(reference, URL.createObjectURL(localFile));
+      } else if (/fictícia/i.test(reference)) {
+        const bytes = await createTestEvidenceImage(reference);
+        embeddedPhotos.set(reference, await document.embedJpg(bytes));
+        photoUrls.set(reference, URL.createObjectURL(new Blob([bytes], { type: "image/jpeg" })));
+      }
+    } catch { /* A identificação do arquivo permanece visível quando a imagem não puder ser incorporada. */ }
+  }
   const width = 445.5, height = 631.5, left = 34, right = width - 33;
   const navy = rgb(.07, .24, .47), red = rgb(.86, .12, .18), muted = rgb(.39, .47, .57), lineColor = rgb(.87, .90, .94);
   const green = rgb(.10, .55, .34), orange = rgb(.85, .48, .07), gray = rgb(.40, .46, .54);
   const pages: PDFPage[] = [];
   const summaryLinks: { source: PDFPage; itemId: string; rect: [number, number, number, number] }[] = [];
+  const photoLinks: { source: PDFPage; url: string; rect: [number, number, number, number] }[] = [];
   const detailPages = new Map<string, { page: PDFPage; y: number }>();
   const addPage = () => { const page = document.addPage([width, height]); pages.push(page); return page; };
+  const reportDate = displayAuditDate(details.date);
   const writeWrapped = (page: PDFPage, text: string, x: number, y: number, maxWidth: number, size = 8, font = regular, color = navy, leading = size + 3) => {
     const lines = wrapPdfText(text || "—", font, size, maxWidth);
     lines.forEach((value, index) => page.drawText(value, { x, y: y - index * leading, size, font, color }));
     return y - lines.length * leading;
   };
   const drawLabel = (page: PDFPage, value: string, x: number, y: number) => page.drawText(value, { x, y, size: 5.5, font: bold, color: muted });
+  const drawPageHeader = (page: PDFPage) => {
+    if (logo) page.drawImage(logo, { x: left, y: 582, width: 83, height: 33 });
+    const reportTypeWidth = regular.widthOfTextAtSize(disciplineTitle, 12.5);
+    page.drawText(disciplineTitle, { x: (width - reportTypeWidth) / 2, y: 600, size: 12.5, font: regular, color: muted });
+    const processX = 132;
+    page.drawText("PROCESSO", { x: processX, y: 582, size: 4.5, font: regular, color: muted });
+    page.drawText("RELATÓRIO DE AUDITORIA", { x: processX + 39, y: 580.5, size: 7.2, font: bold, color: navy });
+    const dateCenter = right - 24;
+    const dateLabelWidth = regular.widthOfTextAtSize("DATA", 4.5);
+    page.drawText("DATA", { x: dateCenter - dateLabelWidth / 2, y: 592, size: 4.5, font: regular, color: muted });
+    page.drawText(reportDate, { x: right - bold.widthOfTextAtSize(reportDate, 6.6), y: 580.5, size: 6.6, font: bold, color: navy });
+    page.drawLine({ start: { x: left, y: 576 }, end: { x: right, y: 576 }, thickness: .6, color: navy });
+    page.drawLine({ start: { x: left, y: 573 }, end: { x: right, y: 573 }, thickness: 1.3, color: red });
+  };
   const calculateGroupScore = (items: Criterion[]) => {
     if (security) return calculateSecurityGroupScore(items, drafts, modelId);
     let obtained = 0, possible = 0;
@@ -304,9 +416,10 @@ async function createSecurityAuditReportPdf({ model, modelId, workName, details,
       if (response.answer === "N/A") return;
       if (item.verificationRule === "Dividido pela quantidade verificada") {
         const checks = (response.checks ?? []).filter((check) => check.compliant !== null);
-        if (!checks.length) return;
+        const compliance = calculateChecksCompliance(checks);
+        if (compliance === null) return;
         possible += weight;
-        obtained += weight * checks.filter((check) => check.compliant).length / checks.length;
+        obtained += weight * compliance;
       } else if (response.answer === "Conforme" || response.answer === "Não conforme") {
         possible += weight;
         if (response.answer === "Conforme") obtained += weight;
@@ -339,20 +452,12 @@ async function createSecurityAuditReportPdf({ model, modelId, workName, details,
     const textWidth = bold.widthOfTextAtSize(value, size);
     page.drawText(value, { x: x + (boxWidth - textWidth) / 2, y: y + (boxHeight - size) / 2 + 1.5, size, font: bold, color: foreground });
   };
-  const drawItemScore = (page: PDFPage, item: Criterion, response: ItemResponse, x: number, y: number, compact = false) => {
+  const drawItemScore = (page: PDFPage, item: Criterion, response: ItemResponse, x: number, y: number) => {
     const value = scoreLabel(awardedItemScore(item, response, false), response.answer);
-    const boxWidth = compact ? 30 : 38;
-    const boxHeight = compact ? 16 : 25;
-    page.drawRectangle({ x, y: y - boxHeight / 2, width: boxWidth, height: boxHeight, borderWidth: .65, borderColor: navy, color: rgb(1, 1, 1) });
-    page.drawText("NOTA", { x: x + (boxWidth - bold.widthOfTextAtSize("NOTA", compact ? 3.5 : 4.2)) / 2, y: y + (compact ? 2 : 4), size: compact ? 3.5 : 4.2, font: bold, color: muted });
-    page.drawText(value, { x: x + (boxWidth - bold.widthOfTextAtSize(value, compact ? 6 : 8)) / 2, y: y - (compact ? 6 : 8), size: compact ? 6 : 8, font: bold, color: navy });
+    page.drawText(value, { x: x - bold.widthOfTextAtSize(value, 8), y: y - 3, size: 8, font: bold, color: navy });
   };
   const cover = addPage();
-  if (logo) cover.drawImage(logo, { x: left, y: 554, width: 93, height: 36 });
-  cover.drawText("DIÁLOGO AUDITORIAS", { x: right - 75, y: 578, size: 5.5, font: bold, color: navy });
-  cover.drawText("RELATÓRIO TÉCNICO", { x: right - 62, y: 570, size: 4.5, font: regular, color: muted });
-  cover.drawLine({ start: { x: left, y: 548 }, end: { x: right, y: 548 }, thickness: .6, color: navy });
-  cover.drawLine({ start: { x: left, y: 543 }, end: { x: right, y: 543 }, thickness: 1.3, color: red });
+  drawPageHeader(cover);
   cover.drawText("RELATÓRIO DE AUDITORIA", { x: left, y: 422, size: 6, font: bold, color: muted });
   writeWrapped(cover, disciplineTitle, left, 385, right - left, 18, bold, navy, 22);
   cover.drawLine({ start: { x: left, y: 335 }, end: { x: left + 31, y: 335 }, thickness: 2, color: red });
@@ -367,18 +472,45 @@ async function createSecurityAuditReportPdf({ model, modelId, workName, details,
   cover.drawLine({ start: { x: left, y: 143 }, end: { x: right, y: 143 }, thickness: .5, color: lineColor });
 
   const groups = criteria.reduce<Record<string, Criterion[]>>((result, criterion) => { (result[criterion.group] ??= []).push(criterion); return result; }, {});
-  const drawSummaryTitle = (page: PDFPage) => page.drawText("SUMÁRIO", { x: left, y: 514, size: 13, font: bold, color: navy });
-  let summary = addPage(), summaryY = 486;
+  const drawSummaryTitle = (page: PDFPage) => page.drawText("SUMÁRIO", { x: left, y: 558, size: 13, font: bold, color: navy });
+  let summary = addPage(), summaryY = 535;
   drawSummaryTitle(summary);
-  const startSummaryPage = () => { summary = addPage(); summaryY = 510; };
+  const startSummaryPage = () => { summary = addPage(); summaryY = 558; };
+  const drawSummaryItems = (summaryItems: Criterion[]) => {
+    for (const item of summaryItems) {
+      if (summaryY < 52) startSummaryPage();
+      const response = getItemResponse(drafts, modelId, item);
+      const titleLines = wrapPdfText(getCriterionDisplayTitle(item), bold, 6.8, right - left - 105);
+      const rowHeight = Math.max(19, titleLines.length * 9 + 6);
+      const itemTop = summaryY + 10;
+      drawRoundedCode(summary, item.code, left + 8, summaryY - 7, 43, 17, 6.8, rgb(.93, .95, .98), navy);
+      titleLines.forEach((value, index) => summary.drawText(value, { x: left + 60, y: summaryY - index * 9, size: 6.8, font: bold, color: navy }));
+      if (security) drawStatus(summary, response, right - 15, summaryY, .75);
+      else {
+        const itemScore = scoreLabel(awardedItemScore(item, response, false), response.answer);
+        summary.drawText(itemScore, { x: right - bold.widthOfTextAtSize(itemScore, 7), y: summaryY - 2, size: 7, font: bold, color: navy });
+      }
+      summaryLinks.push({ source: summary, itemId: item.id, rect: [left + 5, summaryY - rowHeight + 3, right, itemTop] });
+      summaryY -= rowHeight;
+      summary.drawLine({ start: { x: left + 60, y: summaryY + 11 }, end: { x: right, y: summaryY + 11 }, thickness: .35, color: lineColor });
+    }
+  };
   for (const [group, items] of Object.entries(groups)) {
     if (summaryY < 82) startSummaryPage();
     const heading = getGroupHeading(group);
-    summary.drawText(heading.number, { x: left, y: summaryY, size: 13, font: bold, color: navy });
-    summary.drawText(heading.title, { x: left + 31, y: summaryY + 1, size: 8.5, font: bold, color: navy });
+    drawRoundedCode(summary, heading.number, left, summaryY - 8, 24, 21, 9.5, navy, rgb(1, 1, 1));
+    summary.drawText(heading.title, { x: left + 34, y: summaryY, size: 10.5, font: bold, color: navy });
+    const headingWidth = Math.min(right - left - 90, bold.widthOfTextAtSize(heading.title, 10.5));
+    summary.drawLine({ start: { x: left + 34, y: summaryY - 7 }, end: { x: left + 34 + headingWidth, y: summaryY - 7 }, thickness: 1.6, color: red });
     const groupResult = calculateGroupScore(items);
-    summary.drawText(groupResult === null ? "—" : groupResult.toFixed(1).replace(".", ","), { x: right - 19, y: summaryY, size: 8, font: bold, color: navy });
-    summaryY -= 18;
+    const groupScoreLabel = groupResult === null ? "—" : groupResult.toFixed(1).replace(".", ",");
+    summary.drawText(groupScoreLabel, { x: right - bold.widthOfTextAtSize(groupScoreLabel, 8), y: summaryY, size: 8, font: bold, color: navy });
+    summaryY -= 25;
+    if (!security) {
+      drawSummaryItems(items);
+      summaryY -= 6;
+      continue;
+    }
     const summarySubgroups = items.reduce<Record<string, Criterion[]>>((result, item) => {
       (result[item.subgroup || "Itens do grupo"] ??= []).push(item);
       return result;
@@ -386,53 +518,43 @@ async function createSecurityAuditReportPdf({ model, modelId, workName, details,
     for (const subgroupItems of Object.values(summarySubgroups)) {
       if (summaryY < 68) startSummaryPage();
       const subgroupScore = calculateGroupScore(subgroupItems);
-      summary.drawRectangle({ x: left + 8, y: summaryY - 5, width: right - left - 8, height: 17, color: rgb(.94, .96, .98) });
       const subgroupHeading = getSubgroupHeading(subgroupItems[0]);
-      summaryY = writeWrapped(summary, `${subgroupHeading.code}  ${subgroupHeading.title}`, left + 14, summaryY, right - left - 72, 7.2, bold, navy, 9);
+      drawRoundedCode(summary, subgroupHeading.code, left + 8, summaryY - 6, 32, 17, 6.8, red, rgb(1, 1, 1));
+      const subgroupLines = wrapPdfText(subgroupHeading.title, bold, 7.4, right - left - 102);
+      subgroupLines.forEach((value, index) => summary.drawText(value, { x: left + 49, y: summaryY - index * 9, size: 7.4, font: bold, color: navy }));
       const subgroupScoreLabel = subgroupScore === null ? "—" : subgroupScore.toFixed(1).replace(".", ",");
-      summary.drawText(subgroupScoreLabel, { x: right - bold.widthOfTextAtSize(subgroupScoreLabel, 7), y: summaryY + 9, size: 7, font: bold, color: navy });
-      summaryY -= 5;
-      for (const item of subgroupItems) {
-        if (summaryY < 52) startSummaryPage();
-        const response = getItemResponse(drafts, modelId, item);
-        const itemTop = summaryY + 8;
-        summaryY = writeWrapped(summary, `${item.code}  ${getCriterionDisplayTitle(item)}`, left + 20, summaryY, right - left - 60, 6.8, regular, navy, 9);
-        summaryLinks.push({ source: summary, itemId: item.id, rect: [left + 16, summaryY, right, itemTop] });
-        if (security) drawStatus(summary, response, right - 15, summaryY + 8, .75);
-        else drawItemScore(summary, item, response, right - 32, summaryY + 8, true);
-        summary.drawLine({ start: { x: left + 20, y: summaryY + 2 }, end: { x: right, y: summaryY + 2 }, thickness: .35, color: lineColor });
-        summaryY -= 7;
-      }
+      summary.drawText(subgroupScoreLabel, { x: right - bold.widthOfTextAtSize(subgroupScoreLabel, 7), y: summaryY, size: 7, font: bold, color: navy });
+      summaryY -= Math.max(21, subgroupLines.length * 9 + 7);
+      drawSummaryItems(subgroupItems);
       summaryY -= 3;
     }
-    summaryY -= 8;
+    summaryY -= 5;
   }
 
-  const detailTop = 510, detailBottom = 52, detailWidth = right - left;
-  const sentenceCase = (value: string) => {
-    const normalized = value.trim().toLocaleLowerCase("pt-BR");
-    return normalized ? normalized[0].toLocaleUpperCase("pt-BR") + normalized.slice(1) : normalized;
-  };
+  const detailTop = 558, detailBottom = 52, detailWidth = right - left;
   const detailLayout = (item: Criterion, response: ItemResponse, showGroup: boolean, showSubgroup: boolean) => {
+    const quantitative = item.verificationRule === "Dividido pela quantidade verificada";
     const analysis = security
       ? item.analysisCriterion ?? (item.orientations.map((orientation) => orientation.text).join(" ") || "Não informado.")
       : item.verificationRule || "Não informado.";
-    const title = wrapPdfText(sentenceCase(getCriterionDisplayTitle(item)), bold, 8, detailWidth - 66);
+    const title = wrapPdfText(getCriterionDisplayTitle(item), bold, 8, detailWidth - 66);
     const description = wrapPdfText(item.text || "—", regular, 6.2, detailWidth);
     const analysisLines = wrapPdfText(analysis, regular, 6.2, detailWidth);
-    const observations = wrapPdfText(response.note || "Sem observações registradas.", regular, 6.2, detailWidth);
-    const verifiedChecks = item.verificationRule === "Dividido pela quantidade verificada" ? response.checks ?? [] : [];
+    const observations = quantitative ? [] : wrapPdfText(response.note || "Sem observações registradas.", regular, 6.2, detailWidth);
+    const verifiedChecks = quantitative ? response.checks ?? [] : [];
     const checkRows = verifiedChecks.map((check) => ({
       check,
-      lines: wrapPdfText(check.label || "Item verificado", regular, 6.2, detailWidth - 32),
+      lines: wrapPdfText(`${check.label || "Item verificado"}${getDraftCheckWeight(check) !== null ? ` · Peso: ${getDraftCheckWeight(check)!.toFixed(2).replace(".", ",")}` : ""}${check.note?.trim() ? ` · Observação: ${check.note.trim()}` : ""}`, regular, 6.2, detailWidth - 32),
     }));
     const checksHeight = checkRows.length ? 12 + checkRows.reduce((total, row) => total + Math.max(9, row.lines.length * 7.2) + 2, 0) : 0;
-    const photos = [...(response.photos ?? []), ...verifiedChecks.flatMap((check) => check.photos ?? [])].slice(0, 3);
-    const photoHeight = photos.length ? 49 : 13;
-    const height = (showGroup ? 30 : 0) + (showSubgroup && item.subgroup ? 24 : 0) + Math.max(11, title.length * 9) + 12
+    const photos = [...(response.photos ?? []), ...verifiedChecks.flatMap((check) => check.photos ?? [])];
+    const photoCellHeight = 62;
+    const photoHeight = photos.length ? Math.ceil(photos.length / 3) * (photoCellHeight + 8) - 8 : 13;
+    const itemHeadingHeight = Math.max(17, 17 + (title.length - 1) * 9) + 7;
+    const height = (showGroup ? 30 : 0) + (showSubgroup && item.subgroup ? 24 : 0) + itemHeadingHeight
       + description.length * 7.8 + 11 + analysisLines.length * 7.8 + 11
-      + checksHeight + observations.length * 7.8 + 13 + photoHeight + 18;
-    return { analysis, title, description, analysisLines, observations, checkRows, photos, photoHeight, height, showGroup, showSubgroup };
+      + checksHeight + (quantitative ? 0 : observations.length * 7.8 + 13) + photoHeight + 18;
+    return { analysis, title, description, analysisLines, observations, checkRows, photos, photoHeight, height, showGroup, showSubgroup, quantitative };
   };
   const drawDetailItem = (page: PDFPage, group: string, groupItems: Criterion[], item: Criterion, response: ItemResponse,
     layout: ReturnType<typeof detailLayout>, top: number) => {
@@ -440,25 +562,25 @@ async function createSecurityAuditReportPdf({ model, modelId, workName, details,
     if (layout.showGroup) {
       const heading = getGroupHeading(group);
       const groupScore = calculateGroupScore(groupItems);
-      drawRoundedCode(page, heading.number, left, cursor - 8, 24, 21, 9.5, navy, rgb(1, 1, 1));
-      page.drawText(heading.title, { x: left + 34, y: cursor, size: 10.5, font: bold, color: navy });
+      drawRoundedCode(page, heading.number, left, cursor - 21, 24, 21, 9.5, navy, rgb(1, 1, 1));
+      page.drawText(heading.title, { x: left + 34, y: cursor - 14, size: 10.5, font: bold, color: navy });
       const titleWidth = Math.min(detailWidth - 80, bold.widthOfTextAtSize(heading.title, 10.5));
-      page.drawLine({ start: { x: left + 34, y: cursor - 7 }, end: { x: left + 34 + titleWidth, y: cursor - 7 }, thickness: 1.6, color: red });
+      page.drawLine({ start: { x: left + 34, y: cursor - 21 }, end: { x: left + 34 + titleWidth, y: cursor - 21 }, thickness: 1.6, color: red });
       const groupScoreLabel = groupScore === null ? "—" : groupScore.toFixed(1).replace(".", ",");
-      page.drawText(groupScoreLabel, { x: right - bold.widthOfTextAtSize(groupScoreLabel, 8), y: cursor, size: 8, font: bold, color: navy });
+      page.drawText(groupScoreLabel, { x: right - bold.widthOfTextAtSize(groupScoreLabel, 8), y: cursor - 14, size: 8, font: bold, color: navy });
       cursor -= 30;
     }
     if (layout.showSubgroup && item.subgroup) {
       const subgroup = getSubgroupHeading(item);
-      drawRoundedCode(page, subgroup.code, left, cursor - 6, 32, 17, 6.8, red, rgb(1, 1, 1));
-      page.drawText(sentenceCase(subgroup.title), { x: left + 41, y: cursor, size: 8.5, font: bold, color: navy });
+      drawRoundedCode(page, subgroup.code, left, cursor - 17, 32, 17, 6.8, red, rgb(1, 1, 1));
+      page.drawText(subgroup.title, { x: left + 41, y: cursor - 12, size: 8.5, font: bold, color: navy });
       cursor -= 24;
     }
-    drawRoundedCode(page, item.code, left, cursor - 6, 43, 17, 6.8, rgb(.93, .95, .98), navy);
-    layout.title.forEach((value, index) => page.drawText(value, { x: left + 52, y: cursor - index * 9, size: 8, font: bold, color: navy }));
-    if (security) drawStatus(page, response, right - 11, cursor - 1, .85);
-    else drawItemScore(page, item, response, right - 38, cursor + 1);
-    cursor -= Math.max(11, layout.title.length * 9) + 7;
+    drawRoundedCode(page, item.code, left, cursor - 17, 43, 17, 6.8, rgb(.93, .95, .98), navy);
+    layout.title.forEach((value, index) => page.drawText(value, { x: left + 52, y: cursor - 12 - index * 9, size: 8, font: bold, color: navy }));
+    if (security) drawStatus(page, response, right - 11, cursor - 12, .85);
+    else drawItemScore(page, item, response, right, cursor - 12.5);
+    cursor -= Math.max(17, 17 + (layout.title.length - 1) * 9) + 7;
     const section = (label: string, lines: string[]) => {
       drawLabel(page, label, left, cursor);
       cursor -= 9;
@@ -479,19 +601,29 @@ async function createSecurityAuditReportPdf({ model, modelId, workName, details,
       });
       cursor -= 3;
     }
-    section("OBSERVAÇÕES", layout.observations);
+    if (!layout.quantitative) section("OBSERVAÇÕES", layout.observations);
     drawLabel(page, "EVIDÊNCIAS FOTOGRÁFICAS", left, cursor);
     cursor -= 9;
     if (layout.photos.length) {
       const gap = 8;
-      const boxWidth = (detailWidth - gap * (layout.photos.length - 1)) / layout.photos.length;
-      const boxHeight = layout.photoHeight - 4;
+      const photoWidth = (detailWidth - gap * 2) / 3;
+      const photoCellHeight = 62;
       layout.photos.forEach((name, index) => {
-        const boxX = left + index * (boxWidth + gap);
-        page.drawRectangle({ x: boxX, y: cursor - boxHeight, width: boxWidth, height: boxHeight, borderWidth: .5, borderColor: lineColor, color: rgb(.97, .98, .99) });
-        page.drawText(`FOTO ${String(index + 1).padStart(2, "0")}`, { x: boxX + 5, y: cursor - 11, size: 5.2, font: bold, color: muted });
-        const nameLines = wrapPdfText(name, regular, 4.6, boxWidth - 10).slice(0, 3);
-        nameLines.forEach((value, lineIndex) => page.drawText(value, { x: boxX + 5, y: cursor - 21 - lineIndex * 5.7, size: 4.6, font: regular, color: muted }));
+        const column = index % 3;
+        const row = Math.floor(index / 3);
+        const photoX = left + column * (photoWidth + gap);
+        const photoTop = cursor - row * (photoCellHeight + gap);
+        const image = embeddedPhotos.get(name);
+        if (image) {
+          const dimensions = image.scaleToFit(photoWidth, photoCellHeight);
+          const photoY = photoTop - dimensions.height;
+          page.drawImage(image, { x: photoX, y: photoY, width: dimensions.width, height: dimensions.height });
+          const url = photoUrls.get(name);
+          if (url) photoLinks.push({ source: page, url, rect: [photoX, photoY, photoX + dimensions.width, photoTop] });
+        } else {
+          const nameLines = wrapPdfText(name, regular, 4.6, photoWidth).slice(0, 5);
+          nameLines.forEach((value, lineIndex) => page.drawText(value, { x: photoX, y: photoTop - 6 - lineIndex * 5.7, size: 4.6, font: regular, color: muted }));
+        }
       });
       cursor -= layout.photoHeight;
     } else {
@@ -511,7 +643,7 @@ async function createSecurityAuditReportPdf({ model, modelId, workName, details,
     for (const item of items) {
       const response = getItemResponse(drafts, modelId, item);
       let showGroup = !detailPage || previousDetailGroup !== group;
-      let showSubgroup = showGroup || previousDetailSubgroup !== item.subgroup;
+      let showSubgroup = security && (showGroup || previousDetailSubgroup !== item.subgroup);
       let layout = detailLayout(item, response, showGroup, showSubgroup);
       if (!detailPage || itemsOnDetailPage >= 3 || detailY - layout.height < detailBottom) {
         detailPage = addPage();
@@ -520,7 +652,7 @@ async function createSecurityAuditReportPdf({ model, modelId, workName, details,
         previousDetailGroup = "";
         previousDetailSubgroup = "";
         showGroup = true;
-        showSubgroup = true;
+        showSubgroup = security;
         layout = detailLayout(item, response, showGroup, showSubgroup);
       }
       detailPages.set(item.id, { page: detailPage, y: detailY });
@@ -543,20 +675,20 @@ async function createSecurityAuditReportPdf({ model, modelId, workName, details,
     pageAnnotations.push(annotation);
     annotations.set(source, pageAnnotations);
   });
+  photoLinks.forEach(({ source, url, rect }) => {
+    const annotation = document.context.register(document.context.obj({
+      Type: "Annot", Subtype: "Link", Rect: rect, Border: [0, 0, 0],
+      Contents: PDFString.of("Abrir fotografia em tamanho original"),
+      A: { Type: "Action", S: "URI", URI: PDFString.of(url) },
+    }));
+    const pageAnnotations = annotations.get(source) ?? [];
+    pageAnnotations.push(annotation);
+    annotations.set(source, pageAnnotations);
+  });
   annotations.forEach((references, source) => source.node.set(PDFName.of("Annots"), document.context.obj(references)));
 
-  const date = displayAuditDate(details.date);
   pages.forEach((page, index) => {
-    if (index > 0) {
-      if (logo) page.drawImage(logo, { x: left, y: 558, width: 73, height: 28 });
-      page.drawText(disciplineTitle, { x: 119, y: 568, size: 8.2, font: bold, color: navy });
-      drawLabel(page, "PROCESSO", 245, 581);
-      page.drawText("RELATÓRIO DE AUDITORIA", { x: 245, y: 561, size: 7.8, font: bold, color: navy });
-      drawLabel(page, "DATA", 370, 581);
-      page.drawText(date, { x: 370, y: 561, size: 7, font: bold, color: navy });
-      page.drawLine({ start: { x: left, y: 545 }, end: { x: right, y: 545 }, thickness: .6, color: navy });
-      page.drawLine({ start: { x: left, y: 540 }, end: { x: right, y: 540 }, thickness: 1.3, color: red });
-    }
+    if (index > 0) drawPageHeader(page);
     page.drawLine({ start: { x: left, y: 34 }, end: { x: right, y: 34 }, thickness: .45, color: lineColor });
     page.drawText("Diálogo Auditorias", { x: left, y: 20, size: 5, font: regular, color: muted });
     const center = index === 0 ? "Abrir sumário" : index === 1 ? "Sumário" : "Voltar ao sumário";
@@ -638,7 +770,8 @@ function awardedItemScore(criterion: Criterion, response: ItemResponse, security
   if (weight === null) return null;
   if (criterion.verificationRule === "Dividido pela quantidade verificada") {
     const verified = (response.checks ?? []).filter((check) => check.compliant !== null);
-    return verified.length ? weight * verified.filter((check) => check.compliant).length / verified.length : null;
+    const compliance = calculateChecksCompliance(verified);
+    return compliance === null ? null : weight * compliance;
   }
   return response.answer === "Conforme" ? weight : response.answer === "Não conforme" ? 0 : null;
 }
@@ -692,6 +825,36 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
   const photoInput = useRef<HTMLInputElement>(null);
   const criterion = criteria[activeIndex] ?? criteria[0];
   const response = criterion ? getItemResponse(drafts, responseKey, criterion) : { note: "" };
+  useEffect(() => { Object.values(itemPhotos).flat().forEach((file) => auditPhotoFiles.set(file.name, file)); }, [itemPhotos]);
+  useEffect(() => {
+    if (!criterion) return;
+    const targets = [
+      { key: `${criterion.id}:item`, references: response.photos ?? [] },
+      ...(response.checks ?? []).map((check) => ({ key: `${criterion.id}:${check.id}`, references: check.photos ?? [] })),
+    ].filter((target) => target.references.some((reference) => localTestEvidenceUrl(reference)));
+    if (!targets.length) return;
+    let cancelled = false;
+    void Promise.all(targets.map(async (target) => ({
+      key: target.key,
+      files: (await Promise.all(target.references.map(loadLocalTestEvidence))).filter((file): file is File => file !== null),
+    }))).then((loaded) => {
+      if (cancelled) return;
+      setItemPhotos((current) => {
+        let changed = false;
+        const next = { ...current };
+        loaded.forEach(({ key, files }) => {
+          const existingNames = new Set((current[key] ?? []).map((file) => file.name));
+          const additions = files.filter((file) => !existingNames.has(file.name));
+          if (additions.length) {
+            next[key] = [...(current[key] ?? []), ...additions];
+            changed = true;
+          }
+        });
+        return changed ? next : current;
+      });
+    });
+    return () => { cancelled = true; };
+  }, [criterion, response.checks, response.photos]);
   const security = model.startsWith("Segurança");
   const displayedPreviousAudits = previousAudits.length
     ? [...previousAudits].sort((left, right) => right.date.localeCompare(left.date))
@@ -702,7 +865,7 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
   const answered = criteria.filter((item) => {
     const itemResponse = getItemResponse(drafts, responseKey, item);
     return item.verificationRule === "Dividido pela quantidade verificada"
-      ? !!itemResponse.checks?.length && itemResponse.checks.every((check) => check.compliant !== null)
+      ? isQuantitativeResponseComplete(item, itemResponse)
       : itemResponse.answer !== undefined;
   }).length;
   const allItemsAnswered = criteria.length > 0 && answered === criteria.length;
@@ -721,7 +884,8 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
   const move = (direction: -1 | 1) => { setActiveIndex(getAdjacentIndex(activeIndex, criteria.length, direction)); setSelectedItemOpen(true); };
   const supportsNotApplicable = criterion?.verificationRule === "Conforme/Não Conforme/Não Aplicável" || criterion?.sourceNote?.toLocaleLowerCase("pt-BR").includes("não aplic") === true;
   const options: DraftAnswer[] = security ? ["0", "5", "10", "N/A"] : supportsNotApplicable ? ["Não conforme", "Conforme", "N/A"] : ["Não conforme", "Conforme"];
-  const quantityChecks = criterion ? response.checks ?? [{ id: `${criterion.id}-1`, label: "Item verificado 1", compliant: null }] : [];
+  const perCheckWeights = criterion ? usesPerCheckWeights(criterion) : false;
+  const quantityChecks = criterion ? response.checks ?? [{ id: `${criterion.id}-1`, label: perCheckWeights ? "" : "Item verificado 1", compliant: null }] : [];
 
   return <>
     <div className="page-intro">
@@ -769,7 +933,7 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
           {security && <div className={`question-verification ${verificationVisual(response)?.tone ?? "unanswered"}${missingRequiredPhoto ? " missing-photo" : ""}`}><small>VERIFICAÇÃO</small><VerificationMark response={response} /></div>}
         </div>
         {criterion.subgroup && <div className="question-context"><span className="question-code">{getSubgroupHeading(criterion).code}</span><span className="question-subgroup-title">{getSubgroupHeading(criterion).title}</span></div>}
-        <div className="question-title-row"><div className="question-title-content"><span className="question-code">{criterion.code}</span><h3>{getCriterionDisplayTitle(criterion)}</h3></div>{!security && <div className={`question-score${missingRequiredPhoto ? " missing-photo" : ""}`}><small>NOTA</small><strong>{scoreLabel(awardedItemScore(criterion, response, false), response.answer)}</strong></div>}</div>
+        <div className="question-title-row"><div className="question-title-content"><span className="question-code">{criterion.code}</span><h3>{getCriterionDisplayTitle(criterion)}</h3></div>{!security && <strong className={`question-score-value${missingRequiredPhoto ? " missing-photo" : ""}`}>{scoreLabel(awardedItemScore(criterion, response, false), response.answer)}</strong>}</div>
         <p className="criterion-description"><strong>Descrição:</strong> {criterion.text}</p>
         {(security ? securityAnalysisCriterion : criterion.verificationRule) && <p className="criterion-detail"><strong>{security ? "Critério de análise" : "Critério de verificação"}:</strong> {security ? securityAnalysisCriterion : criterion.verificationRule}</p>}
         {criterion.interpretation && criterion.verificationRule !== "Dividido pela quantidade verificada" && <p className="criterion-detail">{criterion.interpretation}</p>}
@@ -777,15 +941,20 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
 
         <fieldset className="answer-fieldset" aria-label="Resultado da verificação" disabled={readOnly}>
           {criterion.verificationRule === "Dividido pela quantidade verificada" && !security ? <div className="quantity-checks">
-            {quantityChecks.map((check, checkIndex) => <div className={check.compliant === false ? "quantity-check has-photo-action" : "quantity-check"} key={check.id}>
+            {quantityChecks.map((check, checkIndex) => <div className={`quantity-check${check.compliant === false ? " has-photo-action" : ""}${perCheckWeights ? " has-check-weight" : ""}`} key={check.id}>
               <button type="button" className="remove-verified-item" aria-label={`Remover item verificado ${checkIndex + 1}`} onClick={() => {
                 const checks = quantityChecks;
                 updateDraft({ ...response, checks: checks.filter((entry) => entry.id !== check.id) });
               }}>×</button>
-              <input aria-label={`Identificação do item verificado ${checkIndex + 1}`} value={check.label} onChange={(event) => {
+              {perCheckWeights ? <select className="check-label filter-select" required aria-label={`Serviço verificado ${checkIndex + 1}`} value={check.label} onChange={(event) => {
+                const checks = quantityChecks;
+                const service = fvsServices.find((entry) => entry.label === event.target.value);
+                updateDraft({ ...response, checks: checks.map((entry) => entry.id === check.id ? { ...entry, label: event.target.value, weight: service?.weight ?? null } : entry) });
+              }}><option value="">Selecione o serviço verificado</option>{check.label && !fvsServices.some((service) => service.label === check.label) && <option value={check.label}>{check.label}</option>}{fvsServices.map((service) => <option value={service.label} key={`${service.document}:${service.service}`}>{service.label}</option>)}</select> : <input className="check-label" aria-label={`Identificação do item verificado ${checkIndex + 1}`} value={check.label} onChange={(event) => {
                 const checks = quantityChecks;
                 updateDraft({ ...response, checks: checks.map((entry) => entry.id === check.id ? { ...entry, label: event.target.value } : entry) });
-              }} />
+              }} />}
+              {perCheckWeights && <input className="check-weight" type="text" aria-label={`Peso do item verificado ${checkIndex + 1}`} placeholder="Peso" value={getDraftCheckWeight(check) ?? ""} readOnly />}
               <button type="button" className={check.compliant === false ? "check-option noncompliant active" : "check-option noncompliant"} aria-label="Não conforme" aria-pressed={check.compliant === false} onClick={() => {
                 const checks = quantityChecks;
                 updateDraft({ ...response, checks: checks.map((entry) => entry.id === check.id ? { ...entry, compliant: false } : entry) });
@@ -799,11 +968,15 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
                 setItemPhotos((current) => ({ ...current, [key]: (current[key] ?? []).slice(0, -1) }));
                 updateDraft({ ...response, checks: quantityChecks.map((entry) => entry.id === check.id ? { ...entry, photos: (entry.photos ?? []).slice(0, -1) } : entry) });
               }} /></span>
+              <input className="check-note" aria-label={`Observação do item verificado ${checkIndex + 1}`} placeholder="Observações" value={check.note ?? ""} onChange={(event) => {
+                const checks = quantityChecks;
+                updateDraft({ ...response, checks: checks.map((entry) => entry.id === check.id ? { ...entry, note: event.target.value } : entry) });
+              }} />
             </div>)}
             <button type="button" className="add-verified-item" aria-label="Adicionar item verificado" title="Adicionar item verificado" onClick={() => {
               const checks = quantityChecks;
               const number = checks.length + 1;
-              updateDraft({ ...response, checks: [...checks, { id: `${criterion.id}-${number}`, label: `Item verificado ${number}`, compliant: null }] });
+              updateDraft({ ...response, checks: [...checks, { id: `${criterion.id}-${number}`, label: perCheckWeights ? "" : `Item verificado ${number}`, compliant: null, ...(perCheckWeights ? { weight: null } : {}) }] });
             }}>+</button>
           </div> : <div className={`answer-options${security ? " answer-options-security" : ` answer-options-quality${supportsNotApplicable ? " has-not-applicable" : ""}`}`}>
             {options.map((value) => {
@@ -812,20 +985,21 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
                 <span>{value === "0" || value === "Não conforme" ? "×" : value === "5" ? "!" : value === "10" || value === "Conforme" ? "✓" : "—"}</span><small>{label}</small>
               </button>;
             })}
-            <span className="inline-photo-cell">{!(itemPhotos[`${criterion.id}:item`] ?? []).length && <button type="button" className="inline-photo" aria-label="Adicionar foto ao item" title="Adicionar foto" onClick={() => { setPhotoTarget("item"); photoInput.current?.click(); }}>+</button>}<AuditPhotoThumbnail file={itemPhotos[`${criterion.id}:item`]?.at(-1)} onAdd={() => { setPhotoTarget("item"); photoInput.current?.click(); }} onDelete={() => {
+            <span className="inline-photo-cell qualitative-photo-list">{(itemPhotos[`${criterion.id}:item`] ?? []).map((file, photoIndex) => <AuditPhotoThumbnail key={`${file.name}:${file.lastModified}:${photoIndex}`} file={file} onAdd={() => { setPhotoTarget("item"); photoInput.current?.click(); }} onDelete={() => {
               const key = `${criterion.id}:item`;
-              setItemPhotos((current) => ({ ...current, [key]: (current[key] ?? []).slice(0, -1) }));
-              updateDraft({ ...response, photos: (response.photos ?? []).slice(0, -1) });
-            }} /></span>
+              setItemPhotos((current) => ({ ...current, [key]: (current[key] ?? []).filter((_, index) => index !== photoIndex) }));
+              updateDraft({ ...response, photos: (response.photos ?? []).filter((_, index) => index !== photoIndex) });
+            }} />)}<button type="button" className="inline-photo" aria-label="Adicionar foto ao item" title="Adicionar foto" onClick={() => { setPhotoTarget("item"); photoInput.current?.click(); }}>+</button></span>
           </div>}
         </fieldset>
 
-        {response.answer !== "N/A" && <label className="question-note">Observações{requiresEvidence ? " *" : ""}
+        {criterion.verificationRule !== "Dividido pela quantidade verificada" && response.answer !== "N/A" && <label className="question-note">Observações{requiresEvidence ? " *" : ""}
           <textarea value={response.note} readOnly={readOnly} onChange={(event) => updateDraft({ ...response, note: event.target.value })} placeholder="Registre a observação da verificação…" required={requiresEvidence} />
         </label>}
         <input ref={photoInput} className="audit-photo-input" type="file" accept="image/jpeg,image/png" multiple hidden disabled={readOnly} onChange={(event) => {
             if (!criterion) return;
             const selected = Array.from(event.target.files ?? []);
+            selected.forEach((file) => auditPhotoFiles.set(file.name, file));
             const key = `${criterion.id}:${photoTarget}`;
             setItemPhotos((current) => ({ ...current, [key]: [...(current[key] ?? []), ...selected] }));
             if (photoTarget === "item") updateDraft({ ...response, photos: [...(response.photos ?? []), ...selected.map((file) => file.name)] });

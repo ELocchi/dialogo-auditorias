@@ -23,7 +23,8 @@
     "test:access-database": "node scripts/test-access-database.mjs",
     "test:work-details": "node --experimental-strip-types --test scripts/test-work-details.mjs",
     "test:profile-workspace": "node --experimental-strip-types --test scripts/test-active-profile.mjs scripts/test-workspace-context.mjs",
-    "test:catalog-revisions": "node --experimental-strip-types --test scripts/test-catalog-revisions.mjs scripts/test-catalog-audit-snapshots.mjs"
+    "test:catalog-revisions": "node --experimental-strip-types --test scripts/test-catalog-revisions.mjs scripts/test-catalog-audit-snapshots.mjs",
+    "test:published-audits": "node --experimental-strip-types --test scripts/test-published-audits.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

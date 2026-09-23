@@ -2,11 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { demoUsers, initialVisits, canBeginScheduledAudit } from "../src/domain/prototype-access.ts";
 import { workRecords, auditRecords } from "../src/domain/operational-records.ts";
-import { calculateSecurityFinalScore, calculateSecurityGroupScore, getItemResponse, getResponseLabel } from "../src/domain/audit-draft.ts";
+import { calculateChecksCompliance, calculateSecurityFinalScore, calculateSecurityGroupScore, getItemResponse, getResponseLabel } from "../src/domain/audit-draft.ts";
 import {
   criteriaForModel, modelDisplayName, beginPrototypeAudit, beginScheduledVisitAudit,
   completePrototypeAudit, validatePrototypeAuditCompletion, updatePrototypeResponse, updatePrototypeAuditDate,
 } from "../src/domain/prototype-audits.ts";
+import { fvsServices } from "../src/domain/fvs-services.ts";
 
 // Todas as auditorias criadas abaixo são fixtures isoladas e não representam publicação real.
 const safety = demoUsers.find((user) => user.id === "auditor-safety");
@@ -55,6 +56,13 @@ test("nota de Segurança pondera itens e grupos e retira N/A do cálculo", () =>
     B1: { answer: "5", note: "" },
   } };
   assert.equal(calculateSecurityFinalScore(criteria, onlySecondGroup, "security"), 5);
+});
+
+test("FVS usa o peso específico do serviço na proporção do item", () => {
+  assert.equal(calculateChecksCompliance([
+    { id: "1", label: "FVS-24 - Forro em placas de gesso acartonado", compliant: false },
+    { id: "2", label: "FVS-6B - Revestimento interno – Massa Interna", compliant: true },
+  ]), 5 / 9);
 });
 
 test("roteiro de Segurança usa o mesmo peso nos itens e mantém os pesos dos grupos", () => {
@@ -182,7 +190,7 @@ test("fechamento abre revisão somente completo e publicação grava a nota na s
   let state = started.state;
   for (const criterion of criteriaForModel(F175)) {
     const response = criterion.verificationRule === "Dividido pela quantidade verificada"
-      ? { note: "", checks: [{ id: `${criterion.id}-1`, label: "Item verificado 1", compliant: true }] }
+      ? { note: "", checks: [{ id: `${criterion.id}-1`, label: /\bfvs\b/i.test(`${criterion.title} ${criterion.text}`) ? fvsServices[0].label : "Item verificado 1", compliant: true }] }
       : { answer: "Conforme", note: "" };
     state = updatePrototypeResponse(state, quality, started.auditId, criterion, response);
   }

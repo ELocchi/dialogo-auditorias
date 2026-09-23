@@ -1,5 +1,5 @@
 import { securityCriteria, qualityModels, type Criterion } from "./catalogs.ts";
-import { calculateAuditFinalScore, updateItemResponse, type AuditDrafts, type ItemResponse } from "./audit-draft.ts";
+import { calculateAuditFinalScore, getDraftCheckWeight, updateItemResponse, type AuditDrafts, type ItemResponse } from "./audit-draft.ts";
 import { canBeginScheduledAudit, canStartAudit, canEditAudit, type DemoUser, type Visit } from "./prototype-access.ts";
 import type { AuditRecord, AuditModelId, WorkRecord } from "./operational-records";
 
@@ -85,6 +85,8 @@ export function validatePrototypeAuditCompletion(state: PrototypeAuditState, use
     if (!response) throw new Error(`Responda o item ${criterion.code} antes de fechar o relatório.`);
     if (criterion.verificationRule === "Dividido pela quantidade verificada") {
       if (!response.checks?.length || response.checks.some((check) => check.compliant === null)) throw new Error(`Conclua as verificações do item ${criterion.code}.`);
+      if (response.checks.some((check) => !check.label.trim())) throw new Error(`Selecione ou identifique cada verificação do item ${criterion.code}.`);
+      if (/\bfvs\b/i.test(`${criterion.title} ${criterion.text}`) && response.checks.some((check) => getDraftCheckWeight(check) === null)) throw new Error(`Selecione um serviço da planilha de pesos no item ${criterion.code}.`);
       if (response.checks.some((check) => check.compliant === false && !check.photos?.length)) throw new Error(`Adicione uma foto em cada verificação não conforme do item ${criterion.code}.`);
     } else {
       if (response.answer === undefined) throw new Error(`Responda o item ${criterion.code} antes de fechar o relatório.`);

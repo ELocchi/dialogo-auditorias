@@ -1030,3 +1030,10 @@ npm.cmd run dev
 Manter esse terminal aberto e acessar o endereço indicado no terminal, normalmente **http://localhost:3000**. Com as dependências atuais instaladas, não é necessário reinstalá-las nem executar build para retomar o desenvolvimento. Usar `npm.cmd` e `npx.cmd` no PowerShell; não alterar a política de execução do Windows.
 
 Este registro não afirma que o servidor permanecerá ligado após o encerramento do computador. Nenhum comando de inicialização, reinicialização, limpeza ou publicação foi executado para produzir este documento.
+## Atualização de 23/09/2026
+
+- A auditoria de Qualidade Completa da obra BoulevarDiálogo foi registrada no Supabase como publicação imutável, com nota 6,74, 23 respostas, 37 evidências e o PDF final em bucket privado.
+- Os roteiros atuais F.175 e F.176 foram registrados como novas revisões. A lista de 51 serviços e os pesos da planilha Peso FVS foram preservados em revisão própria.
+- O cálculo dos itens FVS usa o peso de cada serviço. Os itens quantitativos mantêm observação em cada verificação e os qualitativos aceitam várias fotos.
+- Os PDFs de auditoria e plano de ação seguem o mesmo padrão visual e usam sumários interativos. O plano de ação pede confirmação antes da publicação.
+- Dados preenchidos no plano de ação permanecem apenas na sessão do navegador; nenhuma informação do plano foi persistida no Supabase.

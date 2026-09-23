@@ -9,6 +9,7 @@ import { readCatalogSnapshot } from "@/lib/catalogs/service";
 import { readAgendaSnapshot } from "@/lib/agenda/service";
 import { AccessAdministration } from "@/app/components/access/AccessAdministration";
 import { countActiveAccounts } from "@/lib/access/account-count";
+import { readPublishedAuditSnapshot } from "@/lib/audits/service";
 
 export const dynamic = "force-dynamic";
 
@@ -25,12 +26,13 @@ export default async function OperationalPage({ searchParams }: { searchParams: 
     <LogoutButton />
   </AuthShell>;
   const client = await createClient();
-  const [initialAgenda, initialCatalogs, activeAccountCount] = await Promise.all([
+  const [initialAgenda, initialCatalogs, initialAudits, activeAccountCount] = await Promise.all([
     readAgendaSnapshot(client, context), readCatalogSnapshot(client, context),
+    readPublishedAuditSnapshot(client, context),
     context.administrativeScope === "GERAL" ? countActiveAccounts(client) : Promise.resolve(null),
   ]);
   return <PrototypeApp key={`${active.user.id}:${active.profile}:${active.engineeringScope ?? ""}:${active.administrativeScope ?? ""}`} context={context}
-    initialCatalogs={initialCatalogs} initialAgenda={initialAgenda} initialVisitId={typeof query.visita === "string" ? query.visita : undefined}
+    initialCatalogs={initialCatalogs} initialAgenda={initialAgenda} initialAudits={initialAudits} initialVisitId={typeof query.visita === "string" ? query.visita : undefined}
     initialScreen={query.secao === "obras" ? "works" : query.secao === "agenda" ? "agenda" : query.secao === "auditorias" ? "audits" : query.secao === "relatorios" ? "report" : query.secao === "acompanhamento" && (context.profile === "AUDITOR_SEGURANCA" || context.profile === "AUDITOR_QUALIDADE") ? "follow_up" : query.secao === "administracao" && context.administrativeScope === "GERAL" ? "settings" : "overview"}
     activeAccountCount={activeAccountCount}
     administrationContent={context.administrativeScope === "GERAL" ? <AccessAdministration embedded pendingPage={parsePage(query.pendentes)} historyPage={parsePage(query.historico)} /> : undefined}

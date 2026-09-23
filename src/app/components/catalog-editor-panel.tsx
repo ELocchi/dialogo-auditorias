@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState, useTransition, type FormEvent } from "react";
 import { referenceDocuments } from "@/domain/reference-documents";
+import { fvsServices } from "@/domain/fvs-services";
 import { getCriterionDisplayTitle, getCriterionWeight, securityGroups, securityWeightConfiguration, type Criterion } from "@/domain/catalogs";
 import { saveCatalogRevisionAction } from "@/app/catalogs/actions";
 import type { CatalogSnapshot, CatalogVersion } from "@/lib/catalogs/contracts";
@@ -42,7 +43,7 @@ function validateFile(file: File | null, extension: "pdf" | "docx", limit: numbe
 
 function groupHeading(group: string) {
   const match = group.match(/^([^\s.—–-]+)\s*(?:\.|—|–|-)\s*(.+)$/);
-  return { number: match?.[1] ?? "1", title: (match?.[2] ?? group).toLocaleUpperCase("pt-BR") };
+  return { number: match?.[1] ?? "1", title: match?.[2] ?? group };
 }
 
 function previewSubgroupHeading(item: Criterion) {
@@ -54,24 +55,25 @@ function AuditorFormPreview({ item, security }: { item: Criterion; security: boo
   const group = groupHeading(item.group);
   const subgroup = previewSubgroupHeading(item);
   const quantitative = item.verificationRule === "Dividido pela quantidade verificada";
+  const weightedChecks = /\bfvs\b/i.test(`${item.title} ${item.text}`);
   const notApplicable = item.verificationRule === "Conforme/Não Conforme/Não Aplicável";
   return <section className={styles.auditorPreview} aria-label="Visualização do preenchimento pelo auditor">
     <header><span className={styles.eyebrow}>VISUALIZAÇÃO DO AUDITOR</span><h3>Preenchimento do item</h3></header>
     <div className="question-content">
       <div className="question-group-heading"><span className="question-group-number">{group.number}</span><span className="question-group-title">{group.title}</span>{security && <div className="question-verification unanswered"><small>VERIFICAÇÃO</small><span className="verification-mark unanswered">—</span></div>}</div>
       {item.subgroup && <div className="question-context"><span className="question-code">{subgroup.code}</span><span className="question-subgroup-title">{subgroup.title}</span></div>}
-      <div className="question-title-row"><div className="question-title-content"><span className="question-code">{item.code}</span><h3>{getCriterionDisplayTitle(item)}</h3></div>{!security && <div className="question-score"><small>NOTA</small><strong>—</strong></div>}</div>
+      <div className="question-title-row"><div className="question-title-content"><span className="question-code">{item.code}</span><h3>{getCriterionDisplayTitle(item)}</h3></div>{!security && <strong className="question-score-value">—</strong>}</div>
       <p className="criterion-description"><strong>Descrição:</strong> {item.text}</p>
       {(security ? item.analysisCriterion : item.verificationRule) && <p className="criterion-detail"><strong>Critério de análise:</strong> {security ? item.analysisCriterion : item.verificationRule}</p>}
       <div className="answer-fieldset">
-        {security ? <div className="answer-options answer-options-security"><button type="button" className="answer" disabled><span>×</span><small>Totalmente não conforme</small></button><button type="button" className="answer" disabled><span>!</span><small>Parcialmente não conforme</small></button><button type="button" className="answer" disabled><span>✓</span><small>Conforme</small></button><button type="button" className="answer" disabled><span>—</span><small>Não aplicável</small></button><span className="inline-photo-cell"><button type="button" className="inline-photo" disabled aria-label="Adicionar foto">+</button></span></div> : quantitative ? <div className="quantity-checks"><div className="quantity-check"><button type="button" className="remove-verified-item" disabled aria-label="Remover item">×</button><input disabled value="Item verificado 1" readOnly /><button type="button" className="check-option noncompliant" disabled>×</button><button type="button" className="check-option compliant" disabled>✓</button><span className="inline-photo-cell"><button type="button" className="inline-photo" disabled aria-label="Adicionar foto">+</button></span></div><button type="button" className="add-verified-item" disabled aria-label="Adicionar item">+</button></div> : <div className={`answer-options answer-options-quality${notApplicable ? " has-not-applicable" : ""}`}>
+        {security ? <div className="answer-options answer-options-security"><button type="button" className="answer" disabled><span>×</span><small>Totalmente não conforme</small></button><button type="button" className="answer" disabled><span>!</span><small>Parcialmente não conforme</small></button><button type="button" className="answer" disabled><span>✓</span><small>Conforme</small></button><button type="button" className="answer" disabled><span>—</span><small>Não aplicável</small></button><span className="inline-photo-cell"><button type="button" className="inline-photo" disabled aria-label="Adicionar foto">+</button></span></div> : quantitative ? <div className="quantity-checks"><div className={`quantity-check${weightedChecks ? " has-check-weight" : ""}`}><button type="button" className="remove-verified-item" disabled aria-label="Remover item">×</button>{weightedChecks ? <select className="check-label filter-select" disabled defaultValue=""><option value="">Selecione o serviço verificado</option>{fvsServices.map((service) => <option value={service.label} key={`${service.document}:${service.service}`}>{service.label}</option>)}</select> : <input className="check-label" disabled value="Item verificado 1" readOnly />}{weightedChecks && <input className="check-weight" disabled placeholder="Peso" />}<button type="button" className="check-option noncompliant" disabled>×</button><button type="button" className="check-option compliant" disabled>✓</button><span className="inline-photo-cell"><button type="button" className="inline-photo" disabled aria-label="Adicionar foto">+</button></span><input className="check-note" disabled placeholder="Observações" /></div><button type="button" className="add-verified-item" disabled aria-label="Adicionar item">+</button></div> : <div className={`answer-options answer-options-quality${notApplicable ? " has-not-applicable" : ""}`}>
           <button type="button" className="answer answer-Noconforme" disabled><span>×</span><small>Não conforme</small></button>
           <button type="button" className="answer answer-Conforme" disabled><span>✓</span><small>Conforme</small></button>
           {notApplicable && <button type="button" className="answer answer-NA" disabled><span>—</span><small>Não aplicável</small></button>}
           <span className="inline-photo-cell"><button type="button" className="inline-photo" disabled aria-label="Adicionar foto">+</button></span>
         </div>}
       </div>
-      <label className="question-note">Observações<textarea disabled placeholder="Registre a observação da verificação…" /></label>
+      {!quantitative && <label className="question-note">Observações<textarea disabled placeholder="Registre a observação da verificação…" /></label>}
     </div>
   </section>;
 }

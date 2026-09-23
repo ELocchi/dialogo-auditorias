@@ -1,6 +1,11 @@
 /** Registro editorial das mudanças no aplicativo. Atualizar junto com cada versão. */
 export const platformUpdates = [
   {
+    date: "2026-09-23",
+    title: "Auditoria real e relatórios de Qualidade",
+    description: "Auditoria publicada da BoulevarDiálogo, pesos FVS, critérios de Qualidade e novos padrões dos PDFs de auditoria e plano de ação.",
+  },
+  {
     date: "2026-09-16",
     title: "Administração e roteiros",
     description: "Controle de acessos e manutenção reunidos na Administração. Consulta e edição dos roteiros concentradas em Roteiros e versões.",

@@ -1,6 +1,24 @@
 .grid { display: contents; }
 .grid > section { min-width: 0; }
 .findings, .catalogs { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.summary { margin: 5px 0 0; color: var(--muted); font-size: 11px; }
+.listLabel { display: block; margin: 16px 0 8px; color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .04em; }
+.auditGroups { display: grid; gap: 12px; }
+.auditGroup { overflow: hidden; border: 1px solid var(--line); border-left: 4px solid var(--red); border-radius: 10px; background: var(--surface); }
+.auditSummary { display: grid; grid-template-columns: 58px minmax(0, 1fr) 18px; align-items: center; gap: 14px; width: 100%; padding: 14px; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }
+.auditSummary:hover { background: #f8fafc; }
+.auditDate { display: grid; place-items: center; align-content: center; min-height: 58px; border-radius: 9px; background: var(--navy); color: white; }
+.auditDate strong { font-size: 17px; line-height: 1; }
+.auditDate small { margin-top: 5px; font-size: 10px; }
+.auditInfo { display: grid; min-width: 0; gap: 4px; }
+.auditInfo strong { overflow-wrap: anywhere; color: var(--navy); font-size: 13px; }
+.auditInfo small, .auditInfo span { color: var(--muted); font-size: 10px; }
+.auditInfo span { color: var(--ink); font-size: 11px; }
+.auditInfo em { margin-top: 3px; color: var(--red); font-size: 10px; font-style: normal; font-weight: 700; }
+.chevron { width: 10px; height: 10px; border-right: 2px solid var(--navy); border-bottom: 2px solid var(--navy); transform: rotate(45deg) translateY(-2px); transition: transform .15s ease; }
+.chevronExpanded { transform: rotate(225deg) translate(-2px, -2px); }
+.auditDetails { padding: 0 14px 14px; border-top: 1px solid var(--line); }
+.auditDetails .listLabel { margin-top: 13px; }
 .findings li, .catalogs li { display: grid; gap: 5px; padding: 13px 14px; border: 1px solid var(--line); border-left: 4px solid var(--red); border-radius: 10px; background: var(--surface); }
 .catalogs li { grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 14px; }
 .catalogInfo { display: grid; min-width: 0; gap: 5px; }

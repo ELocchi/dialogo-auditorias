@@ -1,4 +1,5 @@
 import { getCriterionWeight, type Criterion } from "./catalogs.ts";
+import { fvsServices } from "./fvs-services.ts";
 
 export type DraftAnswer = "0" | "5" | "10" | "N/A" | "Conforme" | "Não conforme" | "Não verificado" | "Constatação qualitativa";
 
@@ -6,6 +7,8 @@ export interface DraftCheck {
   id: string;
   label: string;
   compliant: boolean | null;
+  note?: string;
+  weight?: number | null;
   photos?: string[];
 }
 
@@ -31,6 +34,23 @@ export const updateItemResponse = (drafts: AuditDrafts, model: string, criterion
 });
 
 export const getResponseLabel = (response: ItemResponse): string => response.answer ?? "Não respondido";
+
+export function getDraftCheckWeight(check: DraftCheck): number | null {
+  const catalogWeight = fvsServices.find((service) => service.label === check.label)?.weight;
+  if (typeof catalogWeight === "number" && Number.isFinite(catalogWeight) && catalogWeight > 0) return catalogWeight;
+  return typeof check.weight === "number" && Number.isFinite(check.weight) && check.weight > 0 ? check.weight : null;
+}
+
+export function calculateChecksCompliance(checks: readonly DraftCheck[]): number | null {
+  const answered = checks.filter((check) => check.compliant !== null);
+  if (!answered.length) return null;
+  const weighted = answered.map((check) => ({ check, weight: getDraftCheckWeight(check) })).filter((entry): entry is { check: DraftCheck; weight: number } => entry.weight !== null);
+  if (weighted.length) {
+    const totalWeight = weighted.reduce((total, entry) => total + entry.weight, 0);
+    return totalWeight > 0 ? weighted.reduce((total, entry) => total + (entry.check.compliant ? entry.weight : 0), 0) / totalWeight : null;
+  }
+  return answered.filter((check) => check.compliant).length / answered.length;
+}
 
 export const getAdjacentIndex = (currentIndex: number, total: number, direction: -1 | 1): number => Math.max(0, Math.min(Math.max(total - 1, 0), currentIndex + direction));
 
@@ -74,9 +94,10 @@ export function calculateQualityFinalScore(criteria: Criterion[], drafts: AuditD
     if (response.answer === "N/A") continue;
     if (criterion.verificationRule === "Dividido pela quantidade verificada") {
       const checks = (response.checks ?? []).filter((check) => check.compliant !== null);
-      if (!checks.length) continue;
+      const compliance = calculateChecksCompliance(checks);
+      if (compliance === null) continue;
       applicableWeight += weight;
-      obtainedScore += weight * checks.filter((check) => check.compliant).length / checks.length;
+      obtainedScore += weight * compliance;
     } else if (response.answer === "Conforme" || response.answer === "Não conforme") {
       applicableWeight += weight;
       if (response.answer === "Conforme") obtainedScore += weight;

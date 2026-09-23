@@ -12,17 +12,17 @@ O **Administrativo Geral** dispõe de **Usuários e acessos** para analisar soli
 
 O cadastro de obras é persistente. Em **Administração → Cadastro de obras** e **Obras → Editar obra**, o Administrativo salva nome, endereço, responsável técnico, registro profissional, coordenação, equipe e observações. As alterações mantêm histórico e controle de revisão para evitar sobrescrita de uma edição concorrente. Perfis ativos selecionados para a equipe recebem os módulos já autorizados para seus perfis nessa obra; ao remover o vínculo, somente as concessões criadas por ele são revogadas. Nomes informados manualmente continuam descritivos e não concedem acesso.
 
-As migrations B.1–B.14 foram aplicadas ao Supabase DEV usado no projeto. A publicação de B.7 em 14/09/2026 preservou as contas, as 21 obras e os acessos existentes. B.8–B.10 foram aplicadas em 16/09/2026; B.13 e B.14, em 17/09/2026. Em 17/09/2026 também foram aplicadas `20260917000300_auditor_reference_documents.sql` e `20260917000400_follow_up_reports.sql`, para consulta de documentos pelo auditor e persistência de relatórios orientativos de acompanhamento. Em 18/09/2026 foi aplicada `20260918000100_follow_up_finding_drafts.sql`, para salvar apontamentos antes do relatório. O histórico das etapas está em [RETOMADA.md](docs/RETOMADA.md).
+As migrations B.1–B.14 e as evoluções registradas em `supabase/migrations` foram aplicadas ao Supabase DEV usado no projeto. Em 23/09/2026, as migrations `20260923000100_published_audits.sql` e `20260923000200_fvs_weight_revisions.sql` adicionaram auditorias publicadas imutáveis, evidências privadas, revisões dos roteiros de Qualidade e o histórico da planilha Peso FVS. O histórico das etapas está em [RETOMADA.md](docs/RETOMADA.md).
 
 ## Telas operacionais e limites
 
-As telas por perfil estão disponíveis em `/app`, usando a identidade e as obras/módulos realmente autorizados. Preenchimentos de auditoria de teste ficam apenas na memória da tela e são descartados ao atualizar ou trocar perfil; não são sincronizados entre dispositivos. A agenda inclui agendamento persistente pelo Administrativo, notificação no sino e confirmação da data pelo auditor, com a migration B.7 aplicada. E-mails foram adiados pelo responsável. Detalhes e validações em [Agenda de auditorias](docs/AGENDA_AUDITORIAS.md).
+As telas por perfil estão disponíveis em `/app`, usando a identidade e as obras/módulos realmente autorizados. A auditoria publicada de Qualidade Completa da obra BoulevarDiálogo, de 23/09/2026, está persistida com nota 6,74, respostas, roteiro, PDF final e 37 evidências privadas. Novos preenchimentos ainda permanecem na memória até que o fluxo geral de gravação seja concluído. O plano de ação também permanece apenas na sessão e não é gravado no Supabase. A agenda inclui agendamento persistente pelo Administrativo, notificação no sino e confirmação da data pelo auditor. E-mails foram adiados pelo responsável. Detalhes e validações em [Agenda de auditorias](docs/AGENDA_AUDITORIAS.md).
 
 O cadastro de obras e as autorizações são reais, mesmo durante a prévia das telas. Não preencher obras existentes com dados inventados para testar o formulário.
 
 Por decisão de 14/09/2026, os 205 subitens de Segurança recebem peso inicial **1**, em configuração separada da fonte documental. Permanecem os 27 pesos de grupo, as orientações e a escala 0, 5, 10 e N/A. Qualidade preserva os pesos e critérios já fornecidos: F.175 tem 10 quesitos e F.176 tem 23, cada roteiro somando 10,00.
 
-O cálculo automático ainda não está implementado. As regras complementares de aplicabilidade, base zero, arredondamento, fator de fase de Segurança e faixas do Farol de Qualidade continuam registradas em [Pendências de metodologia](docs/PENDENCIAS_METODOLOGIA.md); isso não torna pendentes os pesos e critérios já definidos. Publicação de auditoria, relatórios definitivos e upload permanente também não estão concluídos. O ranking administrativo permite selecionar mês ou ano; no ano, a posição usa a média das notas mensais publicadas disponíveis, separada por Segurança e Qualidade. Enquanto não houver resultados publicados persistidos, as tabelas permanecem vazias. As prévias de relatório e o ranking não devem ser tratados como resultados publicados.
+O cálculo automático de Qualidade está ativo, incluindo o rateio ponderado dos serviços FVS. As regras complementares de Segurança continuam registradas em [Pendências de metodologia](docs/PENDENCIAS_METODOLOGIA.md). O ranking administrativo usa as auditorias publicadas persistidas e permite selecionar mês ou ano; no ano, a posição usa a média das notas mensais, separada por Segurança e Qualidade. Os PDFs de auditoria e plano de ação usam o padrão visual atual, com sumários interativos e links internos.
 
 ## Executar localmente
 
@@ -67,7 +67,7 @@ A aplicação está publicada para testes em [dialogo-auditorias-testes.onrender
 
 O procedimento em [PUBLICACAO_GITHUB_RENDER.md](docs/PUBLICACAO_GITHUB_RENDER.md) descreve o repositório privado, o Web Service Node no Render, as variáveis e as URLs de confirmação a autorizar no Supabase. No Render, `APP_URL` deve ser a origem HTTPS exata do serviço. Não executar novamente as migrations já aplicadas nem o bootstrap para publicar a aplicação.
 
-O ambiente online usa o mesmo banco autorizado: dados persistentes alterados por ele também aparecerão localmente. A prévia de auditorias continuará temporária. `nexobra-main`, outros serviços e os arquivos de referência sincronizados permanecem fora do escopo desta publicação.
+O ambiente online usa o mesmo banco autorizado: dados persistentes alterados por ele também aparecerão localmente. Os rascunhos de novas auditorias e do plano de ação continuam temporários. `nexobra-main`, outros serviços e os arquivos de referência sincronizados permanecem fora do escopo desta publicação.
 
 ## Verificação e documentação
 

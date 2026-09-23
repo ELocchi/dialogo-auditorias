@@ -483,25 +483,25 @@ function EditableAgendaRow({ input, user, works, users, disabled, newRow = false
   const update = (change: Partial<VisitInput>) => onChange({ ...input, ...change });
 
   return <tr className={newRow ? styles.newDraftRow : undefined}>
-    <td data-label="Obra"><select required value={input.workId} aria-label="Obra" disabled={disabled} onChange={(event) => update({ workId: event.target.value, auditorId: "" })}>
+    <td data-label="Obra"><select className="filter-select" required value={input.workId} aria-label="Obra" disabled={disabled} onChange={(event) => update({ workId: event.target.value, auditorId: "" })}>
       {eligibleWorks.length === 0 && <option value="">Nenhuma obra</option>}
       {eligibleWorks.map((work) => <option value={work.id} key={work.id}>{work.name}</option>)}
     </select></td>
-    <td data-label="Disciplina">{disciplines.length > 1 ? <select value={input.module} aria-label="Disciplina" disabled={disabled} onChange={(event) => {
+    <td data-label="Disciplina">{disciplines.length > 1 ? <select className="filter-select" value={input.module} aria-label="Disciplina" disabled={disabled} onChange={(event) => {
       const nextModule = event.target.value as AppModule;
       const nextWorks = works.filter((work) => canConsultAgenda(user, work.id, nextModule));
       update({ module: nextModule, modelId: input.kind === "follow_up" ? null : nextModule === "safety" ? "security-it07-r02" : "quality-f175",
         workId: nextWorks.some((work) => work.id === input.workId) ? input.workId : nextWorks[0]?.id ?? "", auditorId: "" });
     }}>{disciplines.map((discipline) => <option key={discipline} value={discipline}>{moduleLabels[discipline]}</option>)}</select>
       : <span className={styles.tableFixedValue}>{moduleLabels[input.module]}</span>}</td>
-    <td data-label="Finalidade"><select value={input.kind} aria-label="Finalidade" disabled={disabled} onChange={(event) => {
+    <td data-label="Finalidade"><select className="filter-select" value={input.kind} aria-label="Finalidade" disabled={disabled} onChange={(event) => {
       const kind = event.target.value as VisitInput["kind"];
       update({ kind, modelId: kind === "audit" ? input.module === "safety" ? "security-it07-r02" : "quality-f175" : null });
     }}><option value="audit">Auditoria</option><option value="follow_up">Acompanhamento</option></select></td>
     <td data-label="Tipo de auditoria">{input.kind === "audit" && input.module === "quality" && models.length > 1
-      ? <select value={input.modelId ?? ""} aria-label="Tipo de auditoria" disabled={disabled} onChange={(event) => update({ modelId: event.target.value as AuditModelId })}>{models.map((modelId) => <option key={modelId} value={modelId}>{visitTypeLabels[modelId]}</option>)}</select>
+      ? <select className="filter-select" value={input.modelId ?? ""} aria-label="Tipo de auditoria" disabled={disabled} onChange={(event) => update({ modelId: event.target.value as AuditModelId })}>{models.map((modelId) => <option key={modelId} value={modelId}>{visitTypeLabels[modelId]}</option>)}</select>
       : <span className={styles.tableFixedValue}>{input.kind === "audit" && input.modelId ? visitTypeLabels[input.modelId] : "—"}</span>}</td>
-    <td data-label="Profissional"><select required value={input.auditorId} aria-label="Profissional responsável" disabled={disabled} onChange={(event) => update({ auditorId: event.target.value })}>
+    <td data-label="Profissional"><select className="filter-select" required value={input.auditorId} aria-label="Profissional responsável" disabled={disabled} onChange={(event) => update({ auditorId: event.target.value })}>
       <option value="">Selecione</option>{auditors.map((auditor) => <option value={auditor.id} key={auditor.id}>{auditor.name}</option>)}
     </select></td>
     <td data-label="Data"><input required type="date" value={input.date} aria-label="Data da visita" disabled={disabled} onChange={(event) => update({ date: event.target.value })} /></td>

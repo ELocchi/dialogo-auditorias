@@ -17,7 +17,7 @@ export function MaintenanceHistory() {
       </section>
       <section aria-labelledby="created-audits-heading">
         <h4 id="created-audits-heading">Auditorias criadas</h4>
-        <p className={styles.historyNote}>Nenhuma auditoria persistida disponível. O cadastro definitivo de auditorias ainda não está ativo; os rascunhos de teste não entram neste histórico.</p>
+        <p className={styles.historyNote}>A auditoria publicada de Qualidade Completa da obra BoulevarDiálogo, realizada em 23/09/2026, está persistida com nota 6,74 e evidências privadas.</p>
       </section>
     </div>
   </section>;

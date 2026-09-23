@@ -28,6 +28,8 @@ export interface AuditRecord {
   calculationStatus: "Aguardando configuração" | "Nota pendente" | "Disponível";
   /** Resultado final disponibilizado pela auditoria; nunca a média dos rascunhos. */
   finalScore: number | null;
+  /** Temporary authenticated URL for the immutable published PDF. */
+  reportUrl?: string;
   isDemo: boolean;
 }
 

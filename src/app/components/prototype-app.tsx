@@ -2,8 +2,10 @@
 
 import { startTransition, useEffect, useRef, useState, type ReactNode } from "react";
 import { type AuditModelId, type AuditRecord } from "@/domain/operational-records";
+import type { ItemResponse } from "@/domain/audit-draft";
+import { calculateAuditFinalScore } from "@/domain/audit-draft";
 import { roleLabels, moduleLabels, modelModule, canAccessWorkModule, canAccessModule, canReadVisit, canBeginScheduledAudit, canConsultAgenda, canReadAudit, canEditAudit, canReadTechnicalWeights, canReadOperationalDocuments, type AppModule, type Visit, type VisitInput } from "@/domain/prototype-access";
-import { beginScheduledVisitAudit, completePrototypeAudit, validatePrototypeAuditCompletion, updatePrototypeResponse, criteriaForAudit, modelDisplayName, type PrototypeAuditState } from "@/domain/prototype-audits";
+import { beginScheduledVisitAudit, completePrototypeAudit, validatePrototypeAuditCompletion, updatePrototypeResponse, criteriaForAudit, criteriaForModel, modelDisplayName, type PrototypeAuditState } from "@/domain/prototype-audits";
 import { getSaoPauloToday } from "@/domain/visit-calendar";
 import type { ProfileWorkspaceContext } from "@/lib/access/workspace-context";
 import { unavailableAgenda, type AgendaActionResult, type AgendaActorContext, type AgendaSnapshot } from "@/lib/agenda/contracts";
@@ -19,8 +21,9 @@ import { AdministrativeHeader } from "./administrative-header";
 import { FollowUpWorkspace } from "./follow-up-workspace";
 import { ActionPlanEditor, type ActionPlanFinding, type ActionPlanRow } from "./action-plan-editor";
 import { EngineeringFollowUpPanel } from "./engineering-follow-up-panel";
-import { EngineeringResourcePanels } from "./engineering-resource-panels";
+import { EngineeringResourcePanels, type PublishedAuditFinding } from "./engineering-resource-panels";
 import styles from "./prototype-app.module.css";
+import { unavailablePublishedAudits, type PublishedAuditSnapshot } from "@/lib/audits/contracts";
 
 type PrototypeAppProps = {
   context: ProfileWorkspaceContext;
@@ -28,28 +31,55 @@ type PrototypeAppProps = {
   initialVisitId?: string;
   initialAgenda?: AgendaSnapshot;
   initialCatalogs?: CatalogSnapshot;
+  initialAudits?: PublishedAuditSnapshot;
   administrationContent?: ReactNode;
   administrationWorksContent?: ReactNode;
   activeAccountCount?: number | null;
 };
 
-export function PrototypeApp({ context, initialScreen = "overview", initialVisitId, initialAgenda = unavailableAgenda(), initialCatalogs = unavailableCatalogs(), administrationContent, administrationWorksContent, activeAccountCount = null }: PrototypeAppProps) {
-  return <ProfileWorkspace key={JSON.stringify([context.user, context.profile, context.works, initialScreen, initialVisitId])} context={context} initialScreen={initialScreen} initialVisitId={initialVisitId} initialAgenda={initialAgenda} initialCatalogs={initialCatalogs} administrationContent={administrationContent} administrationWorksContent={administrationWorksContent} activeAccountCount={activeAccountCount} />;
+type LocalAuditFixture = {
+  modelId: AuditModelId;
+  responses: Record<string, ItemResponse>;
+  criteria?: Array<{ code: string; title: string; text: string; group: string }>;
+};
+
+export function PrototypeApp({ context, initialScreen = "overview", initialVisitId, initialAgenda = unavailableAgenda(), initialCatalogs = unavailableCatalogs(), initialAudits = unavailablePublishedAudits(), administrationContent, administrationWorksContent, activeAccountCount = null }: PrototypeAppProps) {
+  return <ProfileWorkspace key={JSON.stringify([context.user, context.profile, context.works, initialScreen, initialVisitId])} context={context} initialScreen={initialScreen} initialVisitId={initialVisitId} initialAgenda={initialAgenda} initialCatalogs={initialCatalogs} initialAudits={initialAudits} administrationContent={administrationContent} administrationWorksContent={administrationWorksContent} activeAccountCount={activeAccountCount} />;
 }
 
-function ProfileWorkspace({ context: providedContext, initialScreen, initialVisitId, initialAgenda, initialCatalogs, administrationContent, administrationWorksContent, activeAccountCount }: Required<Pick<PrototypeAppProps, "context" | "initialScreen" | "initialAgenda" | "initialCatalogs" | "activeAccountCount">> & Pick<PrototypeAppProps, "initialVisitId" | "administrationContent" | "administrationWorksContent">) {
-  const localAuditFlow = process.env.NODE_ENV === "development" && providedContext.user.role === "safety-auditor";
+function ProfileWorkspace({ context: providedContext, initialScreen, initialVisitId, initialAgenda, initialCatalogs, initialAudits, administrationContent, administrationWorksContent, activeAccountCount }: Required<Pick<PrototypeAppProps, "context" | "initialScreen" | "initialAgenda" | "initialCatalogs" | "initialAudits" | "activeAccountCount">> & Pick<PrototypeAppProps, "initialVisitId" | "administrationContent" | "administrationWorksContent">) {
+  const localScenario = process.env.NODE_ENV === "development";
+  const localAuditFlow = localScenario
+    && (providedContext.user.role === "safety-auditor" || providedContext.user.role === "quality-auditor");
   const localTestWork = { id: "00000000-0000-4000-8000-000000000901", name: "Obra Teste — Fluxo da Auditoria", city: "São Paulo, SP", engineer: "Responsável de teste", coordinator: "Coordenação de teste", status: "Ativa" as const, isDemo: true };
-  const context = localAuditFlow ? {
+  const localReportWork = providedContext.works.find((work) => /boulevar/i.test(work.name))
+    ?? { id: "00000000-0000-4000-8000-000000000902", name: "BoulevarDiálogo", city: "São Paulo, SP", engineer: "Equipe da obra", coordinator: "Coordenação da obra", status: "Ativa" as const, isDemo: true };
+  const auditContext = localAuditFlow ? {
     ...providedContext,
     user: {
       ...providedContext.user,
+      modules: [...new Set([...providedContext.user.modules, "safety" as const, "quality" as const])],
       workIds: [...providedContext.user.workIds, localTestWork.id],
       agendaWorkIds: [...providedContext.user.agendaWorkIds, localTestWork.id],
-      workModuleScopes: [...(providedContext.user.workModuleScopes ?? []), { workId: localTestWork.id, module: "safety" as const }],
+      workModuleScopes: [...(providedContext.user.workModuleScopes ?? []),
+        { workId: localTestWork.id, module: "safety" as const },
+        { workId: localTestWork.id, module: "quality" as const }],
     },
     works: [...providedContext.works, localTestWork],
   } : providedContext;
+  const context = localScenario ? {
+    ...auditContext,
+    user: {
+      ...auditContext.user,
+      modules: [...new Set([...auditContext.user.modules, "quality" as const])],
+      workIds: [...new Set([...auditContext.user.workIds, localReportWork.id])],
+      agendaWorkIds: [...new Set([...auditContext.user.agendaWorkIds, localReportWork.id])],
+      documentWorkIds: [...new Set([...auditContext.user.documentWorkIds, localReportWork.id])],
+      workModuleScopes: [...new Map([...(auditContext.user.workModuleScopes ?? []), { workId: localReportWork.id, module: "quality" as const }]
+        .map((scope) => [`${scope.workId}:${scope.module}`, scope])).values()],
+    },
+    works: auditContext.works.some((work) => work.id === localReportWork.id) ? auditContext.works : [...auditContext.works, localReportWork],
+  } : auditContext;
   const { user } = context;
   const initialVisit = initialScreen === "agenda" ? initialAgenda.visits.find((visit) => visit.id === initialVisitId && canReadVisit(user, visit)) : undefined;
   const [selectedModule, setSelectedModule] = useState<AppModule | null>(initialVisit?.module ?? user.modules[0] ?? null);
@@ -57,10 +87,15 @@ function ProfileWorkspace({ context: providedContext, initialScreen, initialVisi
   const [screen, setScreen] = useState<string>(initialScreen);
   const [reportSection, setReportSection] = useState<"reports" | "occurrences" | "plans">("reports");
   const [catalogs, setCatalogs] = useState(initialCatalogs);
-  const [session, setSession] = useState<PrototypeAuditState>({ audits: [], responses: {} });
+  const [session, setSession] = useState<PrototypeAuditState>({ audits: initialAudits.audits, responses: initialAudits.responses, criteriaSnapshots: initialAudits.criteriaSnapshots });
   const { agenda: syncedAgenda, agendaSyncError, mutationPending, runAgendaAction } = useAgenda(initialAgenda, user.id, context.profile, context.engineeringScope, context.administrativeScope);
-  const localTestVisit: Visit = { id: "local-audit-flow-today", workId: localTestWork.id, module: "safety", kind: "audit", modelId: "security-it07-r02", auditorId: user.id, date: getSaoPauloToday(), note: "Agendamento local para teste integral do fluxo de auditoria.", createdBy: user.id, createdAt: `${getSaoPauloToday()}T12:00:00.000-03:00`, revision: 1, confirmationStatus: "confirmed", confirmedAt: `${getSaoPauloToday()}T12:00:00.000-03:00`, auditorName: user.name, createdByName: "Teste local", history: [] };
-  const visits = localAuditFlow ? [localTestVisit, ...syncedAgenda.visits.filter((visit) => visit.id !== localTestVisit.id)] : syncedAgenda.visits;
+  const localTestVisits: Visit[] = [
+    { id: "local-audit-flow-security", workId: localTestWork.id, module: "safety", kind: "audit", modelId: "security-it07-r02", auditorId: user.id, date: getSaoPauloToday(), note: "Teste local do relatório de Segurança.", createdBy: user.id, createdAt: `${getSaoPauloToday()}T12:00:00.000-03:00`, revision: 1, confirmationStatus: "confirmed", confirmedAt: `${getSaoPauloToday()}T12:00:00.000-03:00`, auditorName: user.name, createdByName: "Teste local", history: [] },
+    { id: "local-audit-flow-f175", workId: localTestWork.id, module: "quality", kind: "audit", modelId: "quality-f175", auditorId: user.id, date: getSaoPauloToday(), note: "Teste local do relatório de Qualidade F.175.", createdBy: user.id, createdAt: `${getSaoPauloToday()}T12:01:00.000-03:00`, revision: 1, confirmationStatus: "confirmed", confirmedAt: `${getSaoPauloToday()}T12:01:00.000-03:00`, auditorName: user.name, createdByName: "Teste local", history: [] },
+    { id: "local-audit-flow-f176", workId: localTestWork.id, module: "quality", kind: "audit", modelId: "quality-f176", auditorId: user.id, date: getSaoPauloToday(), note: "Teste local do relatório de Qualidade F.176.", createdBy: user.id, createdAt: `${getSaoPauloToday()}T12:02:00.000-03:00`, revision: 1, confirmationStatus: "confirmed", confirmedAt: `${getSaoPauloToday()}T12:02:00.000-03:00`, auditorName: user.name, createdByName: "Teste local", history: [] },
+  ];
+  const localTestVisitIds = new Set(localTestVisits.map((visit) => visit.id));
+  const visits = localAuditFlow ? [...localTestVisits, ...syncedAgenda.visits.filter((visit) => !localTestVisitIds.has(visit.id))] : syncedAgenda.visits;
   const agenda = localAuditFlow ? { ...syncedAgenda, available: true, visits } : syncedAgenda;
   const [activeAuditId, setActiveAuditId] = useState<string | null>(null);
   const [positions, setPositions] = useState<Record<string, number>>({});
@@ -98,7 +133,44 @@ function ProfileWorkspace({ context: providedContext, initialScreen, initialVisi
   const criteria = !isAdmin && currentCatalogId ? catalogVersion(catalogs, currentCatalogId).criteria.filter((item) => `${item.code} ${item.text} ${item.group} ${item.subgroup}`.toLocaleLowerCase("pt-BR").includes(catalogQuery.toLocaleLowerCase("pt-BR"))) : [];
 
   useEffect(() => {
-    if (!localAuditFlow || !activeAudit || activeAudit.workId !== localTestWork.id || activeAudit.modelId !== "security-it07-r02") return;
+    if (!localAuditFlow || !activeAudit) return;
+    const currentResponses = session.responses[activeAudit.id]?.[activeAudit.modelId] ?? {};
+    const activeCriteria = criteriaForAudit(session, activeAudit);
+    if (activeAudit.modelId === "quality-f176") {
+      const alreadyImported = currentResponses[activeCriteria[8]?.id]?.checks?.length === 11
+        && currentResponses[activeCriteria[19]?.id]?.checks?.length === 7
+        && currentResponses[activeCriteria[19]?.id]?.checks?.[0]?.weight === 4
+        && currentResponses[activeCriteria[19]?.id]?.checks?.[5]?.label === "FVS-2A / FVS-2B / FVS -2C - Alvenaria de vedação Bloco Cerâmico ou de Concreto"
+        && currentResponses[activeCriteria[22]?.id]?.note === "Aprovado";
+      if (alreadyImported) return;
+      let cancelled = false;
+      void fetch("/local-test-evidence/boulevard/audit.json", { cache: "no-store" })
+        .then(async (result) => {
+          if (!result.ok) throw new Error("O arquivo local da auditoria BoulevarDiálogo não foi encontrado.");
+          return result.json() as Promise<LocalAuditFixture>;
+        })
+        .then((fixture) => {
+          if (cancelled || fixture.modelId !== activeAudit.modelId || Object.keys(fixture.responses).length !== 23) return;
+          const orderedResponses = Array.from({ length: 23 }, (_, index) => fixture.responses[`F176-Q${String(index + 1).padStart(2, "0")}`]);
+          const importedResponses = Object.fromEntries(activeCriteria.map((criterion, index) => [criterion.id, orderedResponses[index]]).filter((entry): entry is [string, ItemResponse] => Boolean(entry[1])));
+          if (Object.keys(importedResponses).length !== activeCriteria.length) throw new Error("Os itens do relatório não correspondem ao roteiro da auditoria criada.");
+          setSession((current) => ({
+            ...current,
+            responses: {
+              ...current.responses,
+              [activeAudit.id]: {
+                ...(current.responses[activeAudit.id] ?? {}),
+                [activeAudit.modelId]: importedResponses,
+              },
+            },
+          }));
+          setError("");
+          setScreen("fill");
+        })
+        .catch((reason) => { if (!cancelled) setError(reason instanceof Error ? reason.message : "Não foi possível importar o relatório local."); });
+      return () => { cancelled = true; };
+    }
+    if (activeAudit.workId !== localTestWork.id) return;
     if (Object.keys(session.responses[activeAudit.id]?.[activeAudit.modelId] ?? {}).length) return;
     let cancelled = false;
     queueMicrotask(() => {
@@ -106,14 +178,30 @@ function ProfileWorkspace({ context: providedContext, initialScreen, initialVisi
       setSession((current) => {
         let filled = current;
         criteriaForAudit(current, activeAudit).forEach((criterion, index) => {
-          const answer = index % 17 === 0 ? "0" : index % 11 === 0 ? "5" : index % 13 === 0 ? "N/A" : "10";
-          const needsEvidence = answer === "0" || answer === "5";
+          const security = activeAudit.modelId === "security-it07-r02";
+          const answer = security
+            ? index % 17 === 0 ? "0" : index % 11 === 0 ? "5" : index % 13 === 0 ? "N/A" : "10"
+            : index % 7 === 0 ? "Não conforme" : criterion.verificationRule?.includes("Não Aplicável") && index % 11 === 0 ? "N/A" : "Conforme";
+          const needsEvidence = answer === "0" || answer === "5" || answer === "Não conforme";
+          const evidenceCount = needsEvidence ? 2 : !security && answer === "Conforme" && index % 4 === 0 ? 1 : 0;
+          const quantitative = criterion.verificationRule === "Dividido pela quantidade verificada";
+          const checks = quantitative ? Array.from({ length: 3 }, (_, checkIndex) => {
+            const compliant = checkIndex !== 1;
+            return {
+              id: `${criterion.id}-teste-${checkIndex + 1}`,
+              label: `Material verificado ${checkIndex + 1} — lote fictício ${String(index + 1).padStart(2, "0")}`,
+              compliant,
+              ...(compliant ? {} : { photos: [`Foto fictícia da verificação - ${activeAudit.modelId} - ${criterion.code} - lote 02.jpg`] }),
+            };
+          }) : undefined;
           filled = updatePrototypeResponse(filled, user, activeAudit.id, criterion, {
             answer,
-            note: answer === "0" ? "Não conformidade fictícia identificada durante a inspeção. Recomenda-se correção imediata e registro da tratativa."
+            note: answer === "0" || answer === "Não conforme" ? "Não conformidade fictícia identificada durante a inspeção. Recomenda-se correção imediata e registro da tratativa."
               : answer === "5" ? "Atendimento parcial fictício. O item requer adequação e acompanhamento pela equipe responsável."
               : answer === "N/A" ? "" : "Item verificado em conformidade durante o teste do fluxo.",
-            ...(needsEvidence ? { photos: [`Evidência fictícia - ${criterion.code}.jpg`] } : {}),
+            ...(evidenceCount ? { photos: Array.from({ length: evidenceCount }, (_, photoIndex) =>
+              `Foto fictícia ${photoIndex + 1} - ${activeAudit.modelId} - ${criterion.code}.jpg`) } : {}),
+            ...(checks ? { checks } : {}),
           });
         });
         return filled;
@@ -122,7 +210,63 @@ function ProfileWorkspace({ context: providedContext, initialScreen, initialVisi
       setScreen("audit_review");
     });
     return () => { cancelled = true; };
-  }, [activeAudit, localAuditFlow, localTestWork.id, session.responses, user]);
+  }, [activeAudit, localAuditFlow, localTestWork.id, session, user]);
+
+  useEffect(() => {
+    const auditId = "local-boulevard-quality-f176-published";
+    const currentPublishedCriteria = session.criteriaSnapshots?.[auditId];
+    if (!localScenario || (session.audits.some((audit) => audit.id === auditId)
+      && currentPublishedCriteria?.[3]?.code === "01.04"
+      && currentPublishedCriteria?.[19]?.code === "06.01")) return;
+    let cancelled = false;
+    void fetch("/local-test-evidence/boulevard/audit.json", { cache: "no-store" })
+      .then(async (result) => {
+        if (!result.ok) throw new Error("O relatório final local da BoulevarDiálogo não foi encontrado.");
+        return result.json() as Promise<LocalAuditFixture>;
+      })
+      .then((fixture) => {
+        if (cancelled || fixture.modelId !== "quality-f176") return;
+        const version = catalogVersion(catalogs, fixture.modelId);
+        const baseCriteria = criteriaForModel(fixture.modelId);
+        const publishedCriteria = baseCriteria.map((criterion, index) => fixture.criteria?.[index]
+          ? { ...criterion, ...fixture.criteria[index] }
+          : criterion);
+        const orderedResponses = Array.from({ length: 23 }, (_, index) => fixture.responses[`F176-Q${String(index + 1).padStart(2, "0")}`]);
+        const importedResponses = Object.fromEntries(publishedCriteria.map((criterion, index) => [criterion.id, orderedResponses[index]]).filter((entry): entry is [string, ItemResponse] => Boolean(entry[1])));
+        if (publishedCriteria.length !== 23 || Object.keys(importedResponses).length !== publishedCriteria.length) throw new Error("O relatório final local não corresponde ao roteiro de Qualidade Completa.");
+        const drafts = { [fixture.modelId]: importedResponses };
+        const finalScore = calculateAuditFinalScore(publishedCriteria, drafts, fixture.modelId);
+        if (finalScore === null) throw new Error("Não foi possível calcular a nota do relatório final local.");
+        setSession((current) => ({
+          ...current,
+          audits: current.audits.some((audit) => audit.id === auditId) ? current.audits.map((audit) => audit.id === auditId ? {
+            ...audit,
+            finalScore,
+            calculationStatus: "Disponível",
+          } : audit) : [...current.audits, {
+            id: auditId,
+            workId: localReportWork.id,
+            modelId: fixture.modelId,
+            date: "2026-09-23",
+            auditor: "Emanuel Locchi",
+            auditorId: user.id,
+            status: "Publicada",
+            collectionStatus: "Coleta concluída",
+            calculationStatus: "Disponível",
+            finalScore,
+            isDemo: true,
+            catalogRevisionId: version.id,
+            catalogVersion: version.version,
+            catalogRevisionLabel: version.label,
+          }],
+          responses: { ...current.responses, [auditId]: drafts },
+          criteriaSnapshots: { ...current.criteriaSnapshots, [auditId]: structuredClone(publishedCriteria) },
+        }));
+        setError("");
+      })
+      .catch((reason) => { if (!cancelled) setError(reason instanceof Error ? reason.message : "Não foi possível preparar o fluxo publicado local."); });
+    return () => { cancelled = true; };
+  }, [catalogs, localReportWork.id, localScenario, session, user.id]);
 
   const nav: { key: string; label: string; icon: IconName }[] = isEngineering ? [
     { key: "overview", label: "Visão geral", icon: "overview" },
@@ -170,7 +314,7 @@ function ProfileWorkspace({ context: providedContext, initialScreen, initialVisi
     if (!isAuditor || !agenda.available || !canBeginScheduledAudit(user, visit, getSaoPauloToday()))
       throw new Error("Esta auditoria só pode ser iniciada pelo profissional responsável na data confirmada.");
     let current = visit;
-    if (visit.id !== localTestVisit.id) {
+    if (!localTestVisitIds.has(visit.id)) {
       const response = await fetch("/api/agenda", { credentials: "same-origin", cache: "no-store" });
       if (!response.ok) throw new Error("Não foi possível conferir o agendamento. Tente novamente.");
       const fresh: unknown = await response.json();
@@ -196,12 +340,18 @@ function ProfileWorkspace({ context: providedContext, initialScreen, initialVisi
   const auditNav = ["audits", "fill", "audit_review"].includes(currentScreen);
   const profileLabel = `${roleLabels[user.role]}${user.activity === "coordination" ? " · Coordenação" : user.activity === "site-team" ? " · Equipe da obra" : ""}`;
   const actionPlanAudit = actionPlanSource?.auditId ? session.audits.find((audit) => audit.id === actionPlanSource.auditId) : undefined;
-  const actionPlanResponses = actionPlanAudit ? session.responses[actionPlanAudit.id]?.[actionPlanAudit.modelId] ?? {} : {};
-  const actionPlanFindings: readonly ActionPlanFinding[] = actionPlanAudit ? criteriaForAudit(session, actionPlanAudit).flatMap((criterion) => {
-    const response = actionPlanResponses[criterion.id];
-    const finding = response && (response.answer === "0" || response.answer === "5" || response.answer === "Não conforme" || response.checks?.some((check) => check.compliant === false) || response.note.trim());
-    return finding ? [{ id: criterion.id, item: criterion.code, description: criterion.title || criterion.text, nonconformity: response.note.trim() || criterion.text }] : [];
-  }) : actionPlanSource?.example ? testActionPlanFindings[actionPlanSource.module] : [];
+  const actionPlanFindings: readonly ActionPlanFinding[] = actionPlanAudit
+    ? extractAuditFindings(session, actionPlanAudit)
+    : actionPlanSource?.example ? testActionPlanFindings[actionPlanSource.module] : [];
+  const publishedAuditFindings = session.audits.filter((audit) => audit.status === "Publicada").flatMap((audit): PublishedAuditFinding[] =>
+    extractAuditFindings(session, audit).map((finding) => ({
+      ...finding,
+      auditId: audit.id,
+      workId: audit.workId,
+      auditDate: audit.date,
+      auditor: audit.auditor,
+      module: modelModule(audit.modelId),
+    })));
   const actionPlanDraftKey = actionPlanSource ? `${actionPlanSource.auditId ?? "example"}:${actionPlanSource.module}:${actionPlanSource.workId}` : "";
   const downloadActionPlan = (source: ActionPlanSource) => {
     const publication = publishedActionPlans[actionPlanSourceKey(source)];
@@ -226,9 +376,9 @@ function ProfileWorkspace({ context: providedContext, initialScreen, initialVisi
         {([ ["reports", "Relatórios"], ["occurrences", "Apontamentos"], ["plans", "Planos de ação"] ] as const).map(([key, label]) => <button key={key} type="button" className={`subnav-item${reportSection === key ? " active" : ""}`} aria-current={reportSection === key ? "page" : undefined} onClick={() => setReportSection(key)}>{label}</button>)}
       </nav>}
       {currentScreen === "overview" && (auditModule ? <PrototypeDashboard user={user} module={auditModule} works={isAdminOverview || isEngineering ? context.works : availableWorks} audits={isAdminOverview || isEngineering ? session.audits.filter((audit) => canReadAudit(user, audit)) : moduleAudits} visits={isAdminOverview || isEngineering || user.role === "safety-auditor" || user.role === "quality-auditor" ? visits.filter((visit) => canReadVisit(user, visit) && (isAdminOverview || isEngineering || visit.module === auditModule)) : contextualVisits} auditors={isAdminOverview || isEngineering ? agenda.auditors : []} activeAccountCount={activeAccountCount} generalAdministrator={isGeneralAdmin} open={navigate} /> : <section className="panel"><h2>Visão geral</h2><p className="muted">Este perfil ainda não tem obras e módulos autorizados. Consulte seus acessos ou solicite a liberação ao Administrativo.</p></section>)}
-      {currentScreen === "engineering_quality" && isEngineering && <EngineeringSection title="Qualidade" module="quality" user={user} works={context.works} audits={session.audits} visits={visits} actor={agendaActor} catalogs={catalogs} onCreateActionPlan={user.activity === "site-team" ? (source) => { setActionPlanSource(source); setScreen("action_plan"); } : undefined} hasPublishedActionPlan={(source) => Boolean(publishedActionPlans[actionPlanSourceKey(source)])} onDownloadActionPlan={downloadActionPlan} />}
-      {currentScreen === "engineering_safety" && isEngineering && <EngineeringSection title="Segurança" module="safety" user={user} works={context.works} audits={session.audits} visits={visits} actor={agendaActor} catalogs={catalogs} onCreateActionPlan={user.activity === "site-team" ? (source) => { setActionPlanSource(source); setScreen("action_plan"); } : undefined} hasPublishedActionPlan={(source) => Boolean(publishedActionPlans[actionPlanSourceKey(source)])} onDownloadActionPlan={downloadActionPlan} />}
-      {currentScreen === "action_plan" && actionPlanSource && user.activity === "site-team" && <ActionPlanEditor key={actionPlanDraftKey} workName={actionPlanSource.workName} auditDate={actionPlanSource.date} module={actionPlanSource.module} authorName={user.name} findings={actionPlanFindings} draft={actionPlanDrafts[actionPlanDraftKey]} example={actionPlanSource.example} onSave={(rows) => setActionPlanDrafts((current) => ({ ...current, [actionPlanDraftKey]: rows }))} onPublish={(publication) => setPublishedActionPlans((current) => ({ ...current, [actionPlanDraftKey]: publication }))} onBack={() => setScreen(`engineering_${actionPlanSource.module}`)} />}
+      {currentScreen === "engineering_quality" && isEngineering && <EngineeringSection title="Qualidade" module="quality" user={user} works={context.works} audits={session.audits} auditFindings={publishedAuditFindings} visits={visits} actor={agendaActor} catalogs={catalogs} onCreateActionPlan={user.activity === "site-team" ? (source) => { setActionPlanSource(source); setScreen("action_plan"); } : undefined} hasPublishedActionPlan={(source) => Boolean(publishedActionPlans[actionPlanSourceKey(source)])} onDownloadActionPlan={downloadActionPlan} />}
+      {currentScreen === "engineering_safety" && isEngineering && <EngineeringSection title="Segurança" module="safety" user={user} works={context.works} audits={session.audits} auditFindings={publishedAuditFindings} visits={visits} actor={agendaActor} catalogs={catalogs} onCreateActionPlan={user.activity === "site-team" ? (source) => { setActionPlanSource(source); setScreen("action_plan"); } : undefined} hasPublishedActionPlan={(source) => Boolean(publishedActionPlans[actionPlanSourceKey(source)])} onDownloadActionPlan={downloadActionPlan} />}
+      {currentScreen === "action_plan" && actionPlanSource && user.activity === "site-team" && <ActionPlanEditor key={`${actionPlanDraftKey}:prefill-v5`} workName={actionPlanSource.workName} auditDate={actionPlanSource.date} auditScore={actionPlanAudit?.finalScore ?? null} module={actionPlanSource.module} authorName={user.name} findings={actionPlanFindings} draft={actionPlanDrafts[actionPlanDraftKey]} example={actionPlanSource.example} prefillTest={localScenario && actionPlanSource.module === "quality" && /boulevar/i.test(actionPlanSource.workName)} onSave={(rows) => setActionPlanDrafts((current) => ({ ...current, [actionPlanDraftKey]: rows }))} onPublish={(publication) => setPublishedActionPlans((current) => ({ ...current, [actionPlanDraftKey]: publication }))} onBack={() => setScreen(`engineering_${actionPlanSource.module}`)} />}
       {currentScreen === "works" && <Works works={context.works} canManage={isGeneralAdmin} />}
       {currentScreen === "follow_up" && isAuditor && <FollowUpWorkspace user={user} visits={visits} works={context.works} actor={agendaActor} agendaAvailable={agenda.available} />}
       {currentScreen === "settings" && isGeneralAdmin && <AdministrativePanel accessContent={administrationContent} worksContent={administrationWorksContent} />}
@@ -252,12 +402,13 @@ function ProfileWorkspace({ context: providedContext, initialScreen, initialVisi
   </div>;
 }
 
-function EngineeringSection({ title, module, user, works, audits, visits, actor, catalogs, onCreateActionPlan, hasPublishedActionPlan, onDownloadActionPlan }: {
+function EngineeringSection({ title, module, user, works, audits, auditFindings, visits, actor, catalogs, onCreateActionPlan, hasPublishedActionPlan, onDownloadActionPlan }: {
   title: "Qualidade" | "Segurança";
   module: AppModule;
   user: ProfileWorkspaceContext["user"];
   works: ProfileWorkspaceContext["works"];
   audits: readonly AuditRecord[];
+  auditFindings: readonly PublishedAuditFinding[];
   visits: readonly Visit[];
   actor: AgendaActorContext;
   catalogs: CatalogSnapshot;
@@ -270,9 +421,47 @@ function EngineeringSection({ title, module, user, works, audits, visits, actor,
     <div className={styles.engineeringSection}>
       <PublishedAuditsPanel user={user} works={works} audits={audits} module={module} onCreateActionPlan={onCreateActionPlan} hasPublishedActionPlan={hasPublishedActionPlan} onDownloadActionPlan={onDownloadActionPlan} />
       <EngineeringFollowUpPanel actor={actor} visits={visits} works={works} module={module} />
-      <EngineeringResourcePanels actor={actor} works={works} module={module} catalogs={catalogs} />
+      <EngineeringResourcePanels actor={actor} works={works} module={module} catalogs={catalogs} auditFindings={auditFindings.filter((finding) => finding.module === module)} />
     </div>
   </>;
+}
+
+function extractAuditFindings(state: PrototypeAuditState, audit: AuditRecord): ActionPlanFinding[] {
+  const responses = state.responses[audit.id]?.[audit.modelId] ?? {};
+  const evidencePhotos = (references: readonly string[] | undefined) => (references ?? []).map((reference) => ({
+    name: evidenceReferenceName(reference),
+    ...(/^https:\/\//.test(reference) ? { url: reference }
+      : /^p\d{2}-\d{2}\.png$/.test(reference) ? { url: `/local-test-evidence/boulevard/${encodeURIComponent(reference)}` } : {}),
+  }));
+  return criteriaForAudit(state, audit).flatMap((criterion) => {
+    const response = responses[criterion.id];
+    if (!response) return [];
+    const checkFindings = (response.checks ?? []).filter((check) => check.compliant === false).map((check) => ({
+      id: `${criterion.id}:${check.id}`,
+      item: criterion.code,
+      description: `${criterion.title || criterion.text} — ${check.label}`,
+      itemDescription: criterion.text,
+      verificationCriterion: criterion.verificationRule,
+      status: "Não conforme",
+      nonconformity: check.note?.trim() || `Verificação “${check.label}” registrada como não conforme.`,
+      evidencePhotos: evidencePhotos(check.photos),
+    }));
+    if (checkFindings.length) return checkFindings;
+    const note = response.note.trim();
+    const actionableNote = Boolean(note && !/^aprovado\.?$/i.test(note));
+    const nonconforming = response.answer === "0" || response.answer === "5" || response.answer === "Não conforme";
+    return nonconforming || actionableNote
+      ? [{ id: criterion.id, item: criterion.code, description: criterion.title || criterion.text, itemDescription: criterion.text,
+        verificationCriterion: criterion.verificationRule, status: response.answer ?? "Com apontamento",
+        nonconformity: note || criterion.text, evidencePhotos: evidencePhotos(response.photos) }]
+      : [];
+  });
+}
+
+function evidenceReferenceName(reference: string): string {
+  if (!/^https:\/\//.test(reference)) return reference;
+  try { return decodeURIComponent(new URL(reference).pathname.split("/").pop() || "evidência"); }
+  catch { return "evidência"; }
 }
 
 const testActionPlanFindings: Record<AppModule, readonly ActionPlanFinding[]> = {
