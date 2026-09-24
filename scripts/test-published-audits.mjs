@@ -21,9 +21,10 @@ const indexRow = {
   catalogRevisionLabel: "F.176/00",
 };
 
-function client(details, { index = [indexRow], storageError = null } = {}) {
+function client(details, { index = [indexRow], indexError = null, storageError = null } = {}) {
   return {
-    rpc: async (name) => ({ data: name === "read_published_audit_index" ? index : details, error: null }),
+    rpc: async (name) => ({ data: name === "read_published_audit_index" ? index : details,
+      error: name === "read_published_audit_index" ? indexError : null }),
     storage: { from: () => ({ createSignedUrls: async (paths) => ({
       data: storageError ? null : paths.map((path) => ({ path, signedUrl: `https://storage.example/${path}` })), error: storageError,
     }) }) },
@@ -67,4 +68,26 @@ test("rejects malformed ranking metadata before loading any audit", async () => 
   const snapshot = await readPublishedAuditSnapshot(client([], { index: [{ ...indexRow, finalScore: 99 }] }), context);
   assert.equal(snapshot.available, false);
   assert.deepEqual(snapshot.audits, []);
+});
+
+test("normalizes numeric strings returned by PostgREST for ranking metadata", async () => {
+  const snapshot = await readPublishedAuditSnapshot(client([], { index: [{
+    ...indexRow, finalScore: "6.74", catalogVersion: "1",
+  }] }), context);
+  assert.equal(snapshot.available, true);
+  assert.equal(snapshot.audits[0].finalScore, 6.74);
+  assert.equal(snapshot.audits[0].catalogVersion, 1);
+});
+
+test("uses the authorized detailed reader when the index RPC is temporarily unavailable", async () => {
+  const details = [{
+    ...indexRow, criteria: [criterion],
+    responses: { "F176-Q01": { answer: "Conforme", note: "Aprovado" } },
+    evidenceFiles: [], reportFileName: "relatorio-final.pdf",
+  }];
+  const snapshot = await readPublishedAuditSnapshot(client(details, {
+    index: null, indexError: { code: "PGRST202" },
+  }), context);
+  assert.equal(snapshot.available, true);
+  assert.equal(snapshot.audits[0].id, auditId);
 });

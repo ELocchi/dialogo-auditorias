@@ -55,25 +55,35 @@ function replaceEvidenceReferences(value: Record<string, ItemResponse>, urls: Ma
 
 function parseAuditIndex(value: unknown, context: ProfileWorkspaceContext): PublishedAuditIndexRow[] | null {
   if (!Array.isArray(value) || value.length > 1_000) return null;
-  const authorizedWorks = new Set(context.works.map((work) => work.id));
+  const authorizedWorks = new Set(context.works.map((work) => work.id.toLowerCase()));
   const parsed: PublishedAuditIndexRow[] = [];
   const ids = new Set<string>();
   for (const raw of value) {
-    if (!isRecord(raw) || !isUuid(raw.id) || ids.has(raw.id) || !isUuid(raw.workId) || !authorizedWorks.has(raw.workId)
+    if (!isRecord(raw)) continue;
+    const id = typeof raw.id === "string" ? raw.id.toLowerCase() : "";
+    const workId = typeof raw.workId === "string" ? raw.workId.toLowerCase() : "";
+    const auditorId = typeof raw.auditorId === "string" ? raw.auditorId.toLowerCase() : "";
+    const finalScore = typeof raw.finalScore === "number" ? raw.finalScore
+      : typeof raw.finalScore === "string" && /^\d+(?:\.\d+)?$/.test(raw.finalScore) ? Number(raw.finalScore) : Number.NaN;
+    const catalogVersion = typeof raw.catalogVersion === "number" ? raw.catalogVersion
+      : typeof raw.catalogVersion === "string" && /^\d+$/.test(raw.catalogVersion) ? Number(raw.catalogVersion) : Number.NaN;
+    const catalogRevisionId = raw.catalogRevisionId === null ? null
+      : typeof raw.catalogRevisionId === "string" ? raw.catalogRevisionId.toLowerCase() : "";
+    if (!isUuid(id) || ids.has(id) || !isUuid(workId) || !authorizedWorks.has(workId)
       || !isModel(raw.modelId) || !validDate(raw.date) || !isUuid(raw.auditorId)
       || !validText(raw.auditor, 200) || !raw.auditor.trim()
-      || typeof raw.finalScore !== "number" || !Number.isFinite(raw.finalScore) || raw.finalScore < 0 || raw.finalScore > 10
-      || (raw.catalogRevisionId !== null && !isUuid(raw.catalogRevisionId))
-      || !Number.isInteger(raw.catalogVersion) || Number(raw.catalogVersion) < 0
-      || !validText(raw.catalogRevisionLabel, 80) || !raw.catalogRevisionLabel.trim()) return null;
-    ids.add(raw.id);
+      || !Number.isFinite(finalScore) || finalScore < 0 || finalScore > 10
+      || (catalogRevisionId !== null && !isUuid(catalogRevisionId))
+      || !Number.isInteger(catalogVersion) || catalogVersion < 0
+      || !validText(raw.catalogRevisionLabel, 80) || !raw.catalogRevisionLabel.trim()) continue;
+    ids.add(id);
     parsed.push({
-      id: raw.id, workId: raw.workId, modelId: raw.modelId, date: raw.date, auditorId: raw.auditorId,
-      auditor: raw.auditor, finalScore: raw.finalScore, catalogRevisionId: raw.catalogRevisionId,
-      catalogVersion: Number(raw.catalogVersion), catalogRevisionLabel: raw.catalogRevisionLabel,
+      id, workId, modelId: raw.modelId, date: raw.date, auditorId,
+      auditor: raw.auditor, finalScore, catalogRevisionId,
+      catalogVersion, catalogRevisionLabel: raw.catalogRevisionLabel,
     });
   }
-  return parsed;
+  return value.length > 0 && parsed.length === 0 ? null : parsed;
 }
 
 function indexRowMatchesDetail(index: PublishedAuditIndexRow, raw: Record<string, unknown>) {
@@ -90,8 +100,18 @@ export async function readPublishedAuditSnapshot(client: Client, context: Profil
       p_engineering_scope: context.engineeringScope,
       p_administrative_scope: context.administrativeScope,
     };
-    const { data: indexData, error: indexError } = await client.rpc("read_published_audit_index", parameters);
-    const index = indexError ? null : parseAuditIndex(indexData, context);
+    const safeRpc = async (name: "read_published_audit_index" | "read_published_audits") => {
+      try {
+        const result = await client.rpc(name, parameters);
+        return { data: result.data as unknown, error: result.error as unknown };
+      } catch {
+        return { data: null, error: true as unknown };
+      }
+    };
+    const [indexResult, detailResult] = await Promise.all([
+      safeRpc("read_published_audit_index"), safeRpc("read_published_audits"),
+    ]);
+    const index = parseAuditIndex(indexResult.error ? detailResult.data : indexResult.data, context);
     if (!index) return unavailablePublishedAudits();
     const audits: AuditRecord[] = index.map((raw): AuditRecord => ({
       id: raw.id, workId: raw.workId, modelId: raw.modelId, date: raw.date, auditor: raw.auditor,
@@ -102,7 +122,7 @@ export async function readPublishedAuditSnapshot(client: Client, context: Profil
     }));
     const responses: PublishedAuditSnapshot["responses"] = {};
     const criteriaSnapshots: NonNullable<PublishedAuditSnapshot["criteriaSnapshots"]> = {};
-    const { data, error } = await client.rpc("read_published_audits", parameters);
+    const { data, error } = detailResult;
     if (error || !Array.isArray(data) || data.length > 1_000) return { available: true, audits, responses, criteriaSnapshots };
     const indexById = new Map(index.map((row) => [row.id, row]));
     const detailedIds = new Set<string>();
