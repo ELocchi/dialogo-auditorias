@@ -15,20 +15,24 @@ const context = {
   user: { id: userId, name: "Emanuel Locchi", role: "engineering", activity: "site-team", modules: ["quality"], workIds: [workId], agendaWorkIds: [workId], documentWorkIds: [], workModuleScopes: [{ workId, module: "quality" }] },
 };
 
-function client(data) {
+const indexRow = {
+  id: auditId, workId, modelId: "quality-f176", date: "2026-09-23", auditorId: userId,
+  auditor: "Emanuel Locchi", finalScore: 6.74, catalogRevisionId: null, catalogVersion: 1,
+  catalogRevisionLabel: "F.176/00",
+};
+
+function client(details, { index = [indexRow], storageError = null } = {}) {
   return {
-    rpc: async () => ({ data, error: null }),
+    rpc: async (name) => ({ data: name === "read_published_audit_index" ? index : details, error: null }),
     storage: { from: () => ({ createSignedUrls: async (paths) => ({
-      data: paths.map((path) => ({ path, signedUrl: `https://storage.example/${path}` })), error: null,
+      data: storageError ? null : paths.map((path) => ({ path, signedUrl: `https://storage.example/${path}` })), error: storageError,
     }) }) },
   };
 }
 
 test("loads a published audit and replaces private evidence names with signed URLs", async () => {
   const snapshot = await readPublishedAuditSnapshot(client([{
-    id: auditId, workId, modelId: "quality-f176", date: "2026-09-23", auditorId: userId,
-    auditor: "Emanuel Locchi", finalScore: 6.74, catalogRevisionId: null, catalogVersion: 1,
-    catalogRevisionLabel: "F.176/00", criteria: [criterion],
+    ...indexRow, criteria: [criterion],
     responses: { "F176-Q01": { answer: "Não conforme", note: "Pendência", photos: ["p04-01.png"] } },
     evidenceFiles: ["p04-01.png"], reportFileName: "relatorio-final.pdf",
   }]), context);
@@ -38,13 +42,29 @@ test("loads a published audit and replaces private evidence names with signed UR
   assert.match(snapshot.responses[auditId]["quality-f176"]["F176-Q01"].photos[0], /p04-01\.png$/);
 });
 
-test("rejects a response snapshot that does not match the criterion snapshot", async () => {
+test("keeps ranking metadata when detailed responses do not match the criterion snapshot", async () => {
   const snapshot = await readPublishedAuditSnapshot(client([{
-    id: auditId, workId, modelId: "quality-f176", date: "2026-09-23", auditorId: userId,
-    auditor: "Emanuel Locchi", finalScore: 6.74, catalogRevisionId: null, catalogVersion: 1,
-    catalogRevisionLabel: "F.176/00", criteria: [criterion], responses: {},
+    ...indexRow, criteria: [criterion], responses: {},
     evidenceFiles: [], reportFileName: "relatorio-final.pdf",
   }]), context);
+  assert.equal(snapshot.available, true);
+  assert.equal(snapshot.audits[0].finalScore, 6.74);
+  assert.deepEqual(snapshot.responses, {});
+});
+
+test("keeps ranking metadata when private evidence signing is temporarily unavailable", async () => {
+  const snapshot = await readPublishedAuditSnapshot(client([{
+    ...indexRow, criteria: [criterion],
+    responses: { "F176-Q01": { answer: "Não conforme", note: "Pendência", photos: ["p04-01.png"] } },
+    evidenceFiles: ["p04-01.png"], reportFileName: "relatorio-final.pdf",
+  }], { storageError: { message: "unavailable" } }), context);
+  assert.equal(snapshot.available, true);
+  assert.equal(snapshot.audits[0].finalScore, 6.74);
+  assert.equal(snapshot.audits[0].reportUrl, undefined);
+});
+
+test("rejects malformed ranking metadata before loading any audit", async () => {
+  const snapshot = await readPublishedAuditSnapshot(client([], { index: [{ ...indexRow, finalScore: 99 }] }), context);
   assert.equal(snapshot.available, false);
   assert.deepEqual(snapshot.audits, []);
 });

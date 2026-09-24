@@ -9,6 +9,19 @@ export const publishedAuditBucket = "published-audits";
 
 type Client = Pick<SupabaseClient, "rpc" | "storage">;
 
+type PublishedAuditIndexRow = {
+  id: string;
+  workId: string;
+  modelId: AuditModelId;
+  date: string;
+  auditorId: string;
+  auditor: string;
+  finalScore: number;
+  catalogRevisionId: string | null;
+  catalogVersion: number;
+  catalogRevisionLabel: string;
+};
+
 function validDate(value: unknown): value is string {
   return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)
     && new Date(`${value}T12:00:00.000Z`).toISOString().slice(0, 10) === value;
@@ -40,54 +53,85 @@ function replaceEvidenceReferences(value: Record<string, ItemResponse>, urls: Ma
   }]));
 }
 
+function parseAuditIndex(value: unknown, context: ProfileWorkspaceContext): PublishedAuditIndexRow[] | null {
+  if (!Array.isArray(value) || value.length > 1_000) return null;
+  const authorizedWorks = new Set(context.works.map((work) => work.id));
+  const parsed: PublishedAuditIndexRow[] = [];
+  const ids = new Set<string>();
+  for (const raw of value) {
+    if (!isRecord(raw) || !isUuid(raw.id) || ids.has(raw.id) || !isUuid(raw.workId) || !authorizedWorks.has(raw.workId)
+      || !isModel(raw.modelId) || !validDate(raw.date) || !isUuid(raw.auditorId)
+      || !validText(raw.auditor, 200) || !raw.auditor.trim()
+      || typeof raw.finalScore !== "number" || !Number.isFinite(raw.finalScore) || raw.finalScore < 0 || raw.finalScore > 10
+      || (raw.catalogRevisionId !== null && !isUuid(raw.catalogRevisionId))
+      || !Number.isInteger(raw.catalogVersion) || Number(raw.catalogVersion) < 0
+      || !validText(raw.catalogRevisionLabel, 80) || !raw.catalogRevisionLabel.trim()) return null;
+    ids.add(raw.id);
+    parsed.push({
+      id: raw.id, workId: raw.workId, modelId: raw.modelId, date: raw.date, auditorId: raw.auditorId,
+      auditor: raw.auditor, finalScore: raw.finalScore, catalogRevisionId: raw.catalogRevisionId,
+      catalogVersion: Number(raw.catalogVersion), catalogRevisionLabel: raw.catalogRevisionLabel,
+    });
+  }
+  return parsed;
+}
+
+function indexRowMatchesDetail(index: PublishedAuditIndexRow, raw: Record<string, unknown>) {
+  return raw.id === index.id && raw.workId === index.workId && raw.modelId === index.modelId
+    && raw.date === index.date && raw.auditorId === index.auditorId && raw.auditor === index.auditor
+    && raw.finalScore === index.finalScore && raw.catalogRevisionId === index.catalogRevisionId
+    && raw.catalogVersion === index.catalogVersion && raw.catalogRevisionLabel === index.catalogRevisionLabel;
+}
+
 export async function readPublishedAuditSnapshot(client: Client, context: ProfileWorkspaceContext): Promise<PublishedAuditSnapshot> {
   try {
-    const { data, error } = await client.rpc("read_published_audits", {
+    const parameters = {
       p_profile: context.profile,
       p_engineering_scope: context.engineeringScope,
       p_administrative_scope: context.administrativeScope,
-    });
-    if (error || !Array.isArray(data) || data.length > 1_000) return unavailablePublishedAudits();
-    const audits: AuditRecord[] = [];
+    };
+    const { data: indexData, error: indexError } = await client.rpc("read_published_audit_index", parameters);
+    const index = indexError ? null : parseAuditIndex(indexData, context);
+    if (!index) return unavailablePublishedAudits();
+    const audits: AuditRecord[] = index.map((raw): AuditRecord => ({
+      id: raw.id, workId: raw.workId, modelId: raw.modelId, date: raw.date, auditor: raw.auditor,
+      auditorId: raw.auditorId, status: "Publicada", collectionStatus: "Coleta concluída",
+      calculationStatus: "Disponível", finalScore: raw.finalScore, isDemo: false,
+      catalogRevisionId: raw.catalogRevisionId, catalogVersion: raw.catalogVersion,
+      catalogRevisionLabel: raw.catalogRevisionLabel,
+    }));
     const responses: PublishedAuditSnapshot["responses"] = {};
     const criteriaSnapshots: NonNullable<PublishedAuditSnapshot["criteriaSnapshots"]> = {};
-    const authorizedWorks = new Set(context.works.map((work) => work.id));
+    const { data, error } = await client.rpc("read_published_audits", parameters);
+    if (error || !Array.isArray(data) || data.length > 1_000) return { available: true, audits, responses, criteriaSnapshots };
+    const indexById = new Map(index.map((row) => [row.id, row]));
+    const detailedIds = new Set<string>();
     for (const raw of data) {
-      if (!isRecord(raw) || !isUuid(raw.id) || !isUuid(raw.workId) || !authorizedWorks.has(raw.workId)
-        || !isModel(raw.modelId) || !validDate(raw.date) || !isUuid(raw.auditorId)
-        || !validText(raw.auditor, 200) || !raw.auditor.trim()
-        || typeof raw.finalScore !== "number" || !Number.isFinite(raw.finalScore) || raw.finalScore < 0 || raw.finalScore > 10
-        || (raw.catalogRevisionId !== null && !isUuid(raw.catalogRevisionId))
-        || !Number.isInteger(raw.catalogVersion) || Number(raw.catalogVersion) < 0
-        || !validText(raw.catalogRevisionLabel, 80) || !Array.isArray(raw.evidenceFiles)
+      if (!isRecord(raw) || typeof raw.id !== "string" || detailedIds.has(raw.id)) continue;
+      const indexed = indexById.get(raw.id);
+      if (!indexed || !indexRowMatchesDetail(indexed, raw) || !Array.isArray(raw.evidenceFiles)
         || raw.evidenceFiles.some((name) => typeof name !== "string" || !/^p\d{2}-\d{2}\.png$/.test(name))
-        || !validText(raw.reportFileName, 180)) return unavailablePublishedAudits();
+        || !validText(raw.reportFileName, 180)) continue;
+      detailedIds.add(raw.id);
       const criteria = parseCriteria(raw.criteria);
       if (!criteria || (context.profile === "ENGENHARIA" && criteria.some((entry) => entry.documentedWeight !== null
-        || entry.configuredWeight !== undefined || entry.weightConfigurationId !== undefined))) return unavailablePublishedAudits();
+        || entry.configuredWeight !== undefined || entry.weightConfigurationId !== undefined))) continue;
       const parsedResponses = parseResponses(raw.responses, criteria.map((criterion) => criterion.id));
       if (!parsedResponses || (context.profile === "ENGENHARIA" && Object.values(parsedResponses)
-        .some((response) => response.checks?.some((check) => check.weight !== undefined)))) return unavailablePublishedAudits();
+        .some((response) => response.checks?.some((check) => check.weight !== undefined)))) continue;
       const evidencePaths = raw.evidenceFiles.map((name) => `${raw.workId}/${raw.id}/${name}`);
       const reportPath = `${raw.workId}/${raw.id}/${raw.reportFileName}`;
       const { data: signed, error: signedError } = await client.storage.from(publishedAuditBucket)
         .createSignedUrls([...evidencePaths, reportPath], 60 * 60);
       if (signedError || !signed || signed.length !== evidencePaths.length + 1 || signed.some((entry) => !entry.signedUrl))
-        return unavailablePublishedAudits();
+        continue;
       const signedUrls = signed.map((entry) => entry.signedUrl);
-      if (signedUrls.some((url): url is null => url === null)) return unavailablePublishedAudits();
+      if (signedUrls.some((url): url is null => url === null)) continue;
       const confirmedUrls = signedUrls as string[];
       const evidenceUrls = new Map<string, string>(raw.evidenceFiles.map((name, index) => [name, confirmedUrls[index]!]));
-      const modelId = raw.modelId as AuditModelId;
-      audits.push({
-        id: raw.id, workId: raw.workId, modelId, date: raw.date, auditor: raw.auditor,
-        auditorId: raw.auditorId, status: "Publicada", collectionStatus: "Coleta concluída",
-        calculationStatus: "Disponível", finalScore: raw.finalScore, isDemo: false,
-        catalogRevisionId: raw.catalogRevisionId, catalogVersion: Number(raw.catalogVersion),
-        catalogRevisionLabel: raw.catalogRevisionLabel,
-        reportUrl: confirmedUrls[confirmedUrls.length - 1],
-      });
-      responses[raw.id] = { [modelId]: replaceEvidenceReferences(parsedResponses, evidenceUrls) };
+      const auditPosition = audits.findIndex((audit) => audit.id === raw.id);
+      audits[auditPosition] = { ...audits[auditPosition]!, reportUrl: confirmedUrls[confirmedUrls.length - 1] };
+      responses[raw.id] = { [indexed.modelId]: replaceEvidenceReferences(parsedResponses, evidenceUrls) };
       criteriaSnapshots[raw.id] = criteria;
     }
     return { available: true, audits, responses, criteriaSnapshots };
