@@ -36,3 +36,12 @@ export type AgendaActorContext = { userId: string; profile: string; engineeringS
 export function unavailableAgenda(): AgendaSnapshot {
   return { available: false, visits: [], auditors: [], notifications: [] };
 }
+
+/** Remove a visit completed by publication from the active agenda and notices. */
+export function withoutPublishedVisit(snapshot: AgendaSnapshot, visitId: string): AgendaSnapshot {
+  return {
+    ...snapshot,
+    visits: snapshot.visits.filter((visit) => visit.id !== visitId),
+    notifications: snapshot.notifications.filter((notification) => !notification.id.startsWith(`${visitId}:`)),
+  };
+}

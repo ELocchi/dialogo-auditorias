@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { withoutPublishedVisit } from '../src/lib/agenda/contracts.ts';
 import assert from 'node:assert/strict';
 import { parseCreateAgendaVisit, parseConfirmAgendaVisit, readAgendaSnapshot, createAgendaVisit, deleteAgendaVisit, confirmAgendaVisit } from '../src/lib/agenda/service.ts';
 
@@ -8,6 +9,7 @@ const auditorId = '10000000-0000-4000-8000-000000000002';
 const otherId = '10000000-0000-4000-8000-000000000003';
 const workId = '20000000-0000-4000-8000-000000000001';
 const visitId = '30000000-0000-4000-8000-000000000001';
+const otherVisitId = '30000000-0000-4000-8000-000000000002';
 const requestId = '40000000-0000-4000-8000-000000000001';
 const creation = { requestId, workId, auditorId, module: 'safety', kind: 'audit', modelId: 'security-it07-r02', date: '2030-02-20', note: 'Observação' };
 const followUp = { ...creation, kind: 'follow_up', modelId: null };
@@ -172,6 +174,18 @@ test('only the administrator can delete a current visit, removing its notificati
   assert.equal(f.calls.filter((call) => call.name === 'delete_audit_visit').length, 2);
   const stale = fixture({ error: { code: '40001' } });
   assert.equal((await deleteAgendaVisit({ ...confirmation, expectedRevision: 2 }, context(), stale.client)).status, 'error');
+});
+
+test('publicação remove a visita e suas notificações da agenda ativa', () => {
+  const snapshot = { available: true, visits: [visit, { ...visit, id: otherVisitId }], auditors: [], notifications: [
+    { id: `${visitId}:1:scheduled`, type: 'visit_scheduled', workName: 'Obra', createdAt: visit.createdAt, detail: '', href: `/app?visita=${visitId}` },
+    { id: `${otherVisitId}:1:scheduled`, type: 'visit_scheduled', workName: 'Outra', createdAt: visit.createdAt, detail: '', href: `/app?visita=${otherVisitId}` },
+  ] };
+  const completed = withoutPublishedVisit(snapshot, visitId);
+  assert.deepEqual(completed.visits.map((entry) => entry.id), [otherVisitId]);
+  assert.deepEqual(completed.notifications.map((entry) => entry.id), [`${otherVisitId}:1:scheduled`]);
+  assert.equal(snapshot.visits.length, 2);
+  assert.equal(snapshot.notifications.length, 2);
 });
 
 test('a concurrent revision change cannot produce a stale confirmed message', async () => {

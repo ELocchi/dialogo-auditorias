@@ -8,7 +8,7 @@ import { roleLabels, moduleLabels, modelModule, canAccessWorkModule, canAccessMo
 import { beginScheduledVisitAudit, completePrototypeAudit, validatePrototypeAuditCompletion, updatePrototypeResponse, criteriaForAudit, criteriaForModel, modelDisplayName, type PrototypeAuditState } from "@/domain/prototype-audits";
 import { getSaoPauloToday } from "@/domain/visit-calendar";
 import type { ProfileWorkspaceContext } from "@/lib/access/workspace-context";
-import { unavailableAgenda, type AgendaActionResult, type AgendaActorContext, type AgendaSnapshot } from "@/lib/agenda/contracts";
+import { unavailableAgenda, withoutPublishedVisit, type AgendaActionResult, type AgendaActorContext, type AgendaSnapshot } from "@/lib/agenda/contracts";
 import { createAgendaVisitAction, deleteAgendaVisitAction, confirmAgendaVisitAction } from "@/app/agenda/actions";
 import { catalogVersion, unavailableCatalogs, type CatalogSnapshot } from "@/lib/catalogs/contracts";
 import { AuditReview, Catalog, NewAudit } from "./audit-workspace";
@@ -88,7 +88,7 @@ function ProfileWorkspace({ context: providedContext, initialScreen, initialVisi
   const [reportSection, setReportSection] = useState<"reports" | "occurrences" | "plans">("reports");
   const [catalogs, setCatalogs] = useState(initialCatalogs);
   const [session, setSession] = useState<PrototypeAuditState>({ audits: initialAudits.audits, responses: initialAudits.responses, criteriaSnapshots: initialAudits.criteriaSnapshots });
-  const { agenda: syncedAgenda, agendaSyncError, mutationPending, runAgendaAction } = useAgenda(initialAgenda, user.id, context.profile, context.engineeringScope, context.administrativeScope);
+  const { agenda: syncedAgenda, agendaSyncError, mutationPending, runAgendaAction, removePublishedVisit } = useAgenda(initialAgenda, user.id, context.profile, context.engineeringScope, context.administrativeScope);
   const localTestVisits: Visit[] = [
     { id: "local-audit-flow-security", workId: localTestWork.id, module: "safety", kind: "audit", modelId: "security-it07-r02", auditorId: user.id, date: getSaoPauloToday(), note: "Teste local do relatório de Segurança.", createdBy: user.id, createdAt: `${getSaoPauloToday()}T12:00:00.000-03:00`, revision: 1, confirmationStatus: "confirmed", confirmedAt: `${getSaoPauloToday()}T12:00:00.000-03:00`, auditorName: user.name, createdByName: "Teste local", history: [] },
     { id: "local-audit-flow-f175", workId: localTestWork.id, module: "quality", kind: "audit", modelId: "quality-f175", auditorId: user.id, date: getSaoPauloToday(), note: "Teste local do relatório de Qualidade F.175.", createdBy: user.id, createdAt: `${getSaoPauloToday()}T12:01:00.000-03:00`, revision: 1, confirmationStatus: "confirmed", confirmedAt: `${getSaoPauloToday()}T12:01:00.000-03:00`, auditorName: user.name, createdByName: "Teste local", history: [] },
@@ -405,7 +405,7 @@ function ProfileWorkspace({ context: providedContext, initialScreen, initialVisi
       {work && auditModule && <>
         {currentScreen === "fill" && activeAudit && activeAudit.status !== "Publicada" && <NewAudit key={activeAudit.id} model={modelDisplayName(activeAudit.modelId).replace(" rev. 02", "")} responseKey={activeAudit.modelId} workName={work.name} readOnly={!canEditAudit(user, activeAudit)} showWeights={canReadTechnicalWeights(user, auditModule)} previousAudits={activeAuditHistory} criteria={criteriaForAudit(session, activeAudit)} activeIndex={positions[activeAudit.id] ?? 0} setActiveIndex={(index) => setPositions((previous) => ({ ...previous, [activeAudit.id]: index }))} drafts={session.responses[activeAudit.id] ?? {}} updateDraft={(response) => { try { const item = criteriaForAudit(session, activeAudit)[positions[activeAudit.id] ?? 0]; setSession(updatePrototypeResponse(session, user, activeAudit.id, item, response)); } catch (reason) { setError(reason instanceof Error ? reason.message : "Edição indisponível."); } }} onFinish={() => { try { validatePrototypeAuditCompletion(session, user, activeAudit.id); setError(""); setScreen("audit_review"); } catch (reason) { setError(reason instanceof Error ? reason.message : "Não foi possível revisar o relatório."); } }} details={{ date: activeAudit.date, auditor: activeAudit.auditor }} />}
         {currentScreen === "fill" && !activeAudit && <p className="muted">Selecione um rascunho autorizado no histórico.</p>}
-        {currentScreen === "audit_review" && activeAudit && <AuditReview model={modelDisplayName(activeAudit.modelId).replace(" rev. 02", "")} modelId={activeAudit.modelId} workName={work.name} details={{ date: activeAudit.date, auditor: activeAudit.auditor }} criteria={criteriaForAudit(session, activeAudit)} drafts={session.responses[activeAudit.id] ?? {}} onBack={() => { if (activeAudit.status !== "Publicada") { setError(""); setScreen("fill"); } }} onPublish={() => { try { setSession(completePrototypeAudit(session, user, activeAudit.id)); setError(""); return true; } catch (reason) { setError(reason instanceof Error ? reason.message : "Não foi possível publicar a auditoria."); return false; } }} />}
+        {currentScreen === "audit_review" && activeAudit && <AuditReview model={modelDisplayName(activeAudit.modelId).replace(" rev. 02", "")} modelId={activeAudit.modelId} workName={work.name} details={{ date: activeAudit.date, auditor: activeAudit.auditor }} criteria={criteriaForAudit(session, activeAudit)} drafts={session.responses[activeAudit.id] ?? {}} onBack={() => { if (activeAudit.status !== "Publicada") { setError(""); setScreen("fill"); } }} onPublish={() => { try { setSession(completePrototypeAudit(session, user, activeAudit.id)); if (activeAudit.visitId) removePublishedVisit(activeAudit.visitId); setError(""); return true; } catch (reason) { setError(reason instanceof Error ? reason.message : "Não foi possível publicar a auditoria."); return false; } }} />}
         {currentScreen === "report" && canDocuments && reportSection === "occurrences" && <Occurrences works={[work]} records={[]} />}
         {currentScreen === "report" && canDocuments && reportSection === "plans" && <DeferredScreen kind="plans" />}
         {(currentScreen === "discussion" || currentScreen === "publication") && <DeferredScreen kind={currentScreen} />}
@@ -604,5 +604,7 @@ function useAgenda(initialAgenda: AgendaSnapshot, userId: string, profile: Profi
     }
   };
 
-  return { agenda, agendaSyncError, mutationPending, runAgendaAction };
+  const removePublishedVisit = (visitId: string) => setAgenda((current) => withoutPublishedVisit(current, visitId));
+
+  return { agenda, agendaSyncError, mutationPending, runAgendaAction, removePublishedVisit };
 }
