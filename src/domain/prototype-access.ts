@@ -5,6 +5,12 @@ export type AppModule = "quality" | "safety";
 export type Role = "quality-auditor" | "safety-auditor" | "engineering" | "administrative";
 export type EngineeringActivity = "site-team" | "coordination";
 
+export interface AuditAssignment {
+  visitId: string;
+  workId: string;
+  modelId: AuditModelId;
+}
+
 export interface DemoUser {
   id: string;
   name: string;
@@ -16,6 +22,8 @@ export interface DemoUser {
   documentWorkIds: readonly string[];
   /** Exact scopes supplied for a selected, server-verified profile. Optional only for legacy local fixtures. */
   workModuleScopes?: readonly { workId: string; module: AppModule }[];
+  /** Active assignments from the trusted agenda, never general work grants. */
+  auditAssignments?: readonly AuditAssignment[];
 }
 
 export const roleLabels: Record<Role, string> = {
@@ -73,19 +81,29 @@ export function canConsultAgenda(user: DemoUser, workId: string, module: AppModu
   return canAccessWorkModule(user, workId, module);
 }
 
-export function canStartAudit(user: DemoUser, workId: string, modelId: AuditModelId): boolean {
+export function canAuditModule(user: DemoUser, module: AppModule): boolean {
   return (user.role === "quality-auditor" || user.role === "safety-auditor")
-    && canAccessWorkModule(user, workId, modelModule(modelId));
+    && canAccessModule(user, module);
+}
+
+export function canStartAudit(user: DemoUser, workId: string, modelId: AuditModelId, visitId?: string): boolean {
+  if (!canAuditModule(user, modelModule(modelId))) return false;
+  if (visitId && user.auditAssignments !== undefined) {
+    return user.auditAssignments.some((assignment) => assignment.visitId === visitId
+      && assignment.workId === workId && assignment.modelId === modelId);
+  }
+  return canAccessWorkModule(user, workId, modelModule(modelId));
 }
 
 export function canBeginScheduledAudit(user: DemoUser, visit: Visit, today: string): boolean {
   return visit.kind === "audit" && visit.modelId !== null
     && visit.auditorId === user.id && visit.confirmationStatus === "confirmed"
     && visit.date === today && modelModule(visit.modelId) === visit.module
-    && canReadVisit(user, visit) && canStartAudit(user, visit.workId, visit.modelId);
+    && canReadVisit(user, visit) && canAuditModule(user, visit.module);
 }
 
 export interface AuditAccessTarget {
+  visitId?: string;
   workId: string;
   modelId: AuditModelId;
   auditorId: string;
@@ -93,17 +111,18 @@ export interface AuditAccessTarget {
 }
 
 export function canEditAudit(user: DemoUser, audit: AuditAccessTarget): boolean {
-  return audit.status !== "Publicada" && audit.auditorId === user.id && canStartAudit(user, audit.workId, audit.modelId);
+  return audit.status !== "Publicada" && audit.auditorId === user.id && canStartAudit(user, audit.workId, audit.modelId, audit.visitId);
 }
 
 export function canReadAudit(user: DemoUser, audit: AuditAccessTarget): boolean {
   const auditModule = modelModule(audit.modelId);
+  if (audit.status !== "Publicada" && canEditAudit(user, audit)) return true;
   if (!canAccessWorkModule(user, audit.workId, auditModule)) return false;
   // Published audit readers authorize the selected work/module for every profile,
   // including Administrative. Other operational documents keep their own gate.
   if (audit.status === "Publicada") return true;
   if (user.role === "engineering") return user.activity === "site-team" && audit.status === "Em discussão com a obra";
-  return (user.role === "quality-auditor" || user.role === "safety-auditor") && user.id === audit.auditorId;
+  return canEditAudit(user, audit);
 }
 
 export function canReadTechnicalWeights(user: DemoUser, module: AppModule): boolean {
@@ -124,6 +143,8 @@ export function canEditCommitteeSchedule(user: DemoUser): boolean {
 export interface Visit {
   id: string;
   workId: string;
+  /** Minimal work identification provided by the agenda for assigned audits. */
+  workName?: string;
   module: AppModule;
   kind: "audit" | "follow_up";
   modelId: AuditModelId | null;
@@ -151,8 +172,9 @@ export const initialVisits: readonly Visit[] = [
 export function canReadVisit(user: DemoUser, visit: Visit): boolean {
   if ((visit.kind !== "audit" && visit.kind !== "follow_up")
     || (visit.kind === "audit" && (!visit.modelId || modelModule(visit.modelId) !== visit.module))
-    || (visit.kind === "follow_up" && visit.modelId !== null)
-    || !canConsultAgenda(user, visit.workId, visit.module)) return false;
+    || (visit.kind === "follow_up" && visit.modelId !== null)) return false;
+  if (visit.kind === "audit" && visit.auditorId === user.id && canAuditModule(user, visit.module)) return true;
+  if (!canConsultAgenda(user, visit.workId, visit.module)) return false;
   return (user.role !== "quality-auditor" && user.role !== "safety-auditor") || visit.auditorId === user.id;
 }
 
@@ -184,7 +206,7 @@ export function createVisit(user: DemoUser, input: VisitInput, users: readonly D
     throw new Error("O roteiro da auditoria deve pertencer à disciplina; acompanhamento não usa roteiro.");
   }
   const auditor = users.find((entry) => entry.id === input.auditorId);
-  if (!auditor || (input.kind === "audit" ? !input.modelId || !canStartAudit(auditor, input.workId, input.modelId)
+  if (!auditor || (input.kind === "audit" ? !input.modelId || !canAuditModule(auditor, input.module)
     : !["quality-auditor", "safety-auditor"].includes(auditor.role) || !canAccessWorkModule(auditor, input.workId, input.module))) {
     throw new Error("Selecione um profissional autorizado para a disciplina e a obra.");
   }

@@ -13,14 +13,16 @@
  * and simultaneous multi-connection locking still require integration checks.
  */
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const baselineOnly = process.argv.includes("--baseline-only");
-if (process.argv.slice(2).some((arg) => arg !== "--baseline-only")) {
-  throw new Error("Supported argument: --baseline-only");
+const assignmentOnly = process.argv.includes("--assignment-only");
+if (process.argv.slice(2).some((arg) => !["--baseline-only", "--assignment-only"].includes(arg))
+  || (baselineOnly && assignmentOnly)) {
+  throw new Error("Supported arguments: --baseline-only or --assignment-only");
 }
 
 async function loadPGlite() {
@@ -123,7 +125,6 @@ if (!baselineOnly) suites.push({
   upgradeMigration: "20260916000100_catalog_revisions.sql",
   test: "catalog_revisions.sql",
   baselineAuthRows: 6,
-  validateBuiltInCatalogs: true,
 }, {
   name: "B.9 full work registration/optional fields/atomicity/permissions suite",
   migrations: ["20260913000100_access_requests.sql", "20260913000200_access_administration.sql", "20260913000300_multiple_access_profiles.sql", "20260913000400_multiple_engineering_scopes.sql", "20260913000500_work_details.sql", "20260914000100_designated_general_access.sql", "20260914000200_audit_agenda.sql", "20260916000100_catalog_revisions.sql"],
@@ -202,9 +203,24 @@ suites.push({
   test: "named_follow_up_reports_upgrade.sql",
   baselineAuthRows: 2,
 });
+if (!baselineOnly) suites.push({
+  name: "B.25 assigned audits without work access and LAN work fields suite",
+  migrations: readdirSync(path.join(projectRoot, "supabase", "migrations"))
+    .filter((name) => name.endsWith(".sql") && name <= "20260924000800_audit_assignment_access.sql"
+      // This migration is only a deployment assertion about one historic real
+      // audit. The isolated suite below supplies its own synthetic identities.
+      && name !== "20260924000200_verify_published_audit_access.sql")
+    .sort(),
+  test: "audit_assignment_access.sql",
+  storageAdapter: true,
+  omitHistoricPublicationBackfills: true,
+  // Current TS catalogs include fields introduced after the historical B.8
+  // upgrade. Validate them against the current schema rather than its old one.
+  validateBuiltInCatalogs: true,
+});
 
 const { PGlite } = await loadPGlite();
-for (const suite of suites) {
+for (const suite of suites.filter((item) => !assignmentOnly || item.test === "audit_assignment_access.sql")) {
   const db = await PGlite.create();
   let currentSqlFile = "";
   try {
@@ -225,7 +241,20 @@ for (const suite of suites) {
     console.log(`${suite.name}: ${version.rows[0].version}`);
     for (const migration of suite.migrations) {
       currentSqlFile = migration;
-      const sql = readFileSync(path.join(projectRoot, "supabase", "migrations", migration), "utf8");
+      let sql = readFileSync(path.join(projectRoot, "supabase", "migrations", migration), "utf8");
+      if (suite.omitHistoricPublicationBackfills) {
+        // Execute all schema, functions, constraints, triggers and policies.
+        // Only omit the two one-off blocks tied to the live Boulevar publication;
+        // the regression supplies synthetic publications to exercise the same
+        // completion trigger and read policies without copying production data.
+        const delimiter = migration === "20260924000100_published_audit_index.sql" ? "integrity"
+          : migration === "20260924000400_complete_audit_visit_on_publication.sql" ? "backfill" : null;
+        if (delimiter) {
+          const expression = new RegExp(`do \\$${delimiter}\\$[\\s\\S]*?\\$${delimiter}\\$;`);
+          assert.equal(sql.match(expression)?.length, 1, "Historical publication block must be identified exactly.");
+          sql = sql.replace(expression, "-- Historic live-data block omitted in isolated verification only.");
+        }
+      }
       await db.exec(sql);
     }
     const testSql = readFileSync(path.join(projectRoot, "supabase", "tests", suite.test), "utf8");

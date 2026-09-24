@@ -27,7 +27,7 @@ export function Works({ works, canManage = false }: { works: readonly WorkRecord
   return <div className="operational-view">
     <div className="page-intro">
       <div><h2>Obras</h2></div>
-      {canManage && <div className="work-create-action"><Link className="primary work-create-plus" href="/app?secao=administracao#works-heading" aria-label="Cadastrar obra" title="Cadastrar obra">+</Link></div>}
+      {canManage && <div className="work-create-action"><Link className="primary work-create-plus" href="/administracao/obras/nova" aria-label="Cadastrar obra" title="Cadastrar obra">+</Link></div>}
     </div>
 
     <div className="operational-filters work-filters" role="search" aria-label="Filtrar obras">

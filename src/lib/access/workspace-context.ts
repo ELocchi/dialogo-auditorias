@@ -75,7 +75,10 @@ export function buildWorkspaceContext(input: Input): ProfileWorkspaceContext | n
       status: "Ativa", isDemo: false,
     })).sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
     const modules = (["safety", "quality"] as const).filter((module) => profile === "ADMINISTRATIVO"
-      ? administrativeModules.includes(module) : uniqueScopes.some((scope) => scope.module === module));
+      ? administrativeModules.includes(module)
+      : profile === "AUDITOR_SEGURANCA" ? module === "safety"
+      : profile === "AUDITOR_QUALIDADE" ? module === "quality"
+      : uniqueScopes.some((scope) => scope.module === module));
     const user: DemoUser = {
       id: identity.id, name: identity.name.trim(), role: roles[profile], modules,
       workIds: selectedWorks.map((work) => work.id), workModuleScopes: uniqueScopes,
@@ -86,4 +89,3 @@ export function buildWorkspaceContext(input: Input): ProfileWorkspaceContext | n
     return { user, works: selectedWorks, profile, email: identity.email, engineeringScope, administrativeScope };
   } catch { return null; }
 }
-

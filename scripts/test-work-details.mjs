@@ -1,40 +1,40 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { parseTeamAccountIds, validateWorkCreate, validateWorkEdit } from '../src/lib/works/validation.ts';
+import { parseTeamAccountLinks, validateWorkCreate, validateWorkEdit } from '../src/lib/works/validation.ts';
 import { createWorkWithDetails, updateWork } from '../src/lib/works/service.ts';
 const id='10000000-0000-4000-8000-000000000001';
 const historyId='10000000-0000-4000-8000-000000000099';
 const memberId='10000000-0000-4000-8000-000000000002';
 const date='2026-09-13T18:00:00Z';
-const blank={nome:'Obra A',empreendimento:'',logradouro:'',numero:'',complemento:'',bairro:'',cidade:'',uf:'',cep:'',responsavel_tecnico:'',registro_tecnico:'',coordenacao:'',observacoes:'',equipe_obra:[]};
+const blank={nome:'Obra A',empreendimento:'',etapa_obra:'',logradouro:'',numero:'',complemento:'',bairro:'',cidade:'',uf:'',cep:'',responsavel_tecnico:'',registro_tecnico:'',coordenacao:'',observacoes:'',equipe_obra:[]};
 function form(changes={}) {const f=new FormData();const fields={...blank,...changes}; for(const [k,v] of Object.entries(fields)) f.set(k,k==='equipe_obra'?JSON.stringify(v):v); f.set('work_id',id);f.set('expected_revision','0');return f;}
 const success={obra_id:id,revisao:1,updated_at:date,history_id:historyId,changed:true};
 function deps(reply={data:success,error:null}) {const calls=[];return {calls,createClient:async()=>({rpc:async(...args)=>{calls.push(args);return reply;}})};}
 test('perfis da equipe exigem IDs únicos e são enviados à operação atômica',async()=>{
- const f=form();f.set('team_accounts',JSON.stringify([memberId]));
- assert.deepEqual(parseTeamAccountIds(f),{ok:true,ids:[memberId]});
+ const members=[{id:memberId,cargo:'Engenheiro'}];const f=form();f.set('team_accounts',JSON.stringify(members));
+ assert.deepEqual(parseTeamAccountLinks(f),{ok:true,links:members});
  const create=deps({data:id,error:null});assert.equal((await createWorkWithDetails(f,create)).status,'success');
- assert.deepEqual(create.calls,[['create_access_work_with_team',{p_data:blank,p_user_ids:[memberId]}]]);
+ assert.deepEqual(create.calls,[['create_access_work_with_team_v2',{p_data:blank,p_members:members}]]);
  const edit=deps({data:{...success,team_changed:true},error:null});assert.equal((await updateWork(f,edit)).status,'success');
- assert.deepEqual(edit.calls,[['update_access_work_with_team',{p_work_id:id,p_expected_revision:0,p_data:blank,p_user_ids:[memberId]}]]);
- for(const value of [[memberId,memberId],['invalid'],Array.from({length:31},()=>memberId)]) {
+ assert.deepEqual(edit.calls,[['update_access_work_with_team_v2',{p_work_id:id,p_expected_revision:0,p_data:blank,p_members:members}]]);
+ for(const value of [[{id:memberId,cargo:''},{id:memberId,cargo:''}],[{id:'invalid',cargo:''}],Array.from({length:31},()=>({id:memberId,cargo:''})),[{id:memberId,cargo:'a'.repeat(101)}]]) {
   const invalid=form();invalid.set('team_accounts',JSON.stringify(value));
-  assert.equal(parseTeamAccountIds(invalid).ok,false);
+  assert.equal(parseTeamAccountLinks(invalid).ok,false);
   const db=deps();assert.equal((await updateWork(invalid,db)).status,'error');assert.equal(db.calls.length,0);
  }
 });
 test('falta da migração de vínculos não cria obra parcial nem altera acesso',async()=>{
- const f=form();f.set('team_accounts',JSON.stringify([memberId]));
+ const f=form();f.set('team_accounts',JSON.stringify([{id:memberId,cargo:'Engenheiro'}]));
  const db=deps({data:null,error:{code:'PGRST202'}});
  assert.equal((await createWorkWithDetails(f,db)).status,'error');assert.equal(db.calls.length,1);
  assert.equal((await updateWork(f,db)).status,'error');assert.equal(db.calls.length,2);
 });
 test('novo cadastro exige apenas nome e aceita os mesmos campos opcionais da edição',()=>{
  const minimal=validateWorkCreate(form());assert.equal(minimal.ok,true);assert.deepEqual(minimal.data,blank);
- const complete=validateWorkCreate(form({empreendimento:' Empreendimento Norte ',logradouro:' Rua Norte ',uf:'sp',cep:'01234-567',equipe_obra:[{nome:' Pessoa da obra ',funcao:''}]}));
- assert.equal(complete.ok,true);assert.equal(complete.data.empreendimento,'Empreendimento Norte');assert.equal(complete.data.logradouro,'Rua Norte');assert.equal(complete.data.uf,'SP');assert.equal(complete.data.cep,'01234567');
+ const complete=validateWorkCreate(form({empreendimento:' Empreendimento Norte ',etapa_obra:'estrutura',logradouro:' Rua Norte ',uf:'sp',cep:'01234-567',equipe_obra:[{nome:' Pessoa da obra ',funcao:''}]}));
+ assert.equal(complete.ok,true);assert.equal(complete.data.empreendimento,'Empreendimento Norte');assert.equal(complete.data.etapa_obra,'ESTRUTURA');assert.equal(complete.data.logradouro,'Rua Norte');assert.equal(complete.data.uf,'SP');assert.equal(complete.data.cep,'01234567');
  assert.deepEqual(complete.data.equipe_obra,[{nome:'Pessoa da obra',funcao:''}]);
- for(const changes of [{nome:''},{nome:'A'},{uf:'XX'},{cep:'123'},{equipe_obra:[{nome:'',funcao:''}]}]) assert.equal(validateWorkCreate(form(changes)).ok,false);
+ for(const changes of [{nome:''},{nome:'A'},{etapa_obra:'PROJETO'},{uf:'XX'},{cep:'123'},{equipe_obra:[{nome:'',funcao:''}]}]) assert.equal(validateWorkCreate(form(changes)).ok,false);
 });
 test('cadastro completo envia uma operação atômica e valida o identificador retornado',async()=>{
  const d=deps({data:id,error:null});const result=await createWorkWithDetails(form({cidade:'São Paulo'}),d);

@@ -3,6 +3,7 @@
 import { useId, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import {
   canAccessWorkModule,
+  canAuditModule,
   canManageAgenda,
   canConsultAgenda,
   canReadVisit,
@@ -134,10 +135,10 @@ function AdministrativeAgenda({ user, works, users, visits, module, workId, avai
 function AuditorAgenda({ user, works, users, visits, available, mutationPending = false, syncError, onDelete, onConfirm }: VisitAgendaProps) {
   const listId = useId();
   const discipline: AppModule = user.role === "quality-auditor" ? "quality" : "safety";
-  const authorizedWorks = works.filter((work) => canConsultAgenda(user, work.id, discipline));
-  const workIds = new Set(authorizedWorks.map((work) => work.id));
-  const visibleVisits = visits.filter((visit) => visit.module === discipline && workIds.has(visit.workId) && canReadVisit(user, visit) && isCalendarDate(visit.date))
+  const visibleVisits = visits.filter((visit) => visit.module === discipline && canReadVisit(user, visit) && isCalendarDate(visit.date))
     .slice().sort((first, second) => first.date.localeCompare(second.date) || first.id.localeCompare(second.id));
+  const authorizedWorks = works.filter((work) => canConsultAgenda(user, work.id, discipline)
+    || visibleVisits.some((visit) => visit.workId === work.id));
 
   return <>
     <div className="page-intro"><h2>Agenda de visitas</h2></div>
@@ -286,7 +287,7 @@ function CreateVisitForm({ user, works, users, module, workId, available, mutati
   const eligibleWorks = works.filter((work) => canConsultAgenda(user, work.id, input.module));
   const auditors = users.filter((candidate) =>
     candidate.role === (input.module === "safety" ? "safety-auditor" : "quality-auditor")
-    && canAccessWorkModule(candidate, input.workId, input.module));
+    && (input.kind === "audit" ? canAuditModule(candidate, input.module) : canAccessWorkModule(candidate, input.workId, input.module)));
 
   const changeInput = (change: Partial<VisitInput>) => {
     setInput((current) => ({ ...current, ...change }));
@@ -339,9 +340,10 @@ function CreateVisitForm({ user, works, users, module, workId, available, mutati
           : modelIds.find((id) => modelModule(id) === "quality" && (normalize(visitTypeLabels[id]) === modelText || id === cell(rowNumber, "tipo de auditoria").text.trim())) ?? null;
         if (kind === "audit" && !modelId) throw new Error(`Linha ${rowNumber}: informe um tipo de auditoria de Qualidade válido.`);
         const professionalText = cell(rowNumber, "profissional").text.trim();
-        const eligible = users.filter((candidate) => candidate.role === (importedModule === "safety" ? "safety-auditor" : "quality-auditor") && canAccessWorkModule(candidate, work.id, importedModule));
+        const eligible = users.filter((candidate) => candidate.role === (importedModule === "safety" ? "safety-auditor" : "quality-auditor")
+          && (kind === "audit" ? canAuditModule(candidate, importedModule) : canAccessWorkModule(candidate, work.id, importedModule)));
         const professional = eligible.find((candidate) => normalize(candidate.name) === normalize(professionalText) || candidate.id === professionalText);
-        if (!professional) throw new Error(`Linha ${rowNumber}: profissional não encontrado ou sem acesso à obra.`);
+        if (!professional) throw new Error(`Linha ${rowNumber}: profissional não encontrado ou não autorizado para esta finalidade.`);
         const dateCell = cell(rowNumber, "data");
         const date = dateValue(dateCell.value, dateCell.text);
         if (!isCalendarDate(date)) throw new Error(`Linha ${rowNumber}: data inválida. Use DD/MM/AAAA.`);
@@ -445,7 +447,7 @@ function CreateVisitForm({ user, works, users, module, workId, available, mutati
           <tbody>
             {drafts.map((draft) => <EditableAgendaRow key={draft.id} input={draft.input} user={user} works={works} users={users} disabled={exporting}
               onChange={(next) => onUpdateDraft?.(draft.id, next)} onRemove={onRemoveDraft ? () => onRemoveDraft(draft.id) : undefined} />)}
-            <EditableAgendaRow input={input} user={user} works={works} users={users} disabled={exporting || !available || eligibleWorks.length === 0 || auditors.length === 0} newRow onChange={(next) => changeInput(next)} />
+            <EditableAgendaRow input={input} user={user} works={works} users={users} disabled={exporting || !available} newRow onChange={(next) => changeInput(next)} />
           </tbody>
         </table>
       </div>
@@ -479,7 +481,7 @@ function EditableAgendaRow({ input, user, works, users, disabled, newRow = false
   const eligibleWorks = works.filter((work) => canConsultAgenda(user, work.id, input.module));
   const models = modelIds.filter((modelId) => modelModule(modelId) === input.module);
   const auditors = users.filter((candidate) => candidate.role === (input.module === "safety" ? "safety-auditor" : "quality-auditor")
-    && canAccessWorkModule(candidate, input.workId, input.module));
+    && (input.kind === "audit" ? canAuditModule(candidate, input.module) : canAccessWorkModule(candidate, input.workId, input.module)));
   const update = (change: Partial<VisitInput>) => onChange({ ...input, ...change });
 
   return <tr className={newRow ? styles.newDraftRow : undefined}>
@@ -496,7 +498,7 @@ function EditableAgendaRow({ input, user, works, users, disabled, newRow = false
       : <span className={styles.tableFixedValue}>{moduleLabels[input.module]}</span>}</td>
     <td data-label="Finalidade"><select className="filter-select" value={input.kind} aria-label="Finalidade" disabled={disabled} onChange={(event) => {
       const kind = event.target.value as VisitInput["kind"];
-      update({ kind, modelId: kind === "audit" ? input.module === "safety" ? "security-it07-r02" : "quality-f175" : null });
+      update({ kind, modelId: kind === "audit" ? input.module === "safety" ? "security-it07-r02" : "quality-f175" : null, auditorId: "" });
     }}><option value="audit">Auditoria</option><option value="follow_up">Acompanhamento</option></select></td>
     <td data-label="Tipo de auditoria">{input.kind === "audit" && input.module === "quality" && models.length > 1
       ? <select className="filter-select" value={input.modelId ?? ""} aria-label="Tipo de auditoria" disabled={disabled} onChange={(event) => update({ modelId: event.target.value as AuditModelId })}>{models.map((modelId) => <option key={modelId} value={modelId}>{visitTypeLabels[modelId]}</option>)}</select>
@@ -507,7 +509,7 @@ function EditableAgendaRow({ input, user, works, users, disabled, newRow = false
     <td data-label="Data"><input required type="date" value={input.date} aria-label="Data da visita" disabled={disabled} onChange={(event) => update({ date: event.target.value })} /></td>
     <td data-label="Observação"><textarea maxLength={2000} value={input.note} aria-label="Observação" disabled={disabled} placeholder="Opcional" onChange={(event) => update({ note: event.target.value })} /></td>
     <td data-label="Ação">{onRemove ? <button type="button" className="secondary" disabled={disabled} onClick={onRemove}>Retirar</button>
-      : <button type="submit" className="primary" disabled={disabled}>Adicionar</button>}</td>
+      : <button type="submit" className="primary" disabled={disabled || !eligibleWorks.some((work) => work.id === input.workId) || !auditors.some((auditor) => auditor.id === input.auditorId)}>Adicionar</button>}</td>
   </tr>;
 }
 
@@ -534,7 +536,7 @@ export function VisitCard({ visit, user, users, work, available, mutationPending
   const deletingRef = useRef(false);
   const assignedAllowed = visit.auditorId === user.id
     && (user.role === "safety-auditor" || user.role === "quality-auditor")
-    && canAccessWorkModule(user, visit.workId, visit.module);
+    && canReadVisit(user, visit);
   const hasRevision = Number.isInteger(visit.revision) && (visit.revision ?? 0) > 0;
   const confirmAllowed = assignedAllowed && canReadVisit(user, visit) && visit.confirmationStatus === "pending_confirmation" && hasRevision;
   const startVisible = !!onStartAudit && assignedAllowed && visit.kind === "audit";

@@ -1,5 +1,5 @@
 import { uuidPattern } from '../access/validation.ts';
-import { workFieldLimits, brazilianStates, type WorkFields, type WorkTeamMember } from './contracts.ts';
+import { workFieldLimits, brazilianStates, workStages, type WorkFields, type WorkTeamLink, type WorkTeamMember } from './contracts.ts';
 type Validated = { ok: true; data: { workId: string; expectedRevision: number; fields: WorkFields } } | { ok: false; message: string; fieldErrors: Record<string,string> };
 type CreateValidated = { ok: true; data: WorkFields } | { ok: false; message: string; fieldErrors: Record<string,string> };
 const one = (form: FormData, key: string) => {
@@ -15,6 +15,8 @@ function parseWorkFields(form: FormData) {
     fields[key] = value ?? '';
   }
   if (fields.nome.length < 2) errors.nome = 'Informe o nome do projeto (obra) com pelo menos 2 caracteres.';
+  fields.etapa_obra = fields.etapa_obra.toUpperCase();
+  if (fields.etapa_obra && !workStages.some((stage) => stage.value === fields.etapa_obra)) errors.etapa_obra = 'Selecione uma etapa da obra válida.';
   fields.uf = fields.uf.toUpperCase();
   if (fields.uf && !brazilianStates.includes(fields.uf as typeof brazilianStates[number])) errors.uf = 'Selecione uma UF válida.';
   if (fields.cep && !/^\d{5}-?\d{3}$/.test(fields.cep)) errors.cep = 'Informe um CEP com 8 números.';
@@ -51,15 +53,23 @@ export function validateWorkEdit(form: FormData): Validated {
   return { ok:true, data:{workId:workId!.toLowerCase(),expectedRevision:Number(rawRevision),fields} };
 }
 
-export function parseTeamAccountIds(form: FormData): { ok: true; ids: string[] | null } | { ok: false; message: string } {
+export function parseTeamAccountLinks(form: FormData): { ok: true; links: WorkTeamLink[] | null } | { ok: false; message: string } {
   const values = form.getAll('team_accounts');
-  if (values.length === 0) return { ok: true, ids: null };
+  if (values.length === 0) return { ok: true, links: null };
   if (values.length !== 1 || typeof values[0] !== 'string' || values[0].length > 2000) return { ok: false, message: 'Revise os perfis selecionados para a equipe.' };
   try {
-    const ids: unknown = JSON.parse(values[0]);
-    if (!Array.isArray(ids) || ids.length > 30 || ids.some((id) => typeof id !== 'string' || !uuidPattern.test(id)) || new Set(ids).size !== ids.length) {
-      return { ok: false, message: 'Revise os perfis selecionados para a equipe.' };
+    const links: unknown = JSON.parse(values[0]);
+    if (!Array.isArray(links) || links.length > 30) return { ok: false, message: 'Revise os usuários selecionados para a equipe.' };
+    const normalized: WorkTeamLink[] = [];
+    for (const link of links) {
+      if (!link || typeof link !== 'object' || Array.isArray(link) || Object.keys(link).length !== 2
+        || typeof link.id !== 'string' || !uuidPattern.test(link.id)
+        || typeof link.cargo !== 'string' || link.cargo.trim().length > 100 || link.cargo.includes('\u0000')) {
+        return { ok: false, message: 'Revise os usuários e cargos selecionados para a equipe.' };
+      }
+      normalized.push({ id: link.id.toLowerCase(), cargo: link.cargo.trim() });
     }
-    return { ok: true, ids: ids.map((id: string) => id.toLowerCase()) };
-  } catch { return { ok: false, message: 'Revise os perfis selecionados para a equipe.' }; }
+    if (new Set(normalized.map((link) => link.id)).size !== normalized.length) return { ok: false, message: 'Um usuário não pode ser adicionado duas vezes à equipe.' };
+    return { ok: true, links: normalized };
+  } catch { return { ok: false, message: 'Revise os usuários selecionados para a equipe.' }; }
 }

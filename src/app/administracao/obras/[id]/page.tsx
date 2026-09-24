@@ -9,9 +9,9 @@ import styles from "@/app/components/works/work-edit.module.css";
 export const dynamic = "force-dynamic";
 const date = (value: string) => new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" }).format(new Date(value));
 const fieldLabels: Record<string, string> = {
-  nome: "Nome do projeto (obra)", empreendimento: "Nome do empreendimento", logradouro: "Logradouro", numero: "Número", complemento: "Complemento",
+  nome: "Nome do projeto", empreendimento: "Nome do empreendimento", etapa_obra: "Etapa da obra", logradouro: "Logradouro", numero: "Número", complemento: "Complemento",
   bairro: "Bairro", cidade: "Cidade", uf: "UF", cep: "CEP", responsavel_tecnico: "Responsável técnico",
-  registro_tecnico: "Registro profissional", coordenacao: "Coordenação", equipe_obra: "Equipe da obra", observacoes: "Observações",
+  registro_tecnico: "Registro profissional", coordenacao: "Coordenador", equipe_obra: "Equipe da obra", observacoes: "Observações",
 };
 
 export default async function EditWorkPage({ params }: { params: Promise<{ id: string }> }) {
@@ -24,8 +24,12 @@ export default async function EditWorkPage({ params }: { params: Promise<{ id: s
     <a className="skip-link" href="#work-content">Ir para o cadastro da obra</a>
     <AdministrativeHeader name={name} userId={user.id} />
     <main id="work-content" tabIndex={-1} className={styles.main}>
-      <Link className={styles.backLink} href="/app?secao=obras">Voltar às obras</Link>
-      <div className={styles.intro}><p className={styles.eyebrow}>Administração · Obras</p><h2>Editar cadastro da obra</h2><p>{work ? work.nome : "Consulta do cadastro"}</p></div>
+      <div className={styles.pageHeading}>
+        <Link className={styles.backButton} href="/app?secao=obras" aria-label="Voltar às obras" title="Voltar às obras">
+          <svg aria-hidden="true" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 12H4m7-7-7 7 7 7" /></svg>
+        </Link>
+        <h2>Editar Obra</h2>
+      </div>
       {!work ? <div className={styles.error} role="alert"><p>Não foi possível carregar este cadastro. Volte às obras e selecione a obra novamente.</p><Link href="/app?secao=obras">Voltar às obras</Link></div> : <>
         <WorkEditForm work={work} activeProfiles={activeProfiles} linkedProfiles={linkedProfiles} />
         <section className={styles.historySection} aria-labelledby="work-history-title">

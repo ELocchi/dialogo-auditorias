@@ -4,8 +4,6 @@ import { requireAdministrator } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { administrativeLabels, engineeringLabels, profileLabels, type AccessDecision, type AccessWork, type PendingRequest } from "@/lib/access/contracts";
 import { PendingRequests } from "@/app/components/access/PendingRequests";
-import { WorkForm } from "@/app/components/access/WorkForm";
-import { readActiveTeamProfiles } from "@/lib/works/queries";
 import { AccessGrants } from "@/app/components/access/AccessGrants";
 import styles from "@/app/administracao/usuarios/access.module.css";
 
@@ -44,38 +42,32 @@ const loadAdministration = cache(async (pendingPage: number, historyPage: number
   } catch { return null; }
 });
 
-export async function AccessAdministration({ embedded = false, pendingPage = 1, historyPage = 1, view = "users" }: { embedded?: boolean; pendingPage?: number; historyPage?: number; view?: "users" | "works" }) {
+export async function AccessAdministration({ embedded = false, pendingPage = 1, historyPage = 1, pendingOnly = false }: { embedded?: boolean; pendingPage?: number; historyPage?: number; pendingOnly?: boolean }) {
   const user = await requireAdministrator();
   const data = await loadAdministration(pendingPage, historyPage);
-  const activeProfiles = view === "works" ? await readActiveTeamProfiles() : null;
+  const previewRequest: PendingRequest | null = process.env.NODE_ENV !== "production" && pendingPage === 1 ? {
+    auth_user_id: "00000000-0000-4000-8000-000000000903",
+    nome: "Mariana Souza · Exemplo LAN",
+    email: "mariana.souza.exemplo@dialogo.com.br",
+    cargo_area_informado: "Engenheira de Qualidade",
+    obra_referencia_informada: "Alameda Tatuapé",
+    email_confirmado_em: "2026-09-24T15:48:00-03:00",
+    created_at: "2026-09-24T15:35:00-03:00",
+  } : null;
   return <div className={embedded ? styles.embedded : undefined}>
-      {view === "users" && <div className={styles.intro}>
+      {!pendingOnly && <div className={styles.intro}>
         {!embedded && <p className={styles.eyebrow}>Administração</p>}
         <h2>Usuários e acessos</h2>
-        <p>Analise solicitações, combine os perfis de cada pessoa e defina as obras e os módulos autorizados em cada perfil.</p>
       </div>}
       {!data ? <div className={styles.error} role="alert"><p>Não foi possível carregar a administração com segurança. Nenhuma aprovação pode ser enviada nesta tela até a consulta ser restabelecida.</p><Link href={embedded ? "/app?secao=administracao" : "/administracao/usuarios"}>Tentar carregar novamente</Link></div> : <>
-        {view === "users" && <>
+        {pendingOnly ? <section id="pending-heading" className={styles.section} aria-label="Solicitações prontas para análise">
+          <PendingRequests requests={previewRequest ? [...data.requests, previewRequest] : data.requests} works={data.works} actorId={user.id} previewIds={previewRequest ? [previewRequest.auth_user_id] : []} />
+          <Pagination current={pendingPage} total={data.pendingCount + (previewRequest ? 1 : 0)} kind="pendentes" other={historyPage} embedded={false} base="/administracao/usuarios/pendentes?" />
+        </section> : <>
         <div className={styles.stats}>
-          <div className={styles.stat}><strong>{data.pendingCount}</strong><span>Solicitações prontas para análise</span></div>
+          <Link className={`${styles.stat} ${styles.statLink}`} href="/administracao/usuarios/pendentes" target="_blank" rel="noopener noreferrer" aria-label={`${data.pendingCount + (previewRequest ? 1 : 0)} solicitações prontas para análise. Abrir aprovações pendentes em uma nova janela.`}><strong>{data.pendingCount + (previewRequest ? 1 : 0)}</strong><span>Solicitações prontas para análise</span></Link>
           <div className={styles.stat}><strong>{data.activeCount}</strong><span>Contas com aprovação ativa</span></div>
         </div>
-        <section className={styles.section} aria-labelledby="pending-heading">
-          <div className={styles.sectionHeading}><h2 id="pending-heading">Solicitações pendentes</h2><p>Somente e-mails confirmados</p></div>
-          <PendingRequests requests={data.requests} works={data.works} actorId={user.id} />
-          <Pagination current={pendingPage} total={data.pendingCount} kind="pendentes" other={historyPage} embedded={embedded} />
-        </section>
-        </>}
-        {view === "works" &&
-        <section className={styles.section} aria-labelledby="works-heading">
-          <div className={styles.sectionHeading}><h2 id="works-heading">Cadastro de obras</h2><p>{data.works.length} obras ativas disponíveis</p></div>
-          <div className={styles.workPanel}>
-            <WorkForm activeProfiles={activeProfiles} />
-            {data.works.length > 0 && <ul className={styles.workNames} aria-label="Obras cadastradas">{data.works.map((work) => <li key={work.id}>{work.nome}</li>)}</ul>}
-          </div>
-        </section>
-        }
-        {view === "users" &&
         <section className={styles.section} aria-labelledby="history-heading">
           <div className={styles.sectionHeading}><h2 id="history-heading">Aprovações e histórico</h2><p>Horários de Brasília</p></div>
           <p className={styles.help}>Cada registro preserva o cadastro analisado, o responsável, o motivo e os acessos concedidos no momento da decisão.</p>
@@ -83,9 +75,9 @@ export async function AccessAdministration({ embedded = false, pendingPage = 1, 
           <div className={styles.history}>{data.decisions.map((decision) => <DecisionCard key={decision.id} decision={decision} />)}</div>
           <Pagination current={historyPage} total={data.historyCount} kind="historico" other={pendingPage} embedded={embedded} />
         </section>
-        }
+        </>}
       </>}
-      {!embedded && view === "users" && <p className={styles.footer}>Esta área registra autorizações. A prévia das telas operacionais está disponível no painel do perfil escolhido.</p>}
+      {!embedded && !pendingOnly && <p className={styles.footer}>Esta área registra autorizações. A prévia das telas operacionais está disponível no painel do perfil escolhido.</p>}
   </div>;
 }
 
@@ -128,10 +120,10 @@ function DecisionCard({ decision }: { decision: AccessDecision }) {
   </details>;
 }
 
-function Pagination({ current, total, kind, other, embedded }: { current: number; total: number; kind: "pendentes" | "historico"; other: number; embedded: boolean }) {
+function Pagination({ current, total, kind, other, embedded, base: explicitBase }: { current: number; total: number; kind: "pendentes" | "historico"; other: number; embedded: boolean; base?: string }) {
   const pages = Math.max(1, Math.ceil(total / pageSize));
   if (pages <= 1 && current === 1) return null;
-  const base = embedded ? "/app?secao=administracao&" : "/administracao/usuarios?";
+  const base = explicitBase ?? (embedded ? "/app?secao=administracao&" : "/administracao/usuarios?");
   const href = (page: number) => kind === "pendentes" ? `${base}pendentes=${page}&historico=${other}#pending-heading` : `${base}pendentes=${other}&historico=${page}#history-heading`;
   return <nav className={styles.pagination} aria-label={kind === "pendentes" ? "Páginas de solicitações" : "Páginas do histórico"}>
     {current > 1 && <Link href={href(Math.min(current - 1, pages))}>Anterior</Link>}

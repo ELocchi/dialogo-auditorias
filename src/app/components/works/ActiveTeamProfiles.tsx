@@ -1,29 +1,39 @@
 "use client";
 
 import { useState } from "react";
-import type { ActiveTeamProfile } from "@/lib/works/contracts";
-import { moduleLabels, profileLabels, type AccessModule, type AccessProfile } from "@/lib/access/contracts";
+import type { ActiveTeamProfile, WorkTeamLink } from "@/lib/works/contracts";
 import styles from "./work-edit.module.css";
 
-export function ActiveTeamProfiles({ profiles, initialIds = [], available = true }: { profiles: ActiveTeamProfile[] | null; initialIds?: string[]; available?: boolean }) {
-  const [selected, setSelected] = useState<string[]>(initialIds);
-  if (!profiles) return <p className={styles.fieldError} role="status">Não foi possível consultar os perfis ativos. O cadastro pode ser salvo sem alterar vínculos de equipe.</p>;
-  const unavailableIds = selected.filter((id) => !profiles.some((profile) => profile.id === id));
+export function ActiveTeamProfiles({ profiles, initialLinks = [], available = true }: { profiles: ActiveTeamProfile[] | null; initialLinks?: WorkTeamLink[]; available?: boolean }) {
+  const [selected, setSelected] = useState<WorkTeamLink[]>(initialLinks);
+  const [candidate, setCandidate] = useState("");
+  const [cargo, setCargo] = useState("");
+  if (!profiles) return <p className={styles.fieldError} role="status">Não foi possível consultar os usuários ativos. O cadastro pode ser salvo sem alterar vínculos de equipe.</p>;
+  const profilesById = new Map(profiles.map((profile) => [profile.id, profile]));
+  const selectable = profiles.filter((profile) => !selected.some((link) => link.id === profile.id));
+  const unavailableLinks = selected.filter((link) => !profiles.some((profile) => profile.id === link.id));
+  const add = () => {
+    if (!candidate || selected.some((link) => link.id === candidate) || selected.length >= 30) return;
+    setSelected((previous) => [...previous, { id: candidate, cargo: cargo.trim() }]);
+    setCandidate("");
+    setCargo("");
+  };
   return <div className={styles.activeProfiles}>
-    <p className={styles.help}>Selecione contas ativas para vinculá-las à obra. O acesso seguirá os perfis e módulos já autorizados para cada conta.</p>
     {!available && <p className={styles.fieldError} role="status">Os vínculos atuais não puderam ser consultados. Salve os demais dados sem alterar a equipe e tente novamente depois.</p>}
     {available && <input type="hidden" name="team_accounts" value={JSON.stringify(selected)} />}
-    {profiles.length === 0 && <p className={styles.empty}>Nenhum perfil ativo disponível.</p>}
-    <div className={styles.profileList}>
-      {profiles.map((profile) => <label className={styles.profileOption} key={profile.id}>
-        <input type="checkbox" checked={selected.includes(profile.id)} disabled={!available || (!selected.includes(profile.id) && selected.length >= 30)} onChange={(event) => setSelected((previous) => event.target.checked ? [...previous, profile.id] : previous.filter((id) => id !== profile.id))} />
-        <span><strong>{profile.nome}</strong><small>{profile.email}</small><small>{profile.perfis.map((value) => profileLabels[value as AccessProfile] ?? value).join(" · ")} {profile.modulos.length ? `— ${profile.modulos.map((value) => { const [profileName, moduleName] = value.split(": "); return `${profileLabels[profileName as AccessProfile] ?? profileName}: ${moduleLabels[moduleName as AccessModule] ?? moduleName}`; }).join(", ")}` : "— acesso administrativo"}</small></span>
-      </label>)}
-      {unavailableIds.map((id) => <label className={styles.profileOption} key={id}>
-        <input type="checkbox" checked disabled={!available} onChange={() => setSelected((previous) => previous.filter((value) => value !== id))} />
-        <span><strong>Perfil fora da lista ativa</strong><small>Vínculo existente · {id}</small><small>Desmarque para remover os acessos criados por este vínculo.</small></span>
-      </label>)}
-    </div>
-    <p className={styles.help}>{selected.length} de 30 perfis vinculados</p>
+    {profiles.length === 0 && <p className={styles.empty}>Nenhum usuário ativo disponível.</p>}
+    {profiles.length > 0 && <div className={styles.profileSelectorRow}>
+      <label className={styles.profileSelectorField} htmlFor="work-team-user"><span>Usuário disponível</span><select className="filter-select" id="work-team-user" value={candidate} disabled={!available || selectable.length === 0 || selected.length >= 30} onChange={(event) => setCandidate(event.target.value)}><option value="">Selecione um usuário</option>{selectable.map((profile) => <option value={profile.id} key={profile.id}>{profile.nome}</option>)}</select></label>
+      <label className={styles.profileSelectorField} htmlFor="work-team-role"><span>Cargo</span><input id="work-team-role" value={cargo} maxLength={100} placeholder="Informe o cargo" disabled={!available || selected.length >= 30} onChange={(event) => setCargo(event.target.value)} /></label>
+      <button className="secondary" type="button" disabled={!available || !candidate || selected.length >= 30} onClick={add}>Adicionar usuário</button>
+    </div>}
+    {selected.length === 0 ? <p className={styles.empty}>Nenhum usuário vinculado à equipe da obra.</p> : <div className={styles.selectedProfiles}>
+      {selected.map((link) => {
+        const profile = profilesById.get(link.id);
+        if (!profile) return null;
+        return <article className={styles.selectedProfile} key={link.id}><span><strong>{profile.nome}</strong><small>{link.cargo || "Cargo não informado"}</small></span><button type="button" className={styles.removeProfile} disabled={!available} onClick={() => setSelected((previous) => previous.filter((value) => value.id !== link.id))}>Remover</button></article>;
+      })}
+      {unavailableLinks.map((link) => <article className={styles.selectedProfile} key={link.id}><span><strong>Usuário fora da lista ativa</strong><small>{link.cargo || "Cargo não informado"}</small></span><button type="button" className={styles.removeProfile} disabled={!available} onClick={() => setSelected((previous) => previous.filter((value) => value.id !== link.id))}>Remover</button></article>)}
+    </div>}
   </div>;
 }

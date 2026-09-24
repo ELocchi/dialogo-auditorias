@@ -40,13 +40,17 @@ export function beginScheduledVisitAudit(state: PrototypeAuditState, user: DemoU
   input: { id: string; work: WorkRecord; visit: Visit; catalogRevision?: LocalAuditInput["catalogRevision"] }, today: string) {
   if (!canBeginScheduledAudit(user, input.visit, today) || !input.visit.modelId)
     throw new Error("Esta auditoria só pode ser iniciada pelo responsável na data confirmada.");
-  return beginWorkspacePreviewAudit(state, user, {
+  const assignedUser: DemoUser = { ...user, auditAssignments: [
+    ...(user.auditAssignments ?? []),
+    { visitId: input.visit.id, workId: input.visit.workId, modelId: input.visit.modelId },
+  ] };
+  return beginWorkspacePreviewAudit(state, assignedUser, {
     ...input, modelId: input.visit.modelId, date: input.visit.date,
   });
 }
 
 function beginLocalAudit(state: PrototypeAuditState, user: DemoUser, input: LocalAuditInput, registeredWorkPreview: boolean): { state: PrototypeAuditState; auditId: string } {
-  if ((!input.work.isDemo && !registeredWorkPreview) || !canStartAudit(user, input.work.id, input.modelId)) throw new Error("Este perfil não pode iniciar essa auditoria.");
+  if ((!input.work.isDemo && !registeredWorkPreview) || !canStartAudit(user, input.work.id, input.modelId, input.visit?.id)) throw new Error("Este perfil não pode iniciar essa auditoria.");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date) || !Number.isFinite(Date.parse(`${input.date}T12:00:00Z`)) || new Date(`${input.date}T12:00:00Z`).toISOString().slice(0, 10) !== input.date) throw new Error("Informe uma data válida para a inspeção.");
   if (input.visit) {
     if (input.visit.kind !== "audit" || input.visit.auditorId !== user.id

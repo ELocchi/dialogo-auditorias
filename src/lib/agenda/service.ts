@@ -44,6 +44,7 @@ function parseVisit(raw: unknown, context: ProfileWorkspaceContext): Visit | nul
     || !text(raw.note, 2000)
     || typeof raw.date !== "string" || !isCalendarDate(raw.date) || !timestamp(raw.createdAt) || !revision(raw.revision)
     || !text(raw.auditorName, 200) || !text(raw.createdByName, 200) || !Array.isArray(raw.history)
+    || (raw.workName !== undefined && (!text(raw.workName, 200) || !raw.workName.trim()))
     || !["pending_confirmation", "confirmed"].includes(String(raw.confirmationStatus))
     || (raw.confirmationStatus === "confirmed" ? !timestamp(raw.confirmedAt) : raw.confirmedAt !== null)) return null;
   const history: Visit["history"][number][] = [];
@@ -58,8 +59,10 @@ function parseVisit(raw: unknown, context: ProfileWorkspaceContext): Visit | nul
     date: raw.date, note: raw.note, createdBy: raw.createdBy, createdAt: raw.createdAt, history, revision: raw.revision,
     confirmationStatus: raw.confirmationStatus as Visit["confirmationStatus"], confirmedAt: raw.confirmedAt as string | null,
     auditorName: raw.auditorName, createdByName: raw.createdByName,
+    ...(typeof raw.workName === "string" ? { workName: raw.workName.trim() } : {}),
   };
-  return context.works.some((work) => work.id === visit.workId) && canReadVisit(context.user, visit) ? visit : null;
+  const followedWork = context.works.some((work) => work.id === visit.workId);
+  return (followedWork || (visit.kind === "audit" && !!visit.workName)) && canReadVisit(context.user, visit) ? visit : null;
 }
 
 function parseAuditor(raw: unknown, context: ProfileWorkspaceContext): DemoUser | null {
@@ -72,7 +75,7 @@ function parseAuditor(raw: unknown, context: ProfileWorkspaceContext): DemoUser 
       || !context.works.some((work) => work.id === scope.workId) || !canAccessWorkModule(context.user, scope.workId, discipline)) return null;
     scopes.push({ workId: scope.workId, module: discipline });
   }
-  if (!scopes.length || new Set(scopes.map((scope) => scope.workId)).size !== scopes.length) return null;
+  if (new Set(scopes.map((scope) => scope.workId)).size !== scopes.length) return null;
   const workIds = scopes.map((scope) => scope.workId);
   return { id: raw.id, name: raw.name, role: raw.role, modules: [discipline], workIds, agendaWorkIds: workIds, documentWorkIds: [], workModuleScopes: scopes };
 }
@@ -80,7 +83,7 @@ function parseAuditor(raw: unknown, context: ProfileWorkspaceContext): DemoUser 
 function notificationsFor(visits: Visit[], context: ProfileWorkspaceContext): AgendaNotification[] {
   const items: AgendaNotification[] = [];
   for (const visit of visits) {
-    const workName = context.works.find((work) => work.id === visit.workId)!.name;
+    const workName = context.works.find((work) => work.id === visit.workId)?.name ?? visit.workName!;
     const createdAt = visit.history.at(-1)?.changedAt ?? visit.createdAt;
     const detail = `${visit.kind === "follow_up" ? "Acompanhamento" : "Auditoria"} de ${moduleLabels[visit.module]} · ${formatAuditDate(visit.date)}`;
     const base = { workName, detail, href: `/app?secao=agenda&visita=${encodeURIComponent(visit.id)}` };
@@ -89,7 +92,7 @@ function notificationsFor(visits: Visit[], context: ProfileWorkspaceContext): Ag
       if (visit.confirmationStatus === "confirmed" && visit.confirmedAt) items.push({ ...base,
         detail: `${detail} · ${visit.auditorName}`, id: `${visit.id}:${visit.revision}:confirmed`, type: "visit_confirmed", createdAt: visit.confirmedAt });
     } else if ((context.user.role === "safety-auditor" || context.user.role === "quality-auditor")
-      && visit.auditorId === context.user.id && canAccessWorkModule(context.user, visit.workId, visit.module)
+      && visit.auditorId === context.user.id && canReadVisit(context.user, visit)
       && visit.confirmationStatus === "pending_confirmation") {
       items.push({ ...base, id: `${visit.id}:${visit.revision}:pending`, type: "visit_confirmation_requested", createdAt });
     }
@@ -186,7 +189,7 @@ export async function confirmAgendaVisit(input: unknown, context: ProfileWorkspa
   const visit = current.visits.find((entry) => entry.id === value.visitId);
   if (!current.available || !visit || visit.auditorId !== context.user.id
     || (context.user.role !== "safety-auditor" && context.user.role !== "quality-auditor")
-    || !canAccessWorkModule(context.user, visit.workId, visit.module)) return failure("Esta confirmação não está disponível para o perfil selecionado. Atualize a agenda.");
+    || !canReadVisit(context.user, visit)) return failure("Esta confirmação não está disponível para o perfil selecionado. Atualize a agenda.");
   // The RPC checks the expected revision under a row lock, including on replay.
   return mutate(client, context, "confirm_audit_visit", {
     p_request_id: value.requestId, p_visit_id: value.visitId, p_expected_revision: value.expectedRevision,

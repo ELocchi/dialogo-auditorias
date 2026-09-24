@@ -80,7 +80,13 @@ test('Administrativo Geral pode visualizar cada disciplina sem ampliar o perfil 
 });
 test('perfil técnico sem concessões não recebe obras ou usuários fictícios',()=>{
  const empty=context('AUDITOR_SEGURANCA',{grants:[]});
- assert.deepEqual(empty.works,[]); assert.deepEqual(empty.user.workIds,[]); assert.deepEqual(empty.user.modules,[]);
+ assert.deepEqual(empty.works,[]); assert.deepEqual(empty.user.workIds,[]); assert.deepEqual(empty.user.modules,['safety']);
+ assert.deepEqual(empty.user.workModuleScopes,[]); assert.deepEqual(empty.user.agendaWorkIds,[]);
+ assert.equal(canStartAudit(empty.user,a,'security-it07-r02'),false);
+ const quality=context('AUDITOR_QUALIDADE',{grants:[]});
+ assert.deepEqual(quality.user.modules,['quality']); assert.deepEqual(quality.works,[]);
+ const engineering=context('ENGENHARIA',{grants:[]});
+ assert.deepEqual(engineering.user.modules,[]);
  assert.equal(empty.user.id,id);
 });
 test('conta desativada, identidade divergente e perfil não aprovado fecham o contexto',()=>{

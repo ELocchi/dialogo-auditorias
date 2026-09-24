@@ -97,6 +97,49 @@ test('auditor bell includes only their pending visits, with a link to the exact 
   assert.equal((await readAgendaSnapshot(f.client, context('engineering'))).notifications.length, 0);
 });
 
+test('auditoria designada fornece nome mínimo e confirmação sem incluir obra nos acessos', async () => {
+  const ctx = context('safety-auditor');
+  ctx.works = []; ctx.user.workIds = []; ctx.user.agendaWorkIds = []; ctx.user.workModuleScopes = [];
+  const assigned = { ...visit, workName: 'Obra de outro técnico', workAddress: 'Dado não permitido' };
+  const f = fixture({ visits: [assigned] });
+  const snapshot = await readAgendaSnapshot(f.client, ctx);
+  assert.equal(snapshot.available, true);
+  assert.equal(snapshot.visits[0].workName, assigned.workName);
+  assert.equal(snapshot.visits[0].workAddress, undefined);
+  assert.equal(snapshot.notifications[0].workName, assigned.workName);
+  assert.equal(snapshot.notifications[0].type, 'visit_confirmation_requested');
+  const result = await confirmAgendaVisit(confirmation, ctx, f.client);
+  assert.equal(result.status, 'success');
+  assert.equal(result.snapshot.visits[0].confirmationStatus, 'confirmed');
+  assert.deepEqual(ctx.works, []); assert.deepEqual(ctx.user.workIds, []); assert.deepEqual(ctx.user.workModuleScopes, []);
+  for (const changed of [
+    { ...assigned, kind: 'follow_up', modelId: null },
+    { ...assigned, auditorId: otherId },
+    { ...assigned, module: 'quality', modelId: 'quality-f175' },
+    { ...assigned, workName: '' }, { ...assigned, workName: '   ' }, { ...assigned, workName: undefined },
+  ]) {
+    const invalid = fixture({ visits: [changed] });
+    assert.equal((await readAgendaSnapshot(invalid.client, ctx)).available, false);
+    assert.equal((await confirmAgendaVisit(confirmation, ctx, invalid.client)).status, 'error');
+    assert.ok(invalid.calls.every((call) => call.name === 'read_audit_agenda'));
+  }
+  assert.equal((await readAgendaSnapshot(fixture({ visits: [assigned] }).client, { ...ctx, user: { ...ctx.user, modules: [] } })).available, false);
+});
+
+test('lista administrativa inclui auditores sem obras de acompanhamento', async () => {
+  const auditors = [
+    { id: auditorId, name: 'Auditor disponível', role: 'safety-auditor', workModuleScopes: [] },
+    { id: otherId, name: 'Auditor de qualidade', role: 'quality-auditor', workModuleScopes: [] },
+  ];
+  const result = await readAgendaSnapshot(fixture({ auditors }).client, context());
+  assert.equal(result.available, true);
+  assert.equal(result.auditors.length, 2);
+  assert.deepEqual(result.auditors[0].modules, ['safety']);
+  assert.deepEqual(result.auditors[1].modules, ['quality']);
+  assert.deepEqual(result.auditors[0].workIds, []);
+  assert.deepEqual(result.auditors[1].workModuleScopes, []);
+});
+
 test('snapshots fail closed for inconsistent, duplicate and unauthorized records', async () => {
   for (const bad of [{ ...visit, auditorId: otherId }, { ...visit, workId: otherId }, { ...visit, module: 'quality' },
     { ...visit, date: '2030-02-30' }, { ...visit, confirmedAt: '2030-02-02T12:00:00Z' },

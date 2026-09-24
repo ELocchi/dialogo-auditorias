@@ -4,7 +4,7 @@ import {
   demoUsers, initialVisits, roleLabels, moduleLabels, modelModule,
   canAccessWork, canAccessModule, canManageAgenda, canConsultAgenda, canStartAudit,
   canEditAudit, canReadAudit, canReadTechnicalWeights, canReadOperationalDocuments,
-  canEditCommitteeSchedule, canReadVisit, createVisit,
+  canEditCommitteeSchedule, canReadVisit, canBeginScheduledAudit, createVisit,
 } from "../src/domain/prototype-access.ts";
 
 // Cenários exclusivamente demonstrativos; não validam autenticação, banco ou permissões reais.
@@ -153,7 +153,7 @@ test("criação valida obra, módulo, modelo e auditor autorizado", () => {
   assert.throws(() => create({}, { ...admin, modules: ["quality"] }), /não autorizado/);
   assert.throws(() => create({ modelId: "quality-f175" }), /pertencer à disciplina/);
   for (const auditorId of [quality.id, admin.id, site.id, "nao-existe"]) assert.throws(() => create({ auditorId }), /profissional autorizado/);
-  assert.throws(() => create({ workId: "jardim-norte", auditorId: otherSafety.id }), /profissional autorizado/);
+  assert.equal(create({ workId: "jardim-norte", auditorId: otherSafety.id }).auditorId, otherSafety.id);
   assert.throws(() => create({ modelId: "modelo-nao-existe" }), /Modelo.*desconhecido/);
   assert.equal(create({ module: "quality", modelId: "quality-f176", auditorId: quality.id }).modelId, "quality-f176");
 });
@@ -176,4 +176,43 @@ test("criação preserva inputs, usuários e registros de demonstração", () =>
   assert.deepEqual(demoUsers, usersBefore);
   assert.deepEqual(initialVisits, initialBefore);
   assert.deepEqual(input, inputBefore);
+});
+
+test("designação libera somente a auditoria exata na obra de outro técnico", () => {
+  const visitor = { ...otherSafety, auditAssignments: [{ visitId: "DESIGNADA", workId: "jardim-norte", modelId: "security-it07-r02" }] };
+  const visit = { ...initialVisits[0], id: "DESIGNADA", workId: "jardim-norte", auditorId: visitor.id, confirmationStatus: "confirmed" };
+  const assignedAudit = audit({ workId: visit.workId, auditorId: visitor.id, visitId: visit.id });
+  assert.equal(canReadVisit(visitor, visit), true);
+  assert.equal(canBeginScheduledAudit(visitor, visit, visit.date), true);
+  assert.equal(canStartAudit(visitor, visit.workId, visit.modelId, visit.id), true);
+  assert.equal(canEditAudit(visitor, assignedAudit), true);
+  assert.equal(canReadAudit(visitor, assignedAudit), true);
+  assert.equal(canAccessWork(visitor, visit.workId), false);
+  assert.equal(canConsultAgenda(visitor, visit.workId, "safety"), false);
+  assert.equal(canReadOperationalDocuments(visitor, visit.workId, "safety"), false);
+  assert.equal(canStartAudit(visitor, visit.workId, visit.modelId), false);
+  for (const patch of [{ visitId: undefined }, { visitId: "OUTRA-VISITA" }, { modelId: "quality-f175" }, { workId: "terceira-obra" }, { auditorId: safety.id }, { status: "Publicada" }]) {
+    assert.equal(canReadAudit(visitor, { ...assignedAudit, ...patch }), false);
+    assert.equal(canEditAudit(visitor, { ...assignedAudit, ...patch }), false);
+  }
+  assert.equal(canReadVisit(visitor, { ...visit, kind: "follow_up", modelId: null }), false);
+  assert.equal(canReadVisit(visitor, { ...visit, auditorId: safety.id }), false);
+  assert.equal(canReadVisit(visitor, { ...visit, module: "quality", modelId: "quality-f175" }), false);
+  assert.equal(canBeginScheduledAudit(visitor, { ...visit, confirmationStatus: "pending_confirmation" }, visit.date), false);
+  assert.equal(canBeginScheduledAudit(visitor, visit, "2026-09-14"), false);
+  const revoked = { ...visitor, auditAssignments: [] };
+  assert.equal(canEditAudit(revoked, assignedAudit), false);
+  assert.equal(canReadAudit(revoked, assignedAudit), false);
+  const followed = { ...revoked, workIds: [...revoked.workIds, visit.workId] };
+  assert.equal(canReadAudit(followed, assignedAudit), false);
+  assert.equal(canEditAudit(followed, assignedAudit), false);
+});
+
+test("auditor sem obras acompanhadas pode ser designado; acompanhamento exige vínculo", () => {
+  const visitor = { ...safety, workIds: [], agendaWorkIds: [], workModuleScopes: [] };
+  const assigned = createVisit(admin, input, [visitor], workIds, meta);
+  assert.equal(canReadVisit(visitor, assigned), true);
+  assert.equal(canAccessWork(visitor, assigned.workId), false);
+  assert.throws(() => createVisit(admin, { ...input, kind: "follow_up", modelId: null }, [visitor], workIds, meta), /profissional autorizado/);
+  assert.throws(() => createVisit(admin, input, [{ ...visitor, modules: [] }], workIds, meta), /profissional autorizado/);
 });

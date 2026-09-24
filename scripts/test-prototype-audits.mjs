@@ -234,6 +234,23 @@ test("início agendado exige auditor responsável, confirmação e o dia da visi
   }
 });
 
+test("auditor designado preenche apenas o rascunho da visita sem ganhar acesso geral à obra", () => {
+  const visit = { ...initialVisits[0], workId: jardim.id, confirmationStatus: "confirmed", revision: 1 };
+  const assignment = { visitId: visit.id, workId: visit.workId, modelId: visit.modelId };
+  const user = { ...safety, workIds: [], agendaWorkIds: [], workModuleScopes: [], auditAssignments: [assignment] };
+  const started = beginScheduledVisitAudit(emptyState(), user, { id: "DESIGNADA-SEM-VINCULO", work: { ...jardim, isDemo: false }, visit }, visit.date);
+  assert.equal(started.state.audits[0].visitId, visit.id);
+  const filled = updatePrototypeResponse(started.state, user, started.auditId, first, { answer: "10", note: "Visita designada" });
+  assert.equal(responseOf(filled, started.auditId).note, "Visita designada");
+  assert.deepEqual(user.workIds, []);
+  assert.deepEqual(user.workModuleScopes, []);
+  for (const auditAssignments of [[], [{ ...assignment, visitId: "OUTRA" }], [{ ...assignment, workId: horizonte.id }], [{ ...assignment, modelId: F175 }]]) {
+    assert.throws(() => updatePrototypeResponse(filled, { ...user, auditAssignments }, started.auditId, first, { answer: "0", note: "" }), /Sem permissão/);
+  }
+  assert.throws(() => begin(emptyState(), user, { work: jardim }), /não pode iniciar/);
+  assert.throws(() => beginScheduledVisitAudit(emptyState(), user, { id: "INCORRETA", work: horizonte, visit }, visit.date), /não pode iniciar/);
+});
+
 test("visita não transfere autoria nem aceita obra/modelo de outro contexto", () => {
   assert.throws(() => begin(emptyState(), otherSafety, { visit: initialVisits[0] }), /outro responsável ou contexto/);
   assert.throws(() => begin(emptyState(), safety, { work: jardim, visit: initialVisits[0] }), /outro responsável ou contexto/);

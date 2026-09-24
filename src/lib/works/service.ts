@@ -1,23 +1,23 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { uuidPattern } from '../access/validation.ts';
-import { parseTeamAccountIds, validateWorkCreate, validateWorkEdit } from './validation.ts';
+import { parseTeamAccountLinks, validateWorkCreate, validateWorkEdit } from './validation.ts';
 import type { WorkEditState } from './contracts.ts';
 type Dependencies = { createClient: () => Promise<Pick<SupabaseClient,'rpc'>> };
 const failure = (message: string, extras: Partial<WorkEditState> = {}): WorkEditState => ({ status:'error', message, ...extras });
 export async function createWorkWithDetails(form: FormData, deps: Dependencies): Promise<WorkEditState> {
   const parsed = validateWorkCreate(form);
   if (!parsed.ok) return failure(parsed.message, { fieldErrors: parsed.fieldErrors });
-  const team = parseTeamAccountIds(form);
+  const team = parseTeamAccountLinks(form);
   if (!team.ok) return failure(team.message);
   try {
     const client = await deps.createClient();
     const fields = parsed.data;
-    let result = team.ids === null
+    let result = team.links === null
       ? await client.rpc('create_access_work_full', { p_data: fields })
-      : await client.rpc('create_access_work_with_team', { p_data: fields, p_user_ids: team.ids });
-    if (result.error && ['42883', 'PGRST202'].includes(result.error.code ?? '') && team.ids !== null) {
-      if (team.ids.length > 0) return failure('O vínculo de perfis ainda depende da atualização do banco. Nenhuma obra foi criada; seus campos foram mantidos.');
-      result = await client.rpc('create_access_work_full', { p_data: fields });
+      : await client.rpc('create_access_work_with_team_v2', { p_data: fields, p_members: team.links });
+    if (result.error && ['42883', 'PGRST202'].includes(result.error.code ?? '') && team.links !== null) {
+      if (team.links.some((link) => link.cargo)) return failure('O cadastro dos cargos ainda depende da atualização do banco. Nenhuma obra foi criada; seus campos foram mantidos.');
+      result = await client.rpc('create_access_work_with_team', { p_data: fields, p_user_ids: team.links.map((link) => link.id) });
     }
     // Older databases can still create a name-only record, without discarding
     // any optional information supplied by the user.
@@ -41,22 +41,21 @@ export async function createWorkWithDetails(form: FormData, deps: Dependencies):
 export async function updateWork(form: FormData, deps: Dependencies): Promise<WorkEditState> {
   const parsed = validateWorkEdit(form);
   if (!parsed.ok) return failure(parsed.message,{fieldErrors:parsed.fieldErrors});
-  const team = parseTeamAccountIds(form);
+  const team = parseTeamAccountLinks(form);
   if (!team.ok) return failure(team.message);
   try {
     const { workId, expectedRevision, fields } = parsed.data;
     const client = await deps.createClient();
-    let usedTeamRpc = team.ids !== null;
-    let result = team.ids === null
+    const usedTeamRpc = team.links !== null;
+    let result = team.links === null
       ? await client.rpc('update_access_work',{p_work_id:workId,p_expected_revision:expectedRevision,p_data:fields})
-      : await client.rpc('update_access_work_with_team',{p_work_id:workId,p_expected_revision:expectedRevision,p_data:fields,p_user_ids:team.ids});
-    if (result.error && ['42883', 'PGRST202'].includes(result.error.code ?? '') && team.ids?.length === 0) {
-      usedTeamRpc = false;
-      result = await client.rpc('update_access_work',{p_work_id:workId,p_expected_revision:expectedRevision,p_data:fields});
+      : await client.rpc('update_access_work_with_team_v2',{p_work_id:workId,p_expected_revision:expectedRevision,p_data:fields,p_members:team.links});
+    if (result.error && ['42883', 'PGRST202'].includes(result.error.code ?? '') && team.links !== null && !team.links.some((link) => link.cargo)) {
+      result = await client.rpc('update_access_work_with_team',{p_work_id:workId,p_expected_revision:expectedRevision,p_data:fields,p_user_ids:team.links.map((link) => link.id)});
     }
     const { data, error } = result;
     if (error) {
-      if (['42883', 'PGRST202'].includes(error.code ?? '') && team.ids) return failure('O vínculo de perfis ainda depende da atualização do banco. Nenhuma alteração foi salva.');
+      if (['42883', 'PGRST202'].includes(error.code ?? '') && team.links) return failure('O vínculo de usuários e cargos ainda depende da atualização do banco. Nenhuma alteração foi salva.');
       if (error.code === '40001') return failure('Esta obra foi alterada após você abrir a página. Seus campos foram mantidos; confira a versão atual antes de salvar novamente.',{conflict:true});
       if (error.code === '23505') return failure('Já existe uma obra com esse nome. Escolha um nome diferente.',{fieldErrors:{nome:'Este nome já está cadastrado.'}});
       if (error.code === '42501') return failure('Seu acesso administrativo não está disponível. Selecione o perfil Administrativo e confira sua liberação.');

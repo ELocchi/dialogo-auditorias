@@ -16,7 +16,7 @@ import { DialogoLogo } from "./dialogo-logo";
 import styles from "./prototype-workspace.module.css";
 import engineeringStyles from "./engineering-overview.module.css";
 
-export function PrototypeDashboard({ user, module, works, audits, visits, auditors = [], activeAccountCount, generalAdministrator = false, open }: { user: DemoUser; module: AppModule; works: readonly WorkRecord[]; audits: readonly AuditRecord[]; visits: readonly Visit[]; auditors?: readonly DemoUser[]; activeAccountCount: number | null; generalAdministrator?: boolean; open: (screen: string) => void }) {
+export function PrototypeDashboard({ user, module, works, agendaWorks = works, audits, visits, auditors = [], activeAccountCount, generalAdministrator = false, open }: { user: DemoUser; module: AppModule; works: readonly WorkRecord[]; agendaWorks?: readonly WorkRecord[]; audits: readonly AuditRecord[]; visits: readonly Visit[]; auditors?: readonly DemoUser[]; activeAccountCount: number | null; generalAdministrator?: boolean; open: (screen: string) => void }) {
   const admin = user.role === "administrative";
   const safetyAuditor = user.role === "safety-auditor";
   const auditor = safetyAuditor || user.role === "quality-auditor";
@@ -51,7 +51,7 @@ export function PrototypeDashboard({ user, module, works, audits, visits, audito
     <AdminFindings />
     <div className="overview-grid">
       <AdminMonthlyRanking modules={[module]} publishedMonthlyScores={publishedMonthlyScores} />
-      <AdminVisitCalendar visits={visits} works={works} auditors={[user]} viewerId={user.id} onViewAgenda={() => open("agenda")} includeFollowUps showLegend={false} colorBy="work" />
+      <AdminVisitCalendar visits={visits} works={agendaWorks} auditors={[user]} viewerId={user.id} onViewAgenda={() => open("agenda")} includeFollowUps showLegend={false} colorBy="work" />
     </div>
   </>;
   return <>
@@ -309,11 +309,11 @@ export function DeferredScreen({ kind }: { kind: keyof typeof deferred }) {
   return <><div className="page-intro"><div><h2>{entry.title}</h2><p className="muted">Em preparação</p></div></div><section className="panel"><p className="muted" id={`pending-${kind}`}>{entry.text}</p><button className="secondary" type="button" disabled aria-describedby={`pending-${kind}`}>{entry.action}</button></section></>;
 }
 
-export function AdministrativePanel({ accessContent, worksContent }: { accessContent?: ReactNode; worksContent?: ReactNode }) {
+export function AdministrativePanel({ accessContent }: { accessContent?: ReactNode }) {
   const [tab, setTab] = useState("users");
-  const entries = [["users", "Usuários e acessos"], ["works", "Cadastro de obras"], ["history", "Histórico de manutenção"]];
+  const entries = [["users", "Usuários e acessos"], ["history", "Histórico de manutenção"]];
   return <><div className="page-intro"><div><h2>Administração</h2></div></div><nav className="subnav" aria-label="Manutenção administrativa">{entries.map(([id, label]) => <button className={`subnav-item${id === tab ? " active" : ""}`} key={id} type="button" onClick={() => setTab(id)}>{label}</button>)}</nav>
-    {tab === "users" ? accessContent : tab === "works" ? worksContent : <MaintenanceHistory />}
+    {tab === "users" ? accessContent : <MaintenanceHistory />}
   </>;
 }
 
