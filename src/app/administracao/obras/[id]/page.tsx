@@ -9,7 +9,7 @@ import styles from "@/app/components/works/work-edit.module.css";
 export const dynamic = "force-dynamic";
 const date = (value: string) => new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" }).format(new Date(value));
 const fieldLabels: Record<string, string> = {
-  nome: "Nome da obra", logradouro: "Logradouro", numero: "Número", complemento: "Complemento",
+  nome: "Nome do projeto (obra)", empreendimento: "Nome do empreendimento", logradouro: "Logradouro", numero: "Número", complemento: "Complemento",
   bairro: "Bairro", cidade: "Cidade", uf: "UF", cep: "CEP", responsavel_tecnico: "Responsável técnico",
   registro_tecnico: "Registro profissional", coordenacao: "Coordenação", equipe_obra: "Equipe da obra", observacoes: "Observações",
 };

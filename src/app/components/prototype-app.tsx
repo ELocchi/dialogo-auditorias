@@ -27,8 +27,9 @@ import { unavailablePublishedAudits, type PublishedAuditSnapshot } from "@/lib/a
 
 type PrototypeAppProps = {
   context: ProfileWorkspaceContext;
-  initialScreen?: "overview" | "works" | "agenda" | "audits" | "follow_up" | "report" | "settings";
+  initialScreen?: "overview" | "works" | "agenda" | "audits" | "follow_up" | "report" | "settings" | "action_plan";
   initialVisitId?: string;
+  initialActionPlanAuditId?: string;
   initialAgenda?: AgendaSnapshot;
   initialCatalogs?: CatalogSnapshot;
   initialAudits?: PublishedAuditSnapshot;
@@ -43,11 +44,11 @@ type LocalAuditFixture = {
   criteria?: Array<{ code: string; title: string; text: string; group: string }>;
 };
 
-export function PrototypeApp({ context, initialScreen = "overview", initialVisitId, initialAgenda = unavailableAgenda(), initialCatalogs = unavailableCatalogs(), initialAudits = unavailablePublishedAudits(), administrationContent, administrationWorksContent, activeAccountCount = null }: PrototypeAppProps) {
-  return <ProfileWorkspace key={JSON.stringify([context.user, context.profile, context.works, initialScreen, initialVisitId])} context={context} initialScreen={initialScreen} initialVisitId={initialVisitId} initialAgenda={initialAgenda} initialCatalogs={initialCatalogs} initialAudits={initialAudits} administrationContent={administrationContent} administrationWorksContent={administrationWorksContent} activeAccountCount={activeAccountCount} />;
+export function PrototypeApp({ context, initialScreen = "overview", initialVisitId, initialActionPlanAuditId, initialAgenda = unavailableAgenda(), initialCatalogs = unavailableCatalogs(), initialAudits = unavailablePublishedAudits(), administrationContent, administrationWorksContent, activeAccountCount = null }: PrototypeAppProps) {
+  return <ProfileWorkspace key={JSON.stringify([context.user, context.profile, context.works, initialScreen, initialVisitId, initialActionPlanAuditId])} context={context} initialScreen={initialScreen} initialVisitId={initialVisitId} initialActionPlanAuditId={initialActionPlanAuditId} initialAgenda={initialAgenda} initialCatalogs={initialCatalogs} initialAudits={initialAudits} administrationContent={administrationContent} administrationWorksContent={administrationWorksContent} activeAccountCount={activeAccountCount} />;
 }
 
-function ProfileWorkspace({ context: providedContext, initialScreen, initialVisitId, initialAgenda, initialCatalogs, initialAudits, administrationContent, administrationWorksContent, activeAccountCount }: Required<Pick<PrototypeAppProps, "context" | "initialScreen" | "initialAgenda" | "initialCatalogs" | "initialAudits" | "activeAccountCount">> & Pick<PrototypeAppProps, "initialVisitId" | "administrationContent" | "administrationWorksContent">) {
+function ProfileWorkspace({ context: providedContext, initialScreen, initialVisitId, initialActionPlanAuditId, initialAgenda, initialCatalogs, initialAudits, administrationContent, administrationWorksContent, activeAccountCount }: Required<Pick<PrototypeAppProps, "context" | "initialScreen" | "initialAgenda" | "initialCatalogs" | "initialAudits" | "activeAccountCount">> & Pick<PrototypeAppProps, "initialVisitId" | "initialActionPlanAuditId" | "administrationContent" | "administrationWorksContent">) {
   const localScenario = process.env.NODE_ENV === "development";
   const localAuditFlow = localScenario
     && (providedContext.user.role === "safety-auditor" || providedContext.user.role === "quality-auditor");
@@ -81,10 +82,21 @@ function ProfileWorkspace({ context: providedContext, initialScreen, initialVisi
     works: auditContext.works.some((work) => work.id === localReportWork.id) ? auditContext.works : [...auditContext.works, localReportWork],
   } : auditContext;
   const { user } = context;
+  const requestedActionPlanAudit = initialActionPlanAuditId
+    ? initialAudits.audits.find((audit) => audit.id === initialActionPlanAuditId && audit.status === "Publicada" && canReadAudit(user, audit))
+    : undefined;
+  const requestedActionPlanWork = requestedActionPlanAudit
+    ? context.works.find((entry) => entry.id === requestedActionPlanAudit.workId) : undefined;
+  const initialActionPlanSource: ActionPlanSource | null = user.role === "engineering" && user.activity === "site-team"
+    && requestedActionPlanAudit && requestedActionPlanWork ? {
+      auditId: requestedActionPlanAudit.id, workId: requestedActionPlanAudit.workId,
+      workName: requestedActionPlanWork.name, date: requestedActionPlanAudit.date,
+      module: modelModule(requestedActionPlanAudit.modelId), example: false,
+    } : null;
   const initialVisit = initialScreen === "agenda" ? initialAgenda.visits.find((visit) => visit.id === initialVisitId && canReadVisit(user, visit)) : undefined;
-  const [selectedModule, setSelectedModule] = useState<AppModule | null>(initialVisit?.module ?? user.modules[0] ?? null);
-  const [selectedWorkId, setSelectedWorkId] = useState(initialVisit?.workId ?? (localAuditFlow ? localTestWork.id : ""));
-  const [screen, setScreen] = useState<string>(initialScreen);
+  const [selectedModule, setSelectedModule] = useState<AppModule | null>(initialActionPlanSource?.module ?? initialVisit?.module ?? user.modules[0] ?? null);
+  const [selectedWorkId, setSelectedWorkId] = useState(initialActionPlanSource?.workId ?? initialVisit?.workId ?? (localAuditFlow ? localTestWork.id : ""));
+  const [screen, setScreen] = useState<string>(initialActionPlanSource ? "action_plan" : initialScreen);
   const [reportSection, setReportSection] = useState<"reports" | "occurrences" | "plans">("reports");
   const [catalogs, setCatalogs] = useState(initialCatalogs);
   const [session, setSession] = useState<PrototypeAuditState>({ audits: initialAudits.audits, responses: initialAudits.responses, criteriaSnapshots: initialAudits.criteriaSnapshots });
@@ -102,7 +114,7 @@ function ProfileWorkspace({ context: providedContext, initialScreen, initialVisi
   const [catalogId, setCatalogId] = useState<AuditModelId>("security-it07-r02");
   const [catalogQuery, setCatalogQuery] = useState("");
   const [error, setError] = useState("");
-  const [actionPlanSource, setActionPlanSource] = useState<ActionPlanSource | null>(null);
+  const [actionPlanSource, setActionPlanSource] = useState<ActionPlanSource | null>(initialActionPlanSource);
   const [actionPlanDrafts, setActionPlanDrafts] = useState<Record<string, readonly ActionPlanRow[]>>({});
   const [publishedActionPlans, setPublishedActionPlans] = useState<Record<string, { bytes: Uint8Array; fileName: string }>>({});
 
@@ -218,6 +230,20 @@ function ProfileWorkspace({ context: providedContext, initialScreen, initialVisi
 
   useEffect(() => {
     const auditId = "local-boulevard-quality-f176-published";
+    const realPublishedAuditExists = session.audits.some((audit) => audit.id !== auditId
+      && audit.status === "Publicada" && audit.workId === localReportWork.id
+      && audit.modelId === "quality-f176" && audit.date === "2026-09-23");
+    if (realPublishedAuditExists) {
+      if (session.audits.some((audit) => audit.id === auditId)) queueMicrotask(() => setSession((current) => {
+        if (!current.audits.some((audit) => audit.id === auditId)) return current;
+        const responses = { ...current.responses };
+        const criteriaSnapshots = { ...current.criteriaSnapshots };
+        delete responses[auditId];
+        delete criteriaSnapshots[auditId];
+        return { ...current, audits: current.audits.filter((audit) => audit.id !== auditId), responses, criteriaSnapshots };
+      }));
+      return;
+    }
     const currentPublishedCriteria = session.criteriaSnapshots?.[auditId];
     if (!localScenario || (session.audits.some((audit) => audit.id === auditId)
       && currentPublishedCriteria?.[3]?.code === "01.04"

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { readEngineeringWorkFindingsAction, type WorkFinding } from "@/app/follow-up/actions";
 import { moduleLabels, type AppModule } from "@/domain/prototype-access";
@@ -18,6 +19,10 @@ export type PublishedAuditFinding = {
   item: string;
   description: string;
   nonconformity: string;
+  itemDescription?: string;
+  verificationCriterion?: string;
+  status?: string;
+  evidencePhotos?: readonly { name: string; url?: string }[];
 };
 
 export function EngineeringResourcePanels({ actor, works, module, catalogs, auditFindings = [] }: {
@@ -30,6 +35,8 @@ export function EngineeringResourcePanels({ actor, works, module, catalogs, audi
   const [findings, setFindings] = useState<WorkFinding[]>([]);
   const [available, setAvailable] = useState(true);
   const [expandedAudits, setExpandedAudits] = useState<Set<string>>(() => new Set());
+  const [expandedFindings, setExpandedFindings] = useState<Set<string>>(() => new Set());
+  const [expandedOtherFindings, setExpandedOtherFindings] = useState<Set<string>>(() => new Set());
   const { userId, profile, engineeringScope, administrativeScope } = actor;
   const workNames = new Map(works.map((work) => [work.id, work.name]));
   const modelIds: AuditModelId[] = module === "safety" ? ["security-it07-r02"] : ["quality-f175", "quality-f176"];
@@ -52,7 +59,7 @@ export function EngineeringResourcePanels({ actor, works, module, catalogs, audi
   return <div className={styles.grid}>
     <section className="panel" aria-label={`Apontamentos de ${moduleLabels[module]}`}>
       <div className="panel-heading"><div><h3>Apontamentos</h3>{auditFindings.length > 0 && <p className={styles.summary}>{auditFindings.length} não conformidade{auditFindings.length === 1 ? "" : "s"} extraída{auditFindings.length === 1 ? "" : "s"} de auditoria publicada</p>}</div></div>
-      {groupedAuditFindings.length > 0 && <div className={styles.auditGroups}>{groupedAuditFindings.map((group) => {
+      {groupedAuditFindings.length > 0 && <div className={styles.auditGroups}>{groupedAuditFindings.map((group, groupIndex) => {
         const expanded = expandedAudits.has(group.auditId);
         const [year, month] = group.auditDate.split("-");
         const monthAbbreviation = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"][Number(month) - 1] ?? month;
@@ -66,18 +73,51 @@ export function EngineeringResourcePanels({ actor, works, module, catalogs, audi
             <span className={styles.auditInfo}><strong>{workNames.get(group.workId) ?? "Obra"}</strong><small>Responsável</small><span>{group.auditor}</span><em>{group.findings.length} não conformidade{group.findings.length === 1 ? "" : "s"}</em></span>
             <span className={`${styles.chevron}${expanded ? ` ${styles.chevronExpanded}` : ""}`} aria-hidden="true" />
           </button>
-          {expanded && <div className={styles.auditDetails}><span className={styles.listLabel}>DA AUDITORIA PUBLICADA · {formatAuditDate(group.auditDate)}</span><ul className={styles.findings}>{group.findings.map((finding) => <li key={`${finding.auditId}:${finding.id}`}>
-            <strong>{finding.item} · {finding.description}</strong>
-            <p>{finding.nonconformity}</p>
-          </li>)}</ul></div>}
+          {expanded && <div className={styles.auditDetails}><span className={styles.listLabel}>DA AUDITORIA PUBLICADA · {formatAuditDate(group.auditDate)}</span><ul className={styles.findings}>{group.findings.map((finding, findingIndex) => {
+            const findingKey = `${finding.auditId}:${finding.id}`;
+            const findingExpanded = expandedFindings.has(findingKey);
+            const detailsId = `published-audit-finding-${groupIndex}-${findingIndex}`;
+            return <li className={styles.auditFinding} key={findingKey}>
+              <button type="button" className={styles.findingSummary} aria-expanded={findingExpanded} aria-controls={detailsId} onClick={() => setExpandedFindings((current) => {
+                const next = new Set(current);
+                if (findingExpanded) next.delete(findingKey); else next.add(findingKey);
+                return next;
+              })}>
+                <span className={styles.findingSummaryText}><strong>{finding.item} · {finding.description}</strong><span>{finding.nonconformity}</span></span>
+                <i className={`${styles.chevron}${findingExpanded ? ` ${styles.chevronExpanded}` : ""}`} aria-hidden="true" />
+              </button>
+              {findingExpanded && <div className={styles.findingDetails} id={detailsId}>
+                <div><span>Descrição</span><p>{finding.itemDescription || finding.description}</p></div>
+                <div><span>Critério</span><p>{finding.verificationCriterion || "Não informado"}</p></div>
+                <div><span>Status</span><strong className={finding.status === "Não conforme" ? styles.statusNonconforming : styles.status}>{finding.status || "Com apontamento"}</strong></div>
+                <div className={styles.findingPhotos}><span>Foto</span>{finding.evidencePhotos?.length ? <div>{finding.evidencePhotos.map((photo, photoIndex) => photo.url
+                  ? <a href={photo.url} target="_blank" rel="noopener noreferrer" key={`${photo.name}:${photoIndex}`} title="Abrir foto em nova guia"><Image src={photo.url} alt={`Evidência do item ${finding.item}`} width={160} height={100} unoptimized /><small>{photo.name}</small></a>
+                  : <small key={`${photo.name}:${photoIndex}`}>{photo.name}</small>)}</div>
+                  : <p>Nenhuma foto anexada.</p>}</div>
+              </div>}
+            </li>;
+          })}</ul></div>}
         </article>;
       })}</div>}
       {!available ? <p className="muted">Não foi possível consultar os demais apontamentos.</p>
-        : findings.length ? <><span className={styles.listLabel}>OUTROS APONTAMENTOS</span><ul className={styles.findings}>{findings.slice(0, 6).map((finding) => <li key={finding.id}>
-          <strong>{finding.description}</strong>
-          <span>{workNames.get(finding.workId) ?? "Obra"}{finding.location ? ` · ${finding.location}` : ""}</span>
-          <p>{finding.correction}</p>
-        </li>)}</ul></>
+        : findings.length ? <><span className={styles.listLabel}>OUTROS APONTAMENTOS</span><ul className={styles.findings}>{findings.slice(0, 6).map((finding, findingIndex) => {
+          const expanded = expandedOtherFindings.has(finding.id);
+          const detailsId = `other-finding-${findingIndex}`;
+          return <li className={styles.auditFinding} key={finding.id}>
+            <button type="button" className={styles.findingSummary} aria-expanded={expanded} aria-controls={detailsId} onClick={() => setExpandedOtherFindings((current) => {
+              const next = new Set(current);
+              if (expanded) next.delete(finding.id); else next.add(finding.id);
+              return next;
+            })}>
+              <span className={styles.findingSummaryText}><strong>{finding.description}</strong></span>
+              <i className={`${styles.chevron}${expanded ? ` ${styles.chevronExpanded}` : ""}`} aria-hidden="true" />
+            </button>
+            {expanded && <div className={styles.otherFindingDetails} id={detailsId}>
+              <span>{workNames.get(finding.workId) ?? "Obra"}{finding.location ? ` · ${finding.location}` : ""}</span>
+              <p>{finding.correction}</p>
+            </div>}
+          </li>;
+        })}</ul></>
           : auditFindings.length === 0 ? <p className="muted">Nenhum apontamento ativo para esta disciplina.</p> : null}
     </section>
     <section className="panel" aria-label={`Roteiros de ${moduleLabels[module]}`}>

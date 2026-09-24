@@ -15,13 +15,13 @@
 .group legend { padding: 0 8px; margin-left: -8px; color: var(--navy); font-size: 18px; font-weight: 700; }
 .group > .help { margin-bottom: 20px; }
 .identification, .address, .twoColumns { display: grid; gap: 20px; }
-.identification { grid-template-columns: minmax(0, 3fr) minmax(120px, 1fr); }
+.identification { grid-template-columns: repeat(2, minmax(0, 1fr)) minmax(120px, .45fr); }
 .address { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .twoColumns { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .field, .wideField { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .wideField { grid-column: span 2; }
 .field label, .wideField label { color: var(--navy); font-size: 12px; font-weight: 600; }
-.field input, .wideField input, .field select, .field textarea { width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid #cbd4e1; border-radius: 6px; background: white; color: var(--ink); font-size: 14px; }
+.field input, .wideField input, .field textarea { width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid #cbd4e1; border-radius: 6px; background: white; color: var(--ink); font-size: 14px; }
 .field textarea { resize: vertical; line-height: 1.6; }
 .field output { min-height: 44px; padding: 10px 0; color: var(--muted); }
 .field input[aria-invalid="true"], .wideField input[aria-invalid="true"], .field textarea[aria-invalid="true"], .field select[aria-invalid="true"] { border-color: #b5373b; }

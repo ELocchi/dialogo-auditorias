@@ -6,7 +6,7 @@ const id='10000000-0000-4000-8000-000000000001';
 const historyId='10000000-0000-4000-8000-000000000099';
 const memberId='10000000-0000-4000-8000-000000000002';
 const date='2026-09-13T18:00:00Z';
-const blank={nome:'Obra A',logradouro:'',numero:'',complemento:'',bairro:'',cidade:'',uf:'',cep:'',responsavel_tecnico:'',registro_tecnico:'',coordenacao:'',observacoes:'',equipe_obra:[]};
+const blank={nome:'Obra A',empreendimento:'',logradouro:'',numero:'',complemento:'',bairro:'',cidade:'',uf:'',cep:'',responsavel_tecnico:'',registro_tecnico:'',coordenacao:'',observacoes:'',equipe_obra:[]};
 function form(changes={}) {const f=new FormData();const fields={...blank,...changes}; for(const [k,v] of Object.entries(fields)) f.set(k,k==='equipe_obra'?JSON.stringify(v):v); f.set('work_id',id);f.set('expected_revision','0');return f;}
 const success={obra_id:id,revisao:1,updated_at:date,history_id:historyId,changed:true};
 function deps(reply={data:success,error:null}) {const calls=[];return {calls,createClient:async()=>({rpc:async(...args)=>{calls.push(args);return reply;}})};}
@@ -31,8 +31,8 @@ test('falta da migração de vínculos não cria obra parcial nem altera acesso'
 });
 test('novo cadastro exige apenas nome e aceita os mesmos campos opcionais da edição',()=>{
  const minimal=validateWorkCreate(form());assert.equal(minimal.ok,true);assert.deepEqual(minimal.data,blank);
- const complete=validateWorkCreate(form({logradouro:' Rua Norte ',uf:'sp',cep:'01234-567',equipe_obra:[{nome:' Pessoa da obra ',funcao:''}]}));
- assert.equal(complete.ok,true);assert.equal(complete.data.logradouro,'Rua Norte');assert.equal(complete.data.uf,'SP');assert.equal(complete.data.cep,'01234567');
+ const complete=validateWorkCreate(form({empreendimento:' Empreendimento Norte ',logradouro:' Rua Norte ',uf:'sp',cep:'01234-567',equipe_obra:[{nome:' Pessoa da obra ',funcao:''}]}));
+ assert.equal(complete.ok,true);assert.equal(complete.data.empreendimento,'Empreendimento Norte');assert.equal(complete.data.logradouro,'Rua Norte');assert.equal(complete.data.uf,'SP');assert.equal(complete.data.cep,'01234567');
  assert.deepEqual(complete.data.equipe_obra,[{nome:'Pessoa da obra',funcao:''}]);
  for(const changes of [{nome:''},{nome:'A'},{uf:'XX'},{cep:'123'},{equipe_obra:[{nome:'',funcao:''}]}]) assert.equal(validateWorkCreate(form(changes)).ok,false);
 });
@@ -67,7 +67,7 @@ test('ID ou versão ausentes, duplicados e inválidos falham antes de acessar ba
 test('campos escalares não aceitam duplicidade, arquivo, limite excedido ou caractere nulo',()=>{
  for(const key of Object.keys(blank).filter(k=>k!=='equipe_obra')) {const f=form();f.append(key,'forged');assert.equal(validateWorkEdit(f).ok,false);}
  const f=form();f.set('nome',new Blob(['secret']),'file.txt');assert.equal(validateWorkEdit(f).ok,false);
- for(const changes of [{nome:'A'},{nome:'a'.repeat(161)},{logradouro:'a'.repeat(201)},{responsavel_tecnico:'a'.repeat(161)},{observacoes:'a'.repeat(2001)},{cidade:'bad\u0000value'}]) assert.equal(validateWorkEdit(form(changes)).ok,false);
+ for(const changes of [{nome:'A'},{nome:'a'.repeat(161)},{empreendimento:'a'.repeat(161)},{logradouro:'a'.repeat(201)},{responsavel_tecnico:'a'.repeat(161)},{observacoes:'a'.repeat(2001)},{cidade:'bad\u0000value'}]) assert.equal(validateWorkEdit(form(changes)).ok,false);
 });
 test('UF e CEP precisam de formatos definidos, mantendo zero inicial',()=>{
  for(const changes of [{uf:'ZZ'},{uf:'S'},{cep:'123'},{cep:'abcdefgh'},{cep:'12345 678'}]) assert.equal(validateWorkEdit(form(changes)).ok,false);

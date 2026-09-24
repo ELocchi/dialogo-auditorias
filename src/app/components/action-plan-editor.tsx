@@ -186,10 +186,10 @@ async function generateActionPlanPdf({ workName, auditDate, auditScore, module, 
   const regular = await document.embedFont(StandardFonts.Helvetica);
   const bold = await document.embedFont(StandardFonts.HelveticaBold);
   const logo = await fetch("/logo-relatorio-orientativo.png").then(async (response) => response.ok ? document.embedPng(await response.arrayBuffer()) : null).catch(() => null);
-  const width = 445.5, height = 631.5, left = 34, right = width - 33;
-  const contentWidth = right - left, contentTop = 558, contentBottom = 52;
+  const width = 631.5, height = 445.5, left = 34, right = width - 33;
+  const contentWidth = right - left, contentTop = height - 73.5, contentBottom = 52, summaryContentBottom = 38;
   const navy = rgb(.07, .24, .47), red = rgb(.86, .12, .18), muted = rgb(.39, .47, .57), lineColor = rgb(.87, .90, .94);
-  const green = rgb(.10, .55, .34), gray = rgb(.40, .46, .54);
+  const green = rgb(.10, .55, .34);
   const pages: PDFPage[] = [];
   const addPage = () => { const next = document.addPage([width, height]); pages.push(next); return next; };
   const drawLabel = (page: PDFPage, value: string, x: number, y: number) => page.drawText(value, { x, y, size: 5.5, font: bold, color: muted });
@@ -214,36 +214,19 @@ async function generateActionPlanPdf({ workName, auditDate, auditScore, module, 
         const response = await fetch(photo.url, { cache: "no-store" });
         if (!response.ok) continue;
         const bytes = await response.arrayBuffer();
-        evidenceImages.push(photo.url.toLocaleLowerCase("pt-BR").endsWith(".png") ? await document.embedPng(bytes) : await document.embedJpg(bytes));
+        const contentType = response.headers.get("content-type")?.toLocaleLowerCase("pt-BR") ?? "";
+        const png = contentType.includes("image/png") || photo.name.toLocaleLowerCase("pt-BR").endsWith(".png")
+          || new URL(photo.url).pathname.toLocaleLowerCase("pt-BR").endsWith(".png");
+        evidenceImages.push(png ? await document.embedPng(bytes) : await document.embedJpg(bytes));
       } catch { /* A referência textual permanece no PDF quando a imagem não estiver disponível. */ }
     }
     preparedRows.push({ row, images: evidenceImages, photoNames: (row.evidencePhotos ?? []).map((photo) => photo.name) });
   }
 
-  const sectionLines = (value: string) => wrapPdfText(safePdfText(value || "—", regular), regular, 6.2, contentWidth);
-  const sectionHeight = (lines: string[]) => 12 + lines.length * 7.8;
-  const plannedColumnWidth = contentWidth / 3;
-  const layoutFor = ({ row, images, photoNames }: typeof preparedRows[number]) => {
-    const title = wrapPdfText(safePdfText(row.description || "—", bold), bold, 8, contentWidth - 52);
-    const description = sectionLines(row.itemDescription || row.description);
-    const criterion = sectionLines(row.verificationCriterion || "Não informado");
-    const status = sectionLines(row.status || "Com apontamento");
-    const nonconformity = sectionLines(row.nonconformity);
-    const correctiveAction = sectionLines(row.correctiveAction);
-    const responsible = wrapPdfText(safePdfText(row.responsible || "—", regular), regular, 6.2, plannedColumnWidth - 10);
-    const startDate = wrapPdfText(formatAuditDate(row.startDate), regular, 6.2, plannedColumnWidth - 10);
-    const dueDate = wrapPdfText(formatAuditDate(row.dueDate), regular, 6.2, plannedColumnWidth - 10);
-    const photoRows = images.length ? Math.ceil(images.length / 3) : 0;
-    const missingPhotoLines = !images.length && photoNames.length ? wrapPdfText(safePdfText(photoNames.join(", "), regular), regular, 5.5, contentWidth) : [];
-    const photoHeight = 19 + (photoRows ? photoRows * 70 - 8 : Math.max(13, missingPhotoLines.length * 7));
-    const headingHeight = Math.max(24, 24 + (title.length - 1) * 9);
-    const plannedHeight = 13 + Math.max(responsible.length, startDate.length, dueDate.length) * 7.8 + 5;
-    const totalHeight = headingHeight + sectionHeight(description) + sectionHeight(criterion) + sectionHeight(status)
-      + sectionHeight(nonconformity) + photoHeight + sectionHeight(correctiveAction) + plannedHeight + 13;
-    return { title, description, criterion, status, nonconformity, correctiveAction, responsible, startDate, dueDate, missingPhotoLines, photoRows, photoHeight, totalHeight };
-  };
   const drawMetadata = (page: PDFPage) => {
     const metadataColumnWidth = contentWidth / 4;
+    const labelY = contentTop;
+    const valueY = labelY - 10;
     const metadata = [
       { label: "OBRA", value: workName },
       { label: "DISCIPLINA", value: moduleLabels[module] },
@@ -252,75 +235,134 @@ async function generateActionPlanPdf({ workName, auditDate, auditScore, module, 
     ];
     const valueLines = metadata.map((entry) => wrapPdfText(safePdfText(entry.value, bold), bold, 7.5, metadataColumnWidth - 10));
     metadata.forEach((entry, index) => {
-      const x = left + index * metadataColumnWidth;
-      drawLabel(page, entry.label, x, 550);
-      valueLines[index].forEach((value, lineIndex) => page.drawText(value, { x, y: 536 - lineIndex * 9, size: 7.5, font: bold, color: navy }));
+      const center = left + metadataColumnWidth * (index + .5);
+      const label = safePdfText(entry.label, bold);
+      page.drawText(label, { x: center - bold.widthOfTextAtSize(label, 5.5) / 2, y: labelY, size: 5.5, font: bold, color: muted });
+      valueLines[index].forEach((value, lineIndex) => page.drawText(value, {
+        x: center - bold.widthOfTextAtSize(value, 7.5) / 2,
+        y: valueY - lineIndex * 9, size: 7.5, font: bold, color: navy,
+      }));
     });
-    const bottom = 536 - Math.max(...valueLines.map((lines) => lines.length)) * 9 - 6;
-    page.drawLine({ start: { x: left, y: bottom }, end: { x: right, y: bottom }, thickness: .45, color: lineColor });
-    return bottom - 12;
+    const lastValueBaseline = valueY - (Math.max(...valueLines.map((lines) => lines.length)) - 1) * 9;
+    return lastValueBaseline - 14;
   };
-  const drawSection = (page: PDFPage, label: string, lines: string[], top: number, valueColor = muted) => {
-    drawLabel(page, label, left, top);
-    let cursor = top - 9;
-    lines.forEach((value) => { page.drawText(value, { x: left, y: cursor, size: 6.2, font: regular, color: valueColor }); cursor -= 7.8; });
-    return cursor - 3;
+  const limitLines = (lines: string[], maximum: number, font: PDFFont, size: number, maxWidth: number) => {
+    if (lines.length <= maximum) return lines;
+    const result = lines.slice(0, maximum);
+    let last = result[maximum - 1]!.trimEnd();
+    while (last && font.widthOfTextAtSize(`${last}...`, size) > maxWidth) last = last.slice(0, -1).trimEnd();
+    result[maximum - 1] = `${last}...`;
+    return result;
   };
-  const drawItem = (page: PDFPage, prepared: typeof preparedRows[number], layout: ReturnType<typeof layoutFor>, top: number) => {
+  const drawItem = (page: PDFPage, prepared: typeof preparedRows[number], itemLeft: number, itemWidth: number, top: number) => {
     const { row, images } = prepared;
+    const fieldGap = 10;
+    const upperLeftWidth = itemWidth * .66;
+    const statusWidth = itemWidth - upperLeftWidth - fieldGap;
+    const lowerLeftWidth = (itemWidth - fieldGap) * .59;
+    const lowerRightWidth = itemWidth - lowerLeftWidth - fieldGap;
+    const titleWidth = itemWidth - 52;
+    const title = limitLines(wrapPdfText(safePdfText(row.description || "—", bold), bold, 7.2, titleWidth), 3, bold, 7.2, titleWidth);
+    const description = limitLines(wrapPdfText(safePdfText(row.itemDescription || row.description, regular), regular, 5.4, upperLeftWidth), 3, regular, 5.4, upperLeftWidth);
+    const criterion = limitLines(wrapPdfText(safePdfText(row.verificationCriterion || "Não informado", regular), regular, 5.4, upperLeftWidth), 2, regular, 5.4, upperLeftWidth);
+    const nonconformity = limitLines(wrapPdfText(safePdfText(row.nonconformity || "—", regular), regular, 5.4, upperLeftWidth), 3, regular, 5.4, upperLeftWidth);
+    const correctiveAction = limitLines(wrapPdfText(safePdfText(row.correctiveAction || "—", regular), regular, 5.6, lowerLeftWidth), 5, regular, 5.6, lowerLeftWidth);
+    const responsible = limitLines(wrapPdfText(safePdfText(row.responsible || "—", regular), regular, 5.6, lowerRightWidth), 4, regular, 5.6, lowerRightWidth);
     let cursor = top;
-    drawRoundedCode(page, row.item, left, cursor - 17);
-    layout.title.forEach((value, index) => page.drawText(value, { x: left + 52, y: cursor - 12 - index * 9, size: 8, font: bold, color: navy }));
-    cursor -= Math.max(24, 24 + (layout.title.length - 1) * 9);
-    cursor = drawSection(page, "DESCRIÇÃO", layout.description, cursor);
-    cursor = drawSection(page, "CRITÉRIO DE VERIFICAÇÃO", layout.criterion, cursor);
-    const statusColor = /não conforme/i.test(row.status ?? "") ? red : /conforme/i.test(row.status ?? "") ? green : gray;
-    cursor = drawSection(page, "STATUS", layout.status, cursor, statusColor);
-    cursor = drawSection(page, "NÃO CONFORMIDADE", layout.nonconformity, cursor);
-    drawLabel(page, "EVIDÊNCIAS FOTOGRÁFICAS DA AUDITORIA", left, cursor);
-    cursor -= 9;
+    drawRoundedCode(page, row.item, itemLeft, cursor - 17);
+    title.forEach((value, index) => page.drawText(value, { x: itemLeft + 52, y: cursor - 12 - index * 8, size: 7.2, font: bold, color: navy }));
+    cursor -= Math.max(23, 23 + (title.length - 1) * 8);
+    const drawCompactField = (label: string, lines: string[], x: number, fieldTop: number, valueColor = muted, lineHeight = 6.4) => {
+      drawLabel(page, label, x, fieldTop);
+      lines.forEach((value, index) => page.drawText(value, { x, y: fieldTop - 8 - index * lineHeight, size: 5.4, font: regular, color: valueColor }));
+      return fieldTop - 11 - lines.length * lineHeight;
+    };
+    cursor = drawCompactField("DESCRIÇÃO", description, itemLeft, cursor);
+    cursor = drawCompactField("CRITÉRIO DE VERIFICAÇÃO", criterion, itemLeft, cursor, navy);
+    cursor = drawCompactField("NÃO CONFORMIDADE", nonconformity, itemLeft, cursor);
+    const photoTop = cursor;
+    drawLabel(page, "FOTO", itemLeft, photoTop);
+    const sectionDividerY = contentBottom + 120;
     if (images.length) {
-      const gap = 8, photoWidth = (contentWidth - gap * 2) / 3, photoCellHeight = 62;
-      images.forEach((image, photoIndex) => {
-        const column = photoIndex % 3, rowIndex = Math.floor(photoIndex / 3);
-        const photoX = left + column * (photoWidth + gap), photoTop = cursor - rowIndex * (photoCellHeight + gap);
-        const dimensions = image.scaleToFit(photoWidth, photoCellHeight);
-        page.drawImage(image, { x: photoX, y: photoTop - dimensions.height, width: dimensions.width, height: dimensions.height });
+      const visibleImages = images.slice(0, 3), photoGap = 4;
+      const cellWidth = (upperLeftWidth - photoGap * (visibleImages.length - 1)) / visibleImages.length;
+      const photoHeight = Math.max(32, Math.min(58, photoTop - sectionDividerY - 17));
+      visibleImages.forEach((image, photoIndex) => {
+        const dimensions = image.scaleToFit(cellWidth, photoHeight);
+        const imageX = itemLeft + photoIndex * (cellWidth + photoGap) + (cellWidth - dimensions.width) / 2;
+        page.drawImage(image, { x: imageX, y: photoTop - 10 - dimensions.height, width: dimensions.width, height: dimensions.height });
       });
-      cursor -= layout.photoRows * 70 - 8;
-    } else if (layout.missingPhotoLines.length) {
-      layout.missingPhotoLines.forEach((value) => { page.drawText(value, { x: left, y: cursor, size: 5.5, font: regular, color: muted }); cursor -= 7; });
+    } else if (prepared.photoNames.length) {
+      const names = limitLines(wrapPdfText(safePdfText(prepared.photoNames.join(", "), regular), regular, 5.2, upperLeftWidth), 4, regular, 5.2, upperLeftWidth);
+      names.forEach((value, index) => page.drawText(value, { x: itemLeft, y: photoTop - 10 - index * 6.2, size: 5.2, font: regular, color: muted }));
     } else {
-      page.drawText("Nenhuma fotografia anexada a este item.", { x: left, y: cursor, size: 6.2, font: regular, color: muted });
-      cursor -= 13;
+      page.drawText("Nenhuma fotografia anexada.", { x: itemLeft, y: photoTop - 10, size: 5.2, font: regular, color: muted });
     }
-    cursor -= 10;
-    cursor = drawSection(page, "AÇÕES CORRETIVAS", layout.correctiveAction, cursor, navy);
-    const planned = [
-      { label: "RESPONSÁVEL(IS)", lines: layout.responsible, x: left },
-      { label: "DATA DE INÍCIO PREVISTA", lines: layout.startDate, x: left + plannedColumnWidth },
-      { label: "DATA FINAL PREVISTA", lines: layout.dueDate, x: left + plannedColumnWidth * 2 },
+
+    const statusX = itemLeft + upperLeftWidth + fieldGap;
+    const statusTop = top - Math.max(23, 23 + (title.length - 1) * 8);
+    drawLabel(page, "STATUS", statusX, statusTop);
+    const selectedStatus = /não conforme/i.test(row.status ?? "") ? "nonconforming"
+      : /conforme/i.test(row.status ?? "") ? "compliant" : "partial";
+    const amber = rgb(.94, .62, .08);
+    const selectedOption = selectedStatus === "nonconforming" ? { color: red, symbol: "x" as const }
+      : selectedStatus === "compliant" ? { color: green, symbol: "check" as const }
+      : { color: amber, symbol: "!" as const };
+    const statusBoxSize = 24, statusRadius = 3;
+    const statusBoxX = statusX + (statusWidth - statusBoxSize) / 2;
+    const statusBoxY = statusTop - 34;
+    page.drawRectangle({ x: statusBoxX + statusRadius, y: statusBoxY, width: statusBoxSize - statusRadius * 2, height: statusBoxSize, color: selectedOption.color });
+    page.drawRectangle({ x: statusBoxX, y: statusBoxY + statusRadius, width: statusBoxSize, height: statusBoxSize - statusRadius * 2, color: selectedOption.color });
+    page.drawCircle({ x: statusBoxX + statusRadius, y: statusBoxY + statusRadius, size: statusRadius, color: selectedOption.color });
+    page.drawCircle({ x: statusBoxX + statusBoxSize - statusRadius, y: statusBoxY + statusRadius, size: statusRadius, color: selectedOption.color });
+    page.drawCircle({ x: statusBoxX + statusRadius, y: statusBoxY + statusBoxSize - statusRadius, size: statusRadius, color: selectedOption.color });
+    page.drawCircle({ x: statusBoxX + statusBoxSize - statusRadius, y: statusBoxY + statusBoxSize - statusRadius, size: statusRadius, color: selectedOption.color });
+    const symbolColor = rgb(1, 1, 1);
+    if (selectedOption.symbol === "x") {
+      page.drawLine({ start: { x: statusBoxX + 7, y: statusBoxY + 7 }, end: { x: statusBoxX + 17, y: statusBoxY + 17 }, thickness: 2, color: symbolColor });
+      page.drawLine({ start: { x: statusBoxX + 7, y: statusBoxY + 17 }, end: { x: statusBoxX + 17, y: statusBoxY + 7 }, thickness: 2, color: symbolColor });
+    } else if (selectedOption.symbol === "!") {
+      page.drawText("!", { x: statusBoxX + 9.2, y: statusBoxY + 5.2, size: 13, font: bold, color: symbolColor });
+    } else {
+      page.drawLine({ start: { x: statusBoxX + 5, y: statusBoxY + 12 }, end: { x: statusBoxX + 10, y: statusBoxY + 7 }, thickness: 2, color: symbolColor });
+      page.drawLine({ start: { x: statusBoxX + 10, y: statusBoxY + 7 }, end: { x: statusBoxX + 19, y: statusBoxY + 18 }, thickness: 2, color: symbolColor });
+    }
+
+    page.drawLine({ start: { x: itemLeft, y: sectionDividerY }, end: { x: itemLeft + itemWidth, y: sectionDividerY }, thickness: .55, color: navy });
+    const lowerTop = sectionDividerY - 13;
+    drawLabel(page, "AÇÕES CORRETIVAS", itemLeft, lowerTop);
+    correctiveAction.forEach((value, index) => page.drawText(value, { x: itemLeft, y: lowerTop - 9 - index * 6.5, size: 5.6, font: regular, color: navy }));
+    const responsibleX = itemLeft + lowerLeftWidth + fieldGap;
+    drawLabel(page, "RESPONSÁVEL(IS)", responsibleX, lowerTop);
+    responsible.forEach((value, index) => page.drawText(value, { x: responsibleX, y: lowerTop - 9 - index * 6.5, size: 5.6, font: regular, color: navy }));
+    const dateTop = lowerTop - 58;
+    const dateColumnWidth = (itemWidth - fieldGap) / 2;
+    const dates = [
+      { label: "DATA DE INÍCIO PREVISTA", value: formatAuditDate(row.startDate), x: itemLeft },
+      { label: "DATA FINAL PREVISTA", value: formatAuditDate(row.dueDate), x: itemLeft + dateColumnWidth + fieldGap },
     ];
-    planned.forEach((entry) => {
-      drawLabel(page, entry.label, entry.x, cursor);
-      entry.lines.forEach((value, lineIndex) => page.drawText(value, { x: entry.x, y: cursor - 10 - lineIndex * 7.8, size: 6.2, font: regular, color: navy }));
+    dates.forEach((entry) => {
+      drawLabel(page, entry.label, entry.x, dateTop);
+      page.drawText(entry.value, { x: entry.x, y: dateTop - 9, size: 5.6, font: regular, color: navy });
     });
-    cursor -= 13 + Math.max(...planned.map((entry) => entry.lines.length)) * 7.8;
-    page.drawLine({ start: { x: left, y: cursor - 4 }, end: { x: right, y: cursor - 4 }, thickness: .45, color: lineColor });
-    return cursor - 13;
   };
+  const summaryGap = 10;
+  const summaryTitleWidth = 172;
+  const summaryActionWidth = 184;
+  const summaryResponsibleWidth = 92;
+  const summaryDateWidth = (contentWidth - summaryTitleWidth - summaryActionWidth - summaryResponsibleWidth - summaryGap * 4) / 2;
   const summaryColumns = [
-    { label: "ITEM / TÍTULO", x: left, width: 174 },
-    { label: "RESPONSÁVEL", x: left + 182, width: 82 },
-    { label: "DATA INICIAL", x: left + 272, width: 45 },
-    { label: "DATA FINAL", x: left + 325, width: 45 },
+    { label: "ITEM / TÍTULO", x: left, width: summaryTitleWidth },
+    { label: "AÇÕES CORRETIVAS", x: left + summaryTitleWidth + summaryGap, width: summaryActionWidth },
+    { label: "RESPONSÁVEL", x: left + summaryTitleWidth + summaryActionWidth + summaryGap * 2, width: summaryResponsibleWidth },
+    { label: "DATA INICIAL", x: left + summaryTitleWidth + summaryActionWidth + summaryResponsibleWidth + summaryGap * 3, width: summaryDateWidth },
+    { label: "DATA FINAL", x: left + summaryTitleWidth + summaryActionWidth + summaryResponsibleWidth + summaryDateWidth + summaryGap * 4, width: summaryDateWidth },
   ];
-  const drawSummaryHeading = (sheet: PDFPage, top: number, continuation = false) => {
-    sheet.drawText(continuation ? "SUMÁRIO · CONTINUAÇÃO" : "SUMÁRIO", { x: left, y: top, size: 13, font: bold, color: navy });
-    const headerY = top - 25;
+  const drawSummaryHeading = (sheet: PDFPage, top: number) => {
+    const headerY = top;
     summaryColumns.forEach((column) => drawLabel(sheet, column.label, column.x, headerY));
     sheet.drawLine({ start: { x: left, y: headerY - 6 }, end: { x: right, y: headerY - 6 }, thickness: .6, color: navy });
-    return headerY - 17;
+    return headerY - 8;
   };
 
   let page = addPage();
@@ -332,31 +374,45 @@ async function generateActionPlanPdf({ workName, auditDate, auditScore, module, 
   y = drawSummaryHeading(page, y);
   for (const { row } of preparedRows) {
     const titleLines = wrapPdfText(safePdfText(row.description, bold), bold, 6.4, summaryColumns[0].width - 52);
-    const responsibleLines = wrapPdfText(safePdfText(row.responsible || "—", regular), regular, 5.8, summaryColumns[1].width);
-    const startLines = wrapPdfText(formatAuditDate(row.startDate), regular, 5.8, summaryColumns[2].width);
-    const dueLines = wrapPdfText(formatAuditDate(row.dueDate), regular, 5.8, summaryColumns[3].width);
-    const rowHeight = Math.max(27, Math.max(titleLines.length, responsibleLines.length, startLines.length, dueLines.length) * 7.2 + 14);
-    if (y - rowHeight < contentBottom) {
+    const correctiveActionLines = wrapPdfText(safePdfText(row.correctiveAction || "—", regular), regular, 5.8, summaryColumns[1].width);
+    const responsibleLines = wrapPdfText(safePdfText(row.responsible || "—", regular), regular, 5.8, summaryColumns[2].width);
+    const startLines = wrapPdfText(formatAuditDate(row.startDate), regular, 5.8, summaryColumns[3].width);
+    const dueLines = wrapPdfText(formatAuditDate(row.dueDate), regular, 5.8, summaryColumns[4].width);
+    const lineHeight = 7.2;
+    const rowHeight = Math.max(23, Math.max(titleLines.length, correctiveActionLines.length, responsibleLines.length, startLines.length, dueLines.length) * lineHeight + 8);
+    if (y - rowHeight < summaryContentBottom) {
       page = addPage();
       summaryPages.add(page);
-      y = drawSummaryHeading(page, contentTop, true);
+      y = drawSummaryHeading(page, contentTop);
     }
-    const rowTop = y + 8;
-    drawRoundedCode(page, row.item, left, y - 17);
-    titleLines.forEach((line, lineIndex) => page.drawText(line, { x: left + 52, y: y - 12 - lineIndex * 7.2, size: 6.4, font: bold, color: navy }));
-    responsibleLines.forEach((line, lineIndex) => page.drawText(line, { x: summaryColumns[1].x, y: y - 12 - lineIndex * 7.2, size: 5.8, font: regular, color: muted }));
-    startLines.forEach((line, lineIndex) => page.drawText(line, { x: summaryColumns[2].x, y: y - 12 - lineIndex * 7.2, size: 5.8, font: regular, color: navy }));
-    dueLines.forEach((line, lineIndex) => page.drawText(line, { x: summaryColumns[3].x, y: y - 12 - lineIndex * 7.2, size: 5.8, font: regular, color: navy }));
+    const rowTop = y;
+    const rowCenter = y - rowHeight / 2;
+    const drawCenteredLines = (lines: string[], x: number, size: number, font: PDFFont, color: typeof navy) => {
+      const firstBaseline = rowCenter + ((lines.length - 1) * lineHeight) / 2 - size * .35;
+      lines.forEach((line, lineIndex) => page.drawText(line, { x, y: firstBaseline - lineIndex * lineHeight, size, font, color }));
+    };
+    drawRoundedCode(page, row.item, left, rowCenter - 8.5);
+    drawCenteredLines(titleLines, left + 52, 6.4, bold, navy);
+    drawCenteredLines(correctiveActionLines, summaryColumns[1].x, 5.8, regular, navy);
+    drawCenteredLines(responsibleLines, summaryColumns[2].x, 5.8, regular, muted);
+    drawCenteredLines(startLines, summaryColumns[3].x, 5.8, regular, navy);
+    drawCenteredLines(dueLines, summaryColumns[4].x, 5.8, regular, navy);
     y -= rowHeight;
-    page.drawLine({ start: { x: left + 52, y: y + 5 }, end: { x: right, y: y + 5 }, thickness: .35, color: lineColor });
-    summaryLinks.push({ source: page, itemId: row.id, rect: [left, y + 3, right, rowTop] });
+    page.drawLine({ start: { x: left, y }, end: { x: right, y }, thickness: .35, color: lineColor });
+    summaryLinks.push({ source: page, itemId: row.id, rect: [left, y, right, rowTop] });
   }
-  if (preparedRows.length) { page = addPage(); y = contentTop; }
-  for (const prepared of preparedRows) {
-    const layout = layoutFor(prepared);
-    if (y - layout.totalHeight < contentBottom) { page = addPage(); y = contentTop; }
-    detailPages.set(prepared.row.id, { page, y });
-    y = drawItem(page, prepared, layout, y);
+  const detailGap = 16;
+  const detailDividerX = (left + right) / 2;
+  const detailItemWidth = (contentWidth - detailGap) / 2;
+  for (const [index, prepared] of preparedRows.entries()) {
+    const position = index % 2;
+    if (position === 0) {
+      page = addPage();
+      page.drawLine({ start: { x: detailDividerX, y: contentBottom }, end: { x: detailDividerX, y: contentTop }, thickness: .55, color: lineColor });
+    }
+    const itemLeft = position === 0 ? left : detailDividerX + detailGap / 2;
+    detailPages.set(prepared.row.id, { page, y: contentTop });
+    drawItem(page, prepared, itemLeft, detailItemWidth, contentTop);
   }
 
   pages.forEach((sheet, index) => {
@@ -364,17 +420,19 @@ async function generateActionPlanPdf({ workName, auditDate, auditScore, module, 
       const printable = safePdfText(value, font);
       sheet.drawText(printable, { x: center - font.widthOfTextAtSize(printable, size) / 2, y: baseline, size, font, color });
     };
-    if (logo) sheet.drawImage(logo, { x: left, y: 582, width: 83, height: 33 });
-    else sheet.drawText("DIÁLOGO ENGENHARIA", { x: left, y: 596, size: 9, font: bold, color: navy });
-    centered("Sistema de Gestão da Qualidade", width / 2, 600, regular, 12.5, muted);
+    if (logo) sheet.drawImage(logo, { x: left, y: height - 49.5, width: 83, height: 33 });
+    else sheet.drawText("DIÁLOGO ENGENHARIA", { x: left, y: height - 35.5, size: 9, font: bold, color: navy });
+    const headerContentLeft = left + 83 + 20;
+    const headerContentRight = right - 70;
+    centered("Sistema de Gestão da Qualidade", (headerContentLeft + headerContentRight) / 2, height - 31.5, regular, 12.5, muted);
     const processX = 132;
-    sheet.drawText("PROCESSO", { x: processX, y: 582, size: 4.5, font: regular, color: muted });
-    sheet.drawText("PLANO DE AÇÃO", { x: processX + 39, y: 580.5, size: 7.2, font: bold, color: navy });
+    sheet.drawText("PROCESSO", { x: processX, y: height - 49.5, size: 4.5, font: regular, color: muted });
+    sheet.drawText("PLANO DE AÇÃO", { x: processX + 39, y: height - 51, size: 7.2, font: bold, color: navy });
     const reportDate = formatAuditDate(auditDate), dateCenter = right - 24;
-    centered("DATA", dateCenter, 592, regular, 4.5, muted);
-    sheet.drawText(reportDate, { x: right - bold.widthOfTextAtSize(reportDate, 6.6), y: 580.5, size: 6.6, font: bold, color: navy });
-    sheet.drawLine({ start: { x: left, y: 576 }, end: { x: right, y: 576 }, thickness: .6, color: navy });
-    sheet.drawLine({ start: { x: left, y: 573 }, end: { x: right, y: 573 }, thickness: 1.3, color: red });
+    centered("DATA", dateCenter, height - 39.5, regular, 4.5, muted);
+    sheet.drawText(reportDate, { x: right - bold.widthOfTextAtSize(reportDate, 6.6), y: height - 51, size: 6.6, font: bold, color: navy });
+    sheet.drawLine({ start: { x: left, y: height - 55.5 }, end: { x: right, y: height - 55.5 }, thickness: .6, color: navy });
+    sheet.drawLine({ start: { x: left, y: height - 58.5 }, end: { x: right, y: height - 58.5 }, thickness: 1.3, color: red });
     sheet.drawLine({ start: { x: left, y: 34 }, end: { x: right, y: 34 }, thickness: .45, color: lineColor });
     sheet.drawText("Diálogo Auditorias", { x: left, y: 20, size: 5, font: regular, color: muted });
     const footerTitle = safePdfText(summaryPages.has(sheet) ? "Sumário interativo" : "Voltar ao sumário", regular);

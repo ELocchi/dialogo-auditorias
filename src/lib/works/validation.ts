@@ -14,7 +14,7 @@ function parseWorkFields(form: FormData) {
     if (value === null || value.length > maximum || value.includes('\u0000')) errors[key] = `Informe até ${maximum} caracteres neste campo.`;
     fields[key] = value ?? '';
   }
-  if (fields.nome.length < 2) errors.nome = 'Informe o nome da obra com pelo menos 2 caracteres.';
+  if (fields.nome.length < 2) errors.nome = 'Informe o nome do projeto (obra) com pelo menos 2 caracteres.';
   fields.uf = fields.uf.toUpperCase();
   if (fields.uf && !brazilianStates.includes(fields.uf as typeof brazilianStates[number])) errors.uf = 'Selecione uma UF válida.';
   if (fields.cep && !/^\d{5}-?\d{3}$/.test(fields.cep)) errors.cep = 'Informe um CEP com 8 números.';

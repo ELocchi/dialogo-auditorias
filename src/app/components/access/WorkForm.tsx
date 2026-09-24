@@ -33,7 +33,8 @@ export function WorkForm({ activeProfiles }: { activeProfiles: ActiveTeamProfile
     <fieldset disabled={pending} className={styles.group}>
       <legend>Identificação</legend>
       <div className={styles.identification}>
-        {input("nome", "Nome da obra", { required: true })}
+        {input("nome", "Nome do projeto (obra)", { required: true })}
+        {input("empreendimento", "Nome do empreendimento")}
         <div className={styles.field}><label htmlFor="new-work-status">Situação</label><output id="new-work-status">Ativa após o cadastro</output></div>
       </div>
     </fieldset>
@@ -45,7 +46,7 @@ export function WorkForm({ activeProfiles }: { activeProfiles: ActiveTeamProfile
         {input("complemento", "Complemento")}
         {input("bairro", "Bairro")}
         {input("cidade", "Cidade", { autoComplete: "address-level2" })}
-        <div className={styles.field}><label htmlFor="new-work-uf">UF</label><select id="new-work-uf" name="uf" defaultValue="" autoComplete="address-level1" aria-invalid={Boolean(error("uf"))} aria-describedby={error("uf") ? "new-work-error-uf" : undefined}><option value="">Não informada</option>{brazilianStates.map((uf) => <option key={uf} value={uf}>{uf}</option>)}</select>{error("uf") && <p id="new-work-error-uf" className={styles.fieldError}>{error("uf")}</p>}</div>
+        <div className={styles.field}><label htmlFor="new-work-uf">UF</label><select className="filter-select" id="new-work-uf" name="uf" defaultValue="" autoComplete="address-level1" aria-invalid={Boolean(error("uf"))} aria-describedby={error("uf") ? "new-work-error-uf" : undefined}><option value="">Não informada</option>{brazilianStates.map((uf) => <option key={uf} value={uf}>{uf}</option>)}</select>{error("uf") && <p id="new-work-error-uf" className={styles.fieldError}>{error("uf")}</p>}</div>
         {input("cep", "CEP", { inputMode: "numeric", autoComplete: "postal-code" })}
       </div>
     </fieldset>
