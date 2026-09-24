@@ -99,7 +99,9 @@ export function canEditAudit(user: DemoUser, audit: AuditAccessTarget): boolean 
 export function canReadAudit(user: DemoUser, audit: AuditAccessTarget): boolean {
   const auditModule = modelModule(audit.modelId);
   if (!canAccessWorkModule(user, audit.workId, auditModule)) return false;
-  if (audit.status === "Publicada") return canReadOperationalDocuments(user, audit.workId, auditModule);
+  // Published audit readers authorize the selected work/module for every profile,
+  // including Administrative. Other operational documents keep their own gate.
+  if (audit.status === "Publicada") return true;
   if (user.role === "engineering") return user.activity === "site-team" && audit.status === "Em discussão com a obra";
   return (user.role === "quality-auditor" || user.role === "safety-auditor") && user.id === audit.auditorId;
 }

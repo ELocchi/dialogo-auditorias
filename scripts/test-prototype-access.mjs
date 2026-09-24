@@ -91,15 +91,30 @@ test("rascunho só do responsável; obra lê discussão, coordenação somente p
   assert.equal(canReadAudit(site, audit({ workId: "jardim-norte", status: "Publicada" })), false);
 });
 
-test("C† administrativo não concede documentos ou rascunhos automaticamente", () => {
+test("Administrativo consulta auditoria publicada sem receber outros documentos ou rascunhos", () => {
   assert.equal(canReadOperationalDocuments(admin, "horizonte", "safety"), false);
-  assert.equal(canReadAudit(admin, audit({ status: "Publicada" })), false);
+  assert.equal(canReadAudit(admin, audit({ status: "Publicada" })), true);
+  assert.equal(canReadAudit(admin, audit()), false);
+  assert.equal(canReadAudit(admin, audit({ status: "Em discussão com a obra" })), false);
   const explicitlyGranted = { ...admin, documentWorkIds: ["horizonte"] };
   assert.equal(canReadOperationalDocuments(explicitlyGranted, "horizonte", "safety"), true);
   assert.equal(canReadAudit(explicitlyGranted, audit({ status: "Publicada" })), true);
   assert.equal(canReadAudit(explicitlyGranted, audit()), false);
   assert.equal(canReadOperationalDocuments(explicitlyGranted, "jardim-norte", "safety"), false);
   assert.equal(canReadOperationalDocuments({ ...explicitlyGranted, workIds: [] }, "horizonte", "safety"), false);
+});
+
+test("publicação administrativa respeita exatamente obra e disciplina autorizadas", () => {
+  const scopedAdmin = { ...admin, modules: ["quality"], workIds: ["horizonte", "jardim-norte"],
+    workModuleScopes: [{ workId: "horizonte", module: "quality" }], documentWorkIds: [] };
+  const publishedQuality = audit({ modelId: "quality-f176", status: "Publicada" });
+  assert.equal(canReadAudit(scopedAdmin, publishedQuality), true);
+  assert.equal(canReadAudit(scopedAdmin, { ...publishedQuality, workId: "jardim-norte" }), false);
+  assert.equal(canReadAudit(scopedAdmin, { ...publishedQuality, workId: "desconhecida" }), false);
+  assert.equal(canReadAudit(scopedAdmin, audit({ status: "Publicada" })), false);
+  assert.equal(canReadAudit({ ...scopedAdmin, modules: [] }, publishedQuality), false);
+  assert.equal(canReadAudit({ ...scopedAdmin, workIds: [] }, publishedQuality), false);
+  assert.equal(canReadOperationalDocuments(scopedAdmin, "horizonte", "quality"), false);
 });
 
 test("pesos técnicos respeitam perfil e módulo; concessão de módulo não troca disciplina do auditor", () => {

@@ -53,6 +53,22 @@ test('Administrativos de Segurança e Qualidade recebem apenas sua disciplina',(
   assert.equal(context('ADMINISTRATIVO',{account:{...account,atuacao_administrativa:null}}),null);
 });
 
+test('resultado publicado chega aos contextos administrativos autorizados sem acesso a rascunhos',()=>{
+ const published={workId:a,modelId:'quality-f176',auditorId:id,status:'Publicada'};
+ const general=context('ADMINISTRATIVO').user;
+ const quality=context('ADMINISTRATIVO',{administrativeScope:'QUALIDADE'}).user;
+ const safety=context('ADMINISTRATIVO',{administrativeScope:'SEGURANCA'}).user;
+ assert.equal(canReadAudit(general,published),true);
+ assert.equal(canReadAudit(quality,published),true);
+ assert.equal(canReadAudit(safety,published),false);
+ assert.equal(canReadAudit(general,{...published,workId:c}),false);
+ for(const user of [general,quality]) {
+  assert.equal(canReadAudit(user,{...published,status:'Em preenchimento'}),false);
+  assert.equal(canReadAudit(user,{...published,status:'Em discussão com a obra'}),false);
+  assert.equal(canReadOperationalDocuments(user,a,'quality'),false);
+ }
+});
+
 test('Administrativo Geral pode visualizar cada disciplina sem ampliar o perfil salvo',()=>{
   const safety=context('ADMINISTRATIVO',{administrativeScope:'SEGURANCA'});
   const quality=context('ADMINISTRATIVO',{administrativeScope:'QUALIDADE'});
