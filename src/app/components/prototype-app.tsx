@@ -324,7 +324,7 @@ function ProfileWorkspace({ context: providedContext, initialScreen, initialVisi
 
   const nav: { key: string; label: string; icon: IconName }[] = isEngineering ? [
     { key: "overview", label: "Visão geral", icon: "overview" },
-    { key: "agenda", label: "Agenda", icon: "calendar" },
+    ...(user.activity === "site-team" ? [{ key: "agenda", label: "Agenda", icon: "calendar" as const }] : []),
     { key: "engineering_quality", label: "Qualidade", icon: "audits" },
     { key: "engineering_safety", label: "Segurança", icon: "check" },
     { key: "works", label: "Obras", icon: "works" },
