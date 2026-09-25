@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireAdministrator } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
-import { approveRequest } from "@/lib/access/service";
+import { approveRequest, updateAccountAccess } from "@/lib/access/service";
 import { createWorkWithDetails } from "@/lib/works/service";
 import type { AccessActionState } from "@/lib/access/contracts";
 import type { WorkEditState } from "@/lib/works/contracts";
@@ -22,3 +22,13 @@ export async function createWorkAction(_previous: WorkEditState, form: FormData)
   return state;
 }
 
+export async function updateAccessAction(_previous: AccessActionState, form: FormData): Promise<AccessActionState> {
+  const user = await requireAdministrator();
+  const state = await updateAccountAccess(form, { actorId: user.id, createClient: () => createClient({ writableCookies: true }) });
+  if (state.status === "success") {
+    revalidatePath("/administracao/usuarios/historico");
+    revalidatePath("/administracao/usuarios");
+    revalidatePath("/app", "layout");
+  }
+  return state;
+}

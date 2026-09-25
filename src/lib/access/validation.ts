@@ -1,4 +1,4 @@
-import { accessProfiles, type AccessGrant, type AccessProfile, type AdministrativeScope, type ApprovalInput, type EngineeringScope } from "./contracts.ts";
+import { accessProfiles, type AccessGrant, type AccessProfile, type AccountEditInput, type AdministrativeScope, type ApprovalInput, type EngineeringScope } from "./contracts.ts";
 
 export const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const invalid = (message: string) => ({ ok: false as const, message });
@@ -53,6 +53,11 @@ export function validateApproval(form: FormData): { ok: true; data: ApprovalInpu
     seen.add(key);
     validated.push({ perfil: grant.perfil, obra_id, modulo: grant.modulo });
   }
+  const engineeringWorks = new Set(validated.filter((grant) => grant.perfil === "ENGENHARIA").map((grant) => grant.obra_id));
+  if ([...engineeringWorks].some((workId) => !["SEGURANCA", "QUALIDADE"].every((module) =>
+    validated.some((grant) => grant.perfil === "ENGENHARIA" && grant.obra_id === workId && grant.modulo === module)))) {
+    return invalid("Engenharia deve receber Segurança e Qualidade em cada obra selecionada.");
+  }
   if (perfis.some((profile) => profile !== "ADMINISTRATIVO" && !validated.some((grant) => grant.perfil === profile))) return invalid("Informe ao menos uma obra e um módulo para cada perfil técnico selecionado.");
   return { ok: true, data: { authUserId: authUserId.toLowerCase(), perfis, atuacaoEngenharia: scope as EngineeringScope | null, atuacaoAdministrativa: administrativeScope as AdministrativeScope | null, grants: validated, reason } };
 }
@@ -61,4 +66,59 @@ export function validateWork(form: FormData) {
   const nome = field(form, "nome");
   if (!nome || nome.length < 2 || nome.length > 160) return invalid("Informe o nome real da obra com 2 a 160 caracteres.");
   return { ok: true as const, data: { nome } };
+}
+
+export function validateAccountEdit(form: FormData): { ok: true; data: AccountEditInput } | { ok: false; message: string } {
+  const authUserId = field(form, "authUserId");
+  const submittedProfiles = form.getAll("perfis");
+  const submittedEngineeringScopes = form.getAll("atuacoesEngenharia");
+  const administrativeScope = field(form, "atuacaoAdministrativa") || null;
+  const status = field(form, "status");
+  const reason = field(form, "reason");
+  if (!authUserId || !uuidPattern.test(authUserId)) return invalid("O usuário não é válido. Atualize a página e tente novamente.");
+  if (submittedProfiles.length === 0 || submittedProfiles.length > accessProfiles.length
+    || submittedProfiles.some((value) => typeof value !== "string" || !accessProfiles.includes(value as AccessProfile))
+    || new Set(submittedProfiles).size !== submittedProfiles.length || form.has("perfil")) return invalid("Escolha um ou mais perfis válidos, sem repetir.");
+  const perfis = accessProfiles.filter((profile) => submittedProfiles.includes(profile));
+  if (submittedEngineeringScopes.length > 2
+    || submittedEngineeringScopes.some((value) => typeof value !== "string" || !["EQUIPE_OBRA", "COORDENACAO"].includes(value))
+    || new Set(submittedEngineeringScopes).size !== submittedEngineeringScopes.length) return invalid("Revise as atuações de Engenharia.");
+  const atuacoesEngenharia = (["EQUIPE_OBRA", "COORDENACAO"] as EngineeringScope[])
+    .filter((scope) => submittedEngineeringScopes.includes(scope));
+  if (perfis.includes("ENGENHARIA") !== (atuacoesEngenharia.length > 0)) return invalid("Escolha ao menos uma atuação quando o perfil Engenharia estiver ativo.");
+  if (perfis.includes("ADMINISTRATIVO") && !["SEGURANCA", "QUALIDADE", "GERAL"].includes(administrativeScope ?? "")) return invalid("Escolha o tipo do perfil Administrativo.");
+  if (!perfis.includes("ADMINISTRATIVO") && administrativeScope !== null) return invalid("A atuação administrativa deve ser informada apenas para o perfil Administrativo.");
+  if (status !== "ATIVO" && status !== "INATIVO") return invalid("Escolha um status válido para o perfil.");
+  if (!reason || reason.length < 10 || reason.length > 1000) return invalid("A alteração não possui um registro administrativo válido.");
+  if (field(form, "confirmation") !== "SIM") return invalid("Confirme as alterações antes de salvar.");
+
+  const rawGrants = field(form, "grants");
+  if (!rawGrants || rawGrants.length > 60000) return invalid("Revise a lista de obras autorizadas.");
+  let grants: unknown;
+  try { grants = JSON.parse(rawGrants); } catch { return invalid("Revise a lista de obras autorizadas."); }
+  if (!Array.isArray(grants) || grants.length > 400) return invalid("Informe até 400 acessos por perfil e obra.");
+  const validated: AccessGrant[] = [];
+  const seen = new Set<string>();
+  for (const grant of grants) {
+    if (!grant || typeof grant !== "object" || Array.isArray(grant)
+      || Object.keys(grant).length !== 3 || typeof grant.obra_id !== "string"
+      || !uuidPattern.test(grant.obra_id) || !["SEGURANCA", "QUALIDADE"].includes(grant.modulo)) return invalid("Escolha obras válidas para cada perfil técnico.");
+    if (grant.perfil === "ADMINISTRATIVO" || !perfis.includes(grant.perfil)) return invalid("Cada obra deve pertencer a um perfil técnico selecionado.");
+    if ((grant.perfil === "AUDITOR_SEGURANCA" && grant.modulo !== "SEGURANCA")
+      || (grant.perfil === "AUDITOR_QUALIDADE" && grant.modulo !== "QUALIDADE")) return invalid("O acesso informado não corresponde ao perfil do auditor.");
+    const obra_id = grant.obra_id.toLowerCase();
+    const key = `${grant.perfil}/${obra_id}/${grant.modulo}`;
+    if (seen.has(key)) return invalid("A mesma obra foi informada mais de uma vez para este perfil.");
+    seen.add(key);
+    validated.push({ perfil: grant.perfil, obra_id, modulo: grant.modulo });
+  }
+  const engineeringWorks = new Set(validated.filter((grant) => grant.perfil === "ENGENHARIA").map((grant) => grant.obra_id));
+  if ([...engineeringWorks].some((workId) => !["SEGURANCA", "QUALIDADE"].every((module) =>
+    validated.some((grant) => grant.perfil === "ENGENHARIA" && grant.obra_id === workId && grant.modulo === module)))) return invalid("Engenharia deve receber Segurança e Qualidade em cada obra selecionada.");
+  if (perfis.some((profile) => profile !== "ADMINISTRATIVO" && !validated.some((grant) => grant.perfil === profile))) return invalid("Informe ao menos uma obra para cada perfil técnico selecionado.");
+  return { ok: true, data: {
+    authUserId: authUserId.toLowerCase(), perfis, atuacoesEngenharia,
+    atuacaoAdministrativa: administrativeScope as AdministrativeScope | null,
+    grants: validated, ativo: status === "ATIVO", reason,
+  } };
 }

@@ -11,6 +11,7 @@
 .statLink { text-decoration: none; transition: border-color .15s, box-shadow .15s, transform .15s; }
 .statLink:hover { border-color: #9aaecb; box-shadow: 0 5px 16px #213e6b12; transform: translateY(-1px); }
 .section { margin-top: 34px; }
+.standaloneSection { margin-top: 0; }
 .sectionHeading { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--line); margin-bottom: 18px; padding-bottom: 12px; }
 .sectionHeading h2 { font-size: 21px; margin: 0; }
 .sectionHeading p { margin: 0; font-size: 12px; color: var(--muted); }
@@ -37,27 +38,72 @@
 .formFields { padding: 0; margin: 0; border: 0; display: grid; gap: 20px; min-width: 0; }
 .formFields > legend { font-size: 17px; font-weight: 700; color: var(--navy); margin-bottom: 18px; }
 .formFields > button { justify-self: start; }
+.accessDefinitionLayout { display: grid; grid-template-columns: minmax(260px, .72fr) minmax(0, 1.28fr); align-items: start; gap: 22px; }
+.accessConfiguration { display: grid; min-width: 0; gap: 20px; }
+.accessConfiguration .formGrid { grid-template-columns: 1fr; }
+.embeddedScope { margin-bottom: 18px; }
 .formGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
 .grantFields { border: 1px solid var(--line); border-radius: 8px; padding: 18px; min-width: 0; }
 .grantFields legend { font-weight: 700; color: var(--navy); padding: 0 7px; }
-.profileChoices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.profileChoices { display: grid; grid-template-columns: 1fr; gap: 12px; }
 .profileChoice { display: flex; align-items: center; gap: 10px; padding: 14px; border: 1px solid var(--line); border-radius: 7px; font-size: 13px; }
 .profileChoice:has(input:checked) { background: #edf2f8; border-color: var(--navy); }
 .profileChoice input { width: 18px; height: 18px; min-height: 18px; flex: 0 0 18px; margin: 0; accent-color: var(--navy); }
 .grantRow { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) auto; align-items: end; gap: 12px; margin-bottom: 16px; }
-.confirmation { display: flex; align-items: flex-start; gap: 12px; padding: 16px; border: 1px solid var(--line); border-radius: 7px; line-height: 1.65; font-size: 12px; }
-.confirmation input { width: 18px; height: 18px; min-height: 18px; flex: 0 0 18px; margin: 1px 0 0; accent-color: var(--navy); }
+.workOnlyGrantRow { grid-template-columns: minmax(0, 1fr) auto; }
+.addGrantButton { display: grid; width: 46px; min-width: 46px; height: 46px; min-height: 46px; place-items: center; padding: 0; border-radius: 8px; color: white; font-size: 26px; line-height: 1; }
+.approvalDialog { width: min(620px, calc(100vw - 32px)); max-height: min(760px, calc(100vh - 32px)); margin: auto; padding: 0; overflow: auto; border: 1px solid var(--line); border-radius: 14px; background: white; color: var(--navy); box-shadow: 0 24px 70px #07152c42; }
+.approvalDialog::backdrop { background: #07152c9e; backdrop-filter: blur(2px); }
+.approvalDialogHeader { padding: 26px 28px 20px; border-bottom: 1px solid var(--line); }
+.approvalDialogHeader span { color: var(--red); font-size: 11px; font-weight: 800; letter-spacing: 1.2px; }
+.approvalDialogHeader h3 { margin: 7px 0 8px; font-size: 24px; }
+.approvalDialogHeader p { margin: 0; color: var(--muted); font-size: 13px; }
+.approvalSummary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 22px; margin: 0; padding: 22px 28px; }
+.approvalSummary div { min-width: 0; }
+.approvalSummary dt { color: var(--muted); font-size: 11px; }
+.approvalSummary dd { margin: 5px 0 0; font-weight: 700; overflow-wrap: anywhere; }
+.approvalAccesses { margin: 0 28px; padding: 18px; border: 1px solid var(--line); border-radius: 9px; background: #f7f9fc; }
+.approvalAccesses h4 { margin: 0 0 10px; font-size: 13px; }
+.approvalAccesses ul { display: grid; gap: 9px; margin: 0; padding: 0; list-style: none; }
+.approvalAccesses li { padding-bottom: 9px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+.approvalAccesses li:last-child { padding-bottom: 0; border-bottom: 0; }
+.approvalDialogActions { display: flex; justify-content: flex-end; gap: 12px; padding: 22px 28px 28px; }
+.editUserDialog { width: min(920px, calc(100vw - 32px)); }
+.historyBody .editUserDialog h3 { margin: 7px 0 8px; font-size: 24px; }
+.editUserFields { display: grid; gap: 18px; margin: 0; padding: 24px 28px 4px; border: 0; min-width: 0; }
+.editStatusField { display: grid; gap: 8px; color: var(--navy); font-size: 12px; font-weight: 700; }
+.editStatusField select { max-width: 260px; }
+.editSelfNotice { margin: 0; color: var(--muted); font-size: 11px; }
+.visuallyHidden { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .error, .success { padding: 14px 16px; border-radius: 7px; font-size: 13px; overflow-wrap: anywhere; }
 .error { background: #fff0f0; color: #962e36; border: 1px solid #ebc8ca; }
 .success { background: #edf6f0; color: #27603f; border: 1px solid #bdd8c6; }
 .history { display: grid; gap: 12px; }
-.historyCard { border: 1px solid var(--line); border-radius: 9px; background: white; }
-.historyCard summary { padding: 20px 24px; cursor: pointer; }
+.historyCard { position: relative; border: 1px solid var(--line); border-radius: 9px; background: white; }
+.historyCard > summary { padding: 20px 70px 20px 24px; cursor: pointer; }
 .historyCard summary strong { color: var(--navy); }
 .historyCard summary span { display: block; margin-top: 6px; font-size: 12px; color: var(--muted); }
 .historyBody { padding: 20px 24px; border-top: 1px solid var(--line); }
 .historyBody h3 { font-size: 14px; margin-top: 20px; }
+.editUserButton { position: absolute; z-index: 1; top: 11px; right: 16px; display: grid; width: 42px; min-width: 42px; height: 42px; min-height: 42px; place-items: center; padding: 0; border-radius: 8px; }
+.editUserButton svg { width: 19px; height: 19px; }
+.profileDetails { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 18px 28px; margin: 0; }
+.profileDetails > div { display: grid; grid-column: 1 / -1; gap: 4px; }
+.profileDetails > .profileEmail { grid-column: 1; }
+.profileDetails > .profileStatus { grid-column: 2; grid-row: 1; align-self: start; justify-items: end; text-align: right; }
+.profileDetails dt { color: var(--muted); font-size: 12px; }
+.profileDetails dd { margin: 0; color: var(--navy); font-size: 14px; font-weight: 700; overflow-wrap: anywhere; }
+.profileDetails .profileStatus dd { display: inline-flex; align-items: center; min-height: 26px; padding: 3px 10px; border-radius: 20px; font-size: 11px; }
+.profileDetails .profileStatus .activeStatus { background: #edf6f0; color: #27603f; }
+.profileDetails .profileStatus .inactiveStatus { background: #f2f3f5; color: #687589; }
+.profileWorkList { display: grid; gap: 4px; margin: 0; padding: 0; }
+.historyBody .userChangesTitle { margin: 26px 0 12px; color: var(--muted); font-size: 12px; font-weight: 400; }
 .historyBody ul { margin: 0; padding-left: 20px; }
+.userChanges { display: grid; gap: 10px; }
+.userChange { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: baseline; gap: 12px 24px; padding: 16px 18px; border: 1px solid var(--line); border-radius: 8px; background: #f8fafc; }
+.userChange strong { color: var(--navy); font-size: 13px; overflow-wrap: anywhere; }
+.userChange span, .userChange time { color: var(--muted); font-size: 11px; }
+.userChange time { white-space: nowrap; }
 .grantGroups { display: grid; gap: 18px; }
 .grantGroup h3 { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; margin: 0 0 10px; font-size: 14px; }
 .scopeCount { font-size: 11px; font-weight: 400; color: var(--muted); }
@@ -65,8 +111,6 @@ ul.grantList { padding: 0; margin: 0; list-style: none; }
 .grantList li { display: flex; justify-content: space-between; gap: 16px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 12px; }
 .grantList li span:first-child { overflow-wrap: anywhere; }
 .grantList li span:last-child { color: var(--muted); flex-shrink: 0; }
-.reason { white-space: pre-wrap; overflow-wrap: anywhere; }
-.trace { font-size: 11px; color: var(--muted); overflow-wrap: anywhere; margin: 20px 0 0; }
 .pagination { display: flex; align-items: center; gap: 18px; margin-top: 18px; font-size: 12px; }
 .pagination a { display: inline-block; padding: 8px 12px; border: 1px solid var(--line); border-radius: 6px; background: white; }
 .footer { margin-top: 36px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; }
@@ -78,8 +122,16 @@ ul.grantList { padding: 0; margin: 0; list-style: none; }
   .sectionHeading p { margin-top: 8px; }
   .requestSummary, .requestBody, .historyCard summary, .historyBody { padding: 18px; }
   .details, .formGrid, .profileChoices { grid-template-columns: 1fr; }
+  .accessDefinitionLayout { grid-template-columns: 1fr; }
   .grantList li { flex-direction: column; gap: 4px; }
   .grantRow { grid-template-columns: 1fr; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
   .grantRow button { justify-self: start; }
   .formFields > button { justify-self: stretch; white-space: normal; }
+  .approvalSummary { grid-template-columns: 1fr; }
+  .approvalDialogHeader, .approvalSummary { padding-right: 20px; padding-left: 20px; }
+  .approvalAccesses { margin-right: 20px; margin-left: 20px; }
+  .approvalDialogActions { display: grid; padding: 20px; }
+  .editUserFields { padding: 20px 20px 4px; }
+  .editStatusField select { max-width: none; }
+  .userChange { grid-template-columns: 1fr; gap: 5px; }
 }

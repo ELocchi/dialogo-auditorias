@@ -1,6 +1,7 @@
 import 'server-only';
 import { createClient } from '../supabase/server';
 import { uuidPattern } from '../access/validation';
+import { platformDisplayName } from '../auth/display-name';
 import { legacyWorkDetailsColumns, workDetailsColumns, type WorkDetails, type WorkChange, type ActiveTeamProfile, type WorkTeamLink } from './contracts';
 // Route and Server Action separately require the active Administrative context.
 // These reads always use the caller's session and the table's RLS policies.
@@ -40,7 +41,7 @@ export async function readActiveTeamProfiles(): Promise<ActiveTeamProfile[] | nu
       const person = people.get(account.auth_user_id);
       if (!person) return [];
       const modules = [...new Set(grants.data.filter((grant) => grant.auth_user_id === account.auth_user_id).map((grant) => `${grant.perfil}: ${grant.modulo}`))];
-      return [{ id: account.auth_user_id, nome: person.nome, email: person.email, perfis: account.perfis, modulos: modules }];
+      return [{ id: account.auth_user_id, nome: platformDisplayName(person.email, person.nome), email: person.email, perfis: account.perfis, modulos: modules }];
     }).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
   } catch { return null; }
 }

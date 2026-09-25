@@ -49,6 +49,15 @@ create function pg_temp.criterion() returns jsonb language sql as $test$
     "group":"1. Fixture","subgroup":"","source":"Fixture","locator":"1","documentedWeight":1,
     "orientations":[],"verificationRule":"Conforme/Não Conforme"}]'::jsonb;
 $test$;
+select pg_temp.assert_true(
+  dialogo_private.engineering_grants_cover_both_modules(jsonb_build_array(
+    jsonb_build_object('perfil','ENGENHARIA','obra_id',pg_temp.id(101),'modulo','SEGURANCA'),
+    jsonb_build_object('perfil','ENGENHARIA','obra_id',pg_temp.id(101),'modulo','QUALIDADE'))),
+  'Engineering work accepts the complete Safety and Quality pair');
+select pg_temp.assert_true(
+  not dialogo_private.engineering_grants_cover_both_modules(jsonb_build_array(
+    jsonb_build_object('perfil','ENGENHARIA','obra_id',pg_temp.id(101),'modulo','SEGURANCA'))),
+  'Engineering work rejects a single module');
 insert into auth.users(id,email,raw_user_meta_data,email_confirmed_at) values
  ('13044e3f-e8d2-4b4b-9981-22a8de22c610','emanuel.locchi@dialogo.com.br','{"nome":"Assignment admin fixture"}',clock_timestamp()),
  (pg_temp.id(2),'assignment.dual@dialogo.com.br','{"nome":"Dual auditor fixture"}',clock_timestamp()),
@@ -71,7 +80,9 @@ select public.approve_access_request_v3(pg_temp.id(2),array['AUDITOR_SEGURANCA',
 select public.approve_access_request_v3(pg_temp.id(3),array['AUDITOR_SEGURANCA'],null,null,
  jsonb_build_array(jsonb_build_object('perfil','AUDITOR_SEGURANCA','obra_id',pg_temp.id(101),'modulo','SEGURANCA')),'Synthetic other auditor approval');
 select public.approve_access_request_v3(pg_temp.id(4),array['ENGENHARIA'],'EQUIPE_OBRA',null,
- jsonb_build_array(jsonb_build_object('perfil','ENGENHARIA','obra_id',pg_temp.id(101),'modulo','SEGURANCA')),'Synthetic engineering approval');
+ jsonb_build_array(
+   jsonb_build_object('perfil','ENGENHARIA','obra_id',pg_temp.id(101),'modulo','SEGURANCA'),
+   jsonb_build_object('perfil','ENGENHARIA','obra_id',pg_temp.id(101),'modulo','QUALIDADE')),'Synthetic engineering approval');
 select public.approve_access_request_v3(pg_temp.id(5),array['ADMINISTRATIVO'],null,'SEGURANCA','[]','Synthetic scoped admin approval');
 select public.approve_access_request_v3(pg_temp.id(7),array['AUDITOR_QUALIDADE'],null,null,
  jsonb_build_array(jsonb_build_object('perfil','AUDITOR_QUALIDADE','obra_id',pg_temp.id(101),'modulo','QUALIDADE')),'Synthetic quality auditor approval');

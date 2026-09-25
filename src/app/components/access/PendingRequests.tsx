@@ -1,12 +1,12 @@
 "use client";
 
-import { startTransition, useActionState, useId, useState } from "react";
+import { startTransition, useActionState, useId, useRef, useState } from "react";
 import { approveAccessAction } from "@/app/administracao/usuarios/actions";
-import { accessProfiles, administrativeLabels, engineeringLabels, initialAccessState, moduleLabels, profileLabels, type AccessModule, type AccessProfile, type AccessWork, type PendingRequest, type TechnicalProfile } from "@/lib/access/contracts";
+import { accessProfiles, administrativeLabels, engineeringLabels, initialAccessState, profileLabels, type AccessGrant, type AccessModule, type AccessProfile, type AccessWork, type PendingRequest, type TechnicalProfile } from "@/lib/access/contracts";
 import styles from "@/app/administracao/usuarios/access.module.css";
 
 const formatDate = (value: string) => new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" }).format(new Date(value));
-type GrantRow = { key: number; perfil: TechnicalProfile; obra_id: string; modulo: string };
+type GrantRow = { key: number; perfil: TechnicalProfile; obra_id: string; modulo: AccessModule | "" };
 const modulesFor = (profile: TechnicalProfile): AccessModule[] => profile === "AUDITOR_SEGURANCA" ? ["SEGURANCA"] : profile === "AUDITOR_QUALIDADE" ? ["QUALIDADE"] : ["SEGURANCA", "QUALIDADE"];
 const firstModule = (profile: TechnicalProfile) => profile === "ENGENHARIA" ? "" : modulesFor(profile)[0];
 
@@ -23,13 +23,24 @@ export function PendingRequests({ requests, works, actorId, previewIds = [] }: {
 
 function RequestCard({ request, works, action, pending, isSelf, preview }: { request: PendingRequest; works: AccessWork[]; action: (form: FormData) => void; pending: boolean; isSelf: boolean; preview: boolean }) {
   const id = useId();
+  const formRef = useRef<HTMLFormElement>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const approvalButtonRef = useRef<HTMLButtonElement>(null);
   const [perfis, setPerfis] = useState<AccessProfile[]>([]);
   const [scope, setScope] = useState("");
   const [administrativeScope, setAdministrativeScope] = useState("");
   const [rows, setRows] = useState<GrantRow[]>([]);
-  const [reviewed, setReviewed] = useState(false);
   const technicalProfiles = perfis.filter((profile): profile is TechnicalProfile => profile !== "ADMINISTRATIVO");
-  const incomplete = perfis.length === 0 || (perfis.includes("ADMINISTRATIVO") && !administrativeScope) || technicalProfiles.some((profile) => !rows.some((row) => row.perfil === profile)) || (technicalProfiles.length > 0 && works.length === 0);
+  const expandedGrants: AccessGrant[] = rows.flatMap(({ perfil, obra_id, modulo }): AccessGrant[] => perfil === "ENGENHARIA"
+    ? modulesFor(perfil).map((engineeringModule) => ({ perfil, obra_id, modulo: engineeringModule }))
+    : [{ perfil, obra_id, modulo: modulo as AccessModule }]);
+  const incomplete = perfis.length === 0 || (perfis.includes("ADMINISTRATIVO") && !administrativeScope)
+    || technicalProfiles.some((profile) => !rows.some((row) => row.perfil === profile))
+    || rows.some((row) => !row.obra_id || (row.perfil !== "ENGENHARIA" && !row.modulo))
+    || expandedGrants.length > 400 || (technicalProfiles.length > 0 && works.length === 0);
+  const selectedRows = rows.filter((row) => row.obra_id && (row.perfil === "ENGENHARIA" || row.modulo));
+  const workName = (workId: string) => works.find((work) => work.id === workId)?.nome ?? "Obra não informada";
+  const selectedWorkNames = [...new Set(selectedRows.map((row) => workName(row.obra_id)))];
   const toggleProfile = (profile: AccessProfile, selected: boolean) => {
     setPerfis((current) => accessProfiles.filter((item) => item === profile ? selected : current.includes(item)));
     if (!selected) {
@@ -39,11 +50,9 @@ function RequestCard({ request, works, action, pending, isSelf, preview }: { req
     } else if (profile !== "ADMINISTRATIVO") {
       setRows((current) => [...current, { key: Math.max(-1, ...current.map((row) => row.key)) + 1, perfil: profile, obra_id: "", modulo: firstModule(profile) }]);
     }
-    setReviewed(false);
   };
   const changeRow = (key: number, changes: Partial<GrantRow>) => {
     setRows((current) => current.map((row) => row.key === key ? { ...row, ...changes } : row));
-    setReviewed(false);
   };
   return <details className={styles.requestCard}>
     <summary className={styles.requestSummary}>
@@ -58,68 +67,90 @@ function RequestCard({ request, works, action, pending, isSelf, preview }: { req
         <div><dt>Cargo ou área declarada</dt><dd>{request.cargo_area_informado || "Não informado"}</dd></div>
         <div><dt>Obra de referência declarada</dt><dd>{request.obra_referencia_informada || "Não informada"}</dd></div>
       </dl>
-      {isSelf ? <p className={styles.error}>A aprovação da própria conta não está disponível.</p> : <form action={action} aria-busy={pending} className={styles.approvalForm} onSubmit={(event) => {
-        // Dispatch the action explicitly so React keeps the controlled fields
-        // intact after a returned error. Capture the reviewed values first.
+      {isSelf ? <p className={styles.error}>A aprovação da própria conta não está disponível.</p> : <form ref={formRef} action={action} aria-busy={pending} className={styles.approvalForm} onSubmit={(event) => {
         event.preventDefault();
-        if (preview || pending || !reviewed || incomplete) return;
-        const formData = new FormData(event.currentTarget);
-        setReviewed(false);
-        startTransition(() => action(formData));
+        if (pending || incomplete) return;
+        dialogRef.current?.showModal();
       }}>
         <input type="hidden" name="authUserId" value={request.auth_user_id} />
-        <input type="hidden" name="grants" value={JSON.stringify(rows.map(({ perfil, obra_id, modulo }) => ({ perfil, obra_id, modulo })))} />
+        <input type="hidden" name="grants" value={JSON.stringify(expandedGrants)} />
         <input type="hidden" name="reason" value="Aprovação administrativa de acesso." />
         <fieldset disabled={pending} className={styles.formFields}>
           <legend>Definir acesso</legend>
-          <fieldset className={styles.grantFields}>
-            <legend>Perfis a conceder</legend>
-            <div className={styles.profileChoices}>
-              {accessProfiles.map((profile) => <label key={profile} className={styles.profileChoice} htmlFor={`${id}-profile-${profile}`}>
-                <input id={`${id}-profile-${profile}`} type="checkbox" name="perfis" value={profile} checked={perfis.includes(profile)} onChange={(event) => toggleProfile(profile, event.target.checked)} />
-                <span>{profileLabels[profile]}</span>
-              </label>)}
-            </div>
-          </fieldset>
-          {perfis.includes("ENGENHARIA") && <div className={styles.formGrid}><label htmlFor={`${id}-scope`}>Atuação de Engenharia
-              <select className="filter-select" id={`${id}-scope`} name="atuacaoEngenharia" required value={scope} onChange={(event) => { setScope(event.target.value); setReviewed(false); }}>
+          <div className={styles.accessDefinitionLayout}>
+            <fieldset className={`${styles.grantFields} ${styles.profilePanel}`}>
+              <legend>Perfis a conceder</legend>
+              <div className={styles.profileChoices}>
+                {accessProfiles.map((profile) => <label key={profile} className={styles.profileChoice} htmlFor={`${id}-profile-${profile}`}>
+                  <input id={`${id}-profile-${profile}`} type="checkbox" name="perfis" value={profile} checked={perfis.includes(profile)} onChange={(event) => toggleProfile(profile, event.target.checked)} />
+                  <span>{profileLabels[profile]}</span>
+                </label>)}
+              </div>
+            </fieldset>
+            <div className={styles.accessConfiguration}>
+          {perfis.includes("ADMINISTRATIVO") && <fieldset className={styles.grantFields}>
+            <legend>Administrativo</legend>
+            <div className={styles.formGrid}><label htmlFor={`${id}-administrative-scope`}>
+              <select className="filter-select" id={`${id}-administrative-scope`} name="atuacaoAdministrativa" aria-label="Atuação administrativa" required value={administrativeScope} onChange={(event) => setAdministrativeScope(event.target.value)}>
+                <option value="">Selecione a atuação</option>
+                {Object.entries(administrativeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </select>
+            </label></div>
+          </fieldset>}
+          {technicalProfiles.map((profile) => <fieldset key={profile} className={styles.grantFields}>
+            <legend>{profileLabels[profile]}</legend>
+            {profile === "ENGENHARIA" && <div className={`${styles.formGrid} ${styles.embeddedScope}`}><label htmlFor={`${id}-scope`}>
+              <select className="filter-select" id={`${id}-scope`} name="atuacaoEngenharia" aria-label="Atuação de Engenharia" required value={scope} onChange={(event) => setScope(event.target.value)}>
                 <option value="">Selecione a atuação</option>
                 {Object.entries(engineeringLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
               </select>
             </label></div>}
-          {perfis.includes("ADMINISTRATIVO") && <div className={styles.formGrid}><label htmlFor={`${id}-administrative-scope`}>Atuação administrativa
-            <select className="filter-select" id={`${id}-administrative-scope`} name="atuacaoAdministrativa" required value={administrativeScope} onChange={(event) => { setAdministrativeScope(event.target.value); setReviewed(false); }}>
-              <option value="">Selecione a atuação</option>
-              {Object.entries(administrativeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-            </select>
-          </label></div>}
-          {technicalProfiles.map((profile) => <fieldset key={profile} className={styles.grantFields}>
-            <legend>{profileLabels[profile]} · obras e módulos</legend>
-            <p className={styles.help}>Cada linha concede o módulo escolhido nesta obra para {profileLabels[profile]}. Os acessos dos outros perfis são definidos separadamente.</p>
             {works.length === 0 && <p className={styles.error}>Cadastre uma obra real na aba Obras antes de aprovar este perfil.</p>}
-            {rows.filter((row) => row.perfil === profile).map((row, index) => <div key={row.key} className={styles.grantRow}>
-              <label htmlFor={`${id}-work-${row.key}`}>Obra {index + 1}
-                <select className="filter-select" id={`${id}-work-${row.key}`} required value={row.obra_id} onChange={(event) => changeRow(row.key, { obra_id: event.target.value })}>
+            {rows.filter((row) => row.perfil === profile).map((row, index) => <div key={row.key} className={`${styles.grantRow} ${styles.workOnlyGrantRow}`}>
+              <label htmlFor={`${id}-work-${row.key}`}>{profile !== "ENGENHARIA" && `Obra ${index + 1}`}
+                <select className="filter-select" id={`${id}-work-${row.key}`} aria-label={profile === "ENGENHARIA" ? `Obra ${index + 1} para Engenharia` : undefined} required value={row.obra_id} onChange={(event) => changeRow(row.key, { obra_id: event.target.value })}>
                   <option value="">Selecione a obra</option>
                   {works.map((work) => <option key={work.id} value={work.id}>{work.nome}</option>)}
                 </select>
               </label>
-              <label htmlFor={`${id}-module-${row.key}`}>Módulo {index + 1}
-                <select className="filter-select" id={`${id}-module-${row.key}`} required value={row.modulo} onChange={(event) => changeRow(row.key, { modulo: event.target.value })}>
-                  <option value="">Selecione o módulo</option>
-                  {modulesFor(profile).map((module) => <option key={module} value={module}>{moduleLabels[module]}</option>)}
-                </select>
-              </label>
-              <button type="button" className="secondary" aria-label={`Remover acesso ${index + 1} de ${profileLabels[profile]}`} onClick={() => { setRows((current) => current.filter((item) => item.key !== row.key)); setReviewed(false); }}>Remover</button>
+              <button type="button" className="secondary" aria-label={`Remover acesso ${index + 1} de ${profileLabels[profile]}`} onClick={() => setRows((current) => current.filter((item) => item.key !== row.key))}>Remover</button>
             </div>)}
-            <button className="secondary" type="button" disabled={rows.length >= 400 || works.length === 0} onClick={() => { setRows((current) => [...current, { key: Math.max(-1, ...current.map((row) => row.key)) + 1, perfil: profile, obra_id: "", modulo: firstModule(profile) }]); setReviewed(false); }}>Adicionar obra e módulo para {profileLabels[profile]}</button>
+            {profile === "ENGENHARIA" && <button className={`primary ${styles.addGrantButton}`} type="button" aria-label="Adicionar outra obra para Engenharia" title="Adicionar outra obra" disabled={expandedGrants.length + 2 > 400 || works.length === 0} onClick={() => setRows((current) => [...current, { key: Math.max(-1, ...current.map((row) => row.key)) + 1, perfil: profile, obra_id: "", modulo: "" }])}>+</button>}
+            {profile !== "ENGENHARIA" && <button className={`primary ${styles.addGrantButton}`} type="button" aria-label={`Adicionar outra obra para ${profileLabels[profile]}`} title="Adicionar outra obra" disabled={expandedGrants.length + 1 > 400 || works.length === 0} onClick={() => setRows((current) => [...current, { key: Math.max(-1, ...current.map((row) => row.key)) + 1, perfil: profile, obra_id: "", modulo: firstModule(profile) }])}>+</button>}
           </fieldset>)}
-          <label className={styles.confirmation} htmlFor={`${id}-confirmation`}>
-            <input id={`${id}-confirmation`} type="checkbox" name="confirmation" value="SIM" required checked={reviewed} onChange={(event) => setReviewed(event.target.checked)} />
-            <span>Revisei os perfis e cada acesso. Confirmo a aprovação de {request.nome} e o registro da decisão no histórico.</span>
-          </label>
-          <button className="primary" type="submit" disabled={preview || !reviewed || incomplete}>{preview ? "Prévia local — sem gravação" : pending ? "Registrando aprovação…" : "Aprovar e registrar acessos"}</button>
+            </div>
+          </div>
+          <button ref={approvalButtonRef} className="primary" type="submit" disabled={pending || incomplete}>{pending ? "Registrando aprovação…" : "Aprovar e registrar acessos"}</button>
         </fieldset>
+        <dialog ref={dialogRef} className={styles.approvalDialog} aria-labelledby={`${id}-approval-title`} onCancel={(event) => { if (pending) event.preventDefault(); }} onClose={() => approvalButtonRef.current?.focus()}>
+          <div className={styles.approvalDialogHeader}>
+            <span>CONFIRMAÇÃO</span>
+            <h3 id={`${id}-approval-title`}>Confirmar aprovação do cadastro</h3>
+            <p>Confira as informações antes de liberar o acesso.</p>
+          </div>
+          <dl className={styles.approvalSummary}>
+            <div><dt>Usuário</dt><dd>{request.nome}</dd></div>
+            <div><dt>E-mail</dt><dd>{request.email}</dd></div>
+            <div><dt>Perfis</dt><dd>{perfis.map((profile) => profileLabels[profile]).join(" · ")}</dd></div>
+            {administrativeScope && <div><dt>Atuação administrativa</dt><dd>{administrativeLabels[administrativeScope as keyof typeof administrativeLabels]}</dd></div>}
+            {scope && <div><dt>Atuação de Engenharia</dt><dd>{engineeringLabels[scope as keyof typeof engineeringLabels]}</dd></div>}
+          </dl>
+          {selectedWorkNames.length > 0 && <div className={styles.approvalAccesses}>
+            <h4>Obras liberadas</h4>
+            <ul>{selectedWorkNames.map((name) => <li key={name}>{name}</li>)}</ul>
+          </div>}
+          <div className={styles.approvalDialogActions}>
+            <button type="button" className="secondary" disabled={pending} onClick={() => dialogRef.current?.close()}>Voltar e editar</button>
+            <button type="button" className="primary" disabled={pending || preview} onClick={() => {
+              const form = formRef.current;
+              if (!form || incomplete || preview) return;
+              const formData = new FormData(form);
+              formData.set("confirmation", "SIM");
+              dialogRef.current?.close();
+              startTransition(() => action(formData));
+            }}>{preview ? "Prévia LAN — sem gravação" : pending ? "Registrando aprovação…" : "Confirmar e aprovar"}</button>
+          </div>
+        </dialog>
       </form>}
     </div>
   </details>;

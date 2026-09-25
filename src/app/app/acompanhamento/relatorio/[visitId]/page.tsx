@@ -71,7 +71,7 @@ export default async function ReportPage({ params, searchParams }: {
   ];
   return <div className="app-shell">
     <a className="skip-link" href="#main-content">Ir para o conteúdo</a>
-    <AdministrativeHeader name={context.user.name} userId={context.user.id} profileLabel={roleLabels[context.user.role]} />
+    <AdministrativeHeader name={context.user.name} email={context.email} userId={context.user.id} profileLabel={roleLabels[context.user.role]} />
     <div className="navigation-bar"><nav className="main-navigation" aria-label="Navegação principal">{navigation.map(({ label, icon, href, active }) =>
       <Link key={href} className={`nav-item${active ? " active" : ""}`} aria-current={active ? "page" : undefined} href={href}><Icon name={icon} /><span>{label}</span></Link>)}</nav></div>
     <main id="main-content" className="content-wrap">

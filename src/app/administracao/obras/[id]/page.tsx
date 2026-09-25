@@ -22,7 +22,7 @@ export default async function EditWorkPage({ params }: { params: Promise<{ id: s
     ? ownRequest.nome : user.email ?? "Usuário";
   return <div className={styles.shell}>
     <a className="skip-link" href="#work-content">Ir para o cadastro da obra</a>
-    <AdministrativeHeader name={name} userId={user.id} />
+    <AdministrativeHeader name={name} email={user.email} userId={user.id} />
     <main id="work-content" tabIndex={-1} className={styles.main}>
       <div className={styles.pageHeading}>
         <Link className={styles.backButton} href="/app?secao=obras" aria-label="Voltar às obras" title="Voltar às obras">

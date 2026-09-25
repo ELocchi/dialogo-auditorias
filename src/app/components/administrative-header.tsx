@@ -3,9 +3,11 @@ import { AdminNotifications, type AdminNotification } from "./auth/AdminNotifica
 import { UserMenu } from "./auth/UserMenu";
 import styles from "./administrative-header.module.css";
 import { administrativeLabels, type AdministrativeScope } from "@/lib/access/contracts";
+import { platformDisplayName } from "@/lib/auth/display-name";
 
-export function AdministrativeHeader({ name, userId, scope, profileLabel, notifications, onNavigateAgenda }: {
+export function AdministrativeHeader({ name, email, userId, scope, profileLabel, notifications, onNavigateAgenda }: {
   name: string;
+  email?: string | null;
   userId: string;
   scope?: AdministrativeScope | null;
   profileLabel?: string;
@@ -24,7 +26,7 @@ export function AdministrativeHeader({ name, userId, scope, profileLabel, notifi
         <div className={styles.session}>
           <div className={styles.accountControls}>
             <AdminNotifications items={notifications} userId={userId} onNavigateAgenda={onNavigateAgenda} />
-            <UserMenu name={name} />
+            <UserMenu name={platformDisplayName(email, name)} />
           </div>
         </div>
       </div>

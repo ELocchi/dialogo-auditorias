@@ -9,6 +9,7 @@ import { AccessGrants } from "../components/access/AccessGrants";
 import { administrativeLabels, engineeringLabels, profileLabels, type HistoricalGrant } from "@/lib/access/contracts";
 import accessStyles from "../administracao/usuarios/access.module.css";
 import styles from "../components/auth/auth.module.css";
+import { platformDisplayName } from "@/lib/auth/display-name";
 
 export default async function MyAccountPage() {
   const user = await requireUser();
@@ -25,7 +26,7 @@ export default async function MyAccountPage() {
   return (
     <AuthShell title="Meus acessos" description="Confira os perfis da sua conta e as obras e os módulos autorizados para cada um.">
       <dl className={styles.accountDetails}>
-        <dt>Nome</dt><dd>{request?.nome ?? "—"}</dd>
+        <dt>Nome</dt><dd>{platformDisplayName(user.email, request?.nome ?? "—")}</dd>
         <dt>E-mail</dt><dd>{user.email}</dd>
         <dt>Perfis</dt><dd>{account.perfis.map((profile) => profileLabels[profile]).join("; ")}</dd>
         {account.atuacao_administrativa && <><dt>Atuação administrativa</dt><dd>{administrativeLabels[account.atuacao_administrativa]}</dd></>}
@@ -47,4 +48,3 @@ export default async function MyAccountPage() {
     </AuthShell>
   );
 }
-

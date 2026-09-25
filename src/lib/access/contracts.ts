@@ -25,6 +25,14 @@ export type AccessGrant = { perfil: TechnicalProfile; obra_id: string; modulo: A
 // Older immutable decisions retain their original shape; fallback is display-only.
 export type HistoricalGrant = Omit<AccessGrant, "perfil"> & { perfil?: TechnicalProfile; obra_nome?: string };
 export type AccessWork = { id: string; nome: string; ativo: boolean };
+export type EditableAccessAccount = {
+  auth_user_id: string;
+  perfis: AccessProfile[];
+  atuacao_engenharia: EngineeringScope | null;
+  atuacoes_engenharia: EngineeringScope[];
+  atuacao_administrativa: AdministrativeScope | null;
+  ativo: boolean;
+};
 export type PendingRequest = {
   auth_user_id: string;
   nome: string;
@@ -37,16 +45,16 @@ export type PendingRequest = {
 export type AccessDecision = {
   id: string;
   auth_user_id: string;
-  decision_type: "BOOTSTRAP" | "APROVACAO" | "AJUSTE_PERFIS_INICIAL" | "AJUSTE_ATUACAO_INICIAL" | "AJUSTE_ACESSOS_GERAIS" | "VINCULO_OBRA" | "DESVINCULO_OBRA";
+  decision_type: "BOOTSTRAP" | "APROVACAO" | "AJUSTE_PERFIS_INICIAL" | "AJUSTE_ATUACAO_INICIAL" | "AJUSTE_ACESSOS_GERAIS" | "VINCULO_OBRA" | "DESVINCULO_OBRA" | "EDICAO_USUARIO";
   perfil: AccessProfile;
   perfis: AccessProfile[] | null;
   atuacao_engenharia: EngineeringScope | null;
   atuacoes_engenharia: EngineeringScope[] | null;
   atuacao_administrativa?: AdministrativeScope | null;
-  request_snapshot: Partial<PendingRequest> & { status_acesso?: string };
+  request_snapshot: Partial<PendingRequest> & { status_acesso?: string; access_edit?: { ativo: boolean; perfis: AccessProfile[]; atuacoes_engenharia: EngineeringScope[]; atuacao_administrativa: AdministrativeScope | null } };
   grants_snapshot: HistoricalGrant[];
   before_access_snapshot: {
-    account: { perfis: AccessProfile[]; perfil: AccessProfile; atuacao_engenharia: EngineeringScope | null; atuacoes_engenharia?: EngineeringScope[] };
+    account: { perfis: AccessProfile[]; perfil: AccessProfile; atuacao_engenharia: EngineeringScope | null; atuacoes_engenharia?: EngineeringScope[]; atuacao_administrativa?: AdministrativeScope | null; ativo?: boolean };
     grants: HistoricalGrant[];
   } | null;
   actor_snapshot: {
@@ -75,3 +83,12 @@ export type ApprovalInput = {
   reason: string;
 };
 
+export type AccountEditInput = {
+  authUserId: string;
+  perfis: AccessProfile[];
+  atuacoesEngenharia: EngineeringScope[];
+  atuacaoAdministrativa: AdministrativeScope | null;
+  grants: AccessGrant[];
+  ativo: boolean;
+  reason: string;
+};

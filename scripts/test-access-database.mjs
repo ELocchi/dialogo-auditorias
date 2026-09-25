@@ -206,7 +206,7 @@ suites.push({
 if (!baselineOnly) suites.push({
   name: "B.25 assigned audits without work access and LAN work fields suite",
   migrations: readdirSync(path.join(projectRoot, "supabase", "migrations"))
-    .filter((name) => name.endsWith(".sql") && name <= "20260924000800_audit_assignment_access.sql"
+    .filter((name) => name.endsWith(".sql") && name <= "20260925000100_engineering_all_modules.sql"
       // This migration is only a deployment assertion about one historic real
       // audit. The isolated suite below supplies its own synthetic identities.
       && name !== "20260924000200_verify_published_audit_access.sql")
@@ -216,6 +216,17 @@ if (!baselineOnly) suites.push({
   omitHistoricPublicationBackfills: true,
   // Current TS catalogs include fields introduced after the historical B.8
   // upgrade. Validate them against the current schema rather than its old one.
+  validateBuiltInCatalogs: true,
+});
+if (!baselineOnly) suites.push({
+  name: "B.26 administrator account editing and immutable history suite",
+  migrations: readdirSync(path.join(projectRoot, "supabase", "migrations"))
+    .filter((name) => name.endsWith(".sql") && name <= "20260925000200_edit_access_accounts.sql"
+      && name !== "20260924000200_verify_published_audit_access.sql")
+    .sort(),
+  test: "edit_access_accounts.sql",
+  storageAdapter: true,
+  omitHistoricPublicationBackfills: true,
   validateBuiltInCatalogs: true,
 });
 

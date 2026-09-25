@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AccessActionState } from "./contracts.ts";
-import { uuidPattern, validateApproval, validateWork } from "./validation.ts";
+import { uuidPattern, validateAccountEdit, validateApproval, validateWork } from "./validation.ts";
 
 // Server Actions inject their verified caller and cookie-scoped client.
 // No service key, actor override, table write or browser Supabase client here.
@@ -41,5 +41,27 @@ export async function registerWork(form: FormData, deps: Dependencies): Promise<
     return { status: "success", message: "Obra cadastrada. Ela já pode ser selecionada nas novas aprovações.", recordId: data };
   } catch {
     return failed("Não foi possível confirmar o cadastro da obra. Atualize a página e confira a lista antes de tentar novamente.");
+  }
+}
+
+export async function updateAccountAccess(form: FormData, deps: Dependencies): Promise<AccessActionState> {
+  const validated = validateAccountEdit(form);
+  if (!validated.ok) return failed(validated.message);
+  try {
+    const client = await deps.createClient();
+    const { authUserId, perfis, atuacoesEngenharia, atuacaoAdministrativa, grants, ativo, reason } = validated.data;
+    const { data, error } = await client.rpc("update_access_account", {
+      p_auth_user_id: authUserId,
+      p_perfis: perfis,
+      p_atuacoes_engenharia: atuacoesEngenharia,
+      p_atuacao_administrativa: atuacaoAdministrativa,
+      p_grants: grants,
+      p_ativo: ativo,
+      p_reason: reason,
+    });
+    if (error || typeof data !== "string" || !uuidPattern.test(data)) return failed("As alterações não foram confirmadas. Atualize a página e confira os acessos antes de tentar novamente.");
+    return { status: "success", message: "Usuário atualizado. A alteração foi registrada no histórico.", recordId: data };
+  } catch {
+    return failed("Não foi possível atualizar o usuário. Atualize a página e tente novamente.");
   }
 }

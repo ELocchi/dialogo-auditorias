@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test, { before, after } from "node:test";
-import { validateApproval, validateWork } from "../src/lib/access/validation.ts";
-import { approveRequest, registerWork } from "../src/lib/access/service.ts";
+import { validateAccountEdit, validateApproval, validateWork } from "../src/lib/access/validation.ts";
+import { approveRequest, registerWork, updateAccountAccess } from "../src/lib/access/service.ts";
 import { countActiveAccounts } from "../src/lib/access/account-count.ts";
 
 // Offline only: no environment, real identities, account creation or email.
@@ -12,7 +12,7 @@ const workB = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const decision = "55555555-5555-4555-8555-555555555555";
 const allProfiles = ["ADMINISTRATIVO", "AUDITOR_SEGURANCA", "AUDITOR_QUALIDADE", "ENGENHARIA"];
 const grant = (perfil = "ENGENHARIA", obra_id = workA, modulo = "SEGURANCA") => ({ perfil, obra_id, modulo });
-const engineeringGrants = [grant(), grant("ENGENHARIA", workB, "QUALIDADE")];
+const engineeringGrants = [grant(), grant("ENGENHARIA", workA, "QUALIDADE"), grant("ENGENHARIA", workB), grant("ENGENHARIA", workB, "QUALIDADE")];
 const originalFetch = globalThis.fetch;
 let attemptedNetwork = 0;
 before(() => { globalThis.fetch = async () => { attemptedNetwork++; throw new Error("NETWORK_FORBIDDEN"); }; });
@@ -66,8 +66,32 @@ function harness(result = { data: decision, error: null }) {
   return { calls, get factories() { return factories; }, deps: { actorId: actor, createClient: async () => { factories++; return { rpc: async (...args) => { calls.push(args); if (result instanceof Error) throw result; return result; } }; } } };
 }
 
-test("engineering requires an explicit subtype and explicit profile/work/module grants", () => {
+function editForm(overrides = {}) {
+  const data = new FormData();
+  const values = {
+    authUserId: target,
+    perfis: ["ENGENHARIA"],
+    atuacoesEngenharia: ["EQUIPE_OBRA"],
+    atuacaoAdministrativa: null,
+    grants: JSON.stringify(engineeringGrants),
+    status: "ATIVO",
+    reason: "Edição administrativa dos acessos do usuário.",
+    confirmation: "SIM",
+    ...overrides,
+  };
+  if (Array.isArray(values.perfis) && values.perfis.includes("ADMINISTRATIVO") && !Object.hasOwn(overrides, "atuacaoAdministrativa")) values.atuacaoAdministrativa = "GERAL";
+  for (const [key, value] of Object.entries(values)) {
+    if (value === null || value === undefined) continue;
+    if (Array.isArray(value)) value.forEach((item) => data.append(key, item));
+    else data.set(key, value);
+  }
+  return data;
+}
+
+test("engineering requires an explicit subtype and both modules for every selected work", () => {
   assert.equal(validateApproval(form({ atuacaoEngenharia: null })).ok, false);
+  assert.equal(validateApproval(form({ grants: JSON.stringify([grant()]) })).ok, false);
+  assert.equal(validateApproval(form({ grants: JSON.stringify([grant("ENGENHARIA", workA, "QUALIDADE")]) })).ok, false);
   const parsed = validateApproval(form());
   assert.equal(parsed.ok, true);
   assert.deepEqual(parsed.data.perfis, ["ENGENHARIA"]);
@@ -93,10 +117,11 @@ test("administrative approval requires exactly one Safety, Quality or General ac
 test("an administrator can also have independently scoped auditor or engineering access", () => {
   for (const perfis of [["ADMINISTRATIVO", "AUDITOR_SEGURANCA"], ["ADMINISTRATIVO", "ENGENHARIA"]]) {
     const profile = perfis[1];
-    const parsed = validateApproval(form({ perfis, atuacaoEngenharia: profile === "ENGENHARIA" ? "COORDENACAO" : null, grants: JSON.stringify([grant(profile)]) }));
+    const grants = profile === "ENGENHARIA" ? [grant(profile), grant(profile, workA, "QUALIDADE")] : [grant(profile)];
+    const parsed = validateApproval(form({ perfis, atuacaoEngenharia: profile === "ENGENHARIA" ? "COORDENACAO" : null, grants: JSON.stringify(grants) }));
     assert.equal(parsed.ok, true);
     assert.deepEqual(parsed.data.perfis, perfis);
-    assert.deepEqual(parsed.data.grants, [grant(profile)]);
+    assert.deepEqual(parsed.data.grants, grants);
   }
 });
 test("all four profiles preserve separate permissions, including the same work/module in two profiles", () => {
@@ -135,7 +160,7 @@ test("rejects forged, incomplete, duplicated, malformed and excessive grants", (
   for (const grants of invalidGrants) assert.equal(validateApproval(form({ grants })).ok, false, grants.slice(0, 90));
 });
 test("accepts 400 distinct grants without truncating the approved scope", () => {
-  const grants = Array.from({ length: 400 }, (_, index) => grant("ENGENHARIA", `33333333-3333-4333-8333-${String(index).padStart(12, "0")}`));
+  const grants = Array.from({ length: 200 }, (_, index) => [grant("ENGENHARIA", `33333333-3333-4333-8333-${String(index).padStart(12, "0")}`), grant("ENGENHARIA", `33333333-3333-4333-8333-${String(index).padStart(12, "0")}`, "QUALIDADE")]).flat();
   const parsed = validateApproval(form({ grants: JSON.stringify(grants) }));
   assert.equal(parsed.ok, true);
   assert.equal(parsed.data.grants.length, 400);
@@ -165,7 +190,7 @@ test("v3 sends the selected administrative activity and exact grants, ignoring a
 });
 test("v3 retains four-profile scopes without cross-profile or cross-work expansion", async () => {
   const env = harness();
-  const grants = [grant("AUDITOR_SEGURANCA"), grant("AUDITOR_QUALIDADE", workB, "QUALIDADE"), grant("ENGENHARIA", workB, "SEGURANCA")];
+  const grants = [grant("AUDITOR_SEGURANCA"), grant("AUDITOR_QUALIDADE", workB, "QUALIDADE"), grant("ENGENHARIA", workB, "SEGURANCA"), grant("ENGENHARIA", workB, "QUALIDADE")];
   const result = await approveRequest(form({ perfis: allProfiles, grants: JSON.stringify(grants) }), env.deps);
   assert.equal(result.status, "success");
   assert.deepEqual(env.calls[0][1].p_perfis, allProfiles);
@@ -179,6 +204,37 @@ test("provider errors and unconfirmed responses cannot masquerade as successful 
     assert.equal(result.status, "error");
     assert.equal(result.recordId, undefined);
     assert.equal(result.message.includes("PRIVATE_DATABASE_DETAIL"), false);
+  }
+});
+test("account editing validates status, profiles, activities and exact work access", () => {
+  const parsed = validateAccountEdit(editForm());
+  assert.equal(parsed.ok, true);
+  assert.equal(parsed.data.ativo, true);
+  assert.deepEqual(parsed.data.atuacoesEngenharia, ["EQUIPE_OBRA"]);
+  assert.equal(validateAccountEdit(editForm({ status: "BLOQUEADO" })).ok, false);
+  assert.equal(validateAccountEdit(editForm({ atuacoesEngenharia: [] })).ok, false);
+  assert.equal(validateAccountEdit(editForm({ grants: JSON.stringify([grant()]) })).ok, false);
+  assert.equal(validateAccountEdit(editForm({ perfis: ["ADMINISTRATIVO"], atuacoesEngenharia: [], grants: "[]", status: "INATIVO" })).ok, true);
+});
+test("account editing sends only validated authorization fields to the protected RPC", async () => {
+  const env = harness();
+  const result = await updateAccountAccess(editForm({ actor_id: target, ativo: false }), env.deps);
+  assert.equal(result.status, "success");
+  assert.deepEqual(env.calls, [["update_access_account", {
+    p_auth_user_id: target,
+    p_perfis: ["ENGENHARIA"],
+    p_atuacoes_engenharia: ["EQUIPE_OBRA"],
+    p_atuacao_administrativa: null,
+    p_grants: engineeringGrants,
+    p_ativo: true,
+    p_reason: "Edição administrativa dos acessos do usuário.",
+  }]]);
+});
+test("invalid account edits fail before opening a database client", async () => {
+  for (const data of [editForm({ confirmation: null }), editForm({ perfis: [] }), editForm({ grants: "[]" })]) {
+    const env = harness();
+    assert.equal((await updateAccountAccess(data, env.deps)).status, "error");
+    assert.equal(env.factories, 0);
   }
 });
 test("work registration validates genuine name input and ignores client owner claims", async () => {
