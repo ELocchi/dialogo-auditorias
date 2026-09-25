@@ -181,7 +181,7 @@ function EngineeringOverview({ user, works, audits, auditFindings, publishedActi
     .filter((key) => !publishedPlanKeys.has(key))).size;
 
   return <>
-    <div className="page-intro"><div><h2>Visão geral</h2><p className="muted">Engenharia · {user.activity === "coordination" ? "Coordenação" : "Equipe da obra"}</p></div></div>
+    <div className="page-intro"><div><h2>Visão geral</h2></div></div>
     <div className={engineeringStyles.metrics}>
       <EngineeringMetric label="Apontamentos" value={String(findingCount).padStart(2, "0")} />
       <EngineeringMetric label="Planos de ação" value={String(pendingPlanCount).padStart(2, "0")} detail="Pendentes" />
