@@ -19,7 +19,7 @@ import { DialogoLogo } from "./dialogo-logo";
 import styles from "./prototype-workspace.module.css";
 import engineeringStyles from "./engineering-overview.module.css";
 
-export function PrototypeDashboard({ user, module, works, agendaWorks = works, audits, auditFindings = [], visits, auditors = [], activeAccountCount, generalAdministrator = false, previewRanking = false, open }: { user: DemoUser; module: AppModule; works: readonly WorkRecord[]; agendaWorks?: readonly WorkRecord[]; audits: readonly AuditRecord[]; auditFindings?: readonly PublishedAuditFinding[]; visits: readonly Visit[]; auditors?: readonly DemoUser[]; activeAccountCount: number | null; generalAdministrator?: boolean; previewRanking?: boolean; open: (screen: string) => void }) {
+export function PrototypeDashboard({ user, module, works, agendaWorks = works, audits, auditFindings = [], publishedActionPlanKeys = [], visits, auditors = [], activeAccountCount, generalAdministrator = false, previewRanking = false, open }: { user: DemoUser; module: AppModule; works: readonly WorkRecord[]; agendaWorks?: readonly WorkRecord[]; audits: readonly AuditRecord[]; auditFindings?: readonly PublishedAuditFinding[]; publishedActionPlanKeys?: readonly string[]; visits: readonly Visit[]; auditors?: readonly DemoUser[]; activeAccountCount: number | null; generalAdministrator?: boolean; previewRanking?: boolean; open: (screen: string) => void }) {
   const admin = user.role === "administrative";
   const safetyAuditor = user.role === "safety-auditor";
   const auditor = safetyAuditor || user.role === "quality-auditor";
@@ -56,7 +56,7 @@ export function PrototypeDashboard({ user, module, works, agendaWorks = works, a
   const agendaCard = <Metric label={admin ? "Visitas Agendadas" : auditor ? "Auditorias Agendadas" : "Visitas na agenda"} value={admin && visits.length === 0 ? "--" : auditor ? scheduledAudits : visits.length} description={admin ? "Consultar agenda" : undefined} onClick={works[0] && canConsultAgenda(user, works[0].id, module) ? () => open("agenda") : undefined} />;
   const profilesCard = <Metric label={admin ? "Perfis cadastrados" : "Relatórios publicados"} value={admin ? activeAccountCount ?? "--" : published.length} description={admin ? "Consultar perfis" : auditor ? "Consultar auditorias" : undefined} onClick={() => open(admin ? "settings" : auditor ? "audits" : "report")} />;
   const catalogsCard = <Metric label={admin ? "Roteiros disponíveis" : user.role === "engineering" ? "Auditorias consultáveis" : "Rascunhos próprios"} value={admin ? user.modules.includes("safety") ? 1 + (user.modules.includes("quality") ? 2 : 0) : 2 : user.role === "engineering" ? audits.length : ownDrafts.length} description={admin ? "Consultar roteiros" : undefined} onClick={() => open(admin ? "criteria" : "audits")} />;
-  if (user.role === "engineering") return <EngineeringOverview user={user} works={works} audits={audits} auditFindings={visibleFindings} visits={visits} auditors={auditors} previewRanking={previewRanking} open={open} />;
+  if (user.role === "engineering") return <EngineeringOverview user={user} works={works} audits={audits} auditFindings={visibleFindings} publishedActionPlanKeys={publishedActionPlanKeys} visits={visits} auditors={auditors} previewRanking={previewRanking} open={open} />;
   if (auditor) return <>
     <div className="page-intro"><div><h2>Visão geral</h2></div></div>
     <div className="stats-grid stats-grid-admin stats-grid-three">
@@ -136,11 +136,12 @@ function summarizeSeriousFindings(findings: readonly PublishedAuditFinding[], wo
     .slice(0, 5);
 }
 
-function EngineeringOverview({ user, works, audits, auditFindings, visits, auditors, previewRanking, open }: {
+function EngineeringOverview({ user, works, audits, auditFindings, publishedActionPlanKeys, visits, auditors, previewRanking, open }: {
   user: DemoUser;
   works: readonly WorkRecord[];
   audits: readonly AuditRecord[];
   auditFindings: readonly PublishedAuditFinding[];
+  publishedActionPlanKeys: readonly string[];
   visits: readonly Visit[];
   auditors: readonly DemoUser[];
   previewRanking: boolean;
@@ -163,21 +164,28 @@ function EngineeringOverview({ user, works, audits, auditFindings, visits, audit
   const rankingScores = previewRanking
     ? addPreviewRankingScores(publishedScores, works, ["safety", "quality"])
     : publishedScores;
-  const now = new Date();
-  const previousMonthDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
-  const previousMonth = `${previousMonthDate.getUTCFullYear()}-${String(previousMonthDate.getUTCMonth() + 1).padStart(2, "0")}`;
-  const previousScores = publishedScores.filter((score) => score.month === previousMonth);
-  const previousAverage = previousScores.length
-    ? new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(previousScores.reduce((total, score) => total + score.score, 0) / previousScores.length)
+  const dateParts = new Intl.DateTimeFormat("en-CA", {
+    year: "numeric", month: "2-digit", timeZone: "America/Sao_Paulo",
+  }).formatToParts(new Date());
+  const currentMonth = `${dateParts.find((part) => part.type === "year")!.value}-${dateParts.find((part) => part.type === "month")!.value}`;
+  const latestScoredMonth = rankingScores.reduce((latest, score) => score.month > latest ? score.month : latest, "");
+  const scoreMonth = rankingScores.some((score) => score.month === currentMonth) ? currentMonth : latestScoredMonth;
+  const monthlyScores = rankingScores.filter((score) => score.month === scoreMonth);
+  const monthlyAverage = monthlyScores.length
+    ? new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(monthlyScores.reduce((total, score) => total + score.score, 0) / monthlyScores.length)
     : "--";
   const findingCount = new Set(auditFindings.map((finding) => `${finding.auditId}\0${finding.id}`)).size;
+  const publishedPlanKeys = new Set(publishedActionPlanKeys);
+  const pendingPlanCount = new Set(auditFindings
+    .map((finding) => `${finding.auditId}:${finding.module}:${finding.workId}`)
+    .filter((key) => !publishedPlanKeys.has(key))).size;
 
   return <>
     <div className="page-intro"><div><h2>Visão geral</h2><p className="muted">Engenharia · {user.activity === "coordination" ? "Coordenação" : "Equipe da obra"}</p></div></div>
     <div className={engineeringStyles.metrics}>
       <EngineeringMetric label="Apontamentos" value={String(findingCount).padStart(2, "0")} />
-      <EngineeringMetric label="Planos de ação" value="--" detail="Pendentes" />
-      <EngineeringMetric label="Nota" value={previousAverage} detail="Mês anterior" accent />
+      <EngineeringMetric label="Planos de ação" value={String(pendingPlanCount).padStart(2, "0")} detail="Pendentes" />
+      <EngineeringMetric label="Nota" value={monthlyAverage} detail={scoreMonth === currentMonth ? "Média do mês" : scoreMonth ? "Último mês com nota" : "Sem notas publicadas"} accent />
     </div>
     <div className={engineeringStyles.content}>
       <AdminMonthlyRanking modules={["safety", "quality"]} publishedMonthlyScores={rankingScores} />
