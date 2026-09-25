@@ -6,9 +6,12 @@ import { canEditAudit, canConsultAgenda, canReadAudit, canReadVisit, modelModule
 import { Icon } from "./ui-icon";
 import { WorkRanking } from "./work-ranking";
 import { AdminFindings } from "./admin-findings";
+import type { AdminFindingSummary } from "./admin-findings";
+import { PublishedAuditFindingsList, type PublishedAuditFinding } from "./engineering-resource-panels";
 import { AdminMonthlyRanking } from "./admin-monthly-ranking";
 import { AdminVisitCalendar } from "./admin-visit-calendar";
 import type { PublishedMonthlyWorkScore } from "@/domain/admin-ranking";
+import { getRecurringFindings } from "@/domain/finding-recurrence";
 import { VisitCard } from "./visit-agenda";
 import type { AgendaActionResult } from "@/lib/agenda/contracts";
 import { MaintenanceHistory } from "./maintenance-history";
@@ -16,7 +19,7 @@ import { DialogoLogo } from "./dialogo-logo";
 import styles from "./prototype-workspace.module.css";
 import engineeringStyles from "./engineering-overview.module.css";
 
-export function PrototypeDashboard({ user, module, works, agendaWorks = works, audits, visits, auditors = [], activeAccountCount, generalAdministrator = false, open }: { user: DemoUser; module: AppModule; works: readonly WorkRecord[]; agendaWorks?: readonly WorkRecord[]; audits: readonly AuditRecord[]; visits: readonly Visit[]; auditors?: readonly DemoUser[]; activeAccountCount: number | null; generalAdministrator?: boolean; open: (screen: string) => void }) {
+export function PrototypeDashboard({ user, module, works, agendaWorks = works, audits, auditFindings = [], visits, auditors = [], activeAccountCount, generalAdministrator = false, previewRanking = false, open }: { user: DemoUser; module: AppModule; works: readonly WorkRecord[]; agendaWorks?: readonly WorkRecord[]; audits: readonly AuditRecord[]; auditFindings?: readonly PublishedAuditFinding[]; visits: readonly Visit[]; auditors?: readonly DemoUser[]; activeAccountCount: number | null; generalAdministrator?: boolean; previewRanking?: boolean; open: (screen: string) => void }) {
   const admin = user.role === "administrative";
   const safetyAuditor = user.role === "safety-auditor";
   const auditor = safetyAuditor || user.role === "quality-auditor";
@@ -24,6 +27,16 @@ export function PrototypeDashboard({ user, module, works, agendaWorks = works, a
   const ownDrafts = audits.filter((audit) => canEditAudit(user, audit));
   const published = audits.filter((audit) => audit.status === "Publicada");
   const workNames = new Map(works.map((work) => [work.id, work.name]));
+  const visibleFindings = auditFindings.filter((finding) => workNames.has(finding.workId));
+  const seriousItems = summarizeSeriousFindings(visibleFindings.filter((finding) => finding.serious === true), workNames);
+  const recurringItems: AdminFindingSummary[] = getRecurringFindings(visibleFindings).map((finding) => ({
+    id: finding.id,
+    title: `${finding.item} · ${finding.description}`,
+    discipline: moduleLabels[finding.module],
+    workCount: finding.workCount,
+    occurrences: finding.occurrences,
+    descriptions: finding.details,
+  }));
   const publishedMonthlyScores: PublishedMonthlyWorkScore[] = published.flatMap((audit) => {
     const workName = workNames.get(audit.workId);
     if (typeof audit.finalScore !== "number" || !workName) return [];
@@ -36,47 +49,100 @@ export function PrototypeDashboard({ user, module, works, agendaWorks = works, a
       published: true as const,
     }];
   });
+  const rankingScores = previewRanking
+    ? addPreviewRankingScores(publishedMonthlyScores, works, admin ? user.modules : [module])
+    : publishedMonthlyScores;
   const worksCard = <Metric label="Obras disponíveis" value={works.length} description={admin ? "Consultar obras" : undefined} onClick={() => open("works")} />;
   const agendaCard = <Metric label={admin ? "Visitas Agendadas" : auditor ? "Auditorias Agendadas" : "Visitas na agenda"} value={admin && visits.length === 0 ? "--" : auditor ? scheduledAudits : visits.length} description={admin ? "Consultar agenda" : undefined} onClick={works[0] && canConsultAgenda(user, works[0].id, module) ? () => open("agenda") : undefined} />;
   const profilesCard = <Metric label={admin ? "Perfis cadastrados" : "Relatórios publicados"} value={admin ? activeAccountCount ?? "--" : published.length} description={admin ? "Consultar perfis" : auditor ? "Consultar auditorias" : undefined} onClick={() => open(admin ? "settings" : auditor ? "audits" : "report")} />;
   const catalogsCard = <Metric label={admin ? "Roteiros disponíveis" : user.role === "engineering" ? "Auditorias consultáveis" : "Rascunhos próprios"} value={admin ? user.modules.includes("safety") ? 1 + (user.modules.includes("quality") ? 2 : 0) : 2 : user.role === "engineering" ? audits.length : ownDrafts.length} description={admin ? "Consultar roteiros" : undefined} onClick={() => open(admin ? "criteria" : "audits")} />;
-  if (user.role === "engineering") return <EngineeringOverview user={user} works={works} audits={audits} visits={visits} auditors={auditors} open={open} />;
+  if (user.role === "engineering") return <EngineeringOverview user={user} works={works} audits={audits} visits={visits} auditors={auditors} previewRanking={previewRanking} open={open} />;
   if (auditor) return <>
-    <div className="page-intro"><div><h2>Visão geral</h2><p className="muted">{moduleLabels[module]} · {roleLabels[user.role]}</p></div></div>
+    <div className="page-intro"><div><h2>Visão geral</h2></div></div>
     <div className="stats-grid stats-grid-admin stats-grid-three">
       <Metric label="Auditorias Agendadas" value={scheduledAudits} description="Consultar agenda" onClick={() => open("agenda")} />
       <Metric label="Obras relacionadas" value={works.length} description="Consultar obras" onClick={() => open("works")} />
-      <Metric label="Roteiros disponíveis" value={module === "safety" ? 1 : 2} description="Consultar roteiro" onClick={() => open("criteria")} />
+      <Metric label="Roteiros disponíveis" value={module === "safety" ? 1 : 2} description="Consultar roteiro" onClick={() => open("audits")} />
     </div>
-    <AdminFindings />
     <div className="overview-grid">
-      <AdminMonthlyRanking modules={[module]} publishedMonthlyScores={publishedMonthlyScores} />
+      <AdminMonthlyRanking modules={[module]} publishedMonthlyScores={rankingScores} />
       <AdminVisitCalendar visits={visits} works={agendaWorks} auditors={[user]} viewerId={user.id} onViewAgenda={() => open("agenda")} includeFollowUps showLegend={false} colorBy="work" />
     </div>
+    <AdminFindings mostSevere={seriousItems} mostRecurring={recurringItems} onOpenFindings={() => open("audits")} />
   </>;
   return <>
     <div className="page-intro"><div><h2>{admin ? "Painel administrativo" : "Visão geral"}</h2>{!admin && <p className="muted">{`${moduleLabels[module]} · ${roleLabels[user.role]}${user.activity === "coordination" ? " / Coordenação" : user.activity === "site-team" ? " / Equipe da obra" : ""}`}</p>}</div></div>
     <div className={`stats-grid${admin ? " stats-grid-admin" : ""}${admin && !generalAdministrator ? " stats-grid-three" : ""}`}>
       {admin ? <>{agendaCard}{worksCard}{catalogsCard}{generalAdministrator && profilesCard}</> : <>{worksCard}{agendaCard}{profilesCard}{catalogsCard}</>}
     </div>
-    {admin && <AdminFindings />}
     <div className="overview-grid">
-      {admin ? <AdminMonthlyRanking modules={user.modules} publishedMonthlyScores={publishedMonthlyScores} /> : module === "safety" ? <WorkRanking works={works} audits={audits} onViewWorks={() => open("works")} /> : <AdminMonthlyRanking modules={["quality"]} publishedMonthlyScores={publishedMonthlyScores} />}
+      {admin ? <AdminMonthlyRanking modules={user.modules} publishedMonthlyScores={rankingScores} /> : module === "safety" ? <WorkRanking works={works} audits={audits} onViewWorks={() => open("works")} /> : <AdminMonthlyRanking modules={["quality"]} publishedMonthlyScores={rankingScores} />}
       {admin ? <AdminVisitCalendar visits={visits} works={works} auditors={auditors} viewerId={user.id} onViewAgenda={() => open("agenda")} /> : <section className="panel"><div className="panel-heading"><div><span className="section-label">REGISTROS AUTORIZADOS</span><h3>Auditorias recentes</h3></div><span className="icon-tile"><Icon name="calendar" /></span></div>
         {[...audits].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 3).map((audit) => <div className="visit-card" key={audit.id}><div className="visit-info"><strong>{auditModelLabels[audit.modelId].name}</strong><small>{formatAuditDate(audit.date)} · {auditVersionLabel(audit)}</small></div><span className="badge">{audit.status}</span></div>)}
         {audits.length === 0 && <p className={styles.empty}>Nenhum registro disponível neste contexto.</p>}
         <button className="text-button panel-link" type="button" onClick={() => open("audits")}>Consultar auditorias<Icon name="arrow" /></button>
       </section>}
     </div>
+    {admin && <AdminFindings mostSevere={seriousItems} mostRecurring={recurringItems} />}
   </>;
 }
 
-function EngineeringOverview({ user, works, audits, visits, auditors, open }: {
+function addPreviewRankingScores(
+  scores: readonly PublishedMonthlyWorkScore[],
+  works: readonly WorkRecord[],
+  modules: readonly AppModule[],
+): PublishedMonthlyWorkScore[] {
+  const dateParts = new Intl.DateTimeFormat("en-CA", {
+    year: "numeric", month: "2-digit", timeZone: "America/Sao_Paulo",
+  }).formatToParts(new Date());
+  const month = `${dateParts.find((part) => part.type === "year")!.value}-${dateParts.find((part) => part.type === "month")!.value}`;
+  const disciplines = modules.filter((entry): entry is "safety" | "quality" => entry === "safety" || entry === "quality");
+  const existing = new Set(scores.map((score) => `${score.month}\0${score.discipline}\0${score.workId}`));
+  const preview = works.flatMap((work, workIndex) => disciplines.flatMap((discipline, disciplineIndex) => {
+    if (existing.has(`${month}\0${discipline}\0${work.id}`)) return [];
+    const score = Number(Math.max(5.5, 9.48 - workIndex * .43 - disciplineIndex * .18).toFixed(2));
+    return [{ month, discipline, workId: work.id, workName: work.name, score, published: true as const }];
+  }));
+  return [...scores, ...preview];
+}
+
+function summarizeSeriousFindings(findings: readonly PublishedAuditFinding[], workNames: ReadonlyMap<string, string>): AdminFindingSummary[] {
+  const grouped = new Map<string, { summary: AdminFindingSummary; works: Set<string> }>();
+  findings.forEach((finding) => {
+    const key = `${finding.module}:${finding.item}:${finding.description}`;
+    const current = grouped.get(key);
+    if (current) {
+      current.summary.occurrences = (current.summary.occurrences ?? 0) + 1;
+      current.works.add(finding.workId);
+      current.summary.workCount = current.works.size;
+      current.summary.references?.push({ id: finding.auditId, date: finding.auditDate, workName: workNames.get(finding.workId) ?? "Obra", responsible: finding.auditor });
+      return;
+    }
+    grouped.set(key, {
+      summary: {
+        id: key,
+        title: finding.nonconformity,
+        checklistItem: `${finding.item} · ${finding.description}`,
+        discipline: moduleLabels[finding.module],
+        workCount: 1,
+        occurrences: 1,
+        references: [{ id: finding.auditId, date: finding.auditDate, workName: workNames.get(finding.workId) ?? "Obra", responsible: finding.auditor }],
+      },
+      works: new Set([finding.workId]),
+    });
+  });
+  return [...grouped.values()].map(({ summary }) => summary)
+    .sort((left, right) => (right.occurrences ?? 0) - (left.occurrences ?? 0) || left.checklistItem!.localeCompare(right.checklistItem!, "pt-BR"))
+    .slice(0, 5);
+}
+
+function EngineeringOverview({ user, works, audits, visits, auditors, previewRanking, open }: {
   user: DemoUser;
   works: readonly WorkRecord[];
   audits: readonly AuditRecord[];
   visits: readonly Visit[];
   auditors: readonly DemoUser[];
+  previewRanking: boolean;
   open: (screen: string) => void;
 }) {
   const [selectedVisitorId, setSelectedVisitorId] = useState<string | null>(null);
@@ -93,6 +159,9 @@ function EngineeringOverview({ user, works, audits, visits, auditors, open }: {
       published: true as const,
     }];
   });
+  const rankingScores = previewRanking
+    ? addPreviewRankingScores(publishedScores, works, ["safety", "quality"])
+    : publishedScores;
   const now = new Date();
   const previousMonthDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
   const previousMonth = `${previousMonthDate.getUTCFullYear()}-${String(previousMonthDate.getUTCMonth() + 1).padStart(2, "0")}`;
@@ -109,7 +178,7 @@ function EngineeringOverview({ user, works, audits, visits, auditors, open }: {
       <EngineeringMetric label="Nota" value={previousAverage} detail="Mês anterior" accent />
     </div>
     <div className={engineeringStyles.content}>
-      <AdminMonthlyRanking modules={["safety", "quality"]} publishedMonthlyScores={publishedScores} />
+      <AdminMonthlyRanking modules={["safety", "quality"]} publishedMonthlyScores={rankingScores} />
       <AdminVisitCalendar visits={visits} works={works} auditors={auditors} viewerId={user.id} calendarOnly includeFollowUps
         colorBy="auditor" selectedAuditorId={selectedVisitorId} onSelectAuditor={setSelectedVisitorId} keepVisitorColors highlightAuditDays onViewAgenda={() => open("agenda")} />
     </div>
@@ -134,11 +203,12 @@ export function AuditList({ user, audits, works, onOpen }: { user: DemoUser; aud
   </>;
 }
 
-export function AuditorScheduledAudits({ user, visits, works, audits, users, available, mutationPending, onDelete, onConfirm, onStartAudit, startedVisitIds, catalog }: {
+export function AuditorScheduledAudits({ user, visits, works, audits, auditFindings = [], users, available, mutationPending, onDelete, onConfirm, onStartAudit, startedVisitIds, catalog }: {
   user: DemoUser;
   visits: readonly Visit[];
   works: readonly WorkRecord[];
   audits: readonly AuditRecord[];
+  auditFindings?: readonly PublishedAuditFinding[];
   users: readonly DemoUser[];
   available: boolean;
   mutationPending: boolean;
@@ -156,6 +226,9 @@ export function AuditorScheduledAudits({ user, visits, works, audits, users, ava
   const published = audits.filter((audit) => audit.status === "Publicada" && workById.has(audit.workId) && canReadAudit(user, audit))
     .slice().sort((first, second) => second.date.localeCompare(first.date) || second.id.localeCompare(first.id));
   const visiblePublished = published.filter((audit) => !publicationWorkId || audit.workId === publicationWorkId);
+  const publishedIds = new Set(published.map((audit) => audit.id));
+  const visibleFindings = auditFindings.filter((finding) => publishedIds.has(finding.auditId))
+    .slice().sort((left, right) => Number(right.serious === true) - Number(left.serious === true) || right.auditDate.localeCompare(left.auditDate));
   const exampleWork = workById.get(scheduled[0]?.workId ?? "") ?? works[0];
   const exampleDate = scheduled[0]?.date ?? "2026-09-18";
   const showExample = process.env.NODE_ENV !== "production" && published.length === 0 && !!exampleWork;
@@ -175,7 +248,8 @@ export function AuditorScheduledAudits({ user, visits, works, audits, users, ava
         </section>
         <section className="panel" aria-label="Apontamentos das auditorias">
           <div className="panel-heading"><h3>Apontamentos das auditorias</h3></div>
-          <p className="muted">Nenhum apontamento incluído em relatório de auditoria publicado.</p>
+          {visibleFindings.length ? <PublishedAuditFindingsList auditFindings={visibleFindings} works={works} />
+            : <p className="muted">Nenhum apontamento incluído em relatório de auditoria publicado.</p>}
         </section>
       </div>
       <div className={styles.auditorSidebar}>

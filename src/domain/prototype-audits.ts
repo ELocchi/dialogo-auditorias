@@ -77,6 +77,7 @@ export function updatePrototypeResponse(state: PrototypeAuditState, user: DemoUs
   const allowsNotApplicable = pinnedCriterion.verificationRule === "Conforme/Não Conforme/Não Aplicável" || pinnedCriterion.sourceNote?.toLocaleLowerCase("pt-BR").includes("não aplic");
   const allowedAnswers = audit.modelId === "security-it07-r02" ? ["0", "5", "10", "N/A"] : allowsNotApplicable ? ["Não conforme", "Conforme", "N/A"] : ["Não conforme", "Conforme"];
   if (response.answer !== undefined && !allowedAnswers.includes(response.answer)) throw new Error("Resposta incompatível com o modelo.");
+  if (response.serious !== undefined && typeof response.serious !== "boolean") throw new Error("A indicação de item grave precisa ser verdadeira ou falsa.");
   return { ...state, responses: { ...state.responses, [audit.id]: updateItemResponse(state.responses[audit.id] ?? {}, audit.modelId, pinnedCriterion, response) } };
 }
 

@@ -260,6 +260,18 @@ test("Original downloads preserve the source PDF/DOCX per model and require the 
   }
 });
 
+test("PDF download forces an attachment and never selects the editable original", async () => {
+  for (const document of documents) {
+    reset(); const response = await load(document.id, "?download=pdf");
+    assert.equal(response.status, 200); assertPrivate(response);
+    assert.equal(response.headers.get("Content-Type"), pdfType);
+    assert.match(response.headers.get("Content-Disposition"), /^attachment;/);
+    assert.deepEqual(state.fileReads, [path.join(privateRoot, document.pdf)]);
+    assert.equal(state.documentParams.p_original, false);
+  }
+  reset(); await assertDenied(await load("quality-f175", "?download=zip"), 400);
+});
+
 test("Private file failure returns uncached 503 without disclosing paths or provider diagnostics", async () => {
   reset(); state.fsError = true;
   const response = await load();

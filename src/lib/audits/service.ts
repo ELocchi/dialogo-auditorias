@@ -34,6 +34,7 @@ function parseResponses(value: unknown, criteriaIds: readonly string[]): Record<
     const response = value[id];
     if (!isRecord(response) || typeof response.note !== "string" || response.note.length > 30_000
       || (response.answer !== undefined && typeof response.answer !== "string")
+      || (response.serious !== undefined && typeof response.serious !== "boolean")
       || (response.photos !== undefined && (!Array.isArray(response.photos)
         || response.photos.some((photo) => typeof photo !== "string" || photo.length > 1_000)))
       || (response.checks !== undefined && (!Array.isArray(response.checks) || response.checks.length > 500))) return null;

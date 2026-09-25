@@ -52,12 +52,12 @@ test("Revoked profiles and inactive or missing accounts invalidate an earlier ch
   }
 });
 
-test("A single view is automatic while General administration requires a choice", () => {
+test("Every account with a single assigned profile is automatic", () => {
   assert.equal(resolveActiveProfile(account, userId, undefined), null);
   for (const profile of account.perfis) {
     const single = { ...account, perfil: profile, perfis: [profile], atuacao_engenharia: profile === "ENGENHARIA" ? "COORDENACAO" : null, atuacoes_engenharia: profile === "ENGENHARIA" ? ["COORDENACAO"] : [] };
-    assert.equal(resolveActiveProfile(single, userId, undefined), profile === "ADMINISTRATIVO" ? null : profile);
-    assert.equal(resolveActiveProfile(single, userId, choice("ADMINISTRATIVO", otherId)), profile === "ADMINISTRATIVO" ? null : profile);
+    assert.equal(resolveActiveProfile(single, userId, undefined), profile);
+    assert.equal(resolveActiveProfile(single, userId, choice("ADMINISTRATIVO", otherId)), profile);
   }
 });
 
@@ -114,10 +114,10 @@ test("General administrator can select both discipline views, but scoped adminis
   }
 });
 
-test("Only Engineering with two scopes requires a choice even though it has one profile", () => {
+test("Engineering with two scopes enters its registered primary scope when it is the only profile", () => {
   const engineering = { ...account, perfil: "ENGENHARIA", perfis: ["ENGENHARIA"] };
-  assert.equal(resolveActiveProfileContext(engineering, userId, undefined), null);
-  assert.deepEqual(resolveActiveProfileContext(engineering, userId, choice("ENGENHARIA", userId, "EQUIPE_OBRA")), { profile: "ENGENHARIA", engineeringScope: "EQUIPE_OBRA", administrativeScope: null });
+  assert.deepEqual(resolveActiveProfileContext(engineering, userId, undefined), { profile: "ENGENHARIA", engineeringScope: "COORDENACAO", administrativeScope: null });
+  assert.deepEqual(resolveActiveProfileContext(engineering, userId, choice("ENGENHARIA", userId, "EQUIPE_OBRA")), { profile: "ENGENHARIA", engineeringScope: "COORDENACAO", administrativeScope: null });
 });
 
 test("Version 2 requires an explicit valid Engineering scope and rejects scopes for other profiles", () => {

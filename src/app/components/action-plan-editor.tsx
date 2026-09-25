@@ -12,6 +12,9 @@ export type ActionPlanFinding = {
   id: string;
   item: string;
   description: string;
+  criterionTitle?: string;
+  subitem?: string;
+  serious?: boolean;
   itemDescription?: string;
   verificationCriterion?: string;
   status?: string;

@@ -15,6 +15,7 @@ export interface DraftCheck {
 export interface ItemResponse {
   answer?: DraftAnswer;
   note: string;
+  serious?: boolean;
   checks?: DraftCheck[];
   photos?: string[];
 }

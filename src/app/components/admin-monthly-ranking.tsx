@@ -52,7 +52,7 @@ function RankingTable({ title, reference, annual, rows }: {
       <thead><tr><th scope="col"><abbr title="Posição">Pos.</abbr></th><th scope="col">Obra</th><th scope="col" className={styles.score}>{annual ? "Média" : "Nota"}</th></tr></thead>
       <tbody>{rows.length ? rows.map((row) => <tr key={row.workId}>
         <td className={styles.position}>{row.position !== null && Number.isInteger(row.position) && row.position > 0 ? `${row.position}º` : <span aria-label="Sem classificação">—</span>}</td>
-        <th scope="row" className={styles.work}>{row.workName}{annual && row.monthsCount && <small className={styles.monthsCount}>{row.monthsCount} {row.monthsCount === 1 ? "mês" : "meses"} com nota</small>}</th>
+        <th scope="row" className={styles.work}>{row.workName}</th>
         <td className={styles.score}>{row.score !== null && Number.isFinite(row.score) ? scoreFormatter.format(row.score) : <span aria-label="Nota indisponível">—</span>}</td>
       </tr>) : <tr><td colSpan={3} className={styles.empty}>Nenhum resultado disponível neste {annual ? "ano" : "mês"}.</td></tr>}</tbody>
     </table>

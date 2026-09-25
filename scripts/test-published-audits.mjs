@@ -43,6 +43,24 @@ test("loads a published audit and replaces private evidence names with signed UR
   assert.match(snapshot.responses[auditId]["quality-f176"]["F176-Q01"].photos[0], /p04-01\.png$/);
 });
 
+test("preserves the auditor's binary serious-item decision", async () => {
+  const snapshot = await readPublishedAuditSnapshot(client([{
+    ...indexRow, criteria: [criterion],
+    responses: { "F176-Q01": { answer: "Não conforme", note: "Risco imediato", serious: true } },
+    evidenceFiles: [], reportFileName: "relatorio-final.pdf",
+  }]), context);
+  assert.equal(snapshot.responses[auditId]["quality-f176"]["F176-Q01"].serious, true);
+});
+
+test("rejects a non-binary serious-item value", async () => {
+  const snapshot = await readPublishedAuditSnapshot(client([{
+    ...indexRow, criteria: [criterion],
+    responses: { "F176-Q01": { answer: "Não conforme", note: "Risco imediato", serious: "alto" } },
+    evidenceFiles: [], reportFileName: "relatorio-final.pdf",
+  }]), context);
+  assert.deepEqual(snapshot.responses, {});
+});
+
 test("keeps ranking metadata when detailed responses do not match the criterion snapshot", async () => {
   const snapshot = await readPublishedAuditSnapshot(client([{
     ...indexRow, criteria: [criterion], responses: {},

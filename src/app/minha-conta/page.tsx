@@ -2,10 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireUser, effectiveAccount, ownAccessRequest } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
-import { readActiveProfile } from "@/lib/auth/active-profile-session";
 import { AuthShell } from "../components/auth/AuthShell";
 import { LogoutButton } from "../components/auth/LogoutButton";
-import { AccessGrants } from "../components/access/AccessGrants";
 import { administrativeLabels, engineeringLabels, profileLabels, type HistoricalGrant } from "@/lib/access/contracts";
 import accessStyles from "../administracao/usuarios/access.module.css";
 import styles from "../components/auth/auth.module.css";
@@ -15,7 +13,6 @@ export default async function MyAccountPage() {
   const user = await requireUser();
   const account = await effectiveAccount(user);
   if (!account) redirect("/aguardando-liberacao");
-  const activeProfile = await readActiveProfile(user.id, account);
   const request = await ownAccessRequest(user.id);
   const client = await createClient();
   const grants = await client.from("access_grants").select("perfil,obra_id,modulo,access_works(nome)").eq("auth_user_id", user.id).order("perfil").order("obra_id").order("modulo");
@@ -23,8 +20,9 @@ export default async function MyAccountPage() {
     const work = grant.access_works as unknown as { nome: string } | null;
     return { perfil: grant.perfil, obra_id: grant.obra_id, modulo: grant.modulo, obra_nome: work?.nome ?? "Obra indisponível" };
   }).sort((a, b) => a.obra_nome!.localeCompare(b.obra_nome!, "pt-BR"));
+  const authorizedWorks = [...new Map(scopedGrants.map((grant) => [grant.obra_id, grant.obra_nome ?? grant.obra_id])).entries()];
   return (
-    <AuthShell title="Meus acessos" description="Confira os perfis da sua conta e as obras e os módulos autorizados para cada um.">
+    <AuthShell title="Meu Perfil">
       <dl className={styles.accountDetails}>
         <dt>Nome</dt><dd>{platformDisplayName(user.email, request?.nome ?? "—")}</dd>
         <dt>E-mail</dt><dd>{user.email}</dd>
@@ -32,19 +30,19 @@ export default async function MyAccountPage() {
         {account.atuacao_administrativa && <><dt>Atuação administrativa</dt><dd>{administrativeLabels[account.atuacao_administrativa]}</dd></>}
         {account.atuacoes_engenharia.length > 0 && <><dt>Engenharia</dt><dd>{account.atuacoes_engenharia.map((scope) => engineeringLabels[scope]).join("; ")}</dd></>}
       </dl>
-      <p><Link href="/app">Abrir painel</Link> · <Link href="/escolher-perfil">Trocar perfil</Link></p>
-      {activeProfile === "ADMINISTRATIVO" && account.atuacao_administrativa === "GERAL" && <p><Link href="/app?secao=administracao">Administração → Usuários e acessos</Link></p>}
       {grants.error ? <p role="status" className={styles.error}>Não foi possível consultar as permissões. Tente novamente mais tarde.</p> :
-        <div className={accessStyles.history}>{account.perfis.filter((profile) => profile !== "ADMINISTRATIVO").map((profile) => {
-          const profileGrants = scopedGrants.filter((grant) => grant.perfil === profile);
-          const workCount = new Set(profileGrants.map((grant) => grant.obra_id)).size;
-          return <details key={profile} className={accessStyles.historyCard}>
-            <summary><strong>{profileLabels[profile]}{profile === "ENGENHARIA" ? ` · ${account.atuacoes_engenharia.map((scope) => engineeringLabels[scope]).join("; ")}` : ""}</strong><span>{workCount} {workCount === 1 ? "obra autorizada" : "obras autorizadas"} · Ver obras e módulos</span></summary>
-            <div className={accessStyles.historyBody}>{profileGrants.length > 0 ? <AccessGrants grants={profileGrants} /> : <p className={styles.notice}>Nenhum acesso a módulos de obras foi concedido para este perfil.</p>}</div>
-          </details>;
-        })}</div>}
-      <p className={styles.description}>Escolha um perfil para abrir suas telas. Os preenchimentos de teste do painel ainda são temporários.</p>
-      <LogoutButton />
+        <div className={accessStyles.history}><details className={accessStyles.historyCard}>
+          <summary><strong>Obras</strong></summary>
+          <div className={accessStyles.historyBody}>{authorizedWorks.length > 0
+            ? <ul className={accessStyles.profileWorkList}>{authorizedWorks.map(([id, name]) => <li key={id}>{name}</li>)}</ul>
+            : <p className={styles.notice}>Nenhuma obra autorizada.</p>}</div>
+      </details></div>}
+      <div className={styles.accountActions}>
+        <Link className={styles.accountBackButton} href="/escolher-perfil" aria-label="Voltar à seleção de perfis" title="Voltar à seleção de perfis">
+          <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 12H4m7-7-7 7 7 7" /></svg>
+        </Link>
+        <LogoutButton />
+      </div>
     </AuthShell>
   );
 }

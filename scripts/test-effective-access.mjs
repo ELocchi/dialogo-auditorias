@@ -53,11 +53,11 @@ function fixture(options = {}) {
   return { state, calls, client };
 }
 
-test("A verified General administrator chooses which administrative view to enter", async () => {
+test("A verified General administrator with one profile enters the workspace directly", async () => {
   const { client, calls } = fixture();
   const account = await readEffectiveAccount(client, user);
   assert.deepEqual(account, originalAccount);
-  assert.equal(effectiveDestination(account), "/escolher-perfil");
+  assert.equal(effectiveDestination(account), "/app");
   assert.deepEqual(calls.filter(([type]) => type === "rpc"), [["rpc", "is_current_access_active"]]);
 });
 test("before B.14, only a database-confirmed existing administrator receives General activity", async () => {
@@ -98,12 +98,12 @@ test("Combined technical profiles never imply administration", async () => {
   assert.equal(effectiveDestination(account), "/escolher-perfil");
 });
 
-test("An Engineering-only account with both authorized scopes needs a view selection", async () => {
+test("An Engineering-only account with both authorized scopes enters its primary scope directly", async () => {
   const engineering = { ...originalAccount, perfil: "ENGENHARIA", perfis: ["ENGENHARIA"], atuacao_administrativa: null,
     atuacao_engenharia: "COORDENACAO", atuacoes_engenharia: ["EQUIPE_OBRA", "COORDENACAO"] };
   const account = await readEffectiveAccount(fixture({ account: engineering }).client, user);
   assert.deepEqual(account, engineering);
-  assert.equal(effectiveDestination(account), "/escolher-perfil");
+  assert.equal(effectiveDestination(account), "/app");
 });
 
 test("Missing, duplicate, unknown, unordered or incompatible Engineering scope arrays fail closed", async () => {

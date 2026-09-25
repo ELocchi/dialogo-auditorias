@@ -8,7 +8,6 @@ import { getCriterionDisplayTitle, getCriterionWeight, qualityModels, type Crite
 import { fvsServices } from "@/domain/fvs-services";
 import type { AuditModelId } from "@/domain/operational-records";
 import { referenceDocuments } from "@/domain/reference-documents";
-import { ReferenceDocumentViewer } from "./reference-document-viewer";
 import { CatalogEditorPanel } from "./catalog-editor-panel";
 import previewStyles from "./catalog-preview-control.module.css";
 import { catalogVersion, type CatalogSnapshot } from "@/lib/catalogs/contracts";
@@ -133,9 +132,6 @@ export function Catalog({ model, setModel, query, setQuery, criteria, showItemLi
   const searchId = useId();
   const editorTrigger = useRef<HTMLButtonElement>(null);
   const [editingId, setEditingId] = useState<AuditModelId | null>(null);
-  const [previewOpen, setPreviewOpen] = useState(false);
-  const selectedDocument = Object.values(referenceDocuments).find((entry) => entry.catalogName === model);
-  const selectedVersion = selectedDocument && catalogs ? catalogVersion(catalogs, selectedDocument.id) : undefined;
 
   return <>
     <div className={embedded ? "panel-heading" : "page-intro"}>
@@ -152,21 +148,22 @@ export function Catalog({ model, setModel, query, setQuery, criteria, showItemLi
         const reference = showReferenceDocuments ? document : undefined;
         const name = security ? "Segurança do Trabalho" : item;
         const editable = !!reference && !!catalogs && !!actorId && !!onCatalogsSaved;
+        const downloadHref = reference ? `/api/reference-documents/${reference.id}?download=pdf` : "";
         return <div key={item} className={`model-card ${previewStyles.card}${editable ? ` editable ${previewStyles.editable}` : ""}${reference && model === item ? ` ${previewStyles.selected}` : ""}`}><button
           type="button"
           className={`${model === item ? "model-tab active" : "model-tab"} ${previewStyles.modelButton}`}
           aria-pressed={model === item}
           aria-label={reference ? `Selecionar roteiro: ${name}` : undefined}
-          onClick={() => { setModel(item); setEditingId(null); setPreviewOpen(false); }}
+          onClick={() => { setModel(item); setEditingId(null); }}
         >
           <span>{name}</span>
-        </button>{reference && model === item && !editingId && <button type="button" className={previewStyles.button} aria-expanded={previewOpen} aria-controls="catalog-reference" onClick={() => setPreviewOpen(!previewOpen)}>{previewOpen ? "Ocultar prévia" : "Mostrar prévia"}</button>}{editable && <button type="button" className="model-edit" disabled={editingId !== null} aria-label={`Editar roteiro: ${name}`} title="Editar itens ou enviar nova revisão" aria-controls="catalog-editor" onClick={(event) => { editorTrigger.current = event.currentTarget; setModel(item); setPreviewOpen(false); setEditingId(reference.id); }}>
+        </button>{reference && model === item && !editingId && <a className={previewStyles.button} href={downloadHref} download aria-label={`Baixar PDF: ${name}`} title="Baixar PDF">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" /></svg>
+        </a>}{editable && <button type="button" className="model-edit" disabled={editingId !== null} aria-label={`Editar roteiro: ${name}`} title="Editar itens ou enviar nova revisão" aria-controls="catalog-editor" onClick={(event) => { editorTrigger.current = event.currentTarget; setModel(item); setEditingId(reference.id); }}>
           <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m16 3 5 5M4 15 16 3a2 2 0 0 1 5 5L9 20l-6 1 1-6ZM4 15l5 5" /></svg>
         </button>}</div>;
       })}
     </div>
-
-    {showReferenceDocuments && selectedDocument && previewOpen && !editingId && <ReferenceDocumentViewer key={`${selectedDocument.id}:${selectedVersion?.id ?? "bundled"}`} modelId={selectedDocument.id} revisionId={selectedVersion?.id} revisionLabel={selectedVersion?.label} />}
 
     {editingId && catalogs && actorId && onCatalogsSaved && <CatalogEditorPanel key={editingId} version={catalogVersion(catalogs, editingId)} available={catalogs.available} setupPending={catalogs.setupPending} actorId={actorId} onSaved={onCatalogsSaved} onClose={() => { setEditingId(null); requestAnimationFrame(() => editorTrigger.current?.focus()); }} />}
 
@@ -755,7 +752,7 @@ export function AuditReview({ model, modelId, workName, details, criteria, draft
             ? `${response.checks?.filter((check) => check.compliant === true).length ?? 0} de ${response.checks?.length ?? 0} conformes`
             : getResponseLabel(response);
           const itemScore = awardedItemScore(item, response, security);
-          return <article key={item.id}><span><b>{item.code}</b>{getCriterionDisplayTitle(item)}</span><span className="audit-review-item-result"><em>{label}</em><strong>{scoreLabel(itemScore, response.answer)}</strong></span></article>;
+          return <article key={item.id}><span><b>{item.code}</b>{getCriterionDisplayTitle(item)}{response.serious && <em className="audit-review-serious">Item grave</em>}</span><span className="audit-review-item-result"><em>{label}</em><strong>{scoreLabel(itemScore, response.answer)}</strong></span></article>;
         })}</div>}
       </section>})}
     </div>
@@ -927,13 +924,21 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
       }} />
 
       {selectedItemOpen && criterion ? <div className="question-content">
-        <div className="question-group-heading">
+        <div className={`question-group-heading${security ? " has-verification" : ""}`}>
           <span className="question-group-number">{getGroupHeading(criterion.group).number}</span>
           <span className="question-group-title">{getGroupHeading(criterion.group).title}</span>
-          {security && <div className={`question-verification ${verificationVisual(response)?.tone ?? "unanswered"}${missingRequiredPhoto ? " missing-photo" : ""}`}><small>VERIFICAÇÃO</small><VerificationMark response={response} /></div>}
+          <div className="question-group-actions">
+            <button type="button" className={`serious-item-button${response.serious ? " active" : ""}`} aria-label={response.serious ? "Desmarcar item grave" : "Marcar como item grave"} title={response.serious ? "Item marcado como grave" : "Marcar como item grave"} aria-pressed={response.serious === true} disabled={readOnly} onClick={() => updateDraft({ ...response, serious: !response.serious })}>
+              <svg viewBox="0 0 32 29" aria-hidden="true"><path d="M14.1 3.2a2.2 2.2 0 0 1 3.8 0l11.2 19.4a2.2 2.2 0 0 1-1.9 3.3H4.8a2.2 2.2 0 0 1-1.9-3.3L14.1 3.2Z" /><text x="16" y="21.2">!</text></svg>
+            </button>
+            {security && <div className={`question-verification ${verificationVisual(response)?.tone ?? "unanswered"}${missingRequiredPhoto ? " missing-photo" : ""}`}><small>VERIFICAÇÃO</small><VerificationMark response={response} /></div>}
+          </div>
         </div>
         {criterion.subgroup && <div className="question-context"><span className="question-code">{getSubgroupHeading(criterion).code}</span><span className="question-subgroup-title">{getSubgroupHeading(criterion).title}</span></div>}
-        <div className="question-title-row"><div className="question-title-content"><span className="question-code">{criterion.code}</span><h3>{getCriterionDisplayTitle(criterion)}</h3></div>{!security && <strong className={`question-score-value${missingRequiredPhoto ? " missing-photo" : ""}`}>{scoreLabel(awardedItemScore(criterion, response, false), response.answer)}</strong>}</div>
+        <div className="question-title-row">
+          <div className="question-title-content"><span className="question-code">{criterion.code}</span><h3>{getCriterionDisplayTitle(criterion)}</h3></div>
+          {!security && <div className="question-title-actions"><strong className={`question-score-value${missingRequiredPhoto ? " missing-photo" : ""}`}>{scoreLabel(awardedItemScore(criterion, response, false), response.answer)}</strong></div>}
+        </div>
         <p className="criterion-description"><strong>Descrição:</strong> {criterion.text}</p>
         {(security ? securityAnalysisCriterion : criterion.verificationRule) && <p className="criterion-detail"><strong>{security ? "Critério de análise" : "Critério de verificação"}:</strong> {security ? securityAnalysisCriterion : criterion.verificationRule}</p>}
         {criterion.interpretation && criterion.verificationRule !== "Dividido pela quantidade verificada" && <p className="criterion-detail">{criterion.interpretation}</p>}

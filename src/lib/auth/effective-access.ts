@@ -71,5 +71,5 @@ export async function readEffectiveAccount(client: Pick<SupabaseClient, "from" |
 
 export function effectiveDestination(account: EffectiveAccount | null) {
   if (!account) return "/aguardando-liberacao";
-  return account.perfis.length > 1 || account.atuacoes_engenharia.length > 1 || account.atuacao_administrativa === "GERAL" ? "/escolher-perfil" : "/app";
+  return account.perfis.length > 1 ? "/escolher-perfil" : "/app";
 }

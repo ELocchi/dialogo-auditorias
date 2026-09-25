@@ -55,7 +55,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ mode
       return Response.json({ message: "Consulta não autorizada." }, { status: 403, headers });
   }
   const query = new URL(request.url).searchParams;
-  const original = query.get("download") === "original";
+  const download = query.get("download");
+  if (download !== null && download !== "pdf" && download !== "original") return Response.json({ message: "Formato de download inválido." }, { status: 400, headers });
+  const original = download === "original";
+  const attachment = download === "pdf" || original;
   const revision = query.get("revision");
   if (revision && revision !== "bundled" && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(revision)) return Response.json({ message: "Revisão inválida." }, { status: 400, headers });
   const filename = original ? document.originalFile : document.pdfFile;
@@ -98,7 +101,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ mode
         if (bytes.length > (pdf ? 5 : 2) * 1024 * 1024 || (pdf ? bytes.subarray(0, 5).toString("ascii") !== "%PDF-" : bytes.subarray(0, 4).toString("hex") !== "504b0304")) throw new Error("Invalid document content");
         return new Response(new Uint8Array(bytes), { headers: {
           ...headers, "Content-Type": data.contentType, "Content-Length": String(bytes.length),
-          "Content-Disposition": (original ? "attachment" : "inline") + '; filename="' + modelId + '.' + (pdf ? "pdf" : "docx") + '"; filename*=UTF-8' + "''" + encodeURIComponent(data.name),
+          "Content-Disposition": (attachment ? "attachment" : "inline") + '; filename="' + modelId + '.' + (pdf ? "pdf" : "docx") + '"; filename*=UTF-8' + "''" + encodeURIComponent(data.name),
         } });
       }
       if (revision) throw new Error("Revision document unavailable");
@@ -110,7 +113,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ mode
       ...headers,
       "Content-Type": original ? document.originalContentType : "application/pdf",
       "Content-Length": String(bytes.length),
-      "Content-Disposition": `${original ? "attachment" : "inline"}; filename="${filename}"; filename*=UTF-8''${encodeURIComponent(downloadName)}`,
+      "Content-Disposition": `${attachment ? "attachment" : "inline"}; filename="${filename}"; filename*=UTF-8''${encodeURIComponent(downloadName)}`,
     } });
   } catch {
     return Response.json({ message: "O documento está indisponível no momento. Tente novamente." }, { status: 503, headers });

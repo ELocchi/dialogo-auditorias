@@ -1,10 +1,10 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireUser, effectiveAccount } from "@/lib/auth/session";
 import { profileLabels, administrativeLabels, engineeringLabels, type AccessProfile } from "@/lib/access/contracts";
 import { readActiveProfileContext } from "@/lib/auth/active-profile-session";
 import { getProfileContexts } from "@/lib/auth/active-profile";
-import { LogoutButton } from "../components/auth/LogoutButton";
+import { platformDisplayName } from "@/lib/auth/display-name";
+import { UserMenu } from "../components/auth/UserMenu";
 import { DialogoLogo } from "@/app/components/dialogo-logo";
 import { selectProfileAction } from "./actions";
 import styles from "./profile-selection.module.css";
@@ -23,7 +23,7 @@ export default async function SelectProfilePage({ searchParams }: {
   const account = await effectiveAccount(user);
   if (!account) redirect("/aguardando-liberacao");
   const contexts = getProfileContexts(account);
-  if (contexts.length === 1) redirect("/app");
+  if (account.perfis.length === 1) redirect("/app");
   const current = await readActiveProfileContext(user.id, account);
   const params = await searchParams;
 
@@ -33,13 +33,12 @@ export default async function SelectProfilePage({ searchParams }: {
       <header className={styles.header}>
         <div className={styles.headerInner}>
           <div className={styles.brand}><DialogoLogo /></div>
-          <div className={styles.session}><span>{user.email}</span><LogoutButton /></div>
+          <div className={styles.session}><UserMenu name={platformDisplayName(user.email)} /></div>
         </div>
       </header>
       <main className={styles.main} id="profile-content" tabIndex={-1}>
         <p className={styles.eyebrow}>SEUS PERFIS DE ACESSO</p>
         <h1>Como deseja entrar?</h1>
-        <p className={styles.description}>Escolha o perfil que deseja usar agora. Você poderá trocar de perfil durante a navegação.</p>
         {params.erro === "perfil" && <p className={styles.error} role="alert">Não foi possível selecionar esse perfil. Escolha uma das opções disponíveis abaixo.</p>}
         <div className={styles.grid}>
           {contexts.map(({ profile, engineeringScope, administrativeScope }) => {
@@ -60,10 +59,6 @@ export default async function SelectProfilePage({ searchParams }: {
               </button>
             </form>;
           })}
-        </div>
-        <div className={styles.footerLinks}>
-          <Link href="/minha-conta">Ver meus acessos</Link>
-          {current && <Link href="/app">Voltar ao perfil atual</Link>}
         </div>
       </main>
     </div>

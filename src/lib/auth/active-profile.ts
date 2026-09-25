@@ -81,6 +81,12 @@ export function resolveActiveProfileContext(account: EffectiveAccount | null, us
   if (!isCurrentAccount(account, userId)) return null;
   const contexts = getProfileContexts(account);
   if (contexts.length === 1) return contexts[0];
+  if (account.perfis.length === 1) {
+    const selected = account.perfis[0];
+    return contexts.find((entry) => entry.profile === selected
+      && (selected !== "ENGENHARIA" || entry.engineeringScope === account.atuacao_engenharia)
+      && (selected !== "ADMINISTRATIVO" || entry.administrativeScope === account.atuacao_administrativa)) ?? contexts[0] ?? null;
+  }
   const choice = parseActiveProfileChoice(raw);
   if (!choice || choice.userId !== userId || !account.perfis.includes(choice.profile)) return null;
   // Legacy choices mean the historically selected primary scope, never all

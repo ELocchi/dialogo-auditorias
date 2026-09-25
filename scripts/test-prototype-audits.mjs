@@ -153,6 +153,15 @@ test("itens 01.01.01/01.01.02 mantêm 5/10, observações próprias, zero, N/A e
   assert.equal(state.audits[0].finalScore, null);
 });
 
+test("item grave é uma escolha binária manual e independente da nota", () => {
+  const started = begin();
+  let state = updatePrototypeResponse(started.state, safety, started.auditId, first, { answer: "10", note: "Conforme, mas exige atenção", serious: true });
+  assert.equal(responseOf(state, started.auditId, first).serious, true);
+  state = updatePrototypeResponse(state, safety, started.auditId, first, { ...responseOf(state, started.auditId, first), serious: false });
+  assert.equal(responseOf(state, started.auditId, first).serious, false);
+  assert.throws(() => updatePrototypeResponse(started.state, safety, started.auditId, first, { answer: "0", note: "", serious: "alto" }), /verdadeira ou falsa/);
+});
+
 test("itens de outro modelo ou versão são recusados, sem misturar F.175/F.176", () => {
   const securityAudit = begin();
   const qualityAudit = begin(securityAudit.state, quality, { id: "AUD-F175", modelId: F175 });
