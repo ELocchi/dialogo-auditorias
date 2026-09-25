@@ -56,7 +56,7 @@ export function PrototypeDashboard({ user, module, works, agendaWorks = works, a
   const agendaCard = <Metric label={admin ? "Visitas Agendadas" : auditor ? "Auditorias Agendadas" : "Visitas na agenda"} value={admin && visits.length === 0 ? "--" : auditor ? scheduledAudits : visits.length} description={admin ? "Consultar agenda" : undefined} onClick={works[0] && canConsultAgenda(user, works[0].id, module) ? () => open("agenda") : undefined} />;
   const profilesCard = <Metric label={admin ? "Perfis cadastrados" : "Relatórios publicados"} value={admin ? activeAccountCount ?? "--" : published.length} description={admin ? "Consultar perfis" : auditor ? "Consultar auditorias" : undefined} onClick={() => open(admin ? "settings" : auditor ? "audits" : "report")} />;
   const catalogsCard = <Metric label={admin ? "Roteiros disponíveis" : user.role === "engineering" ? "Auditorias consultáveis" : "Rascunhos próprios"} value={admin ? user.modules.includes("safety") ? 1 + (user.modules.includes("quality") ? 2 : 0) : 2 : user.role === "engineering" ? audits.length : ownDrafts.length} description={admin ? "Consultar roteiros" : undefined} onClick={() => open(admin ? "criteria" : "audits")} />;
-  if (user.role === "engineering") return <EngineeringOverview user={user} works={works} audits={audits} visits={visits} auditors={auditors} previewRanking={previewRanking} open={open} />;
+  if (user.role === "engineering") return <EngineeringOverview user={user} works={works} audits={audits} auditFindings={visibleFindings} visits={visits} auditors={auditors} previewRanking={previewRanking} open={open} />;
   if (auditor) return <>
     <div className="page-intro"><div><h2>Visão geral</h2></div></div>
     <div className="stats-grid stats-grid-admin stats-grid-three">
@@ -136,10 +136,11 @@ function summarizeSeriousFindings(findings: readonly PublishedAuditFinding[], wo
     .slice(0, 5);
 }
 
-function EngineeringOverview({ user, works, audits, visits, auditors, previewRanking, open }: {
+function EngineeringOverview({ user, works, audits, auditFindings, visits, auditors, previewRanking, open }: {
   user: DemoUser;
   works: readonly WorkRecord[];
   audits: readonly AuditRecord[];
+  auditFindings: readonly PublishedAuditFinding[];
   visits: readonly Visit[];
   auditors: readonly DemoUser[];
   previewRanking: boolean;
@@ -169,11 +170,12 @@ function EngineeringOverview({ user, works, audits, visits, auditors, previewRan
   const previousAverage = previousScores.length
     ? new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(previousScores.reduce((total, score) => total + score.score, 0) / previousScores.length)
     : "--";
+  const findingCount = new Set(auditFindings.map((finding) => `${finding.auditId}\0${finding.id}`)).size;
 
   return <>
     <div className="page-intro"><div><h2>Visão geral</h2><p className="muted">Engenharia · {user.activity === "coordination" ? "Coordenação" : "Equipe da obra"}</p></div></div>
     <div className={engineeringStyles.metrics}>
-      <EngineeringMetric label="Apontamentos" value="--" />
+      <EngineeringMetric label="Apontamentos" value={String(findingCount).padStart(2, "0")} />
       <EngineeringMetric label="Planos de ação" value="--" detail="Pendentes" />
       <EngineeringMetric label="Nota" value={previousAverage} detail="Mês anterior" accent />
     </div>
