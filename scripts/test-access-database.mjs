@@ -229,6 +229,17 @@ if (!baselineOnly) suites.push({
   omitHistoricPublicationBackfills: true,
   validateBuiltInCatalogs: true,
 });
+if (!baselineOnly) suites.push({
+  name: "B.27 Engineering coordination read-only agenda suite",
+  migrations: readdirSync(path.join(projectRoot, "supabase", "migrations"))
+    .filter((name) => name.endsWith(".sql") && name <= "20260925000300_engineering_coordination_agenda.sql"
+      && name !== "20260924000200_verify_published_audit_access.sql")
+    .sort(),
+  test: "engineering_coordination_agenda.sql",
+  storageAdapter: true,
+  omitHistoricPublicationBackfills: true,
+  validateBuiltInCatalogs: true,
+});
 
 const { PGlite } = await loadPGlite();
 for (const suite of suites.filter((item) => !assignmentOnly || item.test === "audit_assignment_access.sql")) {

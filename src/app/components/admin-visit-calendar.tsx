@@ -37,8 +37,10 @@ export function AdminVisitCalendar({ visits, works, auditors = [], onViewAgenda,
   const monthLabel = monthFormat.format(new Date(`${month}-01T12:00:00Z`));
   const workNames = new Map(works.map((work) => [work.id, work.name]));
   const effectiveColorBy = selectedAuditorId && !keepVisitorColors ? "work" : colorBy;
-  const profileHasVisits = new Set(visits.filter((visit) => workNames.has(visit.workId)).map((visit) => visit.auditorId));
-  const monthVisits = visits.filter((visit) => (includeFollowUps || visit.kind === "audit") && workNames.has(visit.workId) && isCalendarDate(visit.date) && visit.date.startsWith(`${month}-`)
+  const eligibleVisits = visits.filter((visit) => (includeFollowUps || visit.kind === "audit")
+    && workNames.has(visit.workId) && isCalendarDate(visit.date));
+  const profileHasVisits = new Set(eligibleVisits.map((visit) => visit.auditorId));
+  const monthVisits = eligibleVisits.filter((visit) => visit.date.startsWith(`${month}-`)
     && (!selectedAuditorId || visit.auditorId === selectedAuditorId))
     .sort((left, right) => left.date.localeCompare(right.date) || left.id.localeCompare(right.id));
   const profiles = new Map<string, { id: string; name: string; modules: Set<AppModule>; active: boolean }>();
@@ -49,7 +51,7 @@ export function AdminVisitCalendar({ visits, works, auditors = [], onViewAgenda,
     if (existing) existing.modules.add(discipline);
     else profiles.set(auditor.id, { id: auditor.id, name: auditor.name, modules: new Set([discipline]), active: true });
   }
-  for (const visit of monthVisits) {
+  for (const visit of eligibleVisits) {
     if (!profiles.has(visit.auditorId)) profiles.set(visit.auditorId, {
       id: visit.auditorId, name: visit.auditorName?.trim() || "Auditor não identificado", modules: new Set([visit.module]), active: false,
     });
