@@ -22,6 +22,7 @@ export function PendingRequests({ requests, works, actorId, previewIds = [] }: {
 }
 
 function RequestCard({ request, works, action, pending, isSelf, preview }: { request: PendingRequest; works: AccessWork[]; action: (form: FormData) => void; pending: boolean; isSelf: boolean; preview: boolean }) {
+  const [hasOpened, setHasOpened] = useState(false);
   const id = useId();
   const formRef = useRef<HTMLFormElement>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -54,13 +55,15 @@ function RequestCard({ request, works, action, pending, isSelf, preview }: { req
   const changeRow = (key: number, changes: Partial<GrantRow>) => {
     setRows((current) => current.map((row) => row.key === key ? { ...row, ...changes } : row));
   };
-  return <details className={styles.requestCard}>
+  return <details className={styles.requestCard} onToggle={(event) => {
+    if (event.currentTarget.open) setHasOpened(true);
+  }}>
     <summary className={styles.requestSummary}>
       <span><strong>{request.nome}</strong><span className={styles.email}>{request.email}</span></span>
       <span className={styles.pendingBadge}>Pendente de aprovação</span>
       <span className={styles.summaryHint}>Analisar solicitação</span>
     </summary>
-    <div className={styles.requestBody}>
+    {hasOpened && <div className={styles.requestBody}>
       <dl className={styles.details}>
         <div><dt>Solicitado em</dt><dd>{formatDate(request.created_at)}</dd></div>
         <div><dt>E-mail confirmado em</dt><dd>{formatDate(request.email_confirmado_em)}</dd></div>
@@ -152,6 +155,6 @@ function RequestCard({ request, works, action, pending, isSelf, preview }: { req
           </div>
         </dialog>
       </form>}
-    </div>
+    </div>}
   </details>;
 }

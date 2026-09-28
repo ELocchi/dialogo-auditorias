@@ -1,6 +1,8 @@
 ﻿import Link from "next/link";
-import { ownAccessRequest, requireAdministrator } from "@/lib/auth/session";
-import { AdministrativeHeader } from "@/app/components/administrative-header";
+import { Suspense } from "react";
+import { requireAdministrator } from "@/lib/auth/session";
+import { AccessAdministrationHeader } from "@/app/components/access/AccessAdministrationHeader";
+import { AccessAdministrationLoading } from "@/app/components/access/AccessAdministrationLoading";
 import { AccessAdministration } from "@/app/components/access/AccessAdministration";
 import styles from "./access.module.css";
 
@@ -11,15 +13,14 @@ const parsePage = (value: string | undefined) => value && /^[1-9]\d{0,5}$/.test(
 export default async function AccessAdministrationPage({ searchParams }: { searchParams: Promise<Query> }) {
   const user = await requireAdministrator();
   const query = await searchParams;
-  const ownRequest = await ownAccessRequest(user.id);
-  const name = typeof ownRequest?.nome === "string" && ownRequest.nome.trim()
-    ? ownRequest.nome : user.email ?? "Usuário";
   return <div className={styles.shell}>
     <a className="skip-link" href="#access-content">Ir para usuários e acessos</a>
-    <AdministrativeHeader name={name} email={user.email} userId={user.id} />
+    <AccessAdministrationHeader user={{ id: user.id, email: user.email }} />
     <main id="access-content" className={styles.main} tabIndex={-1}>
       <Link className={styles.backLink} href="/app?secao=administracao">Voltar à Administração</Link>
-      <AccessAdministration pendingPage={parsePage(query.pendentes)} historyPage={parsePage(query.historico)} />
+      <Suspense key={`${parsePage(query.pendentes)}:${parsePage(query.historico)}`} fallback={<AccessAdministrationLoading />}>
+        <AccessAdministration pendingPage={parsePage(query.pendentes)} historyPage={parsePage(query.historico)} />
+      </Suspense>
     </main>
   </div>;
 }

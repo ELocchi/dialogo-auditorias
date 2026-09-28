@@ -10,7 +10,8 @@ import { EditUserDialog } from "@/app/components/access/EditUserDialog";
 import styles from "@/app/administracao/usuarios/access.module.css";
 
 const pageSize = 20;
-const date = (value: string) => new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" }).format(new Date(value));
+const dateFormatter = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
+const date = (value: string) => dateFormatter.format(new Date(value));
 
 // React cache is scoped to this server render; each request rechecks database access.
 const loadAdministration = cache(async (view: AdministrationView, page: number) => {

@@ -1,6 +1,8 @@
 import Link from "next/link";
-import { ownAccessRequest, requireAdministrator } from "@/lib/auth/session";
-import { AdministrativeHeader } from "@/app/components/administrative-header";
+import { Suspense } from "react";
+import { requireAdministrator } from "@/lib/auth/session";
+import { AccessAdministrationHeader } from "@/app/components/access/AccessAdministrationHeader";
+import { AccessAdministrationLoading } from "@/app/components/access/AccessAdministrationLoading";
 import { AccessAdministration } from "@/app/components/access/AccessAdministration";
 import styles from "../access.module.css";
 import workStyles from "@/app/components/works/work-edit.module.css";
@@ -12,13 +14,10 @@ const parsePage = (value: string | undefined) => value && /^[1-9]\d{0,5}$/.test(
 export default async function PendingApprovalsPage({ searchParams }: { searchParams: Promise<Query> }) {
   const user = await requireAdministrator();
   const query = await searchParams;
-  const ownRequest = await ownAccessRequest(user.id);
-  const name = typeof ownRequest?.nome === "string" && ownRequest.nome.trim()
-    ? ownRequest.nome : user.email ?? "Usuário";
 
   return <div className={styles.shell}>
     <a className="skip-link" href="#pending-content">Ir para as aprovações pendentes</a>
-    <AdministrativeHeader name={name} email={user.email} userId={user.id} />
+    <AccessAdministrationHeader user={{ id: user.id, email: user.email }} />
     <main id="pending-content" className={styles.main} tabIndex={-1}>
       <div className={workStyles.pageHeading}>
         <Link className={workStyles.backButton} href="/app?secao=administracao" aria-label="Voltar à Administração" title="Voltar à Administração">
@@ -26,7 +25,9 @@ export default async function PendingApprovalsPage({ searchParams }: { searchPar
         </Link>
         <h2>Aprovações pendentes</h2>
       </div>
-      <AccessAdministration pendingOnly pendingPage={parsePage(query.pendentes)} />
+      <Suspense key={parsePage(query.pendentes)} fallback={<AccessAdministrationLoading />}>
+        <AccessAdministration pendingOnly pendingPage={parsePage(query.pendentes)} />
+      </Suspense>
     </main>
   </div>;
 }

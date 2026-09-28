@@ -37,7 +37,7 @@ export function DeferredAccessSummary({ actor }: { actor: AgendaActorContext }) 
     </div> : current.status === "loading" ? <p className="muted" role="status">Carregando resumo de acessos...</p> : <div className={styles.stats}>
       <Link prefetch={false} className={`${styles.stat} ${styles.statLink}`} href="/administracao/usuarios/pendentes" target="_blank" rel="noopener noreferrer"
         aria-label={`${current.summary.pendingCount} aprovações pendentes. Abrir em uma nova janela.`}><strong>{current.summary.pendingCount}</strong><span>Aprovações</span></Link>
-      <Link prefetch={false} className={`${styles.stat} ${styles.statLink}`} href="/administracao/usuarios/historico"
+      <Link className={`${styles.stat} ${styles.statLink}`} href="/administracao/usuarios/historico"
         aria-label={`${current.summary.activeCount} contas ativas. Abrir Aprovações e Histórico.`}><strong>{current.summary.activeCount}</strong><span>Contas Ativas</span></Link>
     </div>}
   </div>;

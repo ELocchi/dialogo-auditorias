@@ -1,6 +1,10 @@
 .shell { min-height: 100vh; }
 .main { max-width: 1240px; margin: auto; padding: 36px 32px 56px; }
 .embedded { min-width: 0; }
+.loadingPanel { padding: 24px; border: 1px solid var(--line); border-radius: 10px; background: white; color: var(--muted); }
+.loadingPanel p { margin: 0 0 18px; }
+.loadingRows { display: grid; gap: 14px; }
+.loadingRows span { display: block; height: 48px; border-radius: 8px; background: #f3f5f8; }
 .backLink { display: inline-flex; align-items: center; min-height: 32px; margin-bottom: 20px; font-size: 13px; text-underline-offset: 3px; }
 .eyebrow { color: var(--muted); font-size: 11px; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 10px; }
 .intro h2 { margin-bottom: 12px; font-size: clamp(27px, 4vw, 36px); letter-spacing: -.7px; }

@@ -21,18 +21,33 @@ function rowsFromGrants(grants: CurrentGrant[]): GrantRow[] {
   return [...unique.values()].map((grant, key) => ({ key, perfil: grant.perfil, obra_id: grant.obra_id, modulo: grant.perfil === "ENGENHARIA" ? "" : grant.modulo }));
 }
 
-export function EditUserDialog({ account, grants, works, name, email, actorId }: {
+type EditUserDialogProps = {
   account: EditableAccessAccount;
   grants: CurrentGrant[];
   works: AccessWork[];
   name: string;
   email: string;
   actorId: string;
-}) {
+};
+
+export function EditUserDialog(props: EditUserDialogProps) {
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const [open, setOpen] = useState(false);
+  return <>
+    <button ref={triggerRef} type="button" className={`${styles.editUserButton} secondary`} aria-label={`Editar usuário ${props.name}`} title="Editar usuário" onClick={() => setOpen(true)}>
+      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
+    </button>
+    {open && <EditUserForm {...props} onClose={() => {
+      setOpen(false);
+      triggerRef.current?.focus();
+    }} />}
+  </>;
+}
+
+function EditUserForm({ account, grants, works, name, email, actorId, onClose }: EditUserDialogProps & { onClose: () => void }) {
   const id = useId();
   const router = useRouter();
   const dialogRef = useRef<HTMLDialogElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
   const [state, action, pending] = useActionState(updateAccessAction, initialAccessState);
   const [perfis, setPerfis] = useState<AccessProfile[]>(account.perfis);
   const [administrativeScope, setAdministrativeScope] = useState(account.atuacao_administrativa ?? "");
@@ -40,14 +55,9 @@ export function EditUserDialog({ account, grants, works, name, email, actorId }:
   const [status, setStatus] = useState(account.ativo ? "ATIVO" : "INATIVO");
   const [rows, setRows] = useState<GrantRow[]>(() => rowsFromGrants(grants));
 
-  const openEditor = () => {
-    setPerfis(account.perfis);
-    setAdministrativeScope(account.atuacao_administrativa ?? "");
-    setEngineeringScopes(account.atuacoes_engenharia);
-    setStatus(account.ativo ? "ATIVO" : "INATIVO");
-    setRows(rowsFromGrants(grants));
-    dialogRef.current?.showModal();
-  };
+  useEffect(() => {
+    if (!dialogRef.current?.open) dialogRef.current?.showModal();
+  }, []);
 
   useEffect(() => {
     if (state.status !== "success") return;
@@ -86,11 +96,7 @@ export function EditUserDialog({ account, grants, works, name, email, actorId }:
     key: Math.max(-1, ...current.map((row) => row.key)) + 1, perfil: profile, obra_id: "", modulo: firstModule(profile),
   }]);
 
-  return <>
-    <button ref={triggerRef} type="button" className={`${styles.editUserButton} secondary`} aria-label={`Editar usuário ${name}`} title="Editar usuário" onClick={openEditor}>
-      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
-    </button>
-    <dialog ref={dialogRef} className={`${styles.approvalDialog} ${styles.editUserDialog}`} aria-labelledby={`${id}-title`} onCancel={(event) => { if (pending) event.preventDefault(); }} onClose={() => triggerRef.current?.focus()}>
+  return <dialog ref={dialogRef} className={`${styles.approvalDialog} ${styles.editUserDialog}`} aria-labelledby={`${id}-title`} onCancel={(event) => { if (pending) event.preventDefault(); }} onClose={onClose}>
       <form action={action} aria-busy={pending}>
         <input type="hidden" name="authUserId" value={account.auth_user_id} />
         <input type="hidden" name="grants" value={JSON.stringify(expandedGrants)} />
@@ -148,6 +154,5 @@ export function EditUserDialog({ account, grants, works, name, email, actorId }:
           <button type="submit" className="primary" disabled={pending || incomplete}>{pending ? "Salvando…" : "Salvar alterações"}</button>
         </div>
       </form>
-    </dialog>
-  </>;
+    </dialog>;
 }
