@@ -24,7 +24,8 @@
     "test:work-details": "node --experimental-strip-types --test scripts/test-work-details.mjs",
     "test:profile-workspace": "node --experimental-strip-types --test scripts/test-active-profile.mjs scripts/test-workspace-context.mjs",
     "test:catalog-revisions": "node --experimental-strip-types --test scripts/test-catalog-revisions.mjs scripts/test-catalog-audit-snapshots.mjs",
-    "test:published-audits": "node --experimental-strip-types --test scripts/test-published-audits.mjs"
+    "test:published-audits": "node --experimental-strip-types --test scripts/test-published-audits.mjs",
+    "test:performance": "node --experimental-strip-types --test scripts/test-audit-detail-loader.mjs scripts/test-audit-detail-routes.mjs scripts/test-audit-history.mjs scripts/test-pdf-worker.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

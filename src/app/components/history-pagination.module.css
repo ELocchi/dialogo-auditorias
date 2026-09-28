@@ -1,0 +1,7 @@
+.pagination { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+.pagination p { display: grid; gap: 4px; margin: 0; color: var(--muted); font-size: 12px; }
+.pagination p span { font-size: 11px; }
+.pagination > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.pagination button { min-height: 36px; padding: 8px 12px; font-size: 12px; }
+.pagination button:disabled { opacity: .5; cursor: default; }
+@media print { .pagination { display: none; } }

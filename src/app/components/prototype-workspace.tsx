@@ -16,6 +16,8 @@ import { VisitCard } from "./visit-agenda";
 import type { AgendaActionResult } from "@/lib/agenda/contracts";
 import { MaintenanceHistory } from "./maintenance-history";
 import { DialogoLogo } from "./dialogo-logo";
+import { sortAuditHistory } from "@/domain/audit-history";
+import { HistoryPagination, useHistoryPage } from "./history-pagination";
 import styles from "./prototype-workspace.module.css";
 import engineeringStyles from "./engineering-overview.module.css";
 
@@ -207,9 +209,15 @@ function Metric({ label, value, description, onClick }: { label: string; value: 
   return <button type="button" className="stat-card" onClick={onClick} disabled={!onClick}><span className="stat-top">{label}<Icon name="arrow" /></span><strong className="stat-value">{String(value).padStart(2, "0")}</strong><span className="stat-bottom">{onClick ? description ?? "Consultar contexto selecionado" : "Consulta não concedida neste perfil"}</span></button>;
 }
 
-export function AuditList({ user, audits, works, onOpen }: { user: DemoUser; audits: readonly AuditRecord[]; works: readonly WorkRecord[]; onOpen: (audit: AuditRecord) => void }) {
+function historyContextKey(user: DemoUser, works: readonly WorkRecord[], filter = "") {
+  return JSON.stringify([user.id, user.role, user.activity, [...user.modules].sort(), works.map((work) => work.id).sort(), filter]);
+}
+
+export function AuditList({ user, audits, works, onOpen, contextKey = "" }: { user: DemoUser; audits: readonly AuditRecord[]; works: readonly WorkRecord[]; onOpen: (audit: AuditRecord) => void; contextKey?: string }) {
+  const history = useHistoryPage(sortAuditHistory(audits), historyContextKey(user, works, contextKey));
   return <><div className="page-intro"><div><h2>Auditorias e histórico</h2><p className="muted">Rascunhos próprios e consultas permitidas no módulo e na obra selecionados.</p></div></div>
-    <div className="table-panel"><table><caption>Auditorias do contexto · rascunhos de teste nesta prévia</caption><thead><tr><th>Obra / registro</th><th>Modelo / versão</th><th>Data / responsável</th><th>Situação</th><th>Acesso</th></tr></thead><tbody>{[...audits].sort((a, b) => b.date.localeCompare(a.date)).map((audit) => <tr key={audit.id}><td><strong>{works.find((work) => work.id === audit.workId)?.name}</strong><small>{audit.id}</small></td><td>{auditModelLabels[audit.modelId].name}<small>{auditVersionLabel(audit)}</small></td><td>{formatAuditDate(audit.date)}<small>{audit.auditor}</small></td><td><span className="badge">{audit.status}</span><small>Nota pendente — configuração incompleta</small></td><td><button type="button" className="secondary" onClick={() => onOpen(audit)}>{canEditAudit(user, audit) ? "Retomar rascunho" : "Consultar"}</button></td></tr>)}{audits.length === 0 && <tr><td colSpan={5}>Nenhuma auditoria disponível para este perfil e contexto.</td></tr>}</tbody></table></div>
+    <div className="table-panel"><table><caption>Auditorias do contexto · rascunhos de teste nesta prévia</caption><thead><tr><th>Obra / registro</th><th>Modelo / versão</th><th>Data / responsável</th><th>Situação</th><th>Acesso</th></tr></thead><tbody>{history.items.map((audit) => <tr key={audit.id}><td><strong>{works.find((work) => work.id === audit.workId)?.name}</strong><small>{audit.id}</small></td><td>{auditModelLabels[audit.modelId].name}<small>{auditVersionLabel(audit)}</small></td><td>{formatAuditDate(audit.date)}<small>{audit.auditor}</small></td><td><span className="badge">{audit.status}</span><small>Nota pendente — configuração incompleta</small></td><td><button type="button" className="secondary" onClick={() => onOpen(audit)}>{canEditAudit(user, audit) ? "Retomar rascunho" : "Consultar"}</button></td></tr>)}{audits.length === 0 && <tr><td colSpan={5}>Nenhuma auditoria disponível para este perfil e contexto.</td></tr>}</tbody></table></div>
+    <HistoryPagination {...history} label="Páginas do histórico de auditorias" />
   </>;
 }
 
@@ -233,9 +241,9 @@ export function AuditorScheduledAudits({ user, visits, works, audits, auditFindi
   const scheduled = visits.filter((visit) => visit.kind === "audit" && visit.auditorId === user.id
     && workById.has(visit.workId) && canReadVisit(user, visit))
     .slice().sort((first, second) => first.date.localeCompare(second.date) || first.id.localeCompare(second.id));
-  const published = audits.filter((audit) => audit.status === "Publicada" && workById.has(audit.workId) && canReadAudit(user, audit))
-    .slice().sort((first, second) => second.date.localeCompare(first.date) || second.id.localeCompare(first.id));
+  const published = sortAuditHistory(audits.filter((audit) => audit.status === "Publicada" && workById.has(audit.workId) && canReadAudit(user, audit)));
   const visiblePublished = published.filter((audit) => !publicationWorkId || audit.workId === publicationWorkId);
+  const publicationPage = useHistoryPage(visiblePublished, historyContextKey(user, works, publicationWorkId));
   const publishedIds = new Set(published.map((audit) => audit.id));
   const visibleFindings = auditFindings.filter((finding) => publishedIds.has(finding.auditId))
     .slice().sort((left, right) => Number(right.serious === true) - Number(left.serious === true) || right.auditDate.localeCompare(left.auditDate));
@@ -258,7 +266,7 @@ export function AuditorScheduledAudits({ user, visits, works, audits, auditFindi
         </section>
         <section className="panel" aria-label="Apontamentos das auditorias">
           <div className="panel-heading"><h3>Apontamentos das auditorias</h3></div>
-          {visibleFindings.length ? <PublishedAuditFindingsList auditFindings={visibleFindings} works={works} />
+          {visibleFindings.length ? <PublishedAuditFindingsList auditFindings={visibleFindings} works={works} contextKey={historyContextKey(user, works)} />
             : <p className="muted">Nenhum apontamento incluído em relatório de auditoria publicado.</p>}
         </section>
       </div>
@@ -273,7 +281,7 @@ export function AuditorScheduledAudits({ user, visits, works, audits, auditFindi
           <div className={styles.publicationColumns}>
             <div className={styles.publicationColumn}>
               <h4>Auditoria</h4>
-              {visiblePublished.length ? visiblePublished.map((audit) => <PublishedDocumentCard key={audit.id} date={audit.date}
+              {visiblePublished.length ? publicationPage.items.map((audit) => <PublishedDocumentCard key={audit.id} date={audit.date}
                 workName={workById.get(audit.workId)?.name ?? "Obra"} responsible={audit.auditor}
                 actionLabel={audit.reportUrl ? "Abrir PDF da auditoria" : undefined}
                 onAction={audit.reportUrl ? () => window.open(audit.reportUrl, "_blank", "noopener,noreferrer") : undefined} />)
@@ -286,6 +294,7 @@ export function AuditorScheduledAudits({ user, visits, works, audits, auditFindi
                 : <p className="muted">Nenhum plano de ação publicado.</p>}
             </div>
           </div>
+          <HistoryPagination {...publicationPage} label="Páginas das auditorias publicadas" />
         </section>
         <section className={`panel ${styles.auditorCatalog}`} aria-label="Roteiros">{catalog}</section>
       </div>
@@ -313,10 +322,10 @@ export function PublishedAuditsPanel({ user, works, audits, module, onCreateActi
 }) {
   const [publicationWorkId, setPublicationWorkId] = useState("");
   const workById = new Map(works.map((work) => [work.id, work]));
-  const published = audits.filter((audit) => audit.status === "Publicada" && modelModule(audit.modelId) === module
-    && workById.has(audit.workId) && canReadAudit(user, audit))
-    .slice().sort((first, second) => second.date.localeCompare(first.date) || second.id.localeCompare(first.id));
+  const published = sortAuditHistory(audits.filter((audit) => audit.status === "Publicada" && modelModule(audit.modelId) === module
+    && workById.has(audit.workId) && canReadAudit(user, audit)));
   const visiblePublished = published.filter((audit) => !publicationWorkId || audit.workId === publicationWorkId);
+  const publicationPage = useHistoryPage(visiblePublished, historyContextKey(user, works, `${module}:${publicationWorkId}`));
   const exampleWork = works[0];
   const exampleDate = "2026-09-18";
   const showExample = process.env.NODE_ENV !== "production" && published.length === 0 && !!exampleWork;
@@ -332,7 +341,7 @@ export function PublishedAuditsPanel({ user, works, audits, module, onCreateActi
     <div className={styles.publicationColumns}>
       <div className={styles.publicationColumn}>
         <h4>Auditoria</h4>
-        {visiblePublished.length ? visiblePublished.map((audit) => <PublishedDocumentCard key={audit.id} date={audit.date}
+        {visiblePublished.length ? publicationPage.items.map((audit) => <PublishedDocumentCard key={audit.id} date={audit.date}
           workName={workById.get(audit.workId)?.name ?? "Obra"} responsible={audit.auditor}
           actionLabel={audit.reportUrl ? "Abrir PDF da auditoria" : undefined}
           onAction={audit.reportUrl ? () => window.open(audit.reportUrl, "_blank", "noopener,noreferrer") : undefined} />)
@@ -341,7 +350,7 @@ export function PublishedAuditsPanel({ user, works, audits, module, onCreateActi
       </div>
       <div className={styles.publicationColumn}>
         <h4>Plano de ação</h4>
-        {visiblePublished.length ? visiblePublished.map((audit) => {
+        {visiblePublished.length ? publicationPage.items.map((audit) => {
           const workName = workById.get(audit.workId)?.name ?? "Obra";
           const source: ActionPlanSource = { auditId: audit.id, workId: audit.workId, workName, date: audit.date, module, example: false };
           const publishedPlan = hasPublishedActionPlan?.(source) ?? false;
@@ -358,6 +367,7 @@ export function PublishedAuditsPanel({ user, works, audits, module, onCreateActi
           : <p className="muted">Nenhum plano de ação publicado.</p>}
       </div>
     </div>
+    <HistoryPagination {...publicationPage} label={`Páginas das auditorias publicadas de ${moduleLabels[module]}`} />
   </section>;
 }
 

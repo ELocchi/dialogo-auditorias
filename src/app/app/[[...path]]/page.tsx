@@ -9,7 +9,7 @@ import { readCatalogSnapshot } from "@/lib/catalogs/service";
 import { readAgendaSnapshot } from "@/lib/agenda/service";
 import { AccessAdministration } from "@/app/components/access/AccessAdministration";
 import { countActiveAccounts } from "@/lib/access/account-count";
-import { readPublishedAuditSnapshot } from "@/lib/audits/service";
+import { readPublishedAuditOverview } from "@/lib/audits/service";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +31,7 @@ export default async function OperationalPage({ searchParams }: { searchParams: 
   const initialActionPlanAuditId = parseAuditId(query.plano);
   const [initialAgenda, initialCatalogs, initialAudits, activeAccountCount] = await Promise.all([
     readAgendaSnapshot(client, context), readCatalogSnapshot(client, context),
-    readPublishedAuditSnapshot(client, context),
+    readPublishedAuditOverview(client, context),
     context.administrativeScope === "GERAL" ? countActiveAccounts(client) : Promise.resolve(null),
   ]);
   return <PrototypeApp key={`${active.user.id}:${active.profile}:${active.engineeringScope ?? ""}:${active.administrativeScope ?? ""}`} context={context}

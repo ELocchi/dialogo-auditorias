@@ -20,9 +20,10 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const baselineOnly = process.argv.includes("--baseline-only");
 const assignmentOnly = process.argv.includes("--assignment-only");
-if (process.argv.slice(2).some((arg) => !["--baseline-only", "--assignment-only"].includes(arg))
-  || (baselineOnly && assignmentOnly)) {
-  throw new Error("Supported arguments: --baseline-only or --assignment-only");
+const overviewOnly = process.argv.includes("--overview-only");
+if (process.argv.slice(2).some((arg) => !["--baseline-only", "--assignment-only", "--overview-only"].includes(arg))
+  || ([baselineOnly, assignmentOnly, overviewOnly].filter(Boolean).length > 1)) {
+  throw new Error("Supported arguments: --baseline-only, --assignment-only or --overview-only");
 }
 
 async function loadPGlite() {
@@ -241,8 +242,20 @@ if (!baselineOnly) suites.push({
   validateBuiltInCatalogs: true,
 });
 
+if (!baselineOnly) suites.push({
+  name: "B.28 Compact audit overview, lazy details and report authorization suite",
+  migrations: readdirSync(path.join(projectRoot, "supabase", "migrations"))
+    .filter((name) => name.endsWith(".sql") && name <= "20260928000100_published_audit_overview.sql"
+      && name !== "20260924000200_verify_published_audit_access.sql")
+    .sort(),
+  test: "published_audit_overview.sql",
+  storageAdapter: true,
+  omitHistoricPublicationBackfills: true,
+});
+
 const { PGlite } = await loadPGlite();
-for (const suite of suites.filter((item) => !assignmentOnly || item.test === "audit_assignment_access.sql")) {
+for (const suite of suites.filter((item) => (!assignmentOnly || item.test === "audit_assignment_access.sql")
+  && (!overviewOnly || item.test === "published_audit_overview.sql"))) {
   const db = await PGlite.create();
   let currentSqlFile = "";
   try {
@@ -264,6 +277,7 @@ for (const suite of suites.filter((item) => !assignmentOnly || item.test === "au
     for (const migration of suite.migrations) {
       currentSqlFile = migration;
       let sql = readFileSync(path.join(projectRoot, "supabase", "migrations", migration), "utf8");
+      assert.ok(sql.trim().length > 0, `Migration ${migration} must be fully available on disk.`);
       if (suite.omitHistoricPublicationBackfills) {
         // Execute all schema, functions, constraints, triggers and policies.
         // Only omit the two one-off blocks tied to the live Boulevar publication;

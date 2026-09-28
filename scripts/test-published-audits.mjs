@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { readPublishedAuditSnapshot } from "../src/lib/audits/service.ts";
+import { readPublishedAuditSnapshot, readPublishedAuditOverview, readPublishedAuditDetail, readPublishedAuditReport } from "../src/lib/audits/service.ts";
 
 const workId = "6c735db0-abd6-4ed7-b66e-6c253ed8a880";
 const auditId = "b1760000-2026-4923-8000-000000000001";
@@ -136,4 +136,120 @@ test("signs published audit files in bounded parallel batches", async () => {
   assert.equal(snapshot.audits.length, 7);
   assert.equal(Object.keys(snapshot.responses).length, 7);
   assert.equal(maximumActive, 6);
+});
+
+const compactFinding = {
+  id: criterion.id, auditId, workId, auditDate: indexRow.date, auditor: indexRow.auditor,
+  modelId: indexRow.modelId, module: "quality", item: criterion.code, description: criterion.title,
+  criterionTitle: criterion.title, serious: true, nonconformity: "Pendência",
+};
+
+test("overview uses one compact read and never loads detail or signs files", async () => {
+  const calls = [];
+  const overviewClient = {
+    rpc: async (name, parameters) => {
+      calls.push({ name, parameters });
+      return { data: { audits: [indexRow], findings: [{ ...compactFinding, photos: ["private.png"], checks: ["full"] }] }, error: null };
+    },
+    storage: { from: () => { throw new Error("Overview must not touch Storage"); } },
+  };
+  const result = await readPublishedAuditOverview(overviewClient, context);
+  assert.equal(result.available, true);
+  assert.deepEqual(result.findings, [compactFinding]);
+  assert.deepEqual(result.responses, {});
+  assert.deepEqual(result.criteriaSnapshots, {});
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].name, "read_published_audit_overview");
+  const report = new URL(result.audits[0].reportUrl, "https://app.example");
+  assert.equal(report.pathname, `/api/audits/${auditId}/report`);
+  assert.equal(report.searchParams.get("perfil"), "ENGENHARIA");
+  assert.equal(report.searchParams.get("atuacao"), "EQUIPE_OBRA");
+  assert.equal(report.searchParams.get("usuario"), userId);
+});
+
+test("compact read fails closed for a mismatched finding and has no eager fallback", async () => {
+  let calls = 0;
+  const summaryClient = {
+    rpc: async (name) => {
+      calls++;
+      assert.equal(name, "read_published_audit_overview");
+      return { data: { audits: [indexRow], findings: [{ ...compactFinding, workId: userId }] }, error: null };
+    },
+  };
+  const result = await readPublishedAuditOverview(summaryClient, context);
+  assert.equal(result.available, false);
+  assert.equal(calls, 1);
+});
+
+test("compact read refuses an unauthorized discipline even on an authorized work", async () => {
+  const result = await readPublishedAuditOverview({ rpc: async () => ({
+    data: { audits: [{ ...indexRow, modelId: "security-it07-r02" }], findings: [] }, error: null,
+  }) }, context);
+  assert.equal(result.available, false);
+  assert.deepEqual(result.audits, []);
+});
+
+test("single detail requests only the selected publication and signs only its evidence", async () => {
+  let calls = 0;
+  const detail = { ...indexRow, criteria: [criterion], responses: { [criterion.id]: {
+    answer: "Não conforme", note: "Pendência", photos: ["p04-01.png"],
+  } }, evidenceFiles: ["p04-01.png"], reportFileName: "relatorio-final.pdf" };
+  const detailClient = {
+    rpc: async (name, params) => {
+      calls++;
+      assert.equal(name, "read_published_audit_detail");
+      assert.equal(params.p_audit_id, auditId);
+      return { data: [detail], error: null };
+    },
+    storage: { from: () => ({ createSignedUrls: async (paths) => {
+      assert.deepEqual(paths, [`${workId}/${auditId}/p04-01.png`]);
+      return { data: paths.map((path) => ({ signedUrl: `https://storage.example/${path}` })), error: null };
+    } }) },
+  };
+  const result = await readPublishedAuditDetail(detailClient, context, auditId);
+  assert.equal(result.available, true);
+  assert.equal(calls, 1);
+  assert.equal(result.audits.length, 1);
+  assert.match(result.audits[0].reportUrl, /^\/api\/audits\//);
+  assert.match(result.responses[auditId][indexRow.modelId][criterion.id].photos[0], /^https:/);
+});
+
+test("single detail without evidence never calls Storage", async () => {
+  const result = await readPublishedAuditDetail({ rpc: async () => ({ data: [{ ...indexRow, criteria: [criterion],
+    responses: { [criterion.id]: { note: "Pendência" } }, evidenceFiles: [], reportFileName: "report.pdf" }], error: null }),
+    storage: { from: () => { throw new Error("No evidence to sign"); } },
+  }, context, auditId);
+  assert.equal(result.available, true);
+  assert.deepEqual(result.responses[auditId][indexRow.modelId][criterion.id], { note: "Pendência" });
+});
+
+test("inaccessible single audit remains absent and does not sign files", async () => {
+  const result = await readPublishedAuditDetail({ rpc: async () => ({ data: [], error: null }) }, context, auditId);
+  assert.equal(result.available, true);
+  assert.deepEqual(result.audits, []);
+});
+
+test("report click authorizes the exact profile then signs only the selected PDF", async () => {
+  const result = await readPublishedAuditReport({
+    rpc: async (name, params) => {
+      assert.equal(name, "read_published_audit_report");
+      assert.equal(params.p_audit_id, auditId);
+      assert.equal(params.p_engineering_scope, "EQUIPE_OBRA");
+      return { data: { id: auditId, workId, modelId: indexRow.modelId, reportFileName: "report.pdf" }, error: null };
+    },
+    storage: { from: () => ({ createSignedUrl: async (path, expiration) => {
+      assert.equal(path, `${workId}/${auditId}/report.pdf`);
+      assert.equal(expiration, 300);
+      return { data: { signedUrl: "https://storage.example/report.pdf" }, error: null };
+    } }) },
+  }, context, auditId);
+  assert.deepEqual(result, { available: true, url: "https://storage.example/report.pdf" });
+});
+
+test("report click refuses paths outside the immutable audit directory", async () => {
+  const result = await readPublishedAuditReport({ rpc: async () => ({ data: {
+    id: auditId, workId, modelId: indexRow.modelId, reportFileName: "../../private.pdf",
+  }, error: null }) }, context, auditId);
+  assert.equal(result.available, false);
+  assert.equal(result.url, null);
 });
