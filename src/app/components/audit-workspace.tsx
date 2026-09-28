@@ -4,7 +4,7 @@ import Image from "next/image";
 import { generatePdf } from "@/lib/pdf/client";
 import { awardedItemScore, scoreLabel, getGroupHeading, getSubgroupHeading, displayAuditDate } from "@/lib/pdf/audit-format";
 import type { AuditPdfInput, PdfPhotoSource } from "@/lib/pdf/types";
-import { useId, useReducer, useRef, useState } from "react";
+import { memo, useCallback, useId, useMemo, useReducer, useRef, useState } from "react";
 import { useEffect } from "react";
 import { getCriterionDisplayTitle, getCriterionWeight, qualityModels, type Criterion } from "@/domain/catalogs";
 import { fvsServices } from "@/domain/fvs-services";
@@ -13,6 +13,7 @@ import { referenceDocuments } from "@/domain/reference-documents";
 import { CatalogEditorPanel } from "./catalog-editor-panel";
 import { useAuditPhotoStore } from "./audit-photo-context";
 import type { AuditPhotoStore } from "@/lib/audits/photo-store";
+import type { AuditComparison } from "@/lib/audits/comparison-contracts";
 import previewStyles from "./catalog-preview-control.module.css";
 import { catalogVersion, type CatalogSnapshot } from "@/lib/catalogs/contracts";
 import {
@@ -30,6 +31,8 @@ import {
 
 const securityModel = "Segurança — IT.07 rev. 02";
 const models = [securityModel, ...qualityModels.map((item) => item.name)];
+type PreviousAudit = Pick<AuditComparison, "id" | "date" | "answers">;
+const noPreviousAudits: readonly PreviousAudit[] = [];
 
 function localTestEvidenceUrl(reference: string): string | null {
   if (/^https:\/\//.test(reference)) return reference;
@@ -242,7 +245,7 @@ type NewAuditProps = {
   responseKey?: string;
   readOnly?: boolean;
   showWeights?: boolean;
-  previousAudits?: readonly { id: string; date: string; drafts: AuditDrafts }[];
+  previousAudits?: readonly PreviousAudit[];
 };
 
 type AuditReviewProps = {
@@ -327,7 +330,7 @@ export function AuditReview({ model, modelId, workName, details, criteria, draft
   </section>;
 }
 
-function verificationVisual(response: ItemResponse): { icon: string; label: string; tone: string } | null {
+function verificationVisual(response: { answer?: string }): { icon: string; label: string; tone: string } | null {
   if (response.answer === "0" || response.answer === "Não conforme") return { icon: "×", label: "Totalmente não conforme", tone: "noncompliant" };
   if (response.answer === "5") return { icon: "!", label: "Parcialmente não conforme", tone: "partial" };
   if (response.answer === "10" || response.answer === "Conforme") return { icon: "✓", label: "Conforme", tone: "compliant" };
@@ -335,13 +338,13 @@ function verificationVisual(response: ItemResponse): { icon: string; label: stri
   return null;
 }
 
-function VerificationMark({ response, missingPhoto = false }: { response: ItemResponse; missingPhoto?: boolean }) {
+function VerificationMark({ response, missingPhoto = false }: { response: { answer?: string }; missingPhoto?: boolean }) {
   const visual = verificationVisual(response);
   return visual ? <span className={`verification-mark ${visual.tone}${missingPhoto ? " missing-photo" : ""}`} aria-label={visual.label} title={visual.label}>{visual.icon}</span>
     : <span className="verification-mark unanswered" aria-label="Não respondido" title="Não respondido">·</span>;
 }
 
-function previewAuditHistory(date: string, model: string, criteria: readonly Criterion[]): readonly { id: string; date: string; drafts: AuditDrafts }[] {
+function previewAuditHistory(date: string, model: string, criteria: readonly Criterion[]): readonly PreviousAudit[] {
   const base = /^\d{4}-\d{2}-\d{2}$/.test(date) ? new Date(`${date}T12:00:00Z`) : new Date();
   const answers: DraftAnswer[] = model === "security-it07-r02"
     ? ["10", "10", "10", "5", "0", "N/A"]
@@ -351,9 +354,9 @@ function previewAuditHistory(date: string, model: string, criteria: readonly Cri
     const previousDate = previous.toISOString().slice(0, 10);
     const responses = Object.fromEntries(criteria.map((criterion, index) => {
       const seed = [...criterion.id].reduce((total, character) => total + character.charCodeAt(0), monthsAgo * 17 + index);
-      return [criterion.id, { answer: answers[seed % answers.length], note: "" } satisfies ItemResponse];
+      return [criterion.id, answers[seed % answers.length]];
     }));
-    return { id: `preview-${previousDate}`, date: previousDate, drafts: { [model]: responses } };
+    return { id: `preview-${previousDate}`, date: previousDate, answers: responses };
   });
 }
 
@@ -364,7 +367,7 @@ function isRequiredPhotoMissing(criterion: Criterion, response: ItemResponse): b
   return (response.answer === "0" || response.answer === "5" || response.answer === "Não conforme") && !response.photos?.length;
 }
 
-export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts, updateDraft, onFinish, details, workName = "Residencial Horizonte · Guarulhos", responseKey = model, readOnly = false, previousAudits = [] }: NewAuditProps) {
+export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts, updateDraft, onFinish, details, workName = "Residencial Horizonte · Guarulhos", responseKey = model, readOnly = false, previousAudits = noPreviousAudits }: NewAuditProps) {
   const photoStore = useAuditPhotoStore();
   const [selectedItemOpen, setSelectedItemOpen] = useState(false);
   const [, refreshPhotos] = useReducer((version: number) => version + 1, 0);
@@ -387,9 +390,14 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
     return () => controller.abort();
   }, [photoReferencesKey, photoStore]);
   const security = model.startsWith("Segurança");
-  const displayedPreviousAudits = previousAudits.length
+  const displayedPreviousAudits = useMemo(() => previousAudits.length
     ? [...previousAudits].sort((left, right) => right.date.localeCompare(left.date))
-    : previewAuditHistory(details.date, responseKey, criteria);
+    : process.env.NODE_ENV === "development" ? previewAuditHistory(details.date, responseKey, criteria)
+      : noPreviousAudits, [previousAudits, details.date, responseKey, criteria]);
+  const selectItem = useCallback((index: number) => {
+    if (selectedItemOpen && index === activeIndex) setSelectedItemOpen(false);
+    else { setActiveIndex(index); setSelectedItemOpen(true); }
+  }, [selectedItemOpen, activeIndex, setActiveIndex]);
   const securityAnalysisCriterion = security && criterion ? criterion.analysisCriterion ?? criterion.orientations.map((orientation) => orientation.text).join("\n\n") : undefined;
   const requiresEvidence = response.answer === "0" || response.answer === "5" || response.answer === "Não conforme" || response.checks?.some((check) => check.compliant === false);
   const missingRequiredPhoto = criterion ? isRequiredPhotoMissing(criterion, response) : false;
@@ -452,10 +460,7 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
     </section>
 
     <section className="question-card" aria-label="Quesito da auditoria">
-      <ItemPicker key={responseKey} id={pickerId} model={responseKey} criteria={criteria} drafts={drafts} previousAudits={displayedPreviousAudits} activeId={selectedItemOpen ? criterion?.id : undefined} security={security} onSelect={(index) => {
-        if (selectedItemOpen && index === activeIndex) setSelectedItemOpen(false);
-        else { setActiveIndex(index); setSelectedItemOpen(true); }
-      }} />
+      <ItemPicker key={responseKey} id={pickerId} model={responseKey} criteria={criteria} drafts={drafts} previousAudits={displayedPreviousAudits} activeId={selectedItemOpen ? criterion?.id : undefined} security={security} onSelect={selectItem} />
 
       {selectedItemOpen && criterion ? <div className="question-content">
         <div className={`question-group-heading${security ? " has-verification" : ""}`}>
@@ -583,14 +588,31 @@ function AuditPhotoThumbnail({ file, onAdd, onDelete }: { file?: File; onAdd: ()
   </span> : null;
 }
 
-function ItemPicker({ id, model, criteria, drafts, previousAudits, activeId, security, onSelect }: { id: string; model: string; criteria: Criterion[]; drafts: AuditDrafts; previousAudits: readonly { id: string; date: string; drafts: AuditDrafts }[]; activeId?: string; security: boolean; onSelect: (index: number) => void }) {
+const ItemPickerRow = memo(function ItemPickerRow({ criterion, index, answer, answered, missingRequiredPhoto, previousAudits, active, onSelect }: {
+  criterion: Criterion;
+  index: number;
+  answer?: DraftAnswer;
+  answered: boolean;
+  missingRequiredPhoto: boolean;
+  previousAudits: readonly PreviousAudit[];
+  active: boolean;
+  onSelect: (index: number) => void;
+}) {
+  return <button type="button" className={active ? "item-result active" : "item-result"} aria-pressed={active} onClick={() => onSelect(index)}>
+    <span><b>{criterion.code}</b> {getCriterionDisplayTitle(criterion)}</span>
+    <span className="item-result-summary">{!answered && <em>Não respondido</em>}<span className="audit-result-columns">{previousAudits.map((audit) => <span key={audit.id}><small>{displayAuditDate(audit.date)}</small><VerificationMark response={{ answer: audit.answers[criterion.id] }} /></span>)}<span><small>ATUAL</small><VerificationMark response={{ answer }} missingPhoto={missingRequiredPhoto} /></span></span></span>
+  </button>;
+});
+
+function ItemPicker({ id, model, criteria, drafts, previousAudits, activeId, security, onSelect }: { id: string; model: string; criteria: Criterion[]; drafts: AuditDrafts; previousAudits: readonly PreviousAudit[]; activeId?: string; security: boolean; onSelect: (index: number) => void }) {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set(criteria.map((criterion) => criterion.group)));
   const [collapsedSubgroups, setCollapsedSubgroups] = useState<Set<string>>(() => new Set(criteria.filter((criterion) => criterion.subgroup).map((criterion) => `${criterion.group}:${criterion.subgroup}`)));
-  const grouped = criteria.reduce<Record<string, Record<string, { criterion: Criterion; index: number }[]>>>((groups, criterion, index) => {
+  const grouped = useMemo(() => criteria.reduce<Record<string, Record<string, { criterion: Criterion; index: number }[]>>>((groups, criterion, index) => {
     const subgroup = criterion.subgroup || "Itens do grupo";
     ((groups[criterion.group] ??= {})[subgroup] ??= []).push({ criterion, index });
     return groups;
-  }, {});
+  }, {}), [criteria]);
+  const chronologicalAudits = useMemo(() => [...previousAudits].reverse(), [previousAudits]);
   const entriesScore = (entries: { criterion: Criterion; index: number }[]) => {
     if (security) return calculateSecurityGroupScore(entries.map(({ criterion }) => criterion), drafts, model);
     const scores = entries.map(({ criterion }) => awardedItemScore(criterion, getItemResponse(drafts, model, criterion), security)).filter((score): score is number => score !== null);
@@ -598,12 +620,9 @@ function ItemPicker({ id, model, criteria, drafts, previousAudits, activeId, sec
   };
   const renderItem = ({ criterion, index }: { criterion: Criterion; index: number }) => {
     const answer = getItemResponse(drafts, model, criterion);
-    const answered = answer.answer !== undefined || answer.checks?.some((check) => check.compliant !== null);
+    const answered = answer.answer !== undefined || answer.checks?.some((check) => check.compliant !== null) === true;
     const missingRequiredPhoto = isRequiredPhotoMissing(criterion, answer);
-    return <button type="button" key={criterion.id} className={criterion.id === activeId ? "item-result active" : "item-result"} aria-pressed={criterion.id === activeId} onClick={() => onSelect(index)}>
-      <span><b>{criterion.code}</b> {getCriterionDisplayTitle(criterion)}</span>
-      <span className="item-result-summary">{!answered && <em>Não respondido</em>}<span className="audit-result-columns">{[...previousAudits].reverse().map((audit) => <span key={audit.id}><small>{displayAuditDate(audit.date)}</small><VerificationMark response={getItemResponse(audit.drafts, model, criterion)} /></span>)}<span><small>ATUAL</small><VerificationMark response={answer} missingPhoto={missingRequiredPhoto} /></span></span></span>
-    </button>;
+    return <ItemPickerRow key={criterion.id} criterion={criterion} index={index} answer={answer.answer} answered={answered} missingRequiredPhoto={missingRequiredPhoto} previousAudits={chronologicalAudits} active={criterion.id === activeId} onSelect={onSelect} />;
   };
 
   return <div className="item-picker" id={id}>

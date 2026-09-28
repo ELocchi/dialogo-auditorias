@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { type AuditModelId, type AuditRecord } from "@/domain/operational-records";
 import type { ItemResponse } from "@/domain/audit-draft";
@@ -21,11 +21,15 @@ import type { PublishedAuditFinding } from "./engineering-resource-panels";
 import styles from "./prototype-app.module.css";
 import { unavailablePublishedAudits, type PublishedAuditSnapshot } from "@/lib/audits/contracts";
 import { assignedAgendaWorks, currentAuditAssignments } from "@/domain/assigned-audit-context";
-import { AuditDetailsContext, AuditDetailGate, AuditHistoryPreload, usePublishedAuditDetails } from "./audit-details-context";
+import { AuditDetailsContext, AuditDetailGate, usePublishedAuditDetails } from "./audit-details-context";
 import { DeferredCatalogs, useDeferredCatalogs } from "./deferred-catalogs";
 import { AuditPhotoProvider } from "./audit-photo-context";
 import { auditPhotoThumbnailUrl } from "@/lib/photos/urls";
 import { useAgenda, isAgendaSnapshot, newRequestId } from "./use-agenda";
+import { AuditComparisonProvider, AuditComparisonHistory, usePreviousAudits } from "./audit-comparison-history";
+import type { AuditComparison } from "@/lib/audits/comparison-contracts";
+
+const noLocalComparisons: readonly AuditComparison[] = [];
 
 const loadingPanel = () => <section className="panel"><p className="muted">Carregando funcionalidade...</p></section>;
 const AuditReview = dynamic(() => import("./audit-workspace").then((module) => module.AuditReview), { loading: loadingPanel });
@@ -133,6 +137,9 @@ function ProfileWorkspace({ context: providedContext, initialScreen, initialVisi
   const [activeAuditId, setActiveAuditId] = useState<string | null>(null);
   const [completedPreview, setCompletedPreview] = useState<{ audit: AuditRecord; work: ProfileWorkspaceContext["works"][number] } | null>(null);
   const [positions, setPositions] = useState<Record<string, number>>({});
+  const setActiveItem = useCallback((index: number) => {
+    if (activeAuditId) setPositions((previous) => ({ ...previous, [activeAuditId]: index }));
+  }, [activeAuditId]);
   const [catalogId, setCatalogId] = useState<AuditModelId>("security-it07-r02");
   const [catalogQuery, setCatalogQuery] = useState("");
   const [error, setError] = useState("");
@@ -165,11 +172,19 @@ function ProfileWorkspace({ context: providedContext, initialScreen, initialVisi
   const completedReview = screen === "audit_review" && completedPreview?.audit.id === activeAuditId ? completedPreview : null;
   const activeAudit = moduleAudits.find((audit) => audit.id === activeAuditId) ?? completedReview?.audit;
   const activeAuditWork = activeAudit ? agendaWorks.find((entry) => entry.id === activeAudit.workId) ?? completedReview?.work : undefined;
-  const activeAuditHistory = activeAudit ? session.audits
-    .filter((audit) => audit.id !== activeAudit.id && audit.workId === activeAudit.workId && audit.modelId === activeAudit.modelId && audit.status === "Publicada" && canReadAudit(user, audit))
-    .sort((left, right) => right.date.localeCompare(left.date))
-    .slice(0, 3)
-    .map((audit) => ({ id: audit.id, date: audit.date, drafts: session.responses[audit.id] ?? {} })) : [];
+  const activeAuditHistory = usePreviousAudits(session.audits, activeAudit, user);
+  const firstHistoryResponses = session.responses[activeAuditHistory[0]?.id];
+  const secondHistoryResponses = session.responses[activeAuditHistory[1]?.id];
+  const thirdHistoryResponses = session.responses[activeAuditHistory[2]?.id];
+  const localComparisonHistory = useMemo(() => {
+    if (!activeAuditHistory.some((audit) => audit.isDemo)) return noLocalComparisons;
+    const responses = [firstHistoryResponses, secondHistoryResponses, thirdHistoryResponses];
+    return activeAuditHistory.flatMap((audit, index) => audit.isDemo ? [{
+      id: audit.id, date: audit.date, workId: audit.workId, modelId: audit.modelId,
+      answers: Object.fromEntries(Object.entries(responses[index]?.[audit.modelId] ?? {})
+        .flatMap(([id, response]) => typeof response.answer === "string" ? [[id, response.answer]] : [])),
+    }] : []);
+  }, [activeAuditHistory, firstHistoryResponses, secondHistoryResponses, thirdHistoryResponses]);
   const preview = activeAudit ?? contextualAudits.find((audit) => canEditAudit(user, audit));
   const criteria = catalogState.status === "ready" && !isAdmin && currentCatalogId ? catalogVersion(catalogs, currentCatalogId).criteria.filter((item) => `${item.code} ${item.text} ${item.group} ${item.subgroup}`.toLocaleLowerCase("pt-BR").includes(catalogQuery.toLocaleLowerCase("pt-BR"))) : [];
 
@@ -425,7 +440,8 @@ function ProfileWorkspace({ context: providedContext, initialScreen, initialVisi
     }
     return grouped;
   }, [initialAudits]);
-  const publishedAuditFindings = useMemo(() => session.audits.filter((audit) => audit.status === "Publicada").flatMap((audit): PublishedAuditFinding[] =>
+  const showsPublishedFindings = ["overview", "engineering_quality", "engineering_safety", "audits"].includes(currentScreen);
+  const publishedAuditFindings = useMemo(() => !showsPublishedFindings ? [] : session.audits.filter((audit) => audit.status === "Publicada").flatMap((audit): PublishedAuditFinding[] =>
     !session.responses[audit.id]?.[audit.modelId] ? summaryFindingsByAudit.get(audit.id) ?? []
     : extractAuditFindings(session, audit).map((finding) => ({
       ...finding,
@@ -435,7 +451,7 @@ function ProfileWorkspace({ context: providedContext, initialScreen, initialVisi
       auditor: audit.auditor,
       module: modelModule(audit.modelId),
       modelId: audit.modelId,
-    }))), [session, summaryFindingsByAudit]);
+    }))), [session, summaryFindingsByAudit, showsPublishedFindings]);
   const localRecurrenceWork = context.works.find((entry) => entry.id !== localReportWork.id) ?? localTestWork;
   const localRecurringPreviewFindings: PublishedAuditFinding[] = localScenario ? publishedAuditFindings
     .filter((finding) => finding.modelId === "quality-f176" && ["02.04", "03.01", "04.03"].includes(finding.item))
@@ -468,7 +484,7 @@ function ProfileWorkspace({ context: providedContext, initialScreen, initialVisi
   };
 
   const deferCatalogs = (children: ReactNode) => <DeferredCatalogs state={catalogState} load={loadCatalogs}>{children}</DeferredCatalogs>;
-  return <AuditPhotoProvider responses={session.responses}><AuditDetailsContext value={auditDetails}><div className="app-shell">
+  return <AuditPhotoProvider responses={session.responses}><AuditComparisonProvider actor={agendaActor}><AuditDetailsContext value={auditDetails}><div className="app-shell">
     <a className="skip-link" href="#main-content">Ir para o conteúdo</a>
     <AdministrativeHeader name={user.name} email={context.email} userId={user.id} scope={isAdmin ? context.administrativeScope : undefined} profileLabel={isAdmin ? undefined : profileLabel} notifications={agenda.notifications} onNavigateAgenda={navigateAgenda} />
     <div className="navigation-bar"><nav className="main-navigation" aria-label="Navegação principal">{nav.map(({ key, label, icon }) => <button type="button" key={key} className={`nav-item${currentScreen === key || (key === "audits" && auditNav) || (currentScreen === "action_plan" && key === `engineering_${actionPlanSource?.module}`) ? " active" : ""}`} aria-current={currentScreen === key ? "page" : undefined} onClick={() => navigate(key)}><Icon name={icon} /><span>{label}</span></button>)}</nav></div>
@@ -502,7 +518,7 @@ function ProfileWorkspace({ context: providedContext, initialScreen, initialVisi
       {isAdminAgenda && auditModule && <VisitAgenda key={user.id} user={user} works={context.works} users={agenda.auditors} visits={visits} module={auditModule} workId={work?.id ?? ""} available={agenda.available} mutationPending={mutationPending} syncError={agendaSyncError} {...agendaActions} />}
       {currentScreen === "agenda" && !isAdmin && canAgenda && <VisitAgenda key={user.id} user={user} works={agendaWorks} users={agenda.auditors} visits={visits} module={auditModule ?? "safety"} workId={work?.id ?? ""} available={agenda.available} mutationPending={mutationPending} syncError={agendaSyncError} {...agendaActions} />}
       {auditModule && <>
-        {currentScreen === "fill" && activeAuditWork && activeAudit && activeAudit.status !== "Publicada" && <><AuditHistoryPreload auditIds={activeAuditHistory.map((audit) => audit.id)} /><NewAudit key={activeAudit.id} model={modelDisplayName(activeAudit.modelId).replace(" rev. 02", "")} responseKey={activeAudit.modelId} workName={activeAuditWork.name} readOnly={!canEditAudit(user, activeAudit)} showWeights={canReadTechnicalWeights(user, auditModule)} previousAudits={activeAuditHistory.filter((audit) => Object.keys(audit.drafts).length > 0)} criteria={criteriaForAudit(session, activeAudit)} activeIndex={positions[activeAudit.id] ?? 0} setActiveIndex={(index) => setPositions((previous) => ({ ...previous, [activeAudit.id]: index }))} drafts={session.responses[activeAudit.id] ?? {}} updateDraft={(response) => { try { const item = criteriaForAudit(session, activeAudit)[positions[activeAudit.id] ?? 0]; setSession(updatePrototypeResponse(session, user, activeAudit.id, item, response)); return true; } catch (reason) { setError(reason instanceof Error ? reason.message : "Edição indisponível."); return false; } }} onFinish={() => { try { validatePrototypeAuditCompletion(session, user, activeAudit.id); setError(""); setScreen("audit_review"); } catch (reason) { setError(reason instanceof Error ? reason.message : "Não foi possível revisar o relatório."); } }} details={{ date: activeAudit.date, auditor: activeAudit.auditor }} /></>}
+        {currentScreen === "fill" && activeAuditWork && activeAudit && activeAudit.status !== "Publicada" && <AuditComparisonHistory audits={activeAuditHistory} localAudits={localComparisonHistory}>{(previousAudits) => <NewAudit key={activeAudit.id} model={modelDisplayName(activeAudit.modelId).replace(" rev. 02", "")} responseKey={activeAudit.modelId} workName={activeAuditWork.name} readOnly={!canEditAudit(user, activeAudit)} showWeights={canReadTechnicalWeights(user, auditModule)} previousAudits={previousAudits} criteria={criteriaForAudit(session, activeAudit)} activeIndex={positions[activeAudit.id] ?? 0} setActiveIndex={setActiveItem} drafts={session.responses[activeAudit.id] ?? {}} updateDraft={(response) => { try { const item = criteriaForAudit(session, activeAudit)[positions[activeAudit.id] ?? 0]; setSession(updatePrototypeResponse(session, user, activeAudit.id, item, response)); return true; } catch (reason) { setError(reason instanceof Error ? reason.message : "Edição indisponível."); return false; } }} onFinish={() => { try { validatePrototypeAuditCompletion(session, user, activeAudit.id); setError(""); setScreen("audit_review"); } catch (reason) { setError(reason instanceof Error ? reason.message : "Não foi possível revisar o relatório."); } }} details={{ date: activeAudit.date, auditor: activeAudit.auditor }} />}</AuditComparisonHistory>}
         {currentScreen === "fill" && !activeAudit && <p className="muted">Selecione um rascunho autorizado no histórico.</p>}
         {currentScreen === "audit_review" && activeAuditWork && activeAudit && <AuditReview model={modelDisplayName(activeAudit.modelId).replace(" rev. 02", "")} modelId={activeAudit.modelId} workName={activeAuditWork.name} details={{ date: activeAudit.date, auditor: activeAudit.auditor }} criteria={criteriaForAudit(session, activeAudit)} drafts={session.responses[activeAudit.id] ?? {}} onBack={() => { if (activeAudit.status !== "Publicada") { setError(""); setScreen("fill"); } }} onPublish={() => { try { const completed = completePrototypeAudit(session, user, activeAudit.id); setSession(completed); const published = completed.audits.find((audit) => audit.id === activeAudit.id); if (published) setCompletedPreview({ audit: published, work: activeAuditWork }); if (activeAudit.visitId) removePublishedVisit(activeAudit.visitId); setError(""); return true; } catch (reason) { setError(reason instanceof Error ? reason.message : "Não foi possível publicar a auditoria."); return false; } }} />}
         {currentScreen === "report" && work && canDocuments && reportSection === "occurrences" && <Occurrences works={[work]} records={[]} />}
@@ -512,7 +528,7 @@ function ProfileWorkspace({ context: providedContext, initialScreen, initialVisi
       {!canAgenda && !isAdmin && currentScreen === "agenda" && <section className="panel"><h2>Nenhuma obra disponível na agenda</h2><p className="muted">Consulte seus acessos para verificar as obras autorizadas.</p></section>}
       <footer className="page-footer"><span>Diálogo Engenharia · Auditorias</span><span>{profileLabel}</span></footer>
     </div></main>
-  </div></AuditDetailsContext></AuditPhotoProvider>;
+  </div></AuditDetailsContext></AuditComparisonProvider></AuditPhotoProvider>;
 }
 
 function EngineeringSection({ title, module, user, works, audits, auditFindings, visits, actor, catalogs, deferCatalogs, onCreateActionPlan, hasPublishedActionPlan, onDownloadActionPlan }: {

@@ -44,18 +44,3 @@ export function AuditDetailGate({ auditId, children }: { auditId: string; childr
     </> : <p className="muted" role="status">Carregando detalhes da auditoria...</p>}
   </section>;
 }
-
-export function AuditHistoryPreload({ auditIds }: { auditIds: readonly string[] }) {
-  const { loadAudit, states, isLoaded } = useAuditDetails();
-  const ids = auditIds.join(",");
-  useEffect(() => {
-    if (ids) void Promise.allSettled(ids.split(",").map((id) => loadAudit(id)));
-  }, [ids, loadAudit]);
-  const pending = auditIds.filter((id) => !isLoaded(id));
-  if (!pending.length) return null;
-  const failed = pending.filter((id) => states[id]?.status === "error");
-  return <div role="status">
-    <p className="muted">{failed.length ? "Não foi possível consultar parte do histórico anterior." : "Carregando resultados das auditorias anteriores..."}</p>
-    {failed.length > 0 && <button type="button" className="secondary" onClick={() => { void Promise.allSettled(failed.map((id) => loadAudit(id))); }}>Tentar novamente</button>}
-  </div>;
-}
