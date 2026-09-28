@@ -6,26 +6,27 @@ import type { PublishedAuditSnapshot } from "@/lib/audits/contracts";
 import type { PrototypeAuditState } from "@/domain/prototype-audits";
 import { createAuditDetailLoader, type AuditDetailStates } from "@/lib/audits/detail-loader";
 
-type AuditDetails = { loadAudit: (id: string) => Promise<void>; states: AuditDetailStates; isLoaded: (id: string) => boolean };
-export const AuditDetailsContext = createContext<AuditDetails>({ loadAudit: async () => {}, states: {}, isLoaded: () => true });
+type AuditDetails = { loadAudit: (id: string) => Promise<void>; states: AuditDetailStates; isLoaded: (id: string) => boolean; isLocalAudit: (id: string) => boolean };
+export const AuditDetailsContext = createContext<AuditDetails>({ loadAudit: async () => {}, states: {}, isLoaded: () => true, isLocalAudit: () => false });
 export const useAuditDetails = () => useContext(AuditDetailsContext);
 
 export function usePublishedAuditDetails(context: ProfileWorkspaceContext, initial: PublishedAuditSnapshot,
-  setSession: Dispatch<SetStateAction<PrototypeAuditState>>, session: PrototypeAuditState): AuditDetails {
+  setSession: Dispatch<SetStateAction<PrototypeAuditState>>, session: PrototypeAuditState, allowUnlisted = false): AuditDetails {
   const { profile, engineeringScope, administrativeScope } = context;
   const userId = context.user.id;
   const loader = useMemo(() => createAuditDetailLoader({
-    actor: { userId, profile, engineeringScope, administrativeScope }, initial,
+    actor: { userId, profile, engineeringScope, administrativeScope }, initial, allowUnlisted,
     onLoaded: (snapshot) => setSession((current) => ({
       ...current,
-      audits: current.audits.map((audit) => snapshot.audits.find((entry) => entry.id === audit.id) ?? audit),
+      audits: [...current.audits.filter((audit) => !snapshot.audits.some((entry) => entry.id === audit.id)), ...snapshot.audits],
       responses: { ...current.responses, ...snapshot.responses },
       criteriaSnapshots: { ...current.criteriaSnapshots, ...snapshot.criteriaSnapshots },
     })),
-  }), [userId, profile, engineeringScope, administrativeScope, initial, setSession]);
+  }), [userId, profile, engineeringScope, administrativeScope, initial, setSession, allowUnlisted]);
   const states = useSyncExternalStore(loader.subscribe, loader.getSnapshot, loader.getSnapshot);
   useEffect(() => () => loader.cancel(), [loader]);
   return useMemo(() => ({ loadAudit: loader.loadAudit, states,
+    isLocalAudit: (id: string) => session.audits.some((audit) => audit.id === id && audit.isDemo),
     isLoaded: (id: string) => session.audits.some((audit) => audit.id === id && (audit.isDemo
       || Boolean(session.responses[id]?.[audit.modelId] && session.criteriaSnapshots?.[id]))),
   }), [loader, states, session]);

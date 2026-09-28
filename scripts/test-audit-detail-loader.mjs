@@ -87,3 +87,27 @@ test("a profile owns its own cache and unavailable audit IDs cause no request", 
   await assert.rejects(other.loadAudit("unlisted-audit"));
   assert.equal(calls, 2);
 });
+
+test("paged histories can open an authorized audit absent from the initial index", async () => {
+  const applied = [];
+  let calls = 0;
+  const loader = createAuditDetailLoader({ actor, initial: { ...initial, audits: [] }, allowUnlisted: true,
+    onLoaded: (snapshot) => applied.push(snapshot), fetcher: async () => { calls++; return json(detail); } });
+  await loader.loadAudit(audit.id);
+  await loader.loadAudit(audit.id);
+  assert.equal(calls, 1);
+  assert.deepEqual(applied, [detail]);
+  await assert.rejects(loader.loadAudit("invalid-id"));
+  assert.equal(calls, 1);
+});
+
+test("unlisted details still reject denial and a response for another audit", async () => {
+  for (const response of [json({}, 403), json({ ...detail, audits: [{ ...audit, id: "another-audit" }] })]) {
+    let applied = false;
+    const loader = createAuditDetailLoader({ actor, initial: { ...initial, audits: [] }, allowUnlisted: true,
+      onLoaded: () => { applied = true; }, fetcher: async () => response });
+    await assert.rejects(loader.loadAudit(audit.id));
+    assert.equal(applied, false);
+    assert.equal(loader.getSnapshot()[audit.id].status, "error");
+  }
+});

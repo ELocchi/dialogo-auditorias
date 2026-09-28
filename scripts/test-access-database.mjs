@@ -24,9 +24,10 @@ const overviewOnly = process.argv.includes("--overview-only");
 const syncOnly = process.argv.includes("--sync-only");
 const projectionOnly = process.argv.includes("--projection-only");
 const comparisonOnly = process.argv.includes("--comparison-only");
-if (process.argv.slice(2).some((arg) => !["--baseline-only", "--assignment-only", "--overview-only", "--sync-only", "--projection-only", "--comparison-only"].includes(arg))
-  || ([baselineOnly, assignmentOnly, overviewOnly, syncOnly, projectionOnly, comparisonOnly].filter(Boolean).length > 1)) {
-  throw new Error("Supported arguments: --baseline-only, --assignment-only, --overview-only, --sync-only, --projection-only or --comparison-only");
+const historyOnly = process.argv.includes("--history-only");
+if (process.argv.slice(2).some((arg) => !["--baseline-only", "--assignment-only", "--overview-only", "--sync-only", "--projection-only", "--comparison-only", "--history-only"].includes(arg))
+  || ([baselineOnly, assignmentOnly, overviewOnly, syncOnly, projectionOnly, comparisonOnly, historyOnly].filter(Boolean).length > 1)) {
+  throw new Error("Supported arguments: --baseline-only, --assignment-only, --overview-only, --sync-only, --projection-only, --comparison-only or --history-only");
 }
 
 async function loadPGlite() {
@@ -291,12 +292,24 @@ if (!baselineOnly) suites.push({
   omitHistoricPublicationBackfills: true,
 });
 
+if (!baselineOnly) suites.push({
+  name: "B.32 Paged audit history, filtered totals and scoped access suite",
+  migrations: readdirSync(path.join(projectRoot, "supabase", "migrations"))
+    .filter((name) => name.endsWith(".sql") && name <= "20260928000500_paged_audit_history.sql"
+      && name !== "20260924000200_verify_published_audit_access.sql")
+    .sort(),
+  test: "paged_audit_history.sql",
+  storageAdapter: true,
+  omitHistoricPublicationBackfills: true,
+});
+
 const { PGlite } = await loadPGlite();
 for (const suite of suites.filter((item) => (!assignmentOnly || item.test === "audit_assignment_access.sql")
   && (!overviewOnly || item.test === "published_audit_overview.sql")
   && (!syncOnly || item.test === "agenda_sync.sql")
   && (!projectionOnly || item.test === "cached_audit_findings.sql")
-  && (!comparisonOnly || item.test === "audit_comparison.sql"))) {
+  && (!comparisonOnly || item.test === "audit_comparison.sql")
+  && (!historyOnly || item.test === "paged_audit_history.sql"))) {
   const db = await PGlite.create();
   let currentSqlFile = "";
   try {

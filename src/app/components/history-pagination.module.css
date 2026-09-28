@@ -5,3 +5,20 @@
 .pagination button { min-height: 36px; padding: 8px 12px; font-size: 12px; }
 .pagination button:disabled { opacity: .5; cursor: default; }
 @media print { .pagination { display: none; } }
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 20px;
+}
+
+.filters label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted, #68768c);
+  font-size: 13px;
+  min-width: 140px;
+}
+
+.filters select, .filters input { max-width: 100%; }

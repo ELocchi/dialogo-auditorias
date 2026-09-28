@@ -2,6 +2,7 @@
 
 import { useId, useState } from "react";
 import { getAnnualAdminRanking, getMonthlyAdminRanking, type PublishedMonthlyWorkScore } from "@/domain/admin-ranking";
+import type { DashboardRanking } from "@/lib/audits/dashboard-contracts";
 import styles from "./admin-monthly-ranking.module.css";
 
 export type AdminMonthlyRankingRow = {
@@ -21,6 +22,8 @@ type AdminMonthlyRankingProps = {
   onYearChange?: (year: string) => void;
   /** Published monthly scores from persistent records; annual averages use only these results. */
   publishedMonthlyScores?: readonly PublishedMonthlyWorkScore[];
+  summary?: DashboardRanking;
+  available?: boolean;
   /** Already authorized, ordered and calculated by the data provider. */
   safetyRows?: readonly AdminMonthlyRankingRow[];
   qualityRows?: readonly AdminMonthlyRankingRow[];
@@ -60,7 +63,7 @@ function RankingTable({ title, reference, annual, rows }: {
 }
 
 /** Published monthly results drive the annual average; drafts and fixtures stay out of this view. */
-export function AdminMonthlyRanking({ month, onMonthChange, year, onYearChange, publishedMonthlyScores, modules = ["safety", "quality"], safetyRows = [], qualityRows = [] }: AdminMonthlyRankingProps) {
+export function AdminMonthlyRanking({ month, onMonthChange, year, onYearChange, publishedMonthlyScores, summary, available = true, modules = ["safety", "quality"], safetyRows = [], qualityRows = [] }: AdminMonthlyRankingProps) {
   const [localMonth, setLocalMonth] = useState(currentMonth);
   const [localYear, setLocalYear] = useState(() => currentMonth().slice(0, 4));
   const [period, setPeriod] = useState<"month" | "year">("month");
@@ -71,22 +74,24 @@ export function AdminMonthlyRanking({ month, onMonthChange, year, onYearChange, 
   const yearId = useId();
   const periodId = useId();
   const currentYear = Number(currentMonth().slice(0, 4));
+  const availableMonths = summary?.months ?? (publishedMonthlyScores ?? []).map((result) => result.month);
   const yearOptions = [...new Set([
     ...Array.from({ length: currentYear - 1999 }, (_, index) => String(currentYear - index)),
     selectedYear,
-    ...(publishedMonthlyScores ?? []).map((result) => result.month.slice(0, 4)),
+    ...availableMonths.map((month) => month.slice(0, 4)),
   ])].filter((value) => /^(?!0000)\d{4}$/.test(value)).sort((left, right) => right.localeCompare(left));
   const monthYears = [...new Set([currentMonth().slice(0, 4), selectedMonth.slice(0, 4),
-    ...(publishedMonthlyScores ?? []).map((result) => result.month.slice(0, 4))])]
+    ...availableMonths.map((month) => month.slice(0, 4))])]
     .filter((value) => /^(?!0000)\d{4}$/.test(value)).sort((left, right) => right.localeCompare(left));
   const monthOptions = monthYears.flatMap((optionYear) => monthNames.map((label, index) => ({
     value: `${optionYear}-${String(index + 1).padStart(2, "0")}`,
     label: `${label} de ${optionYear}`,
   }))).sort((left, right) => right.value.localeCompare(left.value));
   const annual = period === "year";
-  const safetyRanking = annual ? getAnnualAdminRanking(publishedMonthlyScores ?? [], selectedYear, "safety")
+  const periodRanking = summary ? (annual ? summary.annual[selectedYear] : summary.monthly[selectedMonth]) : undefined;
+  const safetyRanking = summary ? periodRanking?.safety ?? [] : annual ? getAnnualAdminRanking(publishedMonthlyScores ?? [], selectedYear, "safety")
     : publishedMonthlyScores ? getMonthlyAdminRanking(publishedMonthlyScores, selectedMonth, "safety") : safetyRows;
-  const qualityRanking = annual ? getAnnualAdminRanking(publishedMonthlyScores ?? [], selectedYear, "quality")
+  const qualityRanking = summary ? periodRanking?.quality ?? [] : annual ? getAnnualAdminRanking(publishedMonthlyScores ?? [], selectedYear, "quality")
     : publishedMonthlyScores ? getMonthlyAdminRanking(publishedMonthlyScores, selectedMonth, "quality") : qualityRows;
 
   return <section className={`panel ${styles.panel}`} aria-labelledby={headingId}>
@@ -124,9 +129,9 @@ export function AdminMonthlyRanking({ month, onMonthChange, year, onYearChange, 
         </label>}
       </div>
     </div>
-    <div className={styles.rankings}>
+    {!available ? <p role="status">Não foi possível carregar o ranking das obras.</p> : <div className={styles.rankings}>
       {modules.includes("safety") && <RankingTable title="Segurança" reference={annual ? selectedYear : selectedMonth} annual={annual} rows={safetyRanking} />}
       {modules.includes("quality") && <RankingTable title="Qualidade" reference={annual ? selectedYear : selectedMonth} annual={annual} rows={qualityRanking} />}
-    </div>
+    </div>}
   </section>;
 }

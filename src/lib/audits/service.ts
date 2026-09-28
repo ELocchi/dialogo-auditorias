@@ -106,36 +106,41 @@ function indexAudit(row: PublishedAuditIndexRow, context: ProfileWorkspaceContex
     isDemo: false, reportUrl: reportLink(row.id, context) };
 }
 
+/** Validate a compact projection shared by overview and paged-history readers. */
+export function parsePublishedAuditOverview(data: unknown, context: ProfileWorkspaceContext): PublishedAuditSnapshot {
+  if (!isRecord(data) || !Array.isArray(data.findings)) return unavailablePublishedAudits();
+  const index = parseAuditIndex(data.audits, context);
+  if (!index) return unavailablePublishedAudits();
+  const byId = new Map(index.map((row) => [row.id, row]));
+  const findings: PublishedAuditFinding[] = [];
+  const keys = new Set<string>();
+  for (const raw of data.findings) {
+    if (!isRecord(raw) || typeof raw.auditId !== "string") return unavailablePublishedAudits();
+    const audit = byId.get(raw.auditId);
+    if (!audit) continue;
+    const discipline = audit.modelId === "security-it07-r02" ? "safety" : "quality";
+    if (raw.workId !== audit.workId || raw.auditDate !== audit.date || raw.auditor !== audit.auditor
+      || raw.modelId !== audit.modelId || raw.module !== discipline
+      || !validText(raw.id, 500) || !raw.id || !validText(raw.item, 100)
+      || !validText(raw.description, 30_000) || !validText(raw.criterionTitle, 30_000)
+      || !validText(raw.nonconformity, 30_000) || typeof raw.serious !== "boolean"
+      || (raw.subitem !== undefined && !validText(raw.subitem, 10_000))) return unavailablePublishedAudits();
+    const key = `${audit.id}\0${raw.id}`;
+    if (keys.has(key)) return unavailablePublishedAudits();
+    keys.add(key);
+    findings.push({ id: raw.id, auditId: audit.id, workId: audit.workId, auditDate: audit.date,
+      auditor: audit.auditor, modelId: audit.modelId, module: discipline, item: raw.item, description: raw.description,
+      criterionTitle: raw.criterionTitle, serious: raw.serious, nonconformity: raw.nonconformity,
+      ...(typeof raw.subitem === "string" ? { subitem: raw.subitem } : {}) });
+  }
+  return { available: true, audits: index.map((row) => indexAudit(row, context)), responses: {}, criteriaSnapshots: {}, findings };
+}
+
 /** Initial dashboard data contains no responses, photos, full criteria or signed URLs. */
 export async function readPublishedAuditOverview(client: Client, context: ProfileWorkspaceContext): Promise<PublishedAuditSnapshot> {
   try {
     const { data, error } = await client.rpc("read_published_audit_overview", profileParameters(context));
-    if (error || !isRecord(data) || !Array.isArray(data.findings)) return unavailablePublishedAudits();
-    const index = parseAuditIndex(data.audits, context);
-    if (!index) return unavailablePublishedAudits();
-    const byId = new Map(index.map((row) => [row.id, row]));
-    const findings: PublishedAuditFinding[] = [];
-    const keys = new Set<string>();
-    for (const raw of data.findings) {
-      if (!isRecord(raw) || typeof raw.auditId !== "string") return unavailablePublishedAudits();
-      const audit = byId.get(raw.auditId);
-      if (!audit) continue;
-      const discipline = audit.modelId === "security-it07-r02" ? "safety" : "quality";
-      if (raw.workId !== audit.workId || raw.auditDate !== audit.date || raw.auditor !== audit.auditor
-        || raw.modelId !== audit.modelId || raw.module !== discipline
-        || !validText(raw.id, 500) || !raw.id || !validText(raw.item, 100)
-        || !validText(raw.description, 30_000) || !validText(raw.criterionTitle, 30_000)
-        || !validText(raw.nonconformity, 30_000) || typeof raw.serious !== "boolean"
-        || (raw.subitem !== undefined && !validText(raw.subitem, 10_000))) return unavailablePublishedAudits();
-      const key = `${audit.id}\0${raw.id}`;
-      if (keys.has(key)) return unavailablePublishedAudits();
-      keys.add(key);
-      findings.push({ id: raw.id, auditId: audit.id, workId: audit.workId, auditDate: audit.date,
-        auditor: audit.auditor, modelId: audit.modelId, module: discipline, item: raw.item, description: raw.description,
-        criterionTitle: raw.criterionTitle, serious: raw.serious, nonconformity: raw.nonconformity,
-        ...(typeof raw.subitem === "string" ? { subitem: raw.subitem } : {}) });
-    }
-    return { available: true, audits: index.map((row) => indexAudit(row, context)), responses: {}, criteriaSnapshots: {}, findings };
+    return error ? unavailablePublishedAudits() : parsePublishedAuditOverview(data, context);
   } catch { return unavailablePublishedAudits(); }
 }
 
