@@ -1,7 +1,7 @@
 "use client";
 
-import Image from "next/image";
-import { useEffect, useId, useMemo, useState } from "react";
+import { EvidenceThumbnail } from "./evidence-thumbnail";
+import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import { readEngineeringWorkFindingsAction, type WorkFinding } from "@/app/follow-up/actions";
 import { moduleLabels, type AppModule } from "@/domain/prototype-access";
 import { auditModelLabels, formatAuditDate, type AuditModelId, type WorkRecord } from "@/domain/operational-records";
@@ -29,7 +29,7 @@ export type PublishedAuditFinding = {
   itemDescription?: string;
   verificationCriterion?: string;
   status?: string;
-  evidencePhotos?: readonly { name: string; url?: string }[];
+  evidencePhotos?: readonly { name: string; url?: string; thumbnailUrl?: string }[];
 };
 
 export function PublishedAuditFindingsList({ auditFindings, works, contextKey = "" }: {
@@ -86,7 +86,7 @@ export function PublishedAuditFindingsList({ auditFindings, works, contextKey = 
             <div><span>Critério</span><p>{finding.verificationCriterion || "Não informado"}</p></div>
             <div><span>Status</span><strong className={finding.serious ? styles.statusNonconforming : styles.status}>{finding.serious ? "Item grave" : finding.status || "Com apontamento"}</strong></div>
             <div className={styles.findingPhotos}><span>Foto</span>{finding.evidencePhotos?.length ? <div>{finding.evidencePhotos.map((photo, photoIndex) => photo.url
-              ? <a href={photo.url} target="_blank" rel="noopener noreferrer" key={`${photo.name}:${photoIndex}`} title="Abrir foto em nova guia"><Image src={photo.url} alt={`Evidência do item ${finding.item}`} width={160} height={100} unoptimized /><small>{photo.name}</small></a>
+              ? <a href={photo.url} target="_blank" rel="noopener noreferrer" key={`${photo.name}:${photoIndex}`} title="Abrir foto em nova guia"><EvidenceThumbnail thumbnailSrc={photo.thumbnailUrl} originalSrc={photo.url} alt={`Evidência do item ${finding.item}`} width={160} height={100} /><small>{photo.name}</small></a>
               : <small key={`${photo.name}:${photoIndex}`}>{photo.name}</small>)}</div>
               : <p>Nenhuma foto anexada.</p>}</div>
           </div>}
@@ -96,12 +96,13 @@ export function PublishedAuditFindingsList({ auditFindings, works, contextKey = 
   })}</div><HistoryPagination {...history} label="Páginas das auditorias com apontamentos" /></>;
 }
 
-export function EngineeringResourcePanels({ actor, works, module, catalogs, auditFindings = [] }: {
+export function EngineeringResourcePanels({ actor, works, module, catalogs, auditFindings = [], deferCatalogs = (content) => content }: {
   actor: AgendaActorContext;
   works: readonly WorkRecord[];
   module: AppModule;
   catalogs: CatalogSnapshot;
   auditFindings?: readonly PublishedAuditFinding[];
+  deferCatalogs?: (children: ReactNode) => ReactNode;
 }) {
   const [findings, setFindings] = useState<WorkFinding[]>([]);
   const [available, setAvailable] = useState(true);
@@ -142,7 +143,7 @@ export function EngineeringResourcePanels({ actor, works, module, catalogs, audi
         })}</ul></>
           : auditFindings.length === 0 ? <p className="muted">Nenhum apontamento ativo para esta disciplina.</p> : null}
     </section>
-    <section className="panel" aria-label={`Roteiros de ${moduleLabels[module]}`}>
+    {deferCatalogs(<section className="panel" aria-label={`Roteiros de ${moduleLabels[module]}`}>
       <div className="panel-heading"><h3>Roteiros</h3></div>
       <ul className={styles.catalogs}>{modelIds.map((modelId) => {
         const version = catalogVersion(catalogs, modelId);
@@ -152,6 +153,6 @@ export function EngineeringResourcePanels({ actor, works, module, catalogs, audi
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" /></svg>
           </a></li>;
       })}</ul>
-    </section>
+    </section>)}
   </div>;
 }

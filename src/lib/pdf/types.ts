@@ -13,7 +13,7 @@ export type ActionPlanFinding = {
   verificationCriterion?: string;
   status?: string;
   nonconformity: string;
-  evidencePhotos?: readonly { name: string; url?: string }[];
+  evidencePhotos?: readonly { name: string; url?: string; thumbnailUrl?: string }[];
 };
 
 export type ActionPlanRow = ActionPlanFinding & {

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import Image from "next/image";
+import { EvidenceThumbnail } from "./evidence-thumbnail";
+import { followUpPhotoThumbnailUrl } from "@/lib/photos/urls";
 import type { Visit } from "@/domain/prototype-access";
 import { formatAuditDate, type WorkRecord } from "@/domain/operational-records";
 import { getSaoPauloToday } from "@/domain/visit-calendar";
@@ -128,11 +129,11 @@ export function FollowUpReportPage({ visit, work, actor, agendaAvailable, initia
             {initialPhotos.some((photo) => photo.findingId === finding.id) && <div className={styles.photos}>
               {initialPhotos.filter((photo) => photo.findingId === finding.id).map((photo) =>
                 <a key={photo.fileName} href={`/app/acompanhamento/fotos/${visit.id}/${photo.fileName}`} target="_blank" rel="noreferrer" aria-label="Abrir foto do apontamento">
-                  <Image src={`/app/acompanhamento/fotos/${visit.id}/${photo.fileName}`} alt={`Foto de ${finding.description}`} width={110} height={82} unoptimized /></a>)}</div>}
+                  <EvidenceThumbnail thumbnailSrc={followUpPhotoThumbnailUrl(`/app/acompanhamento/fotos/${visit.id}/${photo.fileName}`, actor)} originalSrc={`/app/acompanhamento/fotos/${visit.id}/${photo.fileName}`} alt={`Foto de ${finding.description}`} width={110} height={82} /></a>)}</div>}
             {initialWorkFindings.some((item) => item.id === finding.id) && <div className={styles.photos}>
               {initialWorkFindings.filter((item) => item.id === finding.id).map((item) =>
                 <a key={item.id} href={`/app/acompanhamento/obras/${item.workId}/fotos/${item.photoFileName}`} target="_blank" rel="noreferrer" aria-label="Abrir foto do apontamento">
-                  <Image src={`/app/acompanhamento/obras/${item.workId}/fotos/${item.photoFileName}`} alt={`Foto de ${finding.description}`} width={110} height={82} unoptimized /></a>)}</div>}
+                  <EvidenceThumbnail thumbnailSrc={followUpPhotoThumbnailUrl(`/app/acompanhamento/obras/${item.workId}/fotos/${item.photoFileName}`, actor)} originalSrc={`/app/acompanhamento/obras/${item.workId}/fotos/${item.photoFileName}`} alt={`Foto de ${finding.description}`} width={110} height={82} /></a>)}</div>}
           </li>)}</ul></> : <p className="muted">Nenhum apontamento registrado para esta visita.</p>}
       </section>
     </div>

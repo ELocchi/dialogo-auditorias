@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { EvidenceThumbnail } from "./evidence-thumbnail";
+import { followUpPhotoThumbnailUrl } from "@/lib/photos/urls";
 import type { DemoUser, Visit } from "@/domain/prototype-access";
 import { canReadVisit } from "@/domain/prototype-access";
 import { formatAuditDate, type WorkRecord } from "@/domain/operational-records";
@@ -238,7 +240,7 @@ export function FollowUpWorkspace({ user, visits, works, actor, agendaAvailable 
         {visibleWorkFindings.length + visibleSavedFindings.length ? <ul className={styles.savedFindings}>
           {visibleWorkFindings.map((item) => <li key={`work:${item.id}`}>
             <div className={styles.findingMedia}><a href={`/app/acompanhamento/obras/${item.workId}/fotos/${item.photoFileName}`} target="_blank" rel="noreferrer" aria-label="Abrir foto do apontamento">
-              <Image src={`/app/acompanhamento/obras/${item.workId}/fotos/${item.photoFileName}`} alt={`Foto de ${item.description}`} width={90} height={90} unoptimized /></a></div>
+              <EvidenceThumbnail thumbnailSrc={followUpPhotoThumbnailUrl(`/app/acompanhamento/obras/${item.workId}/fotos/${item.photoFileName}`, actor)} originalSrc={`/app/acompanhamento/obras/${item.workId}/fotos/${item.photoFileName}`} alt={`Foto de ${item.description}`} width={90} height={90} /></a></div>
             <div className={styles.findingDetails}>
               <strong>{item.description}</strong>
               <span>{authorizedWorks.get(item.workId)?.name ?? "Obra"}{item.location ? ` · ${item.location}` : ""}</span>
@@ -251,7 +253,7 @@ export function FollowUpWorkspace({ user, visits, works, actor, agendaAvailable 
             return <li key={`${item.visitId}:${item.id}`}>
               <div className={styles.findingMedia}>{itemPhotos.length ? itemPhotos.map((photo) =>
                 <a key={photo.fileName} href={`/app/acompanhamento/fotos/${item.visitId}/${photo.fileName}`} target="_blank" rel="noreferrer" aria-label="Abrir foto do apontamento">
-                  <Image src={`/app/acompanhamento/fotos/${item.visitId}/${photo.fileName}`} alt={`Foto de ${item.description}`} width={90} height={90} unoptimized /></a>)
+                  <EvidenceThumbnail thumbnailSrc={followUpPhotoThumbnailUrl(`/app/acompanhamento/fotos/${item.visitId}/${photo.fileName}`, actor)} originalSrc={`/app/acompanhamento/fotos/${item.visitId}/${photo.fileName}`} alt={`Foto de ${item.description}`} width={90} height={90} /></a>)
                 : <span>Sem foto</span>}</div>
               <div className={styles.findingDetails}>
                 <strong>{item.description}</strong>

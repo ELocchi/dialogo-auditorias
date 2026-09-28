@@ -4,13 +4,15 @@ import Image from "next/image";
 import { generatePdf } from "@/lib/pdf/client";
 import { awardedItemScore, scoreLabel, getGroupHeading, getSubgroupHeading, displayAuditDate } from "@/lib/pdf/audit-format";
 import type { AuditPdfInput, PdfPhotoSource } from "@/lib/pdf/types";
-import { useId, useRef, useState } from "react";
+import { useId, useReducer, useRef, useState } from "react";
 import { useEffect } from "react";
 import { getCriterionDisplayTitle, getCriterionWeight, qualityModels, type Criterion } from "@/domain/catalogs";
 import { fvsServices } from "@/domain/fvs-services";
 import type { AuditModelId } from "@/domain/operational-records";
 import { referenceDocuments } from "@/domain/reference-documents";
 import { CatalogEditorPanel } from "./catalog-editor-panel";
+import { useAuditPhotoStore } from "./audit-photo-context";
+import type { AuditPhotoStore } from "@/lib/audits/photo-store";
 import previewStyles from "./catalog-preview-control.module.css";
 import { catalogVersion, type CatalogSnapshot } from "@/lib/catalogs/contracts";
 import {
@@ -28,7 +30,6 @@ import {
 
 const securityModel = "Segurança — IT.07 rev. 02";
 const models = [securityModel, ...qualityModels.map((item) => item.name)];
-const auditPhotoFiles = new Map<string, File>();
 
 function localTestEvidenceUrl(reference: string): string | null {
   if (/^https:\/\//.test(reference)) return reference;
@@ -37,17 +38,13 @@ function localTestEvidenceUrl(reference: string): string | null {
     : null;
 }
 
-async function loadLocalTestEvidence(reference: string): Promise<File | null> {
-  const existing = auditPhotoFiles.get(reference);
-  if (existing) return existing;
+async function loadLocalTestEvidence(reference: string, signal: AbortSignal): Promise<File | null> {
   const url = localTestEvidenceUrl(reference);
   if (!url) return null;
-  const result = await fetch(url, { cache: "no-store" });
+  const result = await fetch(url, { cache: "no-store", signal });
   if (!result.ok) return null;
   const blob = await result.blob();
-  const file = new File([blob], reference, { type: blob.type || "image/png" });
-  auditPhotoFiles.set(reference, file);
-  return file;
+  return new File([blob], reference, { type: blob.type || "image/png" });
 }
 
 async function createTestEvidenceImage(label: string): Promise<ArrayBuffer> {
@@ -84,7 +81,7 @@ async function createTestEvidenceImage(label: string): Promise<ArrayBuffer> {
   return fetch(canvas.toDataURL("image/jpeg", .82)).then((response) => response.arrayBuffer());
 }
 
-async function prepareAuditPdfPhotos(input: AuditPdfInput, signal: AbortSignal, objectUrls: string[]): Promise<PdfPhotoSource[]> {
+async function prepareAuditPdfPhotos(input: AuditPdfInput, signal: AbortSignal, objectUrls: string[], photoStore: AuditPhotoStore): Promise<PdfPhotoSource[]> {
   const references = [...new Set(input.criteria.flatMap((criterion) => {
     const response = getItemResponse(input.drafts, input.modelId, criterion);
     return [...(response.photos ?? []), ...(response.checks ?? []).flatMap((check) => check.photos ?? [])];
@@ -92,7 +89,7 @@ async function prepareAuditPdfPhotos(input: AuditPdfInput, signal: AbortSignal, 
   const photos: PdfPhotoSource[] = [];
   for (const reference of references) {
     signal.throwIfAborted();
-    let file: Blob | undefined = auditPhotoFiles.get(reference);
+    let file: Blob | undefined = photoStore.get(reference);
     let url = localTestEvidenceUrl(reference) ?? undefined;
     if (!file && !url && /fictícia/i.test(reference)) {
       file = new Blob([await createTestEvidenceImage(reference)], { type: "image/jpeg" });
@@ -238,7 +235,7 @@ type NewAuditProps = {
   activeIndex: number;
   setActiveIndex: (index: number) => void;
   drafts: AuditDrafts;
-  updateDraft: (response: ItemResponse) => void;
+  updateDraft: (response: ItemResponse) => boolean | void;
   onFinish?: () => void;
   details: { date: string; auditor: string };
   workName?: string;
@@ -260,6 +257,7 @@ type AuditReviewProps = {
 };
 
 export function AuditReview({ model, modelId, workName, details, criteria, drafts, onBack, onPublish }: AuditReviewProps) {
+  const photoStore = useAuditPhotoStore();
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set(criteria.map((criterion) => criterion.group)));
   const [published, setPublished] = useState(false);
   const [pdfResult, setPdfResult] = useState<{ key: string; url?: string; error?: string } | null>(null);
@@ -274,7 +272,7 @@ export function AuditReview({ model, modelId, workName, details, criteria, draft
     const controller = new AbortController();
     const objectUrls: string[] = [];
     const input = JSON.parse(requestKey) as AuditPdfInput;
-    void prepareAuditPdfPhotos(input, controller.signal, objectUrls).then((photos) => generatePdf({
+    void prepareAuditPdfPhotos(input, controller.signal, objectUrls, photoStore).then((photos) => generatePdf({
       kind: "audit", input, photos, baseUrl: window.location.href,
     }, controller.signal)).then((bytes) => {
       if (controller.signal.aborted) return;
@@ -285,7 +283,7 @@ export function AuditReview({ model, modelId, workName, details, criteria, draft
       if (!controller.signal.aborted) setPdfResult({ key: requestKey, error: "Não foi possível gerar a prévia do PDF." });
     });
     return () => { controller.abort(); objectUrls.forEach((url) => URL.revokeObjectURL(url)); };
-  }, [requestKey]);
+  }, [requestKey, photoStore]);
   const grouped = criteria.reduce<Record<string, Criterion[]>>((groups, criterion) => {
     (groups[criterion.group] ??= []).push(criterion);
     return groups;
@@ -367,42 +365,27 @@ function isRequiredPhotoMissing(criterion: Criterion, response: ItemResponse): b
 }
 
 export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts, updateDraft, onFinish, details, workName = "Residencial Horizonte · Guarulhos", responseKey = model, readOnly = false, previousAudits = [] }: NewAuditProps) {
+  const photoStore = useAuditPhotoStore();
   const [selectedItemOpen, setSelectedItemOpen] = useState(false);
-  const [itemPhotos, setItemPhotos] = useState<Record<string, File[]>>({});
+  const [, refreshPhotos] = useReducer((version: number) => version + 1, 0);
   const [photoTarget, setPhotoTarget] = useState("item");
   const photoInput = useRef<HTMLInputElement>(null);
   const criterion = criteria[activeIndex] ?? criteria[0];
   const response = criterion ? getItemResponse(drafts, responseKey, criterion) : { note: "" };
-  useEffect(() => { Object.values(itemPhotos).flat().forEach((file) => auditPhotoFiles.set(file.name, file)); }, [itemPhotos]);
+  const photoReferencesKey = JSON.stringify([...new Set([
+    ...(response.photos ?? []), ...(response.checks ?? []).flatMap((check) => check.photos ?? []),
+  ])]);
   useEffect(() => {
-    if (!criterion) return;
-    const targets = [
-      { key: `${criterion.id}:item`, references: response.photos ?? [] },
-      ...(response.checks ?? []).map((check) => ({ key: `${criterion.id}:${check.id}`, references: check.photos ?? [] })),
-    ].filter((target) => target.references.some((reference) => localTestEvidenceUrl(reference)));
-    if (!targets.length) return;
-    let cancelled = false;
-    void Promise.all(targets.map(async (target) => ({
-      key: target.key,
-      files: (await Promise.all(target.references.map(loadLocalTestEvidence))).filter((file): file is File => file !== null),
-    }))).then((loaded) => {
-      if (cancelled) return;
-      setItemPhotos((current) => {
-        let changed = false;
-        const next = { ...current };
-        loaded.forEach(({ key, files }) => {
-          const existingNames = new Set((current[key] ?? []).map((file) => file.name));
-          const additions = files.filter((file) => !existingNames.has(file.name));
-          if (additions.length) {
-            next[key] = [...(current[key] ?? []), ...additions];
-            changed = true;
-          }
-        });
-        return changed ? next : current;
-      });
+    const references = (JSON.parse(photoReferencesKey) as string[])
+      .filter((reference) => !photoStore.get(reference) && localTestEvidenceUrl(reference));
+    if (!references.length) return;
+    const controller = new AbortController();
+    void Promise.allSettled(references.map((reference) => photoStore.load(reference,
+      (signal) => loadLocalTestEvidence(reference, signal), controller.signal))).then((files) => {
+      if (!controller.signal.aborted && files.some((result) => result.status === "fulfilled" && result.value)) refreshPhotos();
     });
-    return () => { cancelled = true; };
-  }, [criterion, response.checks, response.photos]);
+    return () => controller.abort();
+  }, [photoReferencesKey, photoStore]);
   const security = model.startsWith("Segurança");
   const displayedPreviousAudits = previousAudits.length
     ? [...previousAudits].sort((left, right) => right.date.localeCompare(left.date))
@@ -519,9 +502,7 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
                 const checks = quantityChecks;
                 updateDraft({ ...response, checks: checks.map((entry) => entry.id === check.id ? { ...entry, compliant: true } : entry) });
               }}>✓</button>
-              <span className="inline-photo-cell">{!(itemPhotos[`${criterion.id}:${check.id}`] ?? []).length && <button type="button" className="inline-photo" aria-label={`Adicionar foto ao item verificado ${checkIndex + 1}`} title="Adicionar foto" onClick={() => { setPhotoTarget(check.id); photoInput.current?.click(); }}>+</button>}<AuditPhotoThumbnail file={itemPhotos[`${criterion.id}:${check.id}`]?.at(-1)} onAdd={() => { setPhotoTarget(check.id); photoInput.current?.click(); }} onDelete={() => {
-                const key = `${criterion.id}:${check.id}`;
-                setItemPhotos((current) => ({ ...current, [key]: (current[key] ?? []).slice(0, -1) }));
+              <span className="inline-photo-cell">{!photoStore.get(check.photos?.at(-1) ?? "") && <button type="button" className="inline-photo" aria-label={`Adicionar foto ao item verificado ${checkIndex + 1}`} title="Adicionar foto" onClick={() => { setPhotoTarget(check.id); photoInput.current?.click(); }}>+</button>}<AuditPhotoThumbnail file={photoStore.get(check.photos?.at(-1) ?? "")} onAdd={() => { setPhotoTarget(check.id); photoInput.current?.click(); }} onDelete={() => {
                 updateDraft({ ...response, checks: quantityChecks.map((entry) => entry.id === check.id ? { ...entry, photos: (entry.photos ?? []).slice(0, -1) } : entry) });
               }} /></span>
               <input className="check-note" aria-label={`Observação do item verificado ${checkIndex + 1}`} placeholder="Observações" value={check.note ?? ""} onChange={(event) => {
@@ -541,9 +522,7 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
                 <span>{value === "0" || value === "Não conforme" ? "×" : value === "5" ? "!" : value === "10" || value === "Conforme" ? "✓" : "—"}</span><small>{label}</small>
               </button>;
             })}
-            <span className="inline-photo-cell qualitative-photo-list">{(itemPhotos[`${criterion.id}:item`] ?? []).map((file, photoIndex) => <AuditPhotoThumbnail key={`${file.name}:${file.lastModified}:${photoIndex}`} file={file} onAdd={() => { setPhotoTarget("item"); photoInput.current?.click(); }} onDelete={() => {
-              const key = `${criterion.id}:item`;
-              setItemPhotos((current) => ({ ...current, [key]: (current[key] ?? []).filter((_, index) => index !== photoIndex) }));
+            <span className="inline-photo-cell qualitative-photo-list">{(response.photos ?? []).map((reference, photoIndex) => <AuditPhotoThumbnail key={`${reference}:${photoIndex}`} file={photoStore.get(reference)} onAdd={() => { setPhotoTarget("item"); photoInput.current?.click(); }} onDelete={() => {
               updateDraft({ ...response, photos: (response.photos ?? []).filter((_, index) => index !== photoIndex) });
             }} />)}<button type="button" className="inline-photo" aria-label="Adicionar foto ao item" title="Adicionar foto" onClick={() => { setPhotoTarget("item"); photoInput.current?.click(); }}>+</button></span>
           </div>}
@@ -555,12 +534,17 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
         <input ref={photoInput} className="audit-photo-input" type="file" accept="image/jpeg,image/png" multiple hidden disabled={readOnly} onChange={(event) => {
             if (!criterion) return;
             const selected = Array.from(event.target.files ?? []);
-            selected.forEach((file) => auditPhotoFiles.set(file.name, file));
-            const key = `${criterion.id}:${photoTarget}`;
-            setItemPhotos((current) => ({ ...current, [key]: [...(current[key] ?? []), ...selected] }));
-            if (photoTarget === "item") updateDraft({ ...response, photos: [...(response.photos ?? []), ...selected.map((file) => file.name)] });
-            else updateDraft({ ...response, checks: quantityChecks.map((entry) => entry.id === photoTarget ? { ...entry, photos: [...(entry.photos ?? []), ...selected.map((file) => file.name)] } : entry) });
-            event.target.value = "";
+            if (!selected.length) return;
+            const references = selected.map((file) => photoStore.add(file));
+            let accepted = false;
+            try {
+              accepted = updateDraft(photoTarget === "item"
+                ? { ...response, photos: [...(response.photos ?? []), ...references] }
+                : { ...response, checks: quantityChecks.map((entry) => entry.id === photoTarget ? { ...entry, photos: [...(entry.photos ?? []), ...references] } : entry) }) !== false;
+            } finally {
+              if (!accepted) photoStore.discardUnreferenced(references);
+              event.target.value = "";
+            }
           }} />
 
       </div> : criteria.length === 0 ? <div className="catalog-empty"><h3>Nenhum quesito disponível</h3><p>Selecione outro modelo de auditoria.</p></div> : null}
@@ -576,16 +560,15 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
 }
 
 function AuditPhotoThumbnail({ file, onAdd, onDelete }: { file?: File; onAdd: () => void; onDelete: () => void }) {
-  const [url, setUrl] = useState<string | null>(null);
+  const [preview, setPreview] = useState<{ file: File; url: string } | null>(null);
+  const url = preview?.file === file ? preview?.url : undefined;
   const [open, setOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   useEffect(() => {
-    if (!file) return;
     let cancelled = false;
-    const reader = new FileReader();
-    reader.addEventListener("load", () => { if (!cancelled && typeof reader.result === "string") setUrl(reader.result); });
-    reader.readAsDataURL(file);
-    return () => { cancelled = true; if (reader.readyState === FileReader.LOADING) reader.abort(); };
+    const nextUrl = file ? URL.createObjectURL(file) : null;
+    queueMicrotask(() => { if (!cancelled) setPreview(file && nextUrl ? { file, url: nextUrl } : null); });
+    return () => { cancelled = true; if (nextUrl) URL.revokeObjectURL(nextUrl); };
   }, [file]);
   return file && url ? <span className="audit-photo-menu-wrap">
     <button type="button" className="audit-photo-thumbnail-button" onClick={() => setOpen(true)} onContextMenu={(event) => { event.preventDefault(); setMenuOpen(true); }} aria-label="Ampliar foto adicionada" aria-haspopup="menu" aria-expanded={menuOpen}>

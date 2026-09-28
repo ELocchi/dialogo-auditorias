@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import { EvidenceThumbnail } from "./evidence-thumbnail";
 import { useEffect, useRef, useState } from "react";
 import { generatePdf } from "@/lib/pdf/client";
 import type { ActionPlanFinding, ActionPlanRow } from "@/lib/pdf/types";
@@ -129,7 +129,7 @@ export function ActionPlanEditor({ workName, auditDate, auditScore, module, auth
                 <div className={styles.sourceColumn}><div><span>Descrição</span><p>{row.itemDescription || row.description}</p></div><div><span>Critério</span><p>{row.verificationCriterion || "Não informado"}</p></div></div>
                 <div className={styles.sourceColumn}><div><span>Não conformidade</span><p>{row.nonconformity}</p></div><div><span>Status</span><strong className={row.status === "Não conforme" ? styles.statusNonconforming : styles.status}>{row.status || "Com apontamento"}</strong></div></div>
                 <div className={`${styles.sourceColumn} ${styles.photoColumn}`}><span>Foto</span>{row.evidencePhotos?.length ? <div className={styles.evidencePhotos}>{row.evidencePhotos.map((photo, photoIndex) => photo.url
-                  ? <a href={photo.url} target="_blank" rel="noopener noreferrer" key={`${photo.name}:${photoIndex}`} title="Abrir foto em nova guia"><Image src={photo.url} alt={`Evidência do item ${row.item}`} width={150} height={96} unoptimized /><small>{photo.name}</small></a>
+                  ? <a href={photo.url} target="_blank" rel="noopener noreferrer" key={`${photo.name}:${photoIndex}`} title="Abrir foto em nova guia"><EvidenceThumbnail thumbnailSrc={photo.thumbnailUrl} originalSrc={photo.url} alt={`Evidência do item ${row.item}`} width={150} height={96} /><small>{photo.name}</small></a>
                   : <span className={styles.evidenceName} key={`${photo.name}:${photoIndex}`}>{photo.name}</span>)}</div>
                   : <p className={styles.noEvidence}>Nenhuma foto anexada.</p>}</div>
               </div>
