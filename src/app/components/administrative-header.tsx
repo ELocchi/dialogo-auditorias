@@ -5,13 +5,16 @@ import styles from "./administrative-header.module.css";
 import { administrativeLabels, type AdministrativeScope } from "@/lib/access/contracts";
 import { platformDisplayName } from "@/lib/auth/display-name";
 
-export function AdministrativeHeader({ name, email, userId, scope, profileLabel, notifications, onNavigateAgenda }: {
+export function AdministrativeHeader({ name, email, userId, scope, profileLabel, notifications, notificationsLoading, notificationsError, onNotificationsOpenChange, onNavigateAgenda }: {
   name: string;
   email?: string | null;
   userId: string;
   scope?: AdministrativeScope | null;
   profileLabel?: string;
   notifications?: readonly AdminNotification[];
+  notificationsLoading?: boolean;
+  notificationsError?: string;
+  onNotificationsOpenChange?: (open: boolean) => void;
   onNavigateAgenda?: (item: AdminNotification) => void;
 }) {
   return <header className="site-header">
@@ -25,7 +28,7 @@ export function AdministrativeHeader({ name, email, userId, scope, profileLabel,
         </div>
         <div className={styles.session}>
           <div className={styles.accountControls}>
-            <AdminNotifications items={notifications} userId={userId} onNavigateAgenda={onNavigateAgenda} />
+            <AdminNotifications items={notifications} userId={userId} loading={notificationsLoading} error={notificationsError} onOpenChange={onNotificationsOpenChange} onNavigateAgenda={onNavigateAgenda} />
             <UserMenu name={platformDisplayName(email, name)} />
           </div>
         </div>

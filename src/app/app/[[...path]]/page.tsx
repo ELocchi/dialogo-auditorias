@@ -11,6 +11,7 @@ import { readPublishedAuditOverview } from "@/lib/audits/service";
 import { readAuditDashboard } from "@/lib/audits/dashboard-service";
 import { readPublishedAuditHistory } from "@/lib/audits/history-service";
 import type { PublishedAuditSnapshot } from "@/lib/audits/contracts";
+import { workspaceEntryScreen, workspaceResources } from "@/lib/access/workspace-resources";
 
 export const dynamic = "force-dynamic";
 
@@ -30,9 +31,12 @@ export default async function OperationalPage({ searchParams }: { searchParams: 
   const client = await createClient();
   const initialActionPlanAuditId = parseAuditId(query.plano);
   const preview = process.env.NODE_ENV === "development";
+  const initialScreen = workspaceEntryScreen(query.secao, context.profile, context.engineeringScope,
+    context.administrativeScope, Boolean(initialActionPlanAuditId));
+  const resources = workspaceResources(initialScreen);
   const [initialAgenda, initialDashboard, initialAudits, activeAccountCount] = await Promise.all([
-    readAgendaSnapshot(client, context),
-    preview ? Promise.resolve(undefined) : readAuditDashboard(client, context),
+    resources.agenda ? readAgendaSnapshot(client, context) : Promise.resolve(undefined),
+    preview || !resources.dashboard ? Promise.resolve(undefined) : readAuditDashboard(client, context),
     preview ? readPublishedAuditOverview(client, context) : initialActionPlanAuditId
       ? readPublishedAuditHistory(client, context, { auditId: initialActionPlanAuditId, pageSize: 1, includeFindings: false })
         .then((result): PublishedAuditSnapshot => ({ available: result.available, audits: result.audits, responses: {}, criteriaSnapshots: {} }))
@@ -40,8 +44,8 @@ export default async function OperationalPage({ searchParams }: { searchParams: 
     context.administrativeScope === "GERAL" ? countActiveAccounts(client) : Promise.resolve(null),
   ]);
   return <PrototypeApp key={`${active.user.id}:${active.profile}:${active.engineeringScope ?? ""}:${active.administrativeScope ?? ""}`} context={context}
-    initialAgenda={initialAgenda} initialAudits={initialAudits} initialDashboard={initialDashboard} initialVisitId={typeof query.visita === "string" ? query.visita : undefined}
+    initialAgenda={initialAgenda} initialAudits={initialAudits} initialDashboard={initialDashboard} remoteAudits={!preview} initialVisitId={typeof query.visita === "string" ? query.visita : undefined}
     initialActionPlanAuditId={initialActionPlanAuditId}
-    initialScreen={initialActionPlanAuditId ? "action_plan" : query.secao === "obras" ? "works" : query.secao === "agenda" ? "agenda" : query.secao === "auditorias" ? "audits" : query.secao === "relatorios" ? "report" : query.secao === "acompanhamento" && (context.profile === "AUDITOR_SEGURANCA" || context.profile === "AUDITOR_QUALIDADE") ? "follow_up" : query.secao === "administracao" && context.administrativeScope === "GERAL" ? "settings" : "overview"}
+    initialScreen={initialScreen}
     activeAccountCount={activeAccountCount} />;
 }

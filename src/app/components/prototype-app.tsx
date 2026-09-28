@@ -31,6 +31,7 @@ import type { AuditComparison } from "@/lib/audits/comparison-contracts";
 import type { AuditDashboardSnapshot } from "@/lib/audits/dashboard-contracts";
 import { AuditHistoryProvider } from "./audit-history-context";
 import { useAuditDashboard } from "./use-audit-dashboard";
+import { workspaceResources } from "@/lib/access/workspace-resources";
 
 const noLocalComparisons: readonly AuditComparison[] = [];
 
@@ -56,6 +57,7 @@ type PrototypeAppProps = {
   initialCatalogs?: CatalogSnapshot;
   initialAudits?: PublishedAuditSnapshot;
   initialDashboard?: AuditDashboardSnapshot;
+  remoteAudits?: boolean;
   activeAccountCount?: number | null;
 };
 
@@ -65,11 +67,11 @@ type LocalAuditFixture = {
   criteria?: Array<{ code: string; title: string; text: string; group: string }>;
 };
 
-export function PrototypeApp({ context, initialScreen = "overview", initialVisitId, initialActionPlanAuditId, initialAgenda = unavailableAgenda(), initialCatalogs = unavailableCatalogs(), initialAudits = unavailablePublishedAudits(), initialDashboard, activeAccountCount = null }: PrototypeAppProps) {
-  return <ProfileWorkspace key={JSON.stringify([context.user, context.profile, context.works, initialScreen, initialVisitId, initialActionPlanAuditId])} context={context} initialScreen={initialScreen} initialVisitId={initialVisitId} initialActionPlanAuditId={initialActionPlanAuditId} initialAgenda={initialAgenda} initialCatalogs={initialCatalogs} initialAudits={initialAudits} initialDashboard={initialDashboard} activeAccountCount={activeAccountCount} />;
+export function PrototypeApp({ context, initialScreen = "overview", initialVisitId, initialActionPlanAuditId, initialAgenda = unavailableAgenda(), initialCatalogs = unavailableCatalogs(), initialAudits = unavailablePublishedAudits(), initialDashboard, remoteAudits = Boolean(initialDashboard), activeAccountCount = null }: PrototypeAppProps) {
+  return <ProfileWorkspace key={JSON.stringify([context.user, context.profile, context.works, initialScreen, initialVisitId, initialActionPlanAuditId])} context={context} initialScreen={initialScreen} initialVisitId={initialVisitId} initialActionPlanAuditId={initialActionPlanAuditId} initialAgenda={initialAgenda} initialCatalogs={initialCatalogs} initialAudits={initialAudits} initialDashboard={initialDashboard} remoteAudits={remoteAudits} activeAccountCount={activeAccountCount} />;
 }
 
-function ProfileWorkspace({ context: providedContext, initialScreen, initialVisitId, initialActionPlanAuditId, initialAgenda, initialCatalogs, initialAudits, initialDashboard, activeAccountCount }: Required<Pick<PrototypeAppProps, "context" | "initialScreen" | "initialAgenda" | "initialCatalogs" | "initialAudits" | "activeAccountCount">> & Pick<PrototypeAppProps, "initialVisitId" | "initialActionPlanAuditId" | "initialDashboard">) {
+function ProfileWorkspace({ context: providedContext, initialScreen, initialVisitId, initialActionPlanAuditId, initialAgenda, initialCatalogs, initialAudits, initialDashboard, remoteAudits, activeAccountCount }: Required<Pick<PrototypeAppProps, "context" | "initialScreen" | "initialAgenda" | "initialCatalogs" | "initialAudits" | "activeAccountCount" | "remoteAudits">> & Pick<PrototypeAppProps, "initialVisitId" | "initialActionPlanAuditId" | "initialDashboard">) {
   const localScenario = process.env.NODE_ENV === "development";
   const localAuditFlow = localScenario
     && (providedContext.user.role === "safety-auditor" || providedContext.user.role === "quality-auditor");
@@ -103,7 +105,11 @@ function ProfileWorkspace({ context: providedContext, initialScreen, initialVisi
     works: auditContext.works.some((work) => work.id === localReportWork.id) ? auditContext.works : [...auditContext.works, localReportWork],
   } : auditContext;
   const baseUser = context.user;
-  const { agenda: syncedAgenda, agendaSyncError, mutationPending, runAgendaAction, removePublishedVisit } = useAgenda(initialAgenda, baseUser.id, context.profile, context.engineeringScope, context.administrativeScope);
+  const [screen, setScreen] = useState<string>(initialScreen);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const agendaScreen = screen === "report" && ["safety-auditor", "quality-auditor"].includes(baseUser.role) ? "audits" : screen;
+  const needsAgenda = workspaceResources(agendaScreen).agenda || notificationsOpen;
+  const { agenda: syncedAgenda, agendaSyncError, mutationPending, runAgendaAction, removePublishedVisit } = useAgenda(initialAgenda, baseUser.id, context.profile, context.engineeringScope, context.administrativeScope, needsAgenda);
   const { user, visits, agenda, localTestVisitIds } = useMemo(() => {
     const localTestVisits: Visit[] = [
       { id: "local-audit-flow-security", workId: localTestWork.id, module: "safety", kind: "audit", modelId: "security-it07-r02", auditorId: baseUser.id, date: getSaoPauloToday(), note: "Teste local do relatório de Segurança.", createdBy: baseUser.id, createdAt: `${getSaoPauloToday()}T12:00:00.000-03:00`, revision: 1, confirmationStatus: "confirmed", confirmedAt: `${getSaoPauloToday()}T12:00:00.000-03:00`, auditorName: baseUser.name, createdByName: "Teste local", history: [] },
@@ -130,14 +136,13 @@ function ProfileWorkspace({ context: providedContext, initialScreen, initialVisi
   const initialVisit = initialScreen === "agenda" ? initialAgenda.visits.find((visit) => visit.id === initialVisitId && canReadVisit(user, visit)) : undefined;
   const [selectedModule, setSelectedModule] = useState<AppModule | null>(initialActionPlanSource?.module ?? initialVisit?.module ?? user.modules[0] ?? null);
   const [selectedWorkId, setSelectedWorkId] = useState(initialActionPlanSource?.workId ?? initialVisit?.workId ?? (localAuditFlow ? localTestWork.id : ""));
-  const [screen, setScreen] = useState<string>(initialActionPlanSource ? "action_plan" : initialScreen);
   const [reportSection, setReportSection] = useState<"reports" | "occurrences" | "plans">("reports");
   const agendaActor = useMemo(() => ({ userId: user.id, profile: context.profile,
     engineeringScope: context.engineeringScope ?? null, administrativeScope: context.administrativeScope }),
   [user.id, context.profile, context.engineeringScope, context.administrativeScope]);
   const { state: catalogState, catalogs, loadCatalogs, setCatalogs } = useDeferredCatalogs(agendaActor, initialCatalogs);
   const [session, setSession] = useState<PrototypeAuditState>({ audits: initialAudits.audits, responses: initialAudits.responses, criteriaSnapshots: initialAudits.criteriaSnapshots });
-  const auditDetails = usePublishedAuditDetails(providedContext, initialAudits, setSession, session, !!initialDashboard);
+  const auditDetails = usePublishedAuditDetails(providedContext, initialAudits, setSession, session, remoteAudits);
   const [activeAuditId, setActiveAuditId] = useState<string | null>(null);
   const [completedPreview, setCompletedPreview] = useState<{ audit: AuditRecord; work: ProfileWorkspaceContext["works"][number] } | null>(null);
   const [positions, setPositions] = useState<Record<string, number>>({});
@@ -167,9 +172,10 @@ function ProfileWorkspace({ context: providedContext, initialScreen, initialVisi
     || context.works.some((entry) => user.modules.some((discipline) => canConsultAgenda(user, entry.id, discipline)));
   const canDocuments = !!auditModule && !!work && canReadOperationalDocuments(user, work.id, auditModule);
   const readablePublishedAudits = session.audits.filter((audit) => audit.status === "Publicada" && canReadAudit(user, audit));
-  const canPublishedReports = (initialDashboard?.publishedCount ?? 0) > 0 || readablePublishedAudits.length > 0;
+  const canPublishedReports = (initialDashboard?.publishedCount ?? 0) > 0 || readablePublishedAudits.length > 0
+    || remoteAudits && context.works.some((entry) => availableModules.some((module) => canAccessWorkModule(user, entry.id, module)));
   const publishedReportModules = availableModules.filter((module) => initialDashboard?.publishedModules.includes(module) || readablePublishedAudits.some((audit) => modelModule(audit.modelId) === module));
-  const reportModules = publishedReportModules.length ? publishedReportModules : auditModule ? [auditModule] : [];
+  const reportModules = remoteAudits && !initialDashboard ? availableModules : publishedReportModules.length ? publishedReportModules : auditModule ? [auditModule] : [];
   const moduleAudits = session.audits.filter((audit) => modelModule(audit.modelId) === auditModule && canReadAudit(user, audit));
   const contextualAudits = moduleAudits.filter((audit) => audit.workId === work?.id);
   const contextualVisits = visits.filter((visit) => visit.workId === work?.id && visit.module === auditModule && canReadVisit(user, visit));
@@ -475,7 +481,7 @@ function ProfileWorkspace({ context: providedContext, initialScreen, initialVisi
       serious: false,
     }] : [])]) : [];
   const dashboardAuditFindings = [...publishedAuditFindings, ...localRecurringPreviewFindings];
-  const { summary: dashboardSummary, retry: retryDashboard, loading: dashboardLoading } = useAuditDashboard(initialDashboard, agendaActor, session.audits, publishedAuditFindings, showsPublishedFindings);
+  const { summary: dashboardSummary, retry: retryDashboard, loading: dashboardLoading } = useAuditDashboard(initialDashboard, agendaActor, session.audits, publishedAuditFindings, workspaceResources(currentScreen).dashboard, remoteAudits);
   const actionPlanDraftKey = actionPlanSource ? `${actionPlanSource.auditId ?? "example"}:${actionPlanSource.module}:${actionPlanSource.workId}` : "";
   const downloadActionPlan = (source: ActionPlanSource) => {
     const publication = publishedActionPlans[actionPlanSourceKey(source)];
@@ -489,14 +495,14 @@ function ProfileWorkspace({ context: providedContext, initialScreen, initialVisi
   };
 
   const deferCatalogs = (children: ReactNode) => <DeferredCatalogs state={catalogState} load={loadCatalogs}>{children}</DeferredCatalogs>;
-  return <AuditHistoryProvider actor={agendaActor} enabled={!!initialDashboard}><AuditPhotoProvider responses={session.responses}><AuditComparisonProvider actor={agendaActor}><AuditDetailsContext value={auditDetails}><div className="app-shell">
+  return <AuditHistoryProvider actor={agendaActor} enabled={remoteAudits}><AuditPhotoProvider responses={session.responses}><AuditComparisonProvider actor={agendaActor}><AuditDetailsContext value={auditDetails}><div className="app-shell">
     <a className="skip-link" href="#main-content">Ir para o conteúdo</a>
-    <AdministrativeHeader name={user.name} email={context.email} userId={user.id} scope={isAdmin ? context.administrativeScope : undefined} profileLabel={isAdmin ? undefined : profileLabel} notifications={agenda.notifications} onNavigateAgenda={navigateAgenda} />
+    <AdministrativeHeader name={user.name} email={context.email} userId={user.id} scope={isAdmin ? context.administrativeScope : undefined} profileLabel={isAdmin ? undefined : profileLabel} notifications={agenda.notifications} notificationsLoading={notificationsOpen && !agenda.available && !agendaSyncError} notificationsError={notificationsOpen ? agendaSyncError : undefined} onNotificationsOpenChange={setNotificationsOpen} onNavigateAgenda={navigateAgenda} />
     <div className="navigation-bar"><nav className="main-navigation" aria-label="Navegação principal">{nav.map(({ key, label, icon }) => <button type="button" key={key} className={`nav-item${currentScreen === key || (key === "audits" && auditNav) || (currentScreen === "action_plan" && key === `engineering_${actionPlanSource?.module}`) ? " active" : ""}`} aria-current={currentScreen === key ? "page" : undefined} onClick={() => navigate(key)}><Icon name={icon} /><span>{label}</span></button>)}</nav></div>
     <main className="main-content" id="main-content" tabIndex={-1}><div className="content-wrap">
       {currentScreen !== "overview" && currentScreen !== "agenda" && currentScreen !== "works" && currentScreen !== "fill" && currentScreen !== "audit_review" && currentScreen !== "action_plan" && !(currentScreen === "report" && reportSection === "reports") && !currentScreen.startsWith("engineering_") && !(currentScreen === "audits" && isAuditor) && !(currentScreen === "follow_up" && isAuditor) && !isAdminCatalog && !isAdminSettings && <div className={styles.context} aria-label="Contexto autorizado"><label>{isAdmin ? "Disciplina da agenda" : "Módulo"}<select className="filter-select" value={auditModule ?? ""} disabled={!availableModules.length} onChange={(event) => { const next = event.target.value as AppModule; if (canAccessModule(user, next)) { setSelectedModule(next); changeContext(); } }}>{!availableModules.length && <option value="">Nenhum módulo autorizado</option>}{availableModules.map((id) => <option value={id} key={id}>{moduleLabels[id]}</option>)}</select></label><label>Obra no contexto<select className="filter-select" value={work?.id ?? ""} disabled={!availableWorks.length} onChange={(event) => { if (auditModule && canAccessWorkModule(user, event.target.value, auditModule)) { setSelectedWorkId(event.target.value); changeContext(); } }}>{!availableWorks.length && <option value="">Nenhuma obra autorizada</option>}{availableWorks.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label></div>}
-      {showsPublishedFindings && dashboardLoading && <p className="muted" role="status">Atualizando resumos…</p>}
-      {showsPublishedFindings && !dashboardLoading && dashboardSummary?.available === false && <p role="alert" className={styles.error}>Não foi possível atualizar os resumos. <button type="button" className="secondary" onClick={() => { if (session.audits.some((audit) => audit.isDemo && audit.status === "Publicada")) retryDashboard(); else window.location.reload(); }}>Tentar novamente</button></p>}
+      {workspaceResources(currentScreen).dashboard && dashboardLoading && <p className="muted" role="status">Atualizando resumos…</p>}
+      {workspaceResources(currentScreen).dashboard && !dashboardLoading && dashboardSummary?.available === false && <p role="alert" className={styles.error}>Não foi possível atualizar os resumos. <button type="button" className="secondary" onClick={retryDashboard}>Tentar novamente</button></p>}
       {error && <p role="alert" className={styles.error}>{error}</p>}
       {!localScenario && !initialAudits.available && <p role="alert" className={styles.error}>Não foi possível carregar as auditorias publicadas e suas notas. Atualize a página para tentar novamente.</p>}
       {auditNav && !isAuditor && <nav className="subnav" aria-label="Seções de auditorias"><button className={`subnav-item${currentScreen === "audits" ? " active" : ""}`} type="button" onClick={() => navigate("audits")}>Histórico e rascunhos</button>{activeAudit && <button className={`subnav-item${currentScreen === "fill" ? " active" : ""}`} type="button" onClick={() => navigate("fill")}>Preenchimento</button>}</nav>}
@@ -525,7 +531,7 @@ function ProfileWorkspace({ context: providedContext, initialScreen, initialVisi
       {isAdminAgenda && auditModule && <VisitAgenda key={user.id} user={user} works={context.works} users={agenda.auditors} visits={visits} module={auditModule} workId={work?.id ?? ""} available={agenda.available} mutationPending={mutationPending} syncError={agendaSyncError} {...agendaActions} />}
       {currentScreen === "agenda" && !isAdmin && canAgenda && <VisitAgenda key={user.id} user={user} works={agendaWorks} users={agenda.auditors} visits={visits} module={auditModule ?? "safety"} workId={work?.id ?? ""} available={agenda.available} mutationPending={mutationPending} syncError={agendaSyncError} {...agendaActions} />}
       {auditModule && <>
-        {currentScreen === "fill" && activeAuditWork && activeAudit && activeAudit.status !== "Publicada" && <AuditComparisonHistory activeAudit={initialDashboard ? activeAudit : undefined} audits={activeAuditHistory} localAudits={localComparisonHistory}>{(previousAudits) => <NewAudit key={activeAudit.id} model={modelDisplayName(activeAudit.modelId).replace(" rev. 02", "")} responseKey={activeAudit.modelId} workName={activeAuditWork.name} readOnly={!canEditAudit(user, activeAudit)} showWeights={canReadTechnicalWeights(user, auditModule)} previousAudits={previousAudits} criteria={criteriaForAudit(session, activeAudit)} activeIndex={positions[activeAudit.id] ?? 0} setActiveIndex={setActiveItem} drafts={session.responses[activeAudit.id] ?? {}} updateDraft={(response) => { try { const item = criteriaForAudit(session, activeAudit)[positions[activeAudit.id] ?? 0]; setSession(updatePrototypeResponse(session, user, activeAudit.id, item, response)); return true; } catch (reason) { setError(reason instanceof Error ? reason.message : "Edição indisponível."); return false; } }} onFinish={() => { try { validatePrototypeAuditCompletion(session, user, activeAudit.id); setError(""); setScreen("audit_review"); } catch (reason) { setError(reason instanceof Error ? reason.message : "Não foi possível revisar o relatório."); } }} details={{ date: activeAudit.date, auditor: activeAudit.auditor }} />}</AuditComparisonHistory>}
+        {currentScreen === "fill" && activeAuditWork && activeAudit && activeAudit.status !== "Publicada" && <AuditComparisonHistory activeAudit={remoteAudits ? activeAudit : undefined} audits={activeAuditHistory} localAudits={localComparisonHistory}>{(previousAudits) => <NewAudit key={activeAudit.id} model={modelDisplayName(activeAudit.modelId).replace(" rev. 02", "")} responseKey={activeAudit.modelId} workName={activeAuditWork.name} readOnly={!canEditAudit(user, activeAudit)} showWeights={canReadTechnicalWeights(user, auditModule)} previousAudits={previousAudits} criteria={criteriaForAudit(session, activeAudit)} activeIndex={positions[activeAudit.id] ?? 0} setActiveIndex={setActiveItem} drafts={session.responses[activeAudit.id] ?? {}} updateDraft={(response) => { try { const item = criteriaForAudit(session, activeAudit)[positions[activeAudit.id] ?? 0]; setSession(updatePrototypeResponse(session, user, activeAudit.id, item, response)); return true; } catch (reason) { setError(reason instanceof Error ? reason.message : "Edição indisponível."); return false; } }} onFinish={() => { try { validatePrototypeAuditCompletion(session, user, activeAudit.id); setError(""); setScreen("audit_review"); } catch (reason) { setError(reason instanceof Error ? reason.message : "Não foi possível revisar o relatório."); } }} details={{ date: activeAudit.date, auditor: activeAudit.auditor }} />}</AuditComparisonHistory>}
         {currentScreen === "fill" && !activeAudit && <p className="muted">Selecione um rascunho autorizado no histórico.</p>}
         {currentScreen === "audit_review" && activeAuditWork && activeAudit && <AuditReview model={modelDisplayName(activeAudit.modelId).replace(" rev. 02", "")} modelId={activeAudit.modelId} workName={activeAuditWork.name} details={{ date: activeAudit.date, auditor: activeAudit.auditor }} criteria={criteriaForAudit(session, activeAudit)} drafts={session.responses[activeAudit.id] ?? {}} onBack={() => { if (activeAudit.status !== "Publicada") { setError(""); setScreen("fill"); } }} onPublish={() => { try { const completed = completePrototypeAudit(session, user, activeAudit.id); setSession(completed); const published = completed.audits.find((audit) => audit.id === activeAudit.id); if (published) setCompletedPreview({ audit: published, work: activeAuditWork }); if (activeAudit.visitId) removePublishedVisit(activeAudit.visitId); setError(""); return true; } catch (reason) { setError(reason instanceof Error ? reason.message : "Não foi possível publicar a auditoria."); return false; } }} />}
         {currentScreen === "report" && work && canDocuments && reportSection === "occurrences" && <Occurrences works={[work]} records={[]} />}

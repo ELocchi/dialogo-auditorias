@@ -57,7 +57,9 @@ function reset(profile = "ENGENHARIA", engineeringScope = "EQUIPE_OBRA") {
       }, error: null }; },
     }; },
     async rpc(name, parameters) {
-      if (name === "is_current_access_active") return { data: state.active, error: null };
+      if (name === "read_current_access_account") return { data: state.active === true ? { account: state.account,
+        request: { auth_user_id: userId, status_acesso: state.status, email: state.user?.email,
+          email_confirmado_em: state.user?.email_confirmed_at } } : null, error: null };
       state.auditReads.push({ name, parameters });
       assert.ok(["read_published_audit_detail", "read_published_audit_report"].includes(name), "No eager index or bulk read");
       assert.equal(parameters.p_profile, state.context.profile);

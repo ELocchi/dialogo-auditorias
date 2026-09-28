@@ -31,7 +31,9 @@ function reset(profile = "ADMINISTRATIVO", administrativeScope = "GERAL", engine
   state.client = {
     auth: { async getUser() { return { data: { user: state.user }, error: state.authError }; } },
     async rpc(name) {
-      if (name === "is_current_access_active") return { data: state.active, error: null };
+      if (name === "read_current_access_account") return { data: state.active === true ? { account: state.account,
+        request: { auth_user_id: userId, status_acesso: state.status, email: state.user?.email,
+          email_confirmado_em: state.user?.email_confirmed_at } } : null, error: null };
       assert.equal(name, "is_current_access_administrator", "Only authority is checked; history is never loaded");
       state.authorityChecks += 1;
       return { data: state.authority, error: state.authorityError };

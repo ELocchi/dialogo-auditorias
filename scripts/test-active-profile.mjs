@@ -173,6 +173,9 @@ function reset() {
       },
     }; },
     async rpc(name) {
+      if (name === "read_current_access_account") return { data: state.active === true ? { account: state.account,
+        request: { auth_user_id: userId, status_acesso: state.requestStatus, email: state.user?.email,
+          email_confirmado_em: state.user?.email_confirmed_at } } : null, error: null };
       return { data: name === "is_current_access_active" ? state.active : state.administrator, error: null };
     },
   };

@@ -67,9 +67,12 @@ function NotificationContent({ item }: { item: AdminNotification }) {
   </>;
 }
 
-export function AdminNotifications({ items = emptyNotifications, userId, onNavigateAgenda }: {
+export function AdminNotifications({ items = emptyNotifications, userId, loading = false, error, onOpenChange, onNavigateAgenda }: {
   items?: readonly AdminNotification[];
   userId: string;
+  loading?: boolean;
+  error?: string;
+  onOpenChange?: (open: boolean) => void;
   onNavigateAgenda?: (item: AdminNotification) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -135,6 +138,8 @@ export function AdminNotifications({ items = emptyNotifications, userId, onNavig
     if (open) markVisibleRead();
   }, [open, markVisibleRead]);
 
+  useEffect(() => { onOpenChange?.(open); }, [open, onOpenChange]);
+
   useEffect(() => {
     if (!open) return;
     const dismissOutside = (event: PointerEvent) => {
@@ -167,6 +172,8 @@ export function AdminNotifications({ items = emptyNotifications, userId, onNavig
         <h2 id={headingId}>Notificações</h2>
         <p>Agendamentos, confirmações e auditorias publicadas</p>
       </div>
+      {loading && <p className={styles.empty} role="status">Carregando notificações…</p>}
+      {error && <p className={styles.empty} role="alert">{error}</p>}
       {sortedItems.length ? <ul className={styles.list}>
         {sortedItems.map((item) => <li key={`${item.type}:${item.id}`}>
           {item.type !== "audit_published" || item.href
@@ -183,7 +190,7 @@ export function AdminNotifications({ items = emptyNotifications, userId, onNavig
             : <button type="button" className={`${styles.item} ${styles.itemButton}`}
               onClick={() => dismissNotification(item)}><NotificationContent item={item} /></button>}
         </li>)}
-      </ul> : <p className={styles.empty}>Nenhuma notificação no momento.</p>}
+      </ul> : !loading && !error && <p className={styles.empty}>Nenhuma notificação no momento.</p>}
     </section>
   </div>;
 }

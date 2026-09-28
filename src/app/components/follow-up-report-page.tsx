@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
 import { EvidenceThumbnail } from "./evidence-thumbnail";
 import { followUpPhotoThumbnailUrl } from "@/lib/photos/urls";
 import type { Visit } from "@/domain/prototype-access";
@@ -11,14 +11,66 @@ import type { FollowUpFinding, FollowUpReport } from "@/lib/follow-up/service";
 import type { FindingDraft } from "@/lib/follow-up/findings";
 import type { FindingPhoto } from "@/lib/follow-up/photos";
 import { saveFollowUpReportAction, type WorkFinding } from "@/app/follow-up/actions";
+import { createReportPdfResource } from "@/lib/follow-up/report-pdf-resource";
 import styles from "./follow-up-report-page.module.css";
 
-export function FollowUpReportPage({ visit, work, actor, agendaAvailable, initialReport, initialReportedFindings, initialDraft, initialPhotos, initialWorkFindings, reportsAvailable, draftsAvailable }: {
+type FollowUpReportPageProps = {
   visit: Visit; work: WorkRecord; actor: AgendaActorContext; agendaAvailable: boolean;
   initialReport?: FollowUpReport; initialReportedFindings: FollowUpFinding[]; initialDraft?: FindingDraft;
   initialPhotos: FindingPhoto[]; initialWorkFindings: WorkFinding[];
   reportsAvailable: boolean; draftsAvailable: boolean;
+};
+
+export function FollowUpReportPage(props: FollowUpReportPageProps) {
+  const { userId, profile, engineeringScope, administrativeScope } = props.actor;
+  return <FollowUpReportSession key={JSON.stringify([userId, profile, engineeringScope, administrativeScope,
+    props.visit.id, props.initialReport?.id, props.initialReport?.updatedAt])} {...props} />;
+}
+
+function ClosedReportPdf({ visitId, report, autoDownload, message }: {
+  visitId: string; report: FollowUpReport; autoDownload: boolean; message: string;
 }) {
+  const resource = useMemo(() => createReportPdfResource({
+    href: `/app/acompanhamento/relatorio/${visitId}/pdf?relatorio=${report.id}`,
+    fallbackFileName: `relatorio-${report.id}.pdf`,
+  }), [visitId, report.id]);
+  const pdf = useSyncExternalStore(resource.subscribe, resource.getSnapshot, resource.getServerSnapshot);
+  const downloadedUrl = useRef<string | null>(null);
+  useEffect(() => {
+    let active = true;
+    // Let an immediately unmounted effect (including Strict Mode checks) cancel before starting a request.
+    queueMicrotask(() => { if (active) void resource.load(); });
+    return () => { active = false; resource.dispose(); };
+  }, [resource]);
+  useEffect(() => {
+    if (!autoDownload || pdf.status !== "ready" || downloadedUrl.current === pdf.url) return;
+    downloadedUrl.current = pdf.url;
+    const download = document.createElement("a");
+    download.href = pdf.url;
+    download.download = pdf.fileName;
+    document.body.append(download);
+    download.click();
+    download.remove();
+  }, [autoDownload, pdf]);
+  return <>
+    <div className={styles.closedToolbar}>
+      <div><h3>Relatório fechado</h3><p>Disponível para visualização e download.</p></div>
+      <div className={styles.closedActions}>
+        <a className="secondary" href={pdf.url ?? undefined} aria-disabled={!pdf.url} tabIndex={pdf.url ? undefined : -1} target="_blank" rel="noreferrer">Abrir PDF</a>
+        <a className="primary" href={pdf.url ?? undefined} aria-disabled={!pdf.url} tabIndex={pdf.url ? undefined : -1} download={pdf.fileName ?? undefined}>Baixar PDF</a>
+      </div>
+    </div>
+    {message && <p className={styles.success} role="status">{autoDownload && pdf.status === "ready"
+      ? "Relatório salvo. O download do PDF foi iniciado." : message}</p>}
+    {pdf.status === "error" ? <div className={styles.error} role="alert">
+      <p>O relatório está salvo. Não foi possível carregar o PDF.</p>
+      <button type="button" className="secondary" onClick={() => { void resource.load(); }}>Tentar novamente</button>
+    </div> : pdf.url ? <iframe className={styles.pdfPreview} style={{ display: "block", width: "100%", height: "72vh", minHeight: 580 }} src={pdf.url} title="Visualização do relatório orientativo" />
+      : <div className={styles.pdfPreview} style={{ width: "100%", height: "72vh", minHeight: 580 }} role="status" aria-busy="true"><p className="muted">Preparando PDF…</p></div>}
+  </>;
+}
+
+function FollowUpReportSession({ visit, work, actor, agendaAvailable, initialReport, initialReportedFindings, initialDraft, initialPhotos, initialWorkFindings, reportsAvailable, draftsAvailable }: FollowUpReportPageProps) {
   const [report, setReport] = useState(initialReport);
   const [participants, setParticipants] = useState(initialReport?.participants ?? "");
   const [subjects, setSubjects] = useState(initialReport?.subjects ?? "");
@@ -30,7 +82,8 @@ export function FollowUpReportPage({ visit, work, actor, agendaAvailable, initia
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const pdfHref = `/app/acompanhamento/relatorio/${visit.id}/pdf${report ? `?relatorio=${report.id}` : ""}`;
+  const mounted = useRef(false);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const findings = [...(report?.findings ?? [])];
   for (const finding of initialReportedFindings) {
     if (!findings.some((entry) => entry.id === finding.id)) findings.push(finding);
@@ -60,35 +113,22 @@ export function FollowUpReportPage({ visit, work, actor, agendaAvailable, initia
     try {
       const result = await saveFollowUpReportAction({ visitId: visit.id, expectedRevision: 0,
         title: title.trim(), participants, subjects, decisions, findings: selectedFindings }, actor);
+      if (!mounted.current) return;
       if (result.status === "success" && result.report) {
         setNameOpen(false);
         setReport(result.report);
         setSelectedIds(result.report.findings.map((finding) => finding.id));
-        setMessage("Relatório salvo. O download do PDF foi iniciado.");
-        const download = document.createElement("a");
-        download.href = `/app/acompanhamento/relatorio/${visit.id}/pdf?relatorio=${result.report.id}`;
-        download.download = "";
-        document.body.append(download);
-        download.click();
-        download.remove();
+        setMessage("Relatório salvo.");
         window.history.replaceState(null, "", `/app/acompanhamento/relatorio/${visit.id}?relatorio=${result.report.id}`);
       } else setError(result.message);
-    } catch { setError("Não foi possível salvar o relatório. Tente novamente."); }
-    finally { setPending(false); }
+    } catch { if (mounted.current) setError("Não foi possível salvar o relatório. Tente novamente."); }
+    finally { if (mounted.current) setPending(false); }
   };
 
   if (report) return <div className={styles.closedLayout}>
     <div className="page-intro"><div><h2>{report.title}</h2><p className="muted">{work.name} · {formatAuditDate(visit.date)}</p></div></div>
     <section className={`panel ${styles.closedPanel}`} aria-label="Relatório orientativo fechado">
-      <div className={styles.closedToolbar}>
-        <div><h3>Relatório fechado</h3><p>Disponível para visualização e download.</p></div>
-        <div className={styles.closedActions}>
-          <a className="secondary" href={`${pdfHref}&visualizar=1`} target="_blank" rel="noreferrer">Abrir PDF</a>
-          <a className="primary" href={pdfHref} download>Baixar PDF</a>
-        </div>
-      </div>
-      {message && <p className={styles.success} role="status">{message}</p>}
-      <iframe className={styles.pdfPreview} style={{ display: "block", width: "100%", height: "72vh", minHeight: 580 }} src={`${pdfHref}&visualizar=1`} title="Visualização do relatório orientativo" />
+      <ClosedReportPdf key={report.id} visitId={visit.id} report={report} autoDownload={!initialReport} message={message} />
     </section>
   </div>;
 

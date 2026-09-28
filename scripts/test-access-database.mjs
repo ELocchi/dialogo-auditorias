@@ -28,9 +28,10 @@ const historyOnly = process.argv.includes("--history-only");
 const dashboardSyncOnly = process.argv.includes("--dashboard-sync-only");
 const followUpWorkspaceOnly = process.argv.includes("--follow-up-workspace-only");
 const followUpTargetedOnly = process.argv.includes("--follow-up-targeted-only");
-if (process.argv.slice(2).some((arg) => !["--baseline-only", "--assignment-only", "--overview-only", "--sync-only", "--projection-only", "--comparison-only", "--history-only", "--dashboard-sync-only", "--follow-up-workspace-only", "--follow-up-targeted-only"].includes(arg))
-  || ([baselineOnly, assignmentOnly, overviewOnly, syncOnly, projectionOnly, comparisonOnly, historyOnly, dashboardSyncOnly, followUpWorkspaceOnly, followUpTargetedOnly].filter(Boolean).length > 1)) {
-  throw new Error("Supported arguments: --baseline-only, --assignment-only, --overview-only, --sync-only, --projection-only, --comparison-only, --history-only, --dashboard-sync-only, --follow-up-workspace-only or --follow-up-targeted-only");
+const accessContextOnly = process.argv.includes("--access-context-only");
+if (process.argv.slice(2).some((arg) => !["--baseline-only", "--assignment-only", "--overview-only", "--sync-only", "--projection-only", "--comparison-only", "--history-only", "--dashboard-sync-only", "--follow-up-workspace-only", "--follow-up-targeted-only", "--access-context-only"].includes(arg))
+  || ([baselineOnly, assignmentOnly, overviewOnly, syncOnly, projectionOnly, comparisonOnly, historyOnly, dashboardSyncOnly, followUpWorkspaceOnly, followUpTargetedOnly, accessContextOnly].filter(Boolean).length > 1)) {
+  throw new Error("Supported arguments: --baseline-only, --assignment-only, --overview-only, --sync-only, --projection-only, --comparison-only, --history-only, --dashboard-sync-only, --follow-up-workspace-only, --follow-up-targeted-only or --access-context-only");
 }
 
 async function loadPGlite() {
@@ -339,6 +340,17 @@ if (!baselineOnly) suites.push({
   omitHistoricPublicationBackfills: true,
 });
 
+if (!baselineOnly) suites.push({
+  name: "B.36 Current account and selected workspace authorization suite",
+  migrations: readdirSync(path.join(projectRoot, "supabase", "migrations"))
+    .filter((name) => name.endsWith(".sql") && name <= "20260928000900_access_context_reads.sql"
+      && name !== "20260924000200_verify_published_audit_access.sql")
+    .sort(),
+  test: "access_context_reads.sql",
+  storageAdapter: true,
+  omitHistoricPublicationBackfills: true,
+});
+
 const { PGlite } = await loadPGlite();
 for (const suite of suites.filter((item) => (!assignmentOnly || item.test === "audit_assignment_access.sql")
   && (!overviewOnly || item.test === "published_audit_overview.sql")
@@ -348,7 +360,8 @@ for (const suite of suites.filter((item) => (!assignmentOnly || item.test === "a
   && (!historyOnly || item.test === "paged_audit_history.sql")
   && (!dashboardSyncOnly || item.test === "conditional_audit_overview.sql")
   && (!followUpWorkspaceOnly || item.test === "follow_up_workspace_reads.sql")
-  && (!followUpTargetedOnly || item.test === "follow_up_targeted_reads.sql"))) {
+  && (!followUpTargetedOnly || item.test === "follow_up_targeted_reads.sql")
+  && (!accessContextOnly || item.test === "access_context_reads.sql"))) {
   const db = await PGlite.create();
   let currentSqlFile = "";
   try {

@@ -17,37 +17,17 @@ const originalRequest = {
 function fixture(options = {}) {
   const state = {
     account: structuredClone(originalAccount), request: structuredClone(originalRequest),
-    active: true, accountError: null, requestError: null, activeError: null, scopeError: null, legacyAuthority: true,
-    throwFrom: false, throwRpc: false, ...options,
+    active: true, error: null, throwRpc: false, ...options,
   };
   const calls = [];
   const client = {
-    from(table) {
-      calls.push(["from", table]);
-      if (state.throwFrom) throw new Error("synthetic provider failure");
-      assert.ok(["access_accounts", "access_requests"].includes(table));
-      let selected = "";
-      return {
-        select(columns) { selected = columns; return this; },
-        eq(column, value) {
-          assert.equal(column, "auth_user_id");
-          assert.equal(value, id, "Each read must explicitly select the verified identity.");
-          return this;
-        },
-        async maybeSingle() {
-          if (table === "access_accounts" && selected === "atuacao_administrativa" && state.scopeError)
-            return { data: null, error: state.scopeError };
-          const key = table === "access_accounts" ? "account" : "request";
-          return { data: state[key], error: state[`${key}Error`] };
-        },
-      };
-    },
-    async rpc(name) {
+    from() { throw new Error("The account must use one scoped RPC, not table reads"); },
+    async rpc(name, args) {
       calls.push(["rpc", name]);
-      assert.ok(["is_current_access_active", "is_current_access_administrator"].includes(name));
+      assert.equal(name, "read_current_access_account");
+      assert.equal(args, undefined, "The database derives identity from auth.uid(), never a supplied ID");
       if (state.throwRpc) throw new Error("synthetic RPC transport failure");
-      return name === "is_current_access_active" ? { data: state.active, error: state.activeError }
-        : { data: state.legacyAuthority, error: null };
+      return { data: state.active === true ? { account: state.account, request: state.request } : null, error: state.error };
     },
   };
   return { state, calls, client };
@@ -58,14 +38,15 @@ test("A verified General administrator with one profile enters the workspace dir
   const account = await readEffectiveAccount(client, user);
   assert.deepEqual(account, originalAccount);
   assert.equal(effectiveDestination(account), "/app");
-  assert.deepEqual(calls.filter(([type]) => type === "rpc"), [["rpc", "is_current_access_active"]]);
+  assert.deepEqual(calls.filter(([type]) => type === "rpc"), [["rpc", "read_current_access_account"]]);
 });
-test("before B.14, only a database-confirmed existing administrator receives General activity", async () => {
-  const legacy = fixture({ scopeError: { code: "42703" } });
-  assert.equal((await readEffectiveAccount(legacy.client, user))?.atuacao_administrativa, "GERAL");
-  assert.ok(legacy.calls.some(([kind, name]) => kind === "rpc" && name === "is_current_access_administrator"));
-  assert.equal(await readEffectiveAccount(fixture({ scopeError: { code: "42703" }, legacyAuthority: false }).client, user), null);
-  assert.equal(await readEffectiveAccount(fixture({ scopeError: { code: "PGRST500" } }).client, user), null);
+test("Missing account RPC or missing administrative scope fails closed without legacy fallback", async () => {
+  assert.equal(await readEffectiveAccount(fixture({ error: { code: "PGRST202" } }).client, user), null);
+  for (const scope of [null, undefined, "UNKNOWN", "", false]) {
+    const { client, calls } = fixture({ account: { ...originalAccount, atuacao_administrativa: scope } });
+    assert.equal(await readEffectiveAccount(client, user), null);
+    assert.equal(calls.length, 1);
+  }
 });
 
 test("Approved single auditor and engineering profiles enter their workspace", async () => {
@@ -181,9 +162,9 @@ test("Self-declared metadata cannot turn a pending request into an effective acc
 
 test("Failed reads, missing authority RPC, and transport failures never grant access", async () => {
   for (const options of [
-    { accountError: { message: "denied" } }, { requestError: { message: "unavailable" } },
-    { activeError: { message: "schema missing" } }, { active: false }, { active: null },
-    { active: "true" }, { throwFrom: true }, { throwRpc: true },
+    { error: { message: "denied" } }, { error: { message: "unavailable" } },
+    { error: { code: "PGRST202" } }, { active: false }, { active: null },
+    { active: "true" }, { throwRpc: true },
   ]) assert.equal(await readEffectiveAccount(fixture(options).client, user), null);
 });
 

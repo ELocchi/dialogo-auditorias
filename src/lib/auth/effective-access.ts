@@ -25,24 +25,18 @@ export function validEngineeringScopes(profiles: readonly AccessProfile[], prima
 
 // Database reads use the caller's session and RLS. Metadata never supplies a role.
 // No cross-request cache: the next server request observes current authorization.
-export async function readEffectiveAccount(client: Pick<SupabaseClient, "from" | "rpc">, user: Identity): Promise<EffectiveAccount | null> {
+export async function readEffectiveAccount(client: Pick<SupabaseClient, "rpc">, user: Identity): Promise<EffectiveAccount | null> {
   if (!user.id || !corporateEmail(user.email) || !user.email_confirmed_at) return null;
   try {
-    const [account, request, active] = await Promise.all([
-      client.from("access_accounts")
-        .select("auth_user_id,perfil,perfis,atuacao_engenharia,atuacoes_engenharia,ativo,approved_at")
-        .eq("auth_user_id", user.id).maybeSingle(),
-      client.from("access_requests").select("auth_user_id,status_acesso,email,email_confirmado_em")
-        .eq("auth_user_id", user.id).maybeSingle(),
-      // Auth bans/deletion and current request state are verified in PostgreSQL,
-      // including for accounts with an already-issued browser session.
-      client.rpc("is_current_access_active"),
-    ]);
-    if (account.error || request.error || active.error || active.data !== true || !account.data || !request.data) return null;
-    const data = account.data;
-    if (data.auth_user_id !== user.id || request.data.auth_user_id !== user.id
-      || request.data.status_acesso !== "APROVADO" || !request.data.email_confirmado_em
-      || request.data.email.toLowerCase() !== user.email!.toLowerCase()
+    // One fresh database snapshot checks Auth bans/deletion, account and request.
+    // Never reuse this result across requests or fall back to a stale authority.
+    const { data: snapshot, error } = await client.rpc("read_current_access_account");
+    if (error || !snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)
+      || !snapshot.account || !snapshot.request) return null;
+    const { account: data, request } = snapshot;
+    if (data.auth_user_id !== user.id || request.auth_user_id !== user.id
+      || request.status_acesso !== "APROVADO" || !request.email_confirmado_em
+      || typeof request.email !== "string" || request.email.toLowerCase() !== user.email!.toLowerCase()
       || data.ativo !== true || !data.approved_at
       || !Array.isArray(data.perfis) || data.perfis.length < 1 || data.perfis.length > accessProfiles.length
       || data.perfis.some((profile: unknown) => !accessProfiles.includes(profile as AccessProfile))
@@ -52,20 +46,12 @@ export async function readEffectiveAccount(client: Pick<SupabaseClient, "from" |
     if (!validEngineeringScopes(data.perfis, data.atuacao_engenharia, data.atuacoes_engenharia)) return null;
     let administrativeScope: AdministrativeScope | null = null;
     if (data.perfis.includes("ADMINISTRATIVO")) {
-      const scope = await client.from("access_accounts").select("atuacao_administrativa")
-        .eq("auth_user_id", user.id).maybeSingle();
-      if (!scope.error && scope.data) {
-        if (!["SEGURANCA", "QUALIDADE", "GERAL"].includes(scope.data.atuacao_administrativa)) return null;
-        administrativeScope = scope.data.atuacao_administrativa as AdministrativeScope;
-      } else if (scope.error?.code === "42703") {
-        // Before B.14, every existing administrator has General authority.
-        // The server helper must confirm it; a scoped account cannot pass it after B.14.
-        const legacy = await client.rpc("is_current_access_administrator");
-        if (legacy.error || legacy.data !== true) return null;
-        administrativeScope = "GERAL";
-      } else return null;
+      if (!["SEGURANCA", "QUALIDADE", "GERAL"].includes(data.atuacao_administrativa)) return null;
+      administrativeScope = data.atuacao_administrativa as AdministrativeScope;
     }
-    return { ...data, atuacao_administrativa: administrativeScope } as EffectiveAccount;
+    return { auth_user_id: data.auth_user_id, perfil: data.perfil, perfis: data.perfis,
+      atuacao_engenharia: data.atuacao_engenharia, atuacoes_engenharia: data.atuacoes_engenharia,
+      atuacao_administrativa: administrativeScope, ativo: true, approved_at: data.approved_at } as EffectiveAccount;
   } catch { return null; }
 }
 

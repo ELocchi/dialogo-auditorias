@@ -34,7 +34,9 @@ function reset(profile = "ADMINISTRATIVO", engineeringScope = null) {
         email_confirmado_em: state.user?.email_confirmed_at,
       }, error: null }; },
     }; },
-    async rpc(name) { assert.equal(name, "is_current_access_active"); return { data: state.active, error: null }; },
+    async rpc(name) { assert.equal(name, "read_current_access_account"); return { data: state.active === true ? { account: state.account,
+      request: { auth_user_id: userId, status_acesso: state.status, email: state.user?.email,
+        email_confirmado_em: state.user?.email_confirmed_at } } : null, error: null }; },
   };
   globalThis.__agendaSessionFixture = state;
 }

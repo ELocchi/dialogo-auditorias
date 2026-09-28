@@ -51,6 +51,9 @@ function reset(profile = "ADMINISTRATIVO", scope = null) {
       },
     }; },
     async rpc(name, params) {
+      if (name === "read_current_access_account") return { data: state.active === true ? { account: state.account,
+        request: { auth_user_id: userId, status_acesso: state.requestStatus, email: state.user?.email,
+          email_confirmado_em: state.user?.email_confirmed_at } } : null, error: null };
       if (name === "read_audit_catalog_document") { state.rpcCalls.push(name); state.documentParams = params; return { data: state.document ?? null, error: state.documentError ?? null }; }
       if (name === "read_auditor_catalog_document") {
         state.calls.push(name); state.rpcCalls.push(name); state.documentParams = params;
