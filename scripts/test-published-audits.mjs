@@ -109,3 +109,31 @@ test("uses the authorized detailed reader when the index RPC is temporarily unav
   assert.equal(snapshot.available, true);
   assert.equal(snapshot.audits[0].id, auditId);
 });
+
+test("signs published audit files in bounded parallel batches", async () => {
+  const indexes = Array.from({ length: 7 }, (_, position) => ({
+    ...indexRow,
+    id: `b1760000-2026-4923-8000-${String(position + 1).padStart(12, "0")}`,
+  }));
+  const details = indexes.map((entry) => ({
+    ...entry, criteria: [criterion],
+    responses: { "F176-Q01": { answer: "Conforme", note: "Aprovado" } },
+    evidenceFiles: [], reportFileName: "relatorio-final.pdf",
+  }));
+  let active = 0;
+  let maximumActive = 0;
+  const batchedClient = {
+    rpc: async (name) => ({ data: name === "read_published_audit_index" ? indexes : details, error: null }),
+    storage: { from: () => ({ createSignedUrls: async (paths) => {
+      active += 1;
+      maximumActive = Math.max(maximumActive, active);
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      active -= 1;
+      return { data: paths.map((path) => ({ path, signedUrl: `https://storage.example/${path}` })), error: null };
+    } }) },
+  };
+  const snapshot = await readPublishedAuditSnapshot(batchedClient, context);
+  assert.equal(snapshot.audits.length, 7);
+  assert.equal(Object.keys(snapshot.responses).length, 7);
+  assert.equal(maximumActive, 6);
+});

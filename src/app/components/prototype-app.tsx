@@ -1,6 +1,7 @@
 "use client";
 
 import { startTransition, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import dynamic from "next/dynamic";
 import { type AuditModelId, type AuditRecord } from "@/domain/operational-records";
 import type { ItemResponse } from "@/domain/audit-draft";
 import { calculateAuditFinalScore } from "@/domain/audit-draft";
@@ -11,20 +12,27 @@ import type { ProfileWorkspaceContext } from "@/lib/access/workspace-context";
 import { unavailableAgenda, withoutPublishedVisit, type AgendaActionResult, type AgendaActorContext, type AgendaSnapshot } from "@/lib/agenda/contracts";
 import { createAgendaVisitAction, deleteAgendaVisitAction, confirmAgendaVisitAction } from "@/app/agenda/actions";
 import { catalogVersion, unavailableCatalogs, type CatalogSnapshot } from "@/lib/catalogs/contracts";
-import { AuditReview, Catalog, NewAudit } from "./audit-workspace";
-import { Works, Occurrences } from "./operational-views";
 import { Icon, type IconName } from "./ui-icon";
-import { VisitAgenda } from "./visit-agenda";
 import { PrototypeDashboard, AuditList, AuditorScheduledAudits, PublishedAuditsPanel, DeferredScreen, AdministrativePanel, AuditPreview, type ActionPlanSource } from "./prototype-workspace";
 import { type AdminNotification } from "./auth/AdminNotifications";
 import { AdministrativeHeader } from "./administrative-header";
-import { FollowUpWorkspace } from "./follow-up-workspace";
-import { ActionPlanEditor, type ActionPlanFinding, type ActionPlanRow } from "./action-plan-editor";
-import { EngineeringFollowUpPanel } from "./engineering-follow-up-panel";
-import { EngineeringResourcePanels, type PublishedAuditFinding } from "./engineering-resource-panels";
+import type { ActionPlanFinding, ActionPlanRow } from "./action-plan-editor";
+import type { PublishedAuditFinding } from "./engineering-resource-panels";
 import styles from "./prototype-app.module.css";
 import { unavailablePublishedAudits, type PublishedAuditSnapshot } from "@/lib/audits/contracts";
 import { assignedAgendaWorks, currentAuditAssignments } from "@/domain/assigned-audit-context";
+
+const loadingPanel = () => <section className="panel"><p className="muted">Carregando funcionalidade...</p></section>;
+const AuditReview = dynamic(() => import("./audit-workspace").then((module) => module.AuditReview), { loading: loadingPanel });
+const Catalog = dynamic(() => import("./audit-workspace").then((module) => module.Catalog), { loading: loadingPanel });
+const NewAudit = dynamic(() => import("./audit-workspace").then((module) => module.NewAudit), { loading: loadingPanel });
+const Works = dynamic(() => import("./operational-views").then((module) => module.Works), { loading: loadingPanel });
+const Occurrences = dynamic(() => import("./operational-views").then((module) => module.Occurrences), { loading: loadingPanel });
+const VisitAgenda = dynamic(() => import("./visit-agenda").then((module) => module.VisitAgenda), { loading: loadingPanel });
+const FollowUpWorkspace = dynamic(() => import("./follow-up-workspace").then((module) => module.FollowUpWorkspace), { loading: loadingPanel });
+const ActionPlanEditor = dynamic(() => import("./action-plan-editor").then((module) => module.ActionPlanEditor), { loading: loadingPanel });
+const EngineeringFollowUpPanel = dynamic(() => import("./engineering-follow-up-panel").then((module) => module.EngineeringFollowUpPanel), { loading: loadingPanel });
+const EngineeringResourcePanels = dynamic(() => import("./engineering-resource-panels").then((module) => module.EngineeringResourcePanels), { loading: loadingPanel });
 
 type PrototypeAppProps = {
   context: ProfileWorkspaceContext;
@@ -635,7 +643,7 @@ function useAgenda(initialAgenda: AgendaSnapshot, userId: string, profile: Profi
     const interval = window.setInterval(() => { void refreshAgenda(); }, 30_000);
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onVisibilityChange);
-    void refreshAgenda();
+    if (!initialAgenda.available) void refreshAgenda();
     return () => {
       mountedRef.current = false;
       controller?.abort();
@@ -643,7 +651,7 @@ function useAgenda(initialAgenda: AgendaSnapshot, userId: string, profile: Profi
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [userId, profile, engineeringScope, administrativeScope]);
+  }, [userId, profile, engineeringScope, administrativeScope, initialAgenda.available]);
 
   const runAgendaAction = async (operation: string, payload: object, action: (requestId: string) => Promise<AgendaActionResult>): Promise<AgendaActionResult> => {
     if (mutationRef.current) return { status: "error", message: "Aguarde a operação de agenda em andamento." };

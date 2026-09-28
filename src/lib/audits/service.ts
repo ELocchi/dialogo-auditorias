@@ -126,7 +126,17 @@ export async function readPublishedAuditSnapshot(client: Client, context: Profil
     const { data, error } = detailResult;
     if (error || !Array.isArray(data) || data.length > 1_000) return { available: true, audits, responses, criteriaSnapshots };
     const indexById = new Map(index.map((row) => [row.id, row]));
+    const auditPositions = new Map(audits.map((audit, position) => [audit.id, position]));
     const detailedIds = new Set<string>();
+    const prepared: Array<{
+      auditId: string;
+      indexed: PublishedAuditIndexRow;
+      criteria: NonNullable<ReturnType<typeof parseCriteria>>;
+      parsedResponses: Record<string, ItemResponse>;
+      evidenceFiles: string[];
+      evidencePaths: string[];
+      reportPath: string;
+    }> = [];
     for (const raw of data) {
       if (!isRecord(raw) || typeof raw.id !== "string" || detailedIds.has(raw.id)) continue;
       const indexed = indexById.get(raw.id);
@@ -140,20 +150,29 @@ export async function readPublishedAuditSnapshot(client: Client, context: Profil
       const parsedResponses = parseResponses(raw.responses, criteria.map((criterion) => criterion.id));
       if (!parsedResponses || (context.profile === "ENGENHARIA" && Object.values(parsedResponses)
         .some((response) => response.checks?.some((check) => check.weight !== undefined)))) continue;
-      const evidencePaths = raw.evidenceFiles.map((name) => `${raw.workId}/${raw.id}/${name}`);
+      const evidenceFiles = raw.evidenceFiles as string[];
+      const evidencePaths = evidenceFiles.map((name) => `${raw.workId}/${raw.id}/${name}`);
       const reportPath = `${raw.workId}/${raw.id}/${raw.reportFileName}`;
-      const { data: signed, error: signedError } = await client.storage.from(publishedAuditBucket)
-        .createSignedUrls([...evidencePaths, reportPath], 60 * 60);
-      if (signedError || !signed || signed.length !== evidencePaths.length + 1 || signed.some((entry) => !entry.signedUrl))
-        continue;
-      const signedUrls = signed.map((entry) => entry.signedUrl);
-      if (signedUrls.some((url): url is null => url === null)) continue;
-      const confirmedUrls = signedUrls as string[];
-      const evidenceUrls = new Map<string, string>(raw.evidenceFiles.map((name, index) => [name, confirmedUrls[index]!]));
-      const auditPosition = audits.findIndex((audit) => audit.id === raw.id);
-      audits[auditPosition] = { ...audits[auditPosition]!, reportUrl: confirmedUrls[confirmedUrls.length - 1] };
-      responses[raw.id] = { [indexed.modelId]: replaceEvidenceReferences(parsedResponses, evidenceUrls) };
-      criteriaSnapshots[raw.id] = criteria;
+      prepared.push({ auditId: raw.id, indexed, criteria, parsedResponses, evidenceFiles, evidencePaths, reportPath });
+    }
+    for (let offset = 0; offset < prepared.length; offset += 6) {
+      const batch = await Promise.all(prepared.slice(offset, offset + 6).map(async (entry) => {
+        const result = await client.storage.from(publishedAuditBucket)
+          .createSignedUrls([...entry.evidencePaths, entry.reportPath], 60 * 60);
+        return { entry, ...result };
+      }));
+      for (const { entry, data: signed, error: signedError } of batch) {
+        if (signedError || !signed || signed.length !== entry.evidencePaths.length + 1 || signed.some((item) => !item.signedUrl))
+          continue;
+        const signedUrls = signed.map((item) => item.signedUrl);
+        if (signedUrls.some((url): url is null => url === null)) continue;
+        const confirmedUrls = signedUrls as string[];
+        const evidenceUrls = new Map<string, string>(entry.evidenceFiles.map((name, index) => [name, confirmedUrls[index]!]));
+        const auditPosition = auditPositions.get(entry.auditId)!;
+        audits[auditPosition] = { ...audits[auditPosition]!, reportUrl: confirmedUrls[confirmedUrls.length - 1] };
+        responses[entry.auditId] = { [entry.indexed.modelId]: replaceEvidenceReferences(entry.parsedResponses, evidenceUrls) };
+        criteriaSnapshots[entry.auditId] = entry.criteria;
+      }
     }
     return { available: true, audits, responses, criteriaSnapshots };
   } catch {
