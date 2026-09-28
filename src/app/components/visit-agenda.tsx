@@ -21,11 +21,13 @@ import {
   type AuditModelId,
   type WorkRecord,
 } from "@/domain/operational-records";
+import { getHistoryPage } from "@/domain/audit-history";
 import { getSaoPauloToday, isCalendarDate } from "@/domain/visit-calendar";
 import type { AgendaActionResult } from "@/lib/agenda/contracts";
 import { AdminVisitCalendar } from "./admin-visit-calendar";
 import { Icon } from "./ui-icon";
 import styles from "./visit-agenda.module.css";
+import paginationStyles from "./history-pagination.module.css";
 
 type VisitAgendaProps = {
   user: DemoUser;
@@ -107,11 +109,9 @@ function AdministrativeAgenda({ user, works, users, visits, module, workId, avai
           <div><h3 id={listId}>{selectedAuditor ? `Agenda de ${selectedAuditor.name}` : "Visitas agendadas"}</h3>{selectedAuditor && <button type="button" className={styles.clearProfile} onClick={() => setSelectedAuditorId(null)}>Ver todos os perfis</button>}</div>
           <button ref={addButtonRef} type="button" className={styles.addVisit} aria-label="Agendar visita" title="Agendar visita" aria-haspopup="dialog" disabled={mutationPending} onClick={() => dialogRef.current?.showModal()}><Icon name="plus" /></button>
         </div>
-        {visibleVisits.length ? <div className={styles.visitList}>
-          {visibleVisits.map((visit) => <VisitCard key={visit.id} visit={visit} user={user} users={users}
-            work={authorizedWorks.find((work) => work.id === visit.workId)} available={available} mutationPending={mutationPending}
-            onDelete={onDelete} onConfirm={onConfirm} />)}
-        </div> : <div className={styles.scheduledEmpty}>
+        {visibleVisits.length ? <PaginatedVisitList key={`${user.id}:${user.role}:${selectedAuditorId ?? "all"}`}
+          visits={visibleVisits} works={authorizedWorks} user={user} users={users} available={available}
+          mutationPending={mutationPending} onDelete={onDelete} onConfirm={onConfirm} /> : <div className={styles.scheduledEmpty}>
           <CalendarIcon />
           <p>{!available ? "Aguardando acesso à agenda." : authorizedWorks.length ? "Nenhuma visita agendada." : "Nenhuma obra disponível para agendamento."}</p>
         </div>}
@@ -146,11 +146,9 @@ function AuditorAgenda({ user, works, users, visits, available, mutationPending 
     <div className={styles.administrativeLayout}>
       <section className={`panel ${styles.scheduledPanel}`} aria-labelledby={listId}>
         <div className={styles.scheduledHeading}><h3 id={listId}>Visitas agendadas</h3></div>
-        {visibleVisits.length ? <div className={styles.visitList}>
-          {visibleVisits.map((visit) => <VisitCard key={visit.id} visit={visit} user={user} users={users}
-            work={authorizedWorks.find((work) => work.id === visit.workId)} available={available} mutationPending={mutationPending}
-            onDelete={onDelete} onConfirm={onConfirm} collapsedInitially />)}
-        </div> : <div className={styles.scheduledEmpty}>
+        {visibleVisits.length ? <PaginatedVisitList key={`${user.id}:${user.role}`}
+          visits={visibleVisits} works={authorizedWorks} user={user} users={users} available={available}
+          mutationPending={mutationPending} onDelete={onDelete} onConfirm={onConfirm} collapsedInitially /> : <div className={styles.scheduledEmpty}>
           <CalendarIcon />
           <p>{!available ? "Aguardando acesso à agenda." : "Nenhuma visita agendada para este auditor."}</p>
         </div>}
@@ -181,11 +179,9 @@ function EngineeringAgenda({ user, works, users, visits, available, mutationPend
             {selectedVisitorId && <button type="button" className={styles.clearProfile} onClick={() => setSelectedVisitorId(null)}>Ver todos os perfis</button>}
           </div>
         </div>
-        {visibleVisits.length ? <div className={styles.visitList}>
-          {visibleVisits.map((visit) => <VisitCard key={visit.id} visit={visit} user={user} users={users}
-            work={authorizedWorks.find((work) => work.id === visit.workId)} available={available} mutationPending={mutationPending}
-            onDelete={onDelete} onConfirm={onConfirm} collapsedInitially />)}
-        </div> : <div className={styles.scheduledEmpty}>
+        {visibleVisits.length ? <PaginatedVisitList key={`${user.id}:${user.role}:${user.activity ?? ""}:${selectedVisitorId ?? "all"}`}
+          visits={visibleVisits} works={authorizedWorks} user={user} users={users} available={available}
+          mutationPending={mutationPending} onDelete={onDelete} onConfirm={onConfirm} collapsedInitially /> : <div className={styles.scheduledEmpty}>
           <CalendarIcon />
           <p>{!available ? "Aguardando acesso à agenda." : authorizedWorks.length ? "Nenhuma visita agendada nas obras autorizadas." : "Nenhuma obra disponível na agenda."}</p>
         </div>}
@@ -230,24 +226,44 @@ function AgendaContext({ user, works, users, visits, module, workId, available, 
         <h3>Visitas agendadas</h3>
         <span>Ordenadas pela data prevista</span>
       </div>
-      {visibleVisits.length > 0 ? <div className={styles.visitList}>
-        {visibleVisits.map((visit) => <VisitCard
-          key={visit.id}
-          visit={visit}
-          user={user}
-          users={users}
-          work={authorizedWorks.find((work) => work.id === visit.workId)}
-          available={available}
-          mutationPending={mutationPending}
-          onDelete={onDelete}
-          onConfirm={onConfirm}
-        />)}
-      </div> : <section className={`panel ${styles.empty}`}>
+      {visibleVisits.length > 0 ? <PaginatedVisitList key={`${user.id}:${user.role}:${user.activity ?? ""}`}
+        visits={visibleVisits} works={authorizedWorks} user={user} users={users} available={available}
+        mutationPending={mutationPending} onDelete={onDelete} onConfirm={onConfirm} /> : <section className={`panel ${styles.empty}`}>
         <CalendarIcon />
         <h3>Nenhuma visita disponível</h3>
         <p>{!available ? "Aguardando acesso à agenda." : canManage ? "Agende uma visita no formulário acima." : "Não há visitas para consulta nas obras autorizadas deste perfil."}</p>
       </section>}
     </>}
+  </>;
+}
+
+/** Paginate only the cards: the calendar always receives the full authorized collection. */
+function PaginatedVisitList({ visits, works, user, users, available, mutationPending, onDelete, onConfirm, collapsedInitially }: Pick<VisitAgendaProps,
+  "visits" | "works" | "user" | "users" | "available" | "mutationPending" | "onDelete" | "onConfirm"> & { collapsedInitially?: boolean }) {
+  const [requestedPage, setPage] = useState(1);
+  const listRef = useRef<HTMLDivElement>(null);
+  const page = getHistoryPage(visits, requestedPage, 20);
+  // Retain the clamped page after deletion, including when later refreshes add visits.
+  if (page.page !== requestedPage) setPage(page.page);
+  const worksById = new Map(works.map((work) => [work.id, work]));
+  const changePage = (nextPage: number) => {
+    setPage(nextPage);
+    listRef.current?.focus({ preventScroll: true });
+    listRef.current?.scrollIntoView({ block: "start" });
+  };
+  return <>
+    <div ref={listRef} className={styles.visitList} tabIndex={-1} role="group" aria-label="Lista de visitas agendadas">
+      {page.items.map((visit) => <VisitCard key={visit.id} visit={visit} user={user} users={users}
+        work={worksById.get(visit.workId)} available={available} mutationPending={mutationPending}
+        onDelete={onDelete} onConfirm={onConfirm} collapsedInitially={collapsedInitially} />)}
+    </div>
+    {page.pageCount > 1 && <nav className={paginationStyles.pagination} aria-label="Páginas de visitas agendadas">
+      <p aria-live="polite">{page.first}–{page.last} de {page.total} visitas<span>Página {page.page} de {page.pageCount}</span></p>
+      <div>
+        <button type="button" className="secondary" disabled={page.page === 1 || mutationPending} onClick={() => changePage(page.page - 1)}>Anterior</button>
+        <button type="button" className="secondary" disabled={page.page === page.pageCount || mutationPending} onClick={() => changePage(page.page + 1)}>Próxima</button>
+      </div>
+    </nav>}
   </>;
 }
 
@@ -610,7 +626,7 @@ export function VisitCard({ visit, user, users, work, available, mutationPending
         </span>
         <span className={styles.expandIndicator} aria-hidden="true" />
       </summary>
-      <div className={styles.visitExpanded}>
+      {expanded && <div className={styles.visitExpanded}>
         {confirmAllowed && <div className={styles.visitActions}>
           <button type="button" className="primary" disabled={!available || mutationPending || confirming} onClick={() => { void confirm(); }}>{confirming ? "Confirmando…" : "Confirmar data"}</button>
         </div>}
@@ -629,7 +645,7 @@ export function VisitCard({ visit, user, users, work, available, mutationPending
 
         {error && <p role="alert" className={styles.error}>{error}</p>}
         {success && <p role="status" className={styles.success}>{success}</p>}
-      </div>
+      </div>}
     </details>
   </article>;
 }

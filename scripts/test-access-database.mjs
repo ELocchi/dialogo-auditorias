@@ -29,9 +29,10 @@ const dashboardSyncOnly = process.argv.includes("--dashboard-sync-only");
 const followUpWorkspaceOnly = process.argv.includes("--follow-up-workspace-only");
 const followUpTargetedOnly = process.argv.includes("--follow-up-targeted-only");
 const accessContextOnly = process.argv.includes("--access-context-only");
-if (process.argv.slice(2).some((arg) => !["--baseline-only", "--assignment-only", "--overview-only", "--sync-only", "--projection-only", "--comparison-only", "--history-only", "--dashboard-sync-only", "--follow-up-workspace-only", "--follow-up-targeted-only", "--access-context-only"].includes(arg))
-  || ([baselineOnly, assignmentOnly, overviewOnly, syncOnly, projectionOnly, comparisonOnly, historyOnly, dashboardSyncOnly, followUpWorkspaceOnly, followUpTargetedOnly, accessContextOnly].filter(Boolean).length > 1)) {
-  throw new Error("Supported arguments: --baseline-only, --assignment-only, --overview-only, --sync-only, --projection-only, --comparison-only, --history-only, --dashboard-sync-only, --follow-up-workspace-only, --follow-up-targeted-only or --access-context-only");
+const administrationPageOnly = process.argv.includes("--administration-page-only");
+if (process.argv.slice(2).some((arg) => !["--baseline-only", "--assignment-only", "--overview-only", "--sync-only", "--projection-only", "--comparison-only", "--history-only", "--dashboard-sync-only", "--follow-up-workspace-only", "--follow-up-targeted-only", "--access-context-only", "--administration-page-only"].includes(arg))
+  || ([baselineOnly, assignmentOnly, overviewOnly, syncOnly, projectionOnly, comparisonOnly, historyOnly, dashboardSyncOnly, followUpWorkspaceOnly, followUpTargetedOnly, accessContextOnly, administrationPageOnly].filter(Boolean).length > 1)) {
+  throw new Error("Supported arguments: --baseline-only, --assignment-only, --overview-only, --sync-only, --projection-only, --comparison-only, --history-only, --dashboard-sync-only, --follow-up-workspace-only, --follow-up-targeted-only, --access-context-only or --administration-page-only");
 }
 
 async function loadPGlite() {
@@ -351,6 +352,17 @@ if (!baselineOnly) suites.push({
   omitHistoricPublicationBackfills: true,
 });
 
+if (!baselineOnly) suites.push({
+  name: "B.37 Paged administration views, history parity and authorization suite",
+  migrations: readdirSync(path.join(projectRoot, "supabase", "migrations"))
+    .filter((name) => name.endsWith(".sql") && name <= "20260928001000_paged_access_administration.sql"
+      && name !== "20260924000200_verify_published_audit_access.sql")
+    .sort(),
+  test: "paged_access_administration.sql",
+  storageAdapter: true,
+  omitHistoricPublicationBackfills: true,
+});
+
 const { PGlite } = await loadPGlite();
 for (const suite of suites.filter((item) => (!assignmentOnly || item.test === "audit_assignment_access.sql")
   && (!overviewOnly || item.test === "published_audit_overview.sql")
@@ -361,7 +373,8 @@ for (const suite of suites.filter((item) => (!assignmentOnly || item.test === "a
   && (!dashboardSyncOnly || item.test === "conditional_audit_overview.sql")
   && (!followUpWorkspaceOnly || item.test === "follow_up_workspace_reads.sql")
   && (!followUpTargetedOnly || item.test === "follow_up_targeted_reads.sql")
-  && (!accessContextOnly || item.test === "access_context_reads.sql"))) {
+  && (!accessContextOnly || item.test === "access_context_reads.sql")
+  && (!administrationPageOnly || item.test === "paged_access_administration.sql"))) {
   const db = await PGlite.create();
   let currentSqlFile = "";
   try {
@@ -419,7 +432,14 @@ for (const suite of suites.filter((item) => (!assignmentOnly || item.test === "a
       await new Promise((resolve) => setTimeout(resolve, 300));
       await db.exec(phases[1]);
     } else {
-      await db.exec(testSql);
+      const results = await db.exec(testSql);
+      if (suite.test === "paged_access_administration.sql") {
+        const metrics = results.flatMap((result) => result.rows).find((row) => row.administration_fixture_metrics)?.administration_fixture_metrics;
+        assert.ok(metrics, "Paged administration fixture must provide count and JSON byte evidence.");
+        assert.ok(metrics.accountsAfter < metrics.accountsBefore && metrics.decisionsAfter < metrics.decisionsBefore);
+        assert.ok(metrics.historyAndWorksBytesAfter < metrics.historyAndWorksBytesBefore);
+        console.log(`Synthetic administration fixture (JSON bytes, not production latency): ${JSON.stringify(metrics)}`);
+      }
     }
     if (suite.validateBuiltInCatalogs) {
       const { criteriaForModel } = await import(pathToFileURL(path.join(projectRoot, "src", "domain", "prototype-audits.ts")).href);

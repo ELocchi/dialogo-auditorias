@@ -3,62 +3,29 @@ import { cache } from "react";
 import { requireAdministrator } from "@/lib/auth/session";
 import { platformDisplayName } from "@/lib/auth/display-name";
 import { createClient } from "@/lib/supabase/server";
+import { readAdministration, type AdministrationHistoryPage, type AdministrationView } from "@/lib/access/administration-service";
 import { administrativeLabels, profileLabels, type AccessDecision, type AccessGrant, type AccessProfile, type AccessWork, type EditableAccessAccount, type PendingRequest } from "@/lib/access/contracts";
 import { PendingRequests } from "@/app/components/access/PendingRequests";
 import { EditUserDialog } from "@/app/components/access/EditUserDialog";
 import styles from "@/app/administracao/usuarios/access.module.css";
 
 const pageSize = 20;
-const decisionColumns = "id,auth_user_id,decision_type,perfil,perfis,atuacao_engenharia,atuacoes_engenharia,request_snapshot,grants_snapshot,before_access_snapshot,actor_snapshot,reason,actor_auth_user_id,actor_database_role,decided_at";
 const date = (value: string) => new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" }).format(new Date(value));
 
-const loadAdministration = cache(async (pendingPage: number) => {
+// React cache is scoped to this server render; each request rechecks database access.
+const loadAdministration = cache(async (view: AdministrationView, page: number) => {
   try {
-    const client = await createClient();
-    const [requests, works, decisions, accounts, activeAccounts, grants, scopeHistory] = await Promise.all([
-      client.from("access_requests")
-        .select("auth_user_id,nome,email,cargo_area_informado,obra_referencia_informada,email_confirmado_em,created_at", { count: "exact" })
-        .eq("status_acesso", "PENDENTE_APROVACAO").not("email_confirmado_em", "is", null)
-        .order("created_at", { ascending: true }).order("auth_user_id", { ascending: true })
-        .range((pendingPage - 1) * pageSize, pendingPage * pageSize - 1),
-      client.from("access_works").select("id,nome,ativo").eq("ativo", true).order("nome", { ascending: true }).limit(1000),
-      client.from("access_decisions")
-        .select(decisionColumns, { count: "exact" })
-        .order("decided_at", { ascending: false }).order("id", { ascending: false })
-        .range(0, 999),
-      client.from("access_accounts").select("auth_user_id,perfis,atuacao_engenharia,atuacoes_engenharia,atuacao_administrativa,ativo").order("approved_at", { ascending: false }).limit(1000),
-      client.from("access_accounts").select("auth_user_id", { count: "exact", head: true }).eq("ativo", true),
-      client.from("access_grants").select("auth_user_id,perfil,obra_id,modulo").limit(10000),
-      client.rpc("read_administrative_scope_history"),
-    ]);
-    if (requests.error || works.error || decisions.error || accounts.error || activeAccounts.error || grants.error || !requests.data || !works.data || !decisions.data || !accounts.data || !grants.data
-      || requests.count === null || decisions.count === null || activeAccounts.count === null) return null;
-    if (scopeHistory.error && !["42883", "PGRST202"].includes(scopeHistory.error.code ?? "")) return null;
-    let decisionRows = decisions.data;
-    while (decisionRows.length < decisions.count) {
-      const next = await client.from("access_decisions").select(decisionColumns)
-        .order("decided_at", { ascending: false }).order("id", { ascending: false })
-        .range(decisionRows.length, Math.min(decisionRows.length + 999, decisions.count - 1));
-      if (next.error || !next.data?.length) return null;
-      decisionRows = [...decisionRows, ...next.data];
-    }
-    const scopes = scopeHistory.data && typeof scopeHistory.data === "object" && !Array.isArray(scopeHistory.data)
-      ? scopeHistory.data as Record<string, unknown> : {};
-    return {
-      requests: requests.data as PendingRequest[], works: works.data as AccessWork[],
-      decisions: (decisionRows as AccessDecision[]).map((decision) => ({ ...decision,
-        atuacao_administrativa: ["SEGURANCA", "QUALIDADE", "GERAL"].includes(String(scopes[decision.id]))
-          ? scopes[decision.id] as AccessDecision["atuacao_administrativa"] : null })), pendingCount: requests.count,
-      accounts: accounts.data as EditableAccessAccount[],
-      currentGrants: grants.data as (AccessGrant & { auth_user_id: string })[],
-      activeCount: activeAccounts.count,
-    };
+    return await readAdministration(await createClient(), view, page);
   } catch { return null; }
 });
 
 export async function AccessAdministration({ embedded = false, pendingPage = 1, historyPage = 1, pendingOnly = false, historyOnly = false }: { embedded?: boolean; pendingPage?: number; historyPage?: number; pendingOnly?: boolean; historyOnly?: boolean }) {
   const user = await requireAdministrator();
-  const data = await loadAdministration(pendingPage);
+  const view = pendingOnly ? "pending" : historyOnly ? "history" : "summary";
+  const data = await loadAdministration(view, view === "history" ? historyPage : pendingPage);
+  const retryHref = view === "pending" ? `/administracao/usuarios/pendentes?pendentes=${pendingPage}`
+    : view === "history" ? `/administracao/usuarios/historico?historico=${historyPage}`
+    : embedded ? "/app?secao=administracao" : "/administracao/usuarios";
   const previewRequest: PendingRequest | null = process.env.NODE_ENV !== "production" && pendingPage === 1 ? {
     auth_user_id: "00000000-0000-4000-8000-000000000903",
     nome: "Mariana Souza · Exemplo LAN",
@@ -73,11 +40,11 @@ export async function AccessAdministration({ embedded = false, pendingPage = 1, 
         {!embedded && <p className={styles.eyebrow}>Administração</p>}
         <h2>Usuários e acessos</h2>
       </div>}
-      {!data ? <div className={styles.error} role="alert"><p>Não foi possível carregar a administração com segurança. Nenhuma aprovação pode ser enviada nesta tela até a consulta ser restabelecida.</p><Link href={embedded ? "/app?secao=administracao" : "/administracao/usuarios"}>Tentar carregar novamente</Link></div> : <>
-        {pendingOnly ? <section id="pending-heading" className={styles.section} aria-label="Solicitações prontas para análise">
+      {!data ? <div className={styles.error} role="alert"><p>Não foi possível carregar a administração com segurança. Nenhuma aprovação pode ser enviada nesta tela até a consulta ser restabelecida.</p><Link href={retryHref}>Tentar carregar novamente</Link></div> : <>
+        {data.view === "pending" ? <section id="pending-heading" className={styles.section} aria-label="Solicitações prontas para análise">
           <PendingRequests requests={previewRequest ? [...data.requests, previewRequest] : data.requests} works={data.works} actorId={user.id} previewIds={previewRequest ? [previewRequest.auth_user_id] : []} />
-          <Pagination current={pendingPage} total={data.pendingCount + (previewRequest ? 1 : 0)} kind="pendentes" other={historyPage} embedded={false} base="/administracao/usuarios/pendentes?" />
-        </section> : historyOnly ? <HistorySection data={data} historyPage={historyPage} actorId={user.id} /> : <>
+          <Pagination current={pendingPage} total={data.total + (previewRequest ? 1 : 0)} kind="pendentes" other={historyPage} embedded={false} base="/administracao/usuarios/pendentes?" />
+        </section> : data.view === "history" ? <HistorySection data={data} historyPage={historyPage} actorId={user.id} /> : <>
         <div className={styles.stats}>
           <Link className={`${styles.stat} ${styles.statLink}`} href="/administracao/usuarios/pendentes" target="_blank" rel="noopener noreferrer" aria-label={`${data.pendingCount + (previewRequest ? 1 : 0)} aprovações pendentes. Abrir em uma nova janela.`}><strong>{data.pendingCount + (previewRequest ? 1 : 0)}</strong><span>Aprovações</span></Link>
           <Link className={`${styles.stat} ${styles.statLink}`} href="/administracao/usuarios/historico" aria-label={`${data.activeCount} contas ativas. Abrir Aprovações e Histórico.`}><strong>{data.activeCount}</strong><span>Contas Ativas</span></Link>
@@ -88,33 +55,19 @@ export async function AccessAdministration({ embedded = false, pendingPage = 1, 
   </div>;
 }
 
-function HistorySection({ data, historyPage, actorId }: { data: NonNullable<Awaited<ReturnType<typeof loadAdministration>>>; historyPage: number; actorId: string }) {
-  const allUserHistories = groupUserHistories(data.decisions, data.accounts);
-  const userHistories = allUserHistories.slice((historyPage - 1) * pageSize, historyPage * pageSize);
+function HistorySection({ data, historyPage, actorId }: { data: AdministrationHistoryPage; historyPage: number; actorId: string }) {
   const workNames = new Map(data.works.map((work) => [work.id, work.nome]));
   return <section id="history-heading" className={`${styles.section} ${styles.standaloneSection}`} aria-label="Aprovações e histórico">
-    {userHistories.length === 0 && <p className={styles.empty}>Nenhum perfil aprovado nesta página.</p>}
-    <div className={styles.history}>{userHistories.map(({ account, decisions }) =>
+    {data.users.length === 0 && <p className={styles.empty}>Nenhum perfil aprovado nesta página.</p>}
+    <div className={styles.history}>{data.users.map(({ account, decisions, grants }) =>
       <UserProfileCard key={account.auth_user_id} account={account} decisions={decisions}
-        grants={data.currentGrants.filter((grant) => grant.auth_user_id === account.auth_user_id)} works={data.works} workNames={workNames} actorId={actorId} />
+        grants={grants} works={data.works} workNames={workNames} actorId={actorId} />
     )}</div>
-    <Pagination current={historyPage} total={allUserHistories.length} kind="historico" other={1} embedded={false} base="/administracao/usuarios/historico?" />
+    <Pagination current={historyPage} total={data.total} kind="historico" other={1} embedded={false} base="/administracao/usuarios/historico?" />
   </section>;
 }
 
 const decisionProfiles = (decision: AccessDecision) => [...new Set(decision.perfis?.length ? decision.perfis : [decision.perfil])];
-
-function groupUserHistories(decisions: AccessDecision[], accounts: EditableAccessAccount[]) {
-  const groups = new Map(accounts.map((account) => [account.auth_user_id, { account, decisions: [] as AccessDecision[] }]));
-  for (const decision of decisions) {
-    groups.get(decision.auth_user_id)?.decisions.push(decision);
-  }
-  return [...groups.values()].sort((left, right) => {
-    const leftDate = left.decisions[0]?.decided_at ?? "";
-    const rightDate = right.decisions[0]?.decided_at ?? "";
-    return rightDate.localeCompare(leftDate);
-  });
-}
 
 const profileLabelFor = (decision: AccessDecision, profile: AccessProfile) => profile === "ADMINISTRATIVO" && decision.atuacao_administrativa
   ? administrativeLabels[decision.atuacao_administrativa]
