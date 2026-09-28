@@ -21,10 +21,16 @@ function reset(profile = "AUDITOR_QUALIDADE") {
     context: { profile, engineeringScope: profile === "ENGENHARIA" ? "EQUIPE_OBRA" : null, administrativeScope: null,
       works: [{ id: workId }], user: { id: userId, role: "quality-auditor", modules: ["quality"], workIds: [workId],
         workModuleScopes: [{ workId, module: "quality" }] } },
-    guards: 0, resourceReads: 0, downloads: [], signed: 0, queries: [] };
+    guards: 0, resourceReads: 0, downloads: [], signed: 0, queries: [], rpcCalls: [], rpcError: null };
   state.client = {
     async rpc(name, parameters) {
       state.resourceReads++;
+      state.rpcCalls.push({ name, parameters });
+      if (name === "can_read_follow_up_finding_photo") {
+        assert.deepEqual(parameters, { p_visit_id: visitId, p_finding_id: findingId, p_file_name: fileName,
+          p_profile: state.context.profile, p_engineering_scope: state.context.engineeringScope, p_administrative_scope: null });
+        return { data: state.authorized && state.findingExists && state.visitExists && state.photoExists, error: state.rpcError };
+      }
       assert.equal(name, "read_published_audit_report");
       assert.deepEqual(parameters, { p_audit_id: auditId, p_profile: state.context.profile,
         p_engineering_scope: state.context.engineeringScope, p_administrative_scope: null });
@@ -37,7 +43,7 @@ function reset(profile = "AUDITOR_QUALIDADE") {
     },
     storage: { from(bucket) { return {
       async download(file) { state.downloads.push({ bucket, file }); return { data: image, error: null }; },
-      async list() { return { data: state.photoExists ? [{ name: fileName }] : [], error: null }; },
+      async list() { throw new Error("Exact photos must never list a Storage directory"); },
       async createSignedUrl() { state.signed++; throw new Error("Never needed"); },
     }; } },
   };
@@ -48,9 +54,9 @@ const stubs = {
   "supabase/server": "export async function createClient() { return globalThis.__photoFixture.client; }",
   "audits/request-context": `export const auditResponseHeaders = { 'Cache-Control':'private, no-store', Vary:'Cookie' };
     export async function readAuditRequestContext() { const s=globalThis.__photoFixture; s.guards++; return { context:s.authStatus===200?s.context:null, status:s.authStatus }; }`,
-  "agenda/service": `export async function readAgendaSnapshot() { const s=globalThis.__photoFixture; s.resourceReads++; return {available:true,visits:s.visitExists?[{id:'${visitId}',workId:'${workId}',auditorId:'${userId}',module:'quality',kind:'follow_up',modelId:null}]:[]}; }`,
-  "follow-up/findings": `export async function readFindingDrafts() { const s=globalThis.__photoFixture; return {available:true,drafts:s.findingExists?[{visitId:'${visitId}',findings:[{id:'${findingId}'}]}]:[]}; }`,
-  "follow-up/service": "export async function readFollowUpReports() { return {available:true,reports:[]}; }",
+  "agenda/service": "export async function readAgendaSnapshot() { throw new Error('No full agenda per photo'); }",
+  "follow-up/findings": "export async function readFindingDrafts() { throw new Error('No full draft list per photo'); }",
+  "follow-up/service": "export async function readFollowUpReports() { throw new Error('No full report list per photo'); }",
 };
 registerHooks({ resolve(specifier, context, nextResolve) {
   const key = Object.keys(stubs).find((candidate) => specifier === candidate || specifier.endsWith(`/${candidate}`) || specifier.endsWith(`/${candidate}.ts`));
@@ -134,4 +140,24 @@ test("visit photo cache cannot bypass missing visit, removed photo or a differen
   await assert.rejects(() => run(endpoints[2]), { status: 404 });
   assert.equal(state.resourceReads, 0);
   assert.equal(state.downloads.length, 0);
+});
+
+test("visit image uses one exact RPC, no list calls, and preserves original bytes", async () => {
+  reset();
+  const response = await run(endpoints[2], false);
+  assert.equal(response.status, 200);
+  assert.equal(state.guards, 1); assert.equal(state.resourceReads, 1);
+  assert.equal(state.rpcCalls[0].name, "can_read_follow_up_finding_photo");
+  assert.deepEqual(state.queries, []);
+  assert.deepEqual(await response.arrayBuffer(), await image.arrayBuffer());
+  assert.equal(response.headers.get("Content-Type"), "image/png");
+});
+
+test("photo authorization errors and malformed responses cannot reuse a warm thumbnail", async () => {
+  reset(); assert.equal((await run(endpoints[2])).status, 200);
+  state.rpcError = { code: "XX000", message: "Unavailable" };
+  assert.equal((await run(endpoints[2])).status, 503);
+  state.client.rpc = async () => ({ data: "true", error: null });
+  assert.equal((await run(endpoints[2])).status, 503);
+  assert.equal(state.signed, 0);
 });

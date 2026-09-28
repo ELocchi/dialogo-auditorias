@@ -3,9 +3,7 @@ import { notFound } from "next/navigation";
 import { requireActiveProfile } from "@/lib/auth/session";
 import { readWorkspaceContext } from "@/lib/access/workspace";
 import { createClient } from "@/lib/supabase/server";
-import { readAgendaSnapshot } from "@/lib/agenda/service";
-import { readFollowUpReports } from "@/lib/follow-up/service";
-import { readFindingDrafts } from "@/lib/follow-up/findings";
+import { readFollowUpVisit, readFollowUpReportDetail } from "@/lib/follow-up/visit-service";
 import { readVisitPhotos } from "@/lib/follow-up/photos";
 import { formatAuditDate } from "@/domain/operational-records";
 import { getSaoPauloToday } from "@/domain/visit-calendar";
@@ -29,33 +27,27 @@ export default async function ReportPage({ params, searchParams }: {
   const context = await readWorkspaceContext(active);
   if (!context || (context.profile !== "AUDITOR_SEGURANCA" && context.profile !== "AUDITOR_QUALIDADE")) notFound();
   const client = await createClient();
-  const [agenda, reports, drafts, photos] = await Promise.all([
-    readAgendaSnapshot(client, context), readFollowUpReports(client, context), readFindingDrafts(client, context),
-    readVisitPhotos(client, context.user.id, visitId),
-  ]);
-  const visit = agenda.visits.find((entry) => entry.id === visitId && entry.kind === "follow_up"
-    && entry.auditorId === context.user.id && canReadVisit(context.user, entry));
+  const snapshot = reportId ? await readFollowUpReportDetail(client, context, visitId, reportId)
+    : await readFollowUpVisit(client, context, visitId);
+  if (!snapshot.available) throw new Error("Não foi possível consultar o acompanhamento. Tente novamente.");
+  const visit = snapshot.visit;
   const work = visit && context.works.find((entry) => entry.id === visit.workId);
-  if (!visit || !work) notFound();
-  const visitReports = reports.reports.filter((entry) => entry.visitId === visitId);
-  const selectedReport = reportId ? visitReports.find((entry) => entry.id === reportId) : undefined;
+  if (!visit || !work || !canReadVisit(context.user, visit)) notFound();
+  const visitReports = "reports" in snapshot ? snapshot.reports : [];
+  const selectedReport = "report" in snapshot ? snapshot.report ?? undefined : undefined;
   if (reportId && !selectedReport) notFound();
-  const { data: workFindingRows } = await client.from("follow_up_work_findings")
-    .select("id,work_id,modulo,location,description,correction,photo_file_name,created_at")
-    .eq("work_id", work.id).eq("auditor_auth_user_id", context.user.id)
-    .eq("modulo", visit.module === "safety" ? "SEGURANCA" : "QUALIDADE").is("completed_at", null).limit(1000);
-  const workFindings = (workFindingRows ?? []).map((row) => ({ id: row.id, workId: row.work_id,
-    module: row.modulo === "SEGURANCA" ? "safety" as const : "quality" as const,
-    location: row.location, description: row.description, correction: row.correction,
-    photoFileName: row.photo_file_name, createdAt: row.created_at }));
+  const draft = "draft" in snapshot ? snapshot.draft ?? undefined : undefined;
+  const workFindings = "workFindings" in snapshot ? snapshot.workFindings : [];
   const sortedReports = visitReports.slice().sort((a, b) => a.updatedAt.localeCompare(b.updatedAt));
   const showingIndex = !reportId && novo !== "1" && sortedReports.length > 0;
   const returnToIndex = Boolean(reportId || (novo === "1" && sortedReports.length > 0));
-  const canCreate = agenda.available && reports.available && drafts.available
-    && visit.confirmationStatus === "confirmed" && visit.date <= getSaoPauloToday()
+  const canCreate = visit.confirmationStatus === "confirmed" && visit.date <= getSaoPauloToday()
     && sortedReports.every((report) => report.id !== report.visitId)
-    && (sortedReports.length > 0 || (drafts.drafts.find((entry) => entry.visitId === visitId)?.findings.length ?? 0) > 0
-      || workFindings.length > 0);
+    && (sortedReports.length > 0 || (draft?.findings.length ?? 0) > 0 || workFindings.length > 0);
+  // Only the editor uses thumbnails. Index and closed report pages leave Storage to the PDF request.
+  const hasVisitFindings = (draft?.findings.length ?? 0) > 0 || visitReports.some((entry) => entry.findings.length > 0);
+  const photos = !showingIndex && !selectedReport && hasVisitFindings
+    ? await readVisitPhotos(client, context.user.id, visitId) : [];
   const actor = { userId: context.user.id, profile: context.profile,
     engineeringScope: context.engineeringScope ?? null, administrativeScope: context.administrativeScope };
   const auditModule = context.user.modules.find((module) => canAccessModule(context.user, module));
@@ -91,13 +83,13 @@ export default async function ReportPage({ params, searchParams }: {
             <Link className="secondary" href={`/app/acompanhamento/relatorio/${visitId}?relatorio=${report.id}`}>Abrir relatório</Link>
           </li>)}</ul>
         </section>
-      </div> : <FollowUpReportPage visit={visit} work={work} actor={actor} agendaAvailable={agenda.available}
+      </div> : <FollowUpReportPage visit={visit} work={work} actor={actor} agendaAvailable={snapshot.available}
           initialReport={selectedReport}
           initialReportedFindings={visitReports.flatMap((entry) => entry.findings)}
-          initialDraft={drafts.drafts.find((entry) => entry.visitId === visitId)}
+          initialDraft={draft}
           initialPhotos={photos ?? []}
           initialWorkFindings={workFindings}
-          reportsAvailable={reports.available} draftsAvailable={drafts.available} />}
+          reportsAvailable={snapshot.available} draftsAvailable={snapshot.available} />}
     </main>
   </div>;
 }

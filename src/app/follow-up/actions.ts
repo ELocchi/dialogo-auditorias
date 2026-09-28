@@ -8,6 +8,7 @@ import { readFindingDrafts, saveFindingDrafts, type FindingDraftSnapshot, type S
 import { detectPhotoType, followUpPhotoBucket, maxPhotoBytes, maxPhotosPerFinding,
   photoPath, readVisitPhotos, type FindingPhoto } from "@/lib/follow-up/photos";
 import { readAgendaSnapshot } from "@/lib/agenda/service";
+import { readFollowUpVisit } from "@/lib/follow-up/visit-service";
 import { canReadVisit } from "@/domain/prototype-access";
 import { getSaoPauloToday } from "@/domain/visit-calendar";
 import { uuidPattern } from "@/lib/access/validation";
@@ -120,19 +121,15 @@ export async function saveFollowUpReportAction(input: unknown, expected: AgendaA
   const value = parseSaveFollowUp(input);
   if (!value) return { status: "error", message: "Confira o nome, os textos e os apontamentos selecionados antes de salvar." };
   const client = await createClient({ writableCookies: true });
-  const [drafts, reports] = await Promise.all([readFindingDrafts(client, context), readFollowUpReports(client, context)]);
-  if (!drafts.available || !reports.available) return { status: "error", message: "Não foi possível conferir os apontamentos. Atualize a página." };
-  const currentDraft = drafts.drafts.find((entry) => entry.visitId === value.visitId);
-  const agenda = await readAgendaSnapshot(client, context);
-  const visit = agenda.visits.find((entry) => entry.id === value.visitId && entry.auditorId === context.user.id);
-  if (!agenda.available || !visit) return { status: "error", message: "A visita não está disponível para este perfil." };
-  const { data: workRows, error: workError } = await client.from("follow_up_work_findings")
-    .select("id,location,description,correction").eq("work_id", visit.workId)
-    .eq("auditor_auth_user_id", context.user.id).eq("modulo", visit.module === "safety" ? "SEGURANCA" : "QUALIDADE").is("completed_at", null).limit(1000);
-  if (workError && !["42P01", "PGRST205"].includes(workError.code))
-    return { status: "error", message: "Não foi possível conferir os apontamentos da obra." };
-  const previousFindings = reports.reports.filter((entry) => entry.visitId === value.visitId).flatMap((entry) => entry.findings);
-  const findings = resolveReportFindings(value.findings, previousFindings, [...(currentDraft?.findings ?? []), ...(workRows ?? [])]);
+  const snapshot = await readFollowUpVisit(client, context, value.visitId);
+  if (!snapshot.available) return { status: "error", message: "Não foi possível conferir os apontamentos. Atualize a página." };
+  const visit = snapshot.visit;
+  if (!visit) return { status: "error", message: "A visita não está disponível para este perfil." };
+  if (visit.confirmationStatus !== "confirmed" || visit.date > getSaoPauloToday())
+    return { status: "error", message: "Para criar o relatório, confirme a visita e aguarde a data agendada." };
+  const previousFindings = snapshot.reports.flatMap((entry) => entry.findings);
+  const workFindings = snapshot.workFindings.map(({ id, location, description, correction }) => ({ id, location, description, correction }));
+  const findings = resolveReportFindings(value.findings, previousFindings, [...(snapshot.draft?.findings ?? []), ...workFindings]);
   if (!findings) return { status: "error", message: value.findings.length
     ? "Os apontamentos mudaram. Atualize a página e selecione novamente."
     : "Selecione pelo menos um apontamento para incluir no relatório." };
@@ -158,10 +155,10 @@ export async function completeFindingAction(visitId: string, findingId: string, 
   if (!context || !uuidPattern.test(visitId) || !uuidPattern.test(findingId))
     return { status: "error", message: "Não foi possível concluir o apontamento." };
   const client = await createClient({ writableCookies: true });
-  const [drafts, reports] = await Promise.all([readFindingDrafts(client, context), readFollowUpReports(client, context)]);
-  if (!drafts.available || !reports.available) return { status: "error", message: "Atualize a página e tente novamente." };
-  const draft = drafts.drafts.find((entry) => entry.visitId === visitId);
-  const reportFindings = reports.reports.filter((entry) => entry.visitId === visitId).flatMap((entry) => entry.findings);
+  const snapshot = await readFollowUpVisit(client, context, visitId);
+  if (!snapshot.available || !snapshot.visit) return { status: "error", message: "Atualize a página e tente novamente." };
+  const draft = snapshot.draft ?? undefined;
+  const reportFindings = snapshot.reports.flatMap((entry) => entry.findings);
   if (![...(draft?.findings ?? []), ...reportFindings].some((item) => item.id === findingId))
     return { status: "error", message: "O apontamento não está mais disponível. Atualize a página." };
   const inReport = reportFindings.some((item) => item.id === findingId);
@@ -178,8 +175,8 @@ export async function completeFindingAction(visitId: string, findingId: string, 
     }, { onConflict: "visit_id,finding_id", ignoreDuplicates: true });
     if (error) return { status: "error", message: "A conclusão estará disponível após a atualização do banco de dados." };
   }
-  const photoList = await readVisitPhotos(client, context.user.id, visitId);
-  if (photoList && !inReport) {
+  const photoList = !inReport ? await readVisitPhotos(client, context.user.id, visitId) : null;
+  if (photoList) {
     const paths = photoList.filter((photo) => photo.findingId === findingId)
       .flatMap((photo) => photoPath(context.user.id, visitId, photo.fileName) ?? []);
     if (paths.length) await client.storage.from(followUpPhotoBucket).remove(paths);
@@ -225,17 +222,13 @@ export async function uploadFindingPhotosAction(formData: FormData, expected: Ag
     || !files.length || files.length > maxPhotosPerFinding || files.some((file) => typeof file === "string"))
     return { status: "error", message: "Selecione uma foto JPG ou PNG." };
   const client = await createClient({ writableCookies: true });
-  const [agenda, drafts, reports] = await Promise.all([
-    readAgendaSnapshot(client, context), readFindingDrafts(client, context), readFollowUpReports(client, context),
-  ]);
-  const visit = agenda.visits.find((item) => item.id === visitId && item.kind === "follow_up"
-    && item.auditorId === context.user.id && item.confirmationStatus === "confirmed"
-    && item.date <= getSaoPauloToday() && canReadVisit(context.user, item));
-  if (reports.reports.some((entry) => entry.visitId === visitId && entry.findings.some((item) => item.id === findingId)))
+  const snapshot = await readFollowUpVisit(client, context, visitId);
+  const visit = snapshot.visit;
+  if (!snapshot.available || !visit || visit.confirmationStatus !== "confirmed" || visit.date > getSaoPauloToday())
+    return { status: "error", message: "O apontamento não está disponível para receber fotos. Atualize a página." };
+  if (snapshot.reports.some((entry) => entry.findings.some((item) => item.id === findingId)))
     return { status: "error", message: "A foto deste relatório fechado não pode ser alterada." };
-  const findingExists = [...(drafts.drafts.find((entry) => entry.visitId === visitId)?.findings ?? []),
-    ...reports.reports.filter((entry) => entry.visitId === visitId).flatMap((entry) => entry.findings)].some((item) => item.id === findingId);
-  if (!agenda.available || !drafts.available || !reports.available || !visit || !findingExists)
+  if (!snapshot.draft?.findings.some((item) => item.id === findingId))
     return { status: "error", message: "O apontamento não está disponível para receber fotos. Atualize a página." };
   const existing = await readVisitPhotos(client, context.user.id, visitId);
   if (!existing) return { status: "error", message: "As fotos estarão disponíveis após a atualização do armazenamento." };
@@ -271,10 +264,10 @@ export async function deleteFindingPhotosAction(visitId: string, findingId: stri
   const context = await activeContext(expected);
   if (!context || !uuidPattern.test(visitId) || !uuidPattern.test(findingId)) return false;
   const client = await createClient({ writableCookies: true });
-  const [drafts, reports] = await Promise.all([readFindingDrafts(client, context), readFollowUpReports(client, context)]);
-  if (!drafts.available || !reports.available) return false;
-  const stillUsed = [...(drafts.drafts.find((entry) => entry.visitId === visitId)?.findings ?? []),
-    ...reports.reports.filter((entry) => entry.visitId === visitId).flatMap((entry) => entry.findings)].some((item) => item.id === findingId);
+  const snapshot = await readFollowUpVisit(client, context, visitId);
+  if (!snapshot.available || !snapshot.visit) return false;
+  const stillUsed = [...(snapshot.draft?.findings ?? []),
+    ...snapshot.reports.flatMap((entry) => entry.findings)].some((item) => item.id === findingId);
   if (stillUsed) return false;
   const photos = await readVisitPhotos(client, context.user.id, visitId);
   if (!photos) return false;

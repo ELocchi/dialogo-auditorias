@@ -1,9 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { canReadVisit } from "../../domain/prototype-access.ts";
-import { getSaoPauloToday } from "../../domain/visit-calendar.ts";
 import { uuidPattern } from "../access/validation.ts";
 import type { ProfileWorkspaceContext } from "../access/workspace-context.ts";
-import { readAgendaSnapshot } from "../agenda/service.ts";
 
 type Client = Pick<SupabaseClient, "rpc">;
 export type FollowUpFinding = { id: string; location: string; description: string; correction: string };
@@ -56,7 +53,7 @@ export function resolveReportFindings(selected: readonly FollowUpFinding[], repo
   return resolved.length === selected.length ? resolved : null;
 }
 
-function parseReport(value: unknown): FollowUpReport | null {
+export function parseReport(value: unknown): FollowUpReport | null {
   if (!record(value) || !uuid(value.visitId) || !Number.isInteger(value.revision)
     || Number(value.revision) < 1 || !text(value.participants, 5000)
     || (value.title !== undefined && !text(value.title, 120, 1))
@@ -106,11 +103,8 @@ export async function saveFollowUpReport(client: Client, context: ProfileWorkspa
   const value = parseSaveFollowUp(input);
   if (!value) return failure("Informe o nome, preencha os três campos e confira os apontamentos antes de salvar.");
   if (value.expectedRevision !== 0) return failure("Este relatório já foi fechado. Você pode visualizá-lo ou baixar o PDF.");
-  const agenda = await readAgendaSnapshot(client, context);
-  const visit = agenda.visits.find((item) => item.id === value.visitId);
-  if (!agenda.available || !visit || visit.kind !== "follow_up" || visit.auditorId !== context.user.id
-    || visit.confirmationStatus !== "confirmed" || visit.date > getSaoPauloToday()
-    || !canReadVisit(context.user, visit)) return failure("Para criar o relatório, confirme a visita e aguarde a data agendada.");
+  // The save RPC locks the visit and rechecks assignment, profile, current access,
+  // confirmation and São Paulo date atomically before closing the report.
   try {
     const { data, error } = await client.rpc("save_follow_up_report", {
       p_profile: context.profile, p_visit_id: value.visitId, p_expected_revision: value.expectedRevision,

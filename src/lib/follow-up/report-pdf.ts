@@ -2,9 +2,10 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import type { FollowUpReport } from "./service.ts";
+import type { PdfPhotosForFinding, ReportPhoto } from "./pdf-photos.ts";
 
-type ReportPhoto = { findingId: string; mimeType: "image/jpeg" | "image/png"; bytes: Uint8Array };
-type ReportDetails = { report: FollowUpReport; workName: string; visitDate: string; auditorName: string; photos?: ReportPhoto[] };
+type ReportDetails = { report: FollowUpReport; workName: string; visitDate: string; auditorName: string;
+  photos?: ReportPhoto[]; photosForFinding?: PdfPhotosForFinding };
 const pageWidth = 612;
 const pageHeight = 792;
 const left = 57;
@@ -43,7 +44,7 @@ function wrap(value: string, font: PDFFont, size: number, width: number): string
   return result;
 }
 
-export async function createFollowUpReportPdf({ report, workName, visitDate, auditorName, photos = [] }: ReportDetails): Promise<Uint8Array> {
+export async function createFollowUpReportPdf({ report, workName, visitDate, auditorName, photos = [], photosForFinding }: ReportDetails): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
   pdf.setTitle(`${report.title} - ${workName}`);
   pdf.setAuthor("Diálogo Engenharia");
@@ -51,8 +52,6 @@ export async function createFollowUpReportPdf({ report, workName, visitDate, aud
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const logo = await pdf.embedPng(await readFile(path.join(process.cwd(), "public", "logo-relatorio-orientativo.png")));
-  const embeddedPhotos = await Promise.all(photos.map(async (photo) => ({ findingId: photo.findingId,
-    image: photo.mimeType === "image/png" ? await pdf.embedPng(photo.bytes) : await pdf.embedJpg(photo.bytes) })));
   const newPage = (): PDFPage => {
     const sheet = pdf.addPage([pageWidth, pageHeight]);
     sheet.drawRectangle({ x: 0, y: 0, width: pageWidth, height: pageHeight, color: rgb(1, 1, 1) });
@@ -114,21 +113,23 @@ export async function createFollowUpReportPdf({ report, workName, visitDate, aud
     }
   };
   startFindingsPage();
-  report.findings.forEach((finding, index) => {
+  for (const [index, finding] of report.findings.entries()) {
     ensureFindingsSpace(55);
     findingLines(`${index + 1}. ${finding.description}`, bold, 10);
     if (finding.location) findingLines(`Local: ${finding.location}`, regular, 9, muted, 14);
     findingLines(`Orientação para correção: ${finding.correction}`, regular, 9, navy, 14);
     y -= 9;
-    embeddedPhotos.filter((photo) => photo.findingId === finding.id).forEach(({ image }, photoIndex) => {
+    let photoIndex = 0;
+    for await (const photo of photosForFinding?.(finding.id) ?? photos.filter((item) => item.findingId === finding.id)) {
+      const image = photo.mimeType === "image/png" ? await pdf.embedPng(photo.bytes) : await pdf.embedJpg(photo.bytes);
       const scaled = image.scaleToFit(right - left - 28, 270);
       ensureFindingsSpace(scaled.height + 30);
-      page.drawText(`Foto ${photoIndex + 1}`, { x: left + 14, y, size: 8, font: bold, color: muted });
+      page.drawText(`Foto ${++photoIndex}`, { x: left + 14, y, size: 8, font: bold, color: muted });
       y -= 10;
       page.drawImage(image, { x: left + 14, y: y - scaled.height, width: scaled.width, height: scaled.height });
       y -= scaled.height + 17;
-    });
-  });
+    }
+  }
 
   const date = /^\d{4}-\d{2}-\d{2}$/.test(visitDate)
     ? `${visitDate.slice(8, 10)}/${visitDate.slice(5, 7)}/${visitDate.slice(0, 4)}` : visitDate;

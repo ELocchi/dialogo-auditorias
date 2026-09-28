@@ -25,12 +25,13 @@ export function detectPhotoType(bytes: Uint8Array): "image/jpeg" | "image/png" |
   return null;
 }
 
-export async function readVisitPhotos(client: Pick<SupabaseClient, "storage">, userId: string, visitId: string): Promise<FindingPhoto[] | null> {
+export async function readVisitPhotos(client: Pick<SupabaseClient, "storage">, userId: string, visitId: string,
+  options: { missingBucketIsEmpty?: boolean } = {}): Promise<FindingPhoto[] | null> {
   if (!uuidPattern.test(userId) || !uuidPattern.test(visitId)) return null;
   try {
     const { data, error } = await client.storage.from(followUpPhotoBucket)
       .list(`${userId.toLowerCase()}/${visitId.toLowerCase()}`, { limit: 1000, sortBy: { column: "name", order: "asc" } });
-    if (error && /bucket not found/i.test(error.message)) return [];
+    if (error && /bucket not found/i.test(error.message) && options.missingBucketIsEmpty !== false) return [];
     if (error || !data || data.length >= 1000) return null;
     return data.flatMap((file) => {
       const parsed = parsePhotoFileName(file.name);
