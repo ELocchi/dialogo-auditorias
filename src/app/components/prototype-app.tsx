@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { type AuditModelId, type AuditRecord } from "@/domain/operational-records";
 import type { ItemResponse } from "@/domain/audit-draft";
@@ -9,7 +9,7 @@ import { roleLabels, moduleLabels, modelModule, canAccessWorkModule, canAccessMo
 import { beginScheduledVisitAudit, completePrototypeAudit, validatePrototypeAuditCompletion, updatePrototypeResponse, criteriaForAudit, criteriaForModel, modelDisplayName, type PrototypeAuditState } from "@/domain/prototype-audits";
 import { getSaoPauloToday } from "@/domain/visit-calendar";
 import type { ProfileWorkspaceContext } from "@/lib/access/workspace-context";
-import { unavailableAgenda, withoutPublishedVisit, type AgendaActionResult, type AgendaActorContext, type AgendaSnapshot } from "@/lib/agenda/contracts";
+import { unavailableAgenda, type AgendaActorContext, type AgendaSnapshot } from "@/lib/agenda/contracts";
 import { createAgendaVisitAction, deleteAgendaVisitAction, confirmAgendaVisitAction } from "@/app/agenda/actions";
 import { catalogVersion, unavailableCatalogs, type CatalogSnapshot } from "@/lib/catalogs/contracts";
 import { Icon, type IconName } from "./ui-icon";
@@ -25,6 +25,7 @@ import { AuditDetailsContext, AuditDetailGate, AuditHistoryPreload, usePublished
 import { DeferredCatalogs, useDeferredCatalogs } from "./deferred-catalogs";
 import { AuditPhotoProvider } from "./audit-photo-context";
 import { auditPhotoThumbnailUrl } from "@/lib/photos/urls";
+import { useAgenda, isAgendaSnapshot, newRequestId } from "./use-agenda";
 
 const loadingPanel = () => <section className="panel"><p className="muted">Carregando funcionalidade...</p></section>;
 const AuditReview = dynamic(() => import("./audit-workspace").then((module) => module.AuditReview), { loading: loadingPanel });
@@ -597,118 +598,4 @@ const testActionPlanFindings: Record<AppModule, readonly ActionPlanFinding[]> = 
 
 function actionPlanSourceKey(source: ActionPlanSource) {
   return `${source.auditId ?? "example"}:${source.module}:${source.workId}`;
-}
-
-function newRequestId() {
-  if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
-  const bytes = crypto.getRandomValues(new Uint8Array(16));
-  bytes[6] = (bytes[6] & 0x0f) | 0x40;
-  bytes[8] = (bytes[8] & 0x3f) | 0x80;
-  const hexadecimal = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
-  return `${hexadecimal.slice(0, 8)}-${hexadecimal.slice(8, 12)}-${hexadecimal.slice(12, 16)}-${hexadecimal.slice(16, 20)}-${hexadecimal.slice(20)}`;
-}
-
-function isAgendaSnapshot(value: unknown): value is AgendaSnapshot {
-  if (!value || typeof value !== "object") return false;
-  const candidate = value as Partial<AgendaSnapshot>;
-  return typeof candidate.available === "boolean" && Array.isArray(candidate.visits)
-    && Array.isArray(candidate.auditors) && Array.isArray(candidate.notifications);
-}
-
-function useAgenda(initialAgenda: AgendaSnapshot, userId: string, profile: ProfileWorkspaceContext["profile"], engineeringScope: ProfileWorkspaceContext["engineeringScope"], administrativeScope: ProfileWorkspaceContext["administrativeScope"]) {
-  const [agenda, setAgenda] = useState(initialAgenda);
-  const [agendaSyncError, setAgendaSyncError] = useState("");
-  const [mutationPending, setMutationPending] = useState(false);
-  const mutationRef = useRef(false);
-  const epochRef = useRef(0);
-  const mountedRef = useRef(true);
-  const attemptsRef = useRef(new Map<string, { payload: string; requestId: string }>());
-
-  useEffect(() => {
-    mountedRef.current = true;
-    let controller: AbortController | null = null;
-    const query = new URLSearchParams({ usuario: userId, perfil: profile, atuacao: engineeringScope ?? "", administrativo: administrativeScope ?? "" });
-    const refreshAgenda = async () => {
-      if (document.visibilityState !== "visible" || controller || mutationRef.current) return;
-      const request = new AbortController();
-      controller = request;
-      const epoch = epochRef.current;
-      try {
-        const response = await fetch(`/api/agenda?${query}`, { credentials: "same-origin", cache: "no-store", signal: request.signal });
-        if (!mountedRef.current || request.signal.aborted || epoch !== epochRef.current) return;
-        if (response.status === 401 || response.status === 403) {
-          epochRef.current += 1;
-          setAgenda(unavailableAgenda());
-          setAgendaSyncError("A sessão não autoriza mais esta agenda. Entre novamente ou selecione um perfil autorizado.");
-          return;
-        }
-        if (!response.ok && response.status !== 503) throw new Error("Agenda indisponível");
-        const snapshot: unknown = await response.json();
-        if (!isAgendaSnapshot(snapshot) || (response.status === 503 && snapshot.available)) throw new Error("Resposta de agenda inválida");
-        if (mountedRef.current && !request.signal.aborted && epoch === epochRef.current) {
-          setAgenda((current) => JSON.stringify(current) === JSON.stringify(snapshot) ? current : snapshot);
-          setAgendaSyncError("");
-        }
-      } catch {
-        if (mountedRef.current && !request.signal.aborted && epoch === epochRef.current) {
-          setAgendaSyncError("Não foi possível atualizar a agenda. Tentaremos novamente automaticamente.");
-        }
-      } finally {
-        if (controller === request) controller = null;
-      }
-    };
-    const onVisibilityChange = () => {
-      if (document.visibilityState === "visible") void refreshAgenda();
-      else { controller?.abort(); controller = null; }
-    };
-    const onFocus = () => { void refreshAgenda(); };
-    const interval = window.setInterval(() => { void refreshAgenda(); }, 30_000);
-    window.addEventListener("focus", onFocus);
-    document.addEventListener("visibilitychange", onVisibilityChange);
-    if (!initialAgenda.available) void refreshAgenda();
-    return () => {
-      mountedRef.current = false;
-      controller?.abort();
-      window.clearInterval(interval);
-      window.removeEventListener("focus", onFocus);
-      document.removeEventListener("visibilitychange", onVisibilityChange);
-    };
-  }, [userId, profile, engineeringScope, administrativeScope, initialAgenda.available]);
-
-  const runAgendaAction = async (operation: string, payload: object, action: (requestId: string) => Promise<AgendaActionResult>): Promise<AgendaActionResult> => {
-    if (mutationRef.current) return { status: "error", message: "Aguarde a operação de agenda em andamento." };
-    if (!agenda.available) return { status: "error", message: "A agenda está indisponível no momento. Tente novamente após a atualização." };
-    const fingerprint = JSON.stringify(payload);
-    let attempt = attemptsRef.current.get(operation);
-    if (!attempt || attempt.payload !== fingerprint) {
-      attempt = { payload: fingerprint, requestId: newRequestId() };
-      attemptsRef.current.set(operation, attempt);
-    }
-    const requestId = attempt.requestId;
-    mutationRef.current = true;
-    setMutationPending(true);
-    const epoch = ++epochRef.current;
-    try {
-      const result = await new Promise<AgendaActionResult>((resolve, reject) => {
-        startTransition(async () => {
-          try { resolve(await action(requestId)); } catch (cause) { reject(cause); }
-        });
-      });
-      if (mountedRef.current && epoch === epochRef.current && result.snapshot) {
-        setAgenda(result.snapshot);
-        setAgendaSyncError("");
-      }
-      if (result.status === "success") attemptsRef.current.delete(operation);
-      return result;
-    } catch {
-      return { status: "error", message: "Não foi possível confirmar o resultado da operação. Tente novamente com os mesmos dados para consultar ou concluir este envio." };
-    } finally {
-      mutationRef.current = false;
-      if (mountedRef.current) setMutationPending(false);
-    }
-  };
-
-  const removePublishedVisit = (visitId: string) => setAgenda((current) => withoutPublishedVisit(current, visitId));
-
-  return { agenda, agendaSyncError, mutationPending, runAgendaAction, removePublishedVisit };
 }

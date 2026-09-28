@@ -58,7 +58,7 @@ const assertNoAgendaWork = () => {
 async function assertUnavailable(response, status) {
   assert.equal(response.status, status);
   assert.equal(response.headers.get("Cache-Control"), "private, no-store");
-  assert.equal(response.headers.get("Vary"), "Cookie");
+  assert.equal(response.headers.get("Vary"), "Cookie, If-None-Match");
   assert.deepEqual(await response.json(), empty);
 }
 const stubModules = {
@@ -76,6 +76,11 @@ const stubModules = {
     export const createAgendaVisit = (...args) => operation('create', ...args);
     export const deleteAgendaVisit = (...args) => operation('delete', ...args);
     export const confirmAgendaVisit = (...args) => operation('confirm', ...args);
+    export async function readAgendaUpdate(client, context, revision) {
+      const s = globalThis.__agendaSessionFixture; s.receivedRevision = revision;
+      if (s.unchanged) { s.agendaReads.push({client, context}); return { unchanged: true, revision: s.snapshot.revision }; }
+      return { unchanged: false, snapshot: await readAgendaSnapshot(client, context) };
+    }
     export async function readAgendaSnapshot(client, context) {
       const s = globalThis.__agendaSessionFixture; s.agendaReads.push({ client, context }); return s.snapshot;
     }
@@ -181,7 +186,7 @@ test("Valid GET uses cookie-selected identity/activity and session client and pr
   const response = await GET(request());
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("Cache-Control"), "private, no-store");
-  assert.equal(response.headers.get("Vary"), "Cookie");
+  assert.equal(response.headers.get("Vary"), "Cookie, If-None-Match");
   assert.deepEqual(await response.json(), state.snapshot);
   assert.deepEqual(state.agendaReads, [{ client: state.client, context: state.context }]);
   assert.deepEqual(state.workspaceReads, [{ user: state.user, account: state.account, profile: "ENGENHARIA", engineeringScope: "EQUIPE_OBRA", administrativeScope: null }]);
@@ -194,4 +199,31 @@ test("GET cannot expose stale data when workspace or persistent agenda is unavai
   await assertUnavailable(await GET(request()), 403); assert.equal(state.agendaReads.length, 0);
   reset(); state.snapshot = structuredClone(empty);
   await assertUnavailable(await GET(request()), 503); assert.equal(state.agendaReads.length, 1);
+});
+
+
+test("conditional GET authenticates on every poll and returns zero body only for unchanged data", async () => {
+  reset(); state.snapshot.revision = "a".repeat(32); state.unchanged = true;
+  const conditional = () => new Request(request(), { headers: { "If-None-Match": '"' + "a".repeat(32) + '"' } });
+  const response = await GET(conditional());
+  assert.equal(response.status, 304);
+  assert.equal(await response.text(), "");
+  assert.equal(response.headers.get("ETag"), '"' + "a".repeat(32) + '"');
+  assert.equal(state.receivedRevision, "a".repeat(32));
+  assert.equal(state.workspaceReads.length, 1);
+  assert.equal(state.agendaReads.length, 1);
+  reset(); state.user = null;
+  await assertUnavailable(await GET(conditional()), 401); assertNoAgendaWork();
+  reset(); state.active = false;
+  await assertUnavailable(await GET(conditional()), 403); assertNoAgendaWork();
+});
+
+test("conditional GET ignores malformed or wildcard tokens and exposes no token for failed reads", async () => {
+  for (const token of ["*", "a".repeat(32), 'W/"' + "a".repeat(32) + '"', '"bad"']) {
+    reset(); state.snapshot = empty;
+    const response = await GET(new Request(request(), { headers: { "If-None-Match": token } }));
+    await assertUnavailable(response, 503);
+    assert.equal(state.receivedRevision, null);
+    assert.equal(response.headers.get("ETag"), null);
+  }
 });

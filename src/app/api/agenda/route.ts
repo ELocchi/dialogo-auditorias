@@ -2,11 +2,11 @@ import { verifiedUser, effectiveAccount } from "@/lib/auth/session";
 import { readActiveProfileContext } from "@/lib/auth/active-profile-session";
 import { readWorkspaceContext } from "@/lib/access/workspace";
 import { createClient } from "@/lib/supabase/server";
-import { readAgendaSnapshot } from "@/lib/agenda/service";
-import { unavailableAgenda } from "@/lib/agenda/contracts";
+import { readAgendaUpdate } from "@/lib/agenda/service";
+import { isAgendaRevision, unavailableAgenda } from "@/lib/agenda/contracts";
 
 export const dynamic = "force-dynamic";
-const headers = { "Cache-Control": "private, no-store", Vary: "Cookie" };
+const headers = { "Cache-Control": "private, no-store", Vary: "Cookie, If-None-Match" };
 
 export async function GET(request: Request) {
   const user = await verifiedUser();
@@ -24,6 +24,10 @@ export async function GET(request: Request) {
   }
   const context = await readWorkspaceContext({ user, account, ...selected });
   if (!context) return Response.json(unavailableAgenda(), { status: 403, headers });
-  const snapshot = await readAgendaSnapshot(await createClient(), context);
-  return Response.json(snapshot, { status: snapshot.available ? 200 : 503, headers });
+  const candidate = request.headers.get("If-None-Match")?.match(/^"([a-f0-9]{32})"$/)?.[1];
+  const result = await readAgendaUpdate(await createClient(), context, isAgendaRevision(candidate) ? candidate : null);
+  if (result.unchanged) return new Response(null, { status: 304, headers: { ...headers, ETag: `"${result.revision}"` } });
+  const { snapshot } = result;
+  return Response.json(snapshot, { status: snapshot.available ? 200 : 503,
+    headers: snapshot.available && snapshot.revision ? { ...headers, ETag: `"${snapshot.revision}"` } : headers });
 }

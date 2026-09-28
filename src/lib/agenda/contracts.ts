@@ -11,10 +11,26 @@ export type AgendaNotification = {
 
 export type AgendaSnapshot = {
   available: boolean;
+  /** Authenticated projection token; omitted for unavailable/local snapshots. */
+  revision?: string;
   visits: Visit[];
   auditors: DemoUser[];
   notifications: AgendaNotification[];
 };
+
+export type AgendaSyncResult = { unchanged: true; revision: string } | { unchanged: false; snapshot: AgendaSnapshot };
+
+export function isAgendaRevision(value: unknown): value is string {
+  return typeof value === "string" && /^[a-f0-9]{32}$/.test(value);
+}
+
+export function isAgendaSnapshot(value: unknown): value is AgendaSnapshot {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<AgendaSnapshot>;
+  return typeof candidate.available === "boolean" && Array.isArray(candidate.visits)
+    && Array.isArray(candidate.auditors) && Array.isArray(candidate.notifications)
+    && (candidate.revision === undefined || isAgendaRevision(candidate.revision));
+}
 
 export type CreateAgendaVisitInput = VisitInput & { requestId: string };
 export type DeleteAgendaVisitInput = {
@@ -41,6 +57,7 @@ export function unavailableAgenda(): AgendaSnapshot {
 export function withoutPublishedVisit(snapshot: AgendaSnapshot, visitId: string): AgendaSnapshot {
   return {
     ...snapshot,
+    revision: undefined,
     visits: snapshot.visits.filter((visit) => visit.id !== visitId),
     notifications: snapshot.notifications.filter((notification) => !notification.id.startsWith(`${visitId}:`)),
   };

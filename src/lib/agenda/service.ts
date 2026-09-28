@@ -4,7 +4,7 @@ import { auditModelLabels, formatAuditDate, type AuditModelId } from "../../doma
 import { isCalendarDate } from "../../domain/visit-calendar.ts";
 import { uuidPattern } from "../access/validation.ts";
 import type { ProfileWorkspaceContext } from "../access/workspace-context.ts";
-import { unavailableAgenda, type AgendaActionResult, type AgendaNotification, type AgendaSnapshot, type ConfirmAgendaVisitInput, type CreateAgendaVisitInput, type DeleteAgendaVisitInput } from "./contracts.ts";
+import { isAgendaRevision, unavailableAgenda, type AgendaSyncResult, type AgendaActionResult, type AgendaNotification, type AgendaSnapshot, type ConfirmAgendaVisitInput, type CreateAgendaVisitInput, type DeleteAgendaVisitInput } from "./contracts.ts";
 
 type Client = Pick<SupabaseClient, "rpc">;
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
@@ -83,7 +83,7 @@ function parseAuditor(raw: unknown, context: ProfileWorkspaceContext): DemoUser 
 function notificationsFor(visits: Visit[], context: ProfileWorkspaceContext): AgendaNotification[] {
   const items: AgendaNotification[] = [];
   for (const visit of visits) {
-    const workName = context.works.find((work) => work.id === visit.workId)?.name ?? visit.workName!;
+    const workName = visit.workName ?? context.works.find((work) => work.id === visit.workId)!.name;
     const createdAt = visit.history.at(-1)?.changedAt ?? visit.createdAt;
     const detail = `${visit.kind === "follow_up" ? "Acompanhamento" : "Auditoria"} de ${moduleLabels[visit.module]} · ${formatAuditDate(visit.date)}`;
     const base = { workName, detail, href: `/app?secao=agenda&visita=${encodeURIComponent(visit.id)}` };
@@ -100,9 +100,9 @@ function notificationsFor(visits: Visit[], context: ProfileWorkspaceContext): Ag
   return items.sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt));
 }
 
-export async function readAgendaSnapshot(client: Client, context: ProfileWorkspaceContext): Promise<AgendaSnapshot> {
+function parseAgendaData(data: unknown, context: ProfileWorkspaceContext): AgendaSnapshot {
   try {
-    const { data, error } = await client.rpc("read_audit_agenda", { p_profile: context.profile, p_engineering_scope: context.engineeringScope });
+    const error = !record(data);
     if (error || !record(data) || !Array.isArray(data.visits) || !Array.isArray(data.auditors)
       || (!canManageAgenda(context.user) && data.auditors.length)) return unavailableAgenda();
     const visits: Visit[] = [];
@@ -122,6 +122,30 @@ export async function readAgendaSnapshot(client: Client, context: ProfileWorkspa
     visits.sort((left, right) => left.date.localeCompare(right.date) || left.id.localeCompare(right.id));
     return { available: true, visits, auditors, notifications: notificationsFor(visits, context) };
   } catch { return unavailableAgenda(); }
+}
+
+
+/** The database checks authority and revision in the same read-only snapshot. */
+export async function readAgendaUpdate(client: Client, context: ProfileWorkspaceContext, knownRevision: string | null = null): Promise<AgendaSyncResult> {
+  const unavailable = (): AgendaSyncResult => ({ unchanged: false, snapshot: unavailableAgenda() });
+  try {
+    const previous = isAgendaRevision(knownRevision) ? knownRevision : null;
+    const { data, error } = await client.rpc("read_audit_agenda_if_changed", {
+      p_profile: context.profile, p_engineering_scope: context.engineeringScope,
+      p_administrative_scope: context.administrativeScope ?? null, p_known_revision: previous,
+    });
+    if (error || !record(data) || !isAgendaRevision(data.revision)) return unavailable();
+    if (data.unchanged === true) return previous === data.revision
+      ? { unchanged: true, revision: data.revision } : unavailable();
+    if (data.unchanged !== false) return unavailable();
+    const snapshot = parseAgendaData(data.snapshot, context);
+    return { unchanged: false, snapshot: snapshot.available ? { ...snapshot, revision: data.revision } : snapshot };
+  } catch { return unavailable(); }
+}
+
+export async function readAgendaSnapshot(client: Client, context: ProfileWorkspaceContext): Promise<AgendaSnapshot> {
+  const result = await readAgendaUpdate(client, context);
+  return result.unchanged ? unavailableAgenda() : result.snapshot;
 }
 
 async function mutate(client: Client, context: ProfileWorkspaceContext, rpc: string, params: Record<string, unknown>, message: string): Promise<AgendaActionResult> {

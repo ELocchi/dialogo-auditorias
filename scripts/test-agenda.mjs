@@ -19,7 +19,7 @@ const visit = { id: visitId, workId, auditorId, module: 'safety', kind: 'audit',
   confirmationStatus: 'pending_confirmation', confirmedAt: null, auditorName: 'Auditor de teste', createdByName: 'Administrativo de teste' };
 function context(role = 'administrative') {
   const profile = { administrative: 'ADMINISTRATIVO', 'safety-auditor': 'AUDITOR_SEGURANCA', 'quality-auditor': 'AUDITOR_QUALIDADE', engineering: 'ENGENHARIA' }[role];
-  return { profile, engineeringScope: role === 'engineering' ? 'EQUIPE_OBRA' : null, email: 'fixture@dialogo.com.br',
+  return { profile, administrativeScope: role === 'administrative' ? 'GERAL' : null, engineeringScope: role === 'engineering' ? 'EQUIPE_OBRA' : null, email: 'fixture@dialogo.com.br',
     works: [{ id: workId, name: 'Obra de teste', status: 'Ativa' }],
     user: { id: role === 'administrative' ? adminId : auditorId, name: 'Fixture', role,
       ...(role === 'engineering' ? { activity: 'site-team' } : {}), modules: role === 'quality-auditor' ? ['quality'] : ['safety', 'quality'],
@@ -33,7 +33,7 @@ function fixture({ visits = [visit], auditors = [], error = null, mutationData =
     if (throws) throw new Error('private provider diagnostic');
     if (name === 'confirm_audit_visit' && !error) currentVisits = postConfirmationVisits ?? currentVisits.map((entry) => ({ ...entry, confirmationStatus: 'confirmed', confirmedAt: '2030-02-02T12:00:00Z' }));
     if (name === 'delete_audit_visit' && !error) currentVisits = currentVisits.filter((entry) => entry.id !== params.p_visit_id);
-    return name === 'read_audit_agenda' ? { data: { visits: currentVisits, auditors }, error: readError } : { data: mutationData, error };
+    return name === 'read_audit_agenda_if_changed' ? { data: { unchanged: false, revision: 'a'.repeat(32), snapshot: { visits: currentVisits, auditors } }, error: readError } : { data: mutationData, error };
   } } };
 }
 
@@ -63,7 +63,7 @@ test('snapshot sends selected profile and strips fields outside the public agend
   assert.equal(result.visits[0].private, undefined);
   assert.equal(result.auditors[0].email, undefined);
   assert.deepEqual(result.auditors[0].workIds, [workId]);
-  assert.deepEqual(f.calls[0].params, { p_profile: 'ADMINISTRATIVO', p_engineering_scope: null });
+  assert.deepEqual(f.calls[0].params, { p_profile: 'ADMINISTRATIVO', p_engineering_scope: null, p_administrative_scope: 'GERAL', p_known_revision: null });
   assert.equal(result.notifications[0].type, 'visit_scheduled');
 });
 
@@ -121,7 +121,7 @@ test('auditoria designada fornece nome mínimo e confirmação sem incluir obra 
     const invalid = fixture({ visits: [changed] });
     assert.equal((await readAgendaSnapshot(invalid.client, ctx)).available, false);
     assert.equal((await confirmAgendaVisit(confirmation, ctx, invalid.client)).status, 'error');
-    assert.ok(invalid.calls.every((call) => call.name === 'read_audit_agenda'));
+    assert.ok(invalid.calls.every((call) => call.name === 'read_audit_agenda_if_changed'));
   }
   assert.equal((await readAgendaSnapshot(fixture({ visits: [assigned] }).client, { ...ctx, user: { ...ctx.user, modules: [] } })).available, false);
 });
@@ -193,7 +193,7 @@ test('work follow-up schedules without a model and still asks the assigned profe
 test('confirmation is scoped to the currently selected auditor before mutation', async () => {
   for (const role of ['administrative', 'engineering', 'quality-auditor']) {
     const f = fixture(); assert.equal((await confirmAgendaVisit(confirmation, context(role), f.client)).status, 'error');
-    assert.ok(f.calls.every((call) => call.name === 'read_audit_agenda'));
+    assert.ok(f.calls.every((call) => call.name === 'read_audit_agenda_if_changed'));
   }
   const other = fixture({ visits: [{ ...visit, auditorId: otherId }] });
   assert.equal((await confirmAgendaVisit(confirmation, context('safety-auditor'), other.client)).status, 'error');
@@ -257,4 +257,12 @@ test('conflicts, uncertain writes and provider diagnostics never become fake suc
   const pendingMigration = fixture({ error: { code: 'PGRST202' } });
   const deletion = await deleteAgendaVisit(confirmation, context(), pendingMigration.client);
   assert.equal(deletion.status, 'error'); assert.match(deletion.message, /atualização do banco/);
+});
+
+
+test('notification uses the work name from the same agenda snapshot as its revision', async () => {
+  const ctx = context(); ctx.works[0].name = 'Previous name from workspace request';
+  const result = await readAgendaSnapshot(fixture({ visits: [{ ...visit, workName: 'Current name from agenda' }] }).client, ctx);
+  assert.equal(result.available, true);
+  assert.equal(result.notifications[0].workName, 'Current name from agenda');
 });

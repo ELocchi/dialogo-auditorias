@@ -21,9 +21,11 @@ const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 const baselineOnly = process.argv.includes("--baseline-only");
 const assignmentOnly = process.argv.includes("--assignment-only");
 const overviewOnly = process.argv.includes("--overview-only");
-if (process.argv.slice(2).some((arg) => !["--baseline-only", "--assignment-only", "--overview-only"].includes(arg))
-  || ([baselineOnly, assignmentOnly, overviewOnly].filter(Boolean).length > 1)) {
-  throw new Error("Supported arguments: --baseline-only, --assignment-only or --overview-only");
+const syncOnly = process.argv.includes("--sync-only");
+const projectionOnly = process.argv.includes("--projection-only");
+if (process.argv.slice(2).some((arg) => !["--baseline-only", "--assignment-only", "--overview-only", "--sync-only", "--projection-only"].includes(arg))
+  || ([baselineOnly, assignmentOnly, overviewOnly, syncOnly, projectionOnly].filter(Boolean).length > 1)) {
+  throw new Error("Supported arguments: --baseline-only, --assignment-only, --overview-only, --sync-only or --projection-only");
 }
 
 async function loadPGlite() {
@@ -253,9 +255,35 @@ if (!baselineOnly) suites.push({
   omitHistoricPublicationBackfills: true,
 });
 
+if (!baselineOnly) suites.push({
+  name: "B.29 Conditional agenda synchronization and invalidation suite",
+  migrations: readdirSync(path.join(projectRoot, "supabase", "migrations"))
+    .filter((name) => name.endsWith(".sql") && name <= "20260928000200_agenda_sync.sql"
+      && name !== "20260924000200_verify_published_audit_access.sql")
+    .sort(),
+  test: "agenda_sync.sql",
+  storageAdapter: true,
+  omitHistoricPublicationBackfills: true,
+});
+
+if (!baselineOnly) suites.push({
+  name: "B.30 Stored audit finding projection upgrade and authorization suite",
+  migrations: readdirSync(path.join(projectRoot, "supabase", "migrations"))
+    .filter((name) => name.endsWith(".sql") && name <= "20260928000200_agenda_sync.sql"
+      && name !== "20260924000200_verify_published_audit_access.sql")
+    .sort(),
+  upgradeMigration: "20260928000300_cached_audit_findings.sql",
+  test: "cached_audit_findings.sql",
+  storageAdapter: true,
+  omitHistoricPublicationBackfills: true,
+  baselineAuthRows: 4,
+});
+
 const { PGlite } = await loadPGlite();
 for (const suite of suites.filter((item) => (!assignmentOnly || item.test === "audit_assignment_access.sql")
-  && (!overviewOnly || item.test === "published_audit_overview.sql"))) {
+  && (!overviewOnly || item.test === "published_audit_overview.sql")
+  && (!syncOnly || item.test === "agenda_sync.sql")
+  && (!projectionOnly || item.test === "cached_audit_findings.sql"))) {
   const db = await PGlite.create();
   let currentSqlFile = "";
   try {
@@ -303,6 +331,14 @@ for (const suite of suites.filter((item) => (!assignmentOnly || item.test === "a
       assert.equal(phases.length, 2, "The upgrade suite must contain exactly two phases.");
       await db.exec(phases[0]);
       await db.exec(readFileSync(path.join(projectRoot, "supabase", "migrations", suite.upgradeMigration), "utf8"));
+      await db.exec(phases[1]);
+    } else if (suite.test === "agenda_sync.sql") {
+      // Expiry changes eligibility without writing any table. Separate SQL
+      // statements are required because statement_timestamp is fixed per call.
+      const phases = testSql.split("-- AGENDA_BAN_EXPIRY_BOUNDARY");
+      assert.equal(phases.length, 2, "The agenda expiry suite must contain exactly two phases.");
+      await db.exec(phases[0]);
+      await new Promise((resolve) => setTimeout(resolve, 300));
       await db.exec(phases[1]);
     } else {
       await db.exec(testSql);
