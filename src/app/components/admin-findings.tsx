@@ -1,3 +1,6 @@
+"use client";
+
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { Icon } from "./ui-icon";
 import styles from "./admin-findings.module.css";
 
@@ -19,51 +22,67 @@ export type AdminFindingSummary = {
 
 const monthAbbreviations = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
 
+function FindingDetails({ className, summaryClassName, summary, children }: {
+  className: string;
+  summaryClassName?: string;
+  summary: ReactNode;
+  children: () => ReactNode;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  // A native summary can be opened before hydration attaches the toggle listener.
+  const restoreExpansion = useCallback((element: HTMLDetailsElement | null) => {
+    if (element?.open) setExpanded(true);
+  }, []);
+  return <details ref={restoreExpansion} className={className} onToggle={(event) => setExpanded(event.currentTarget.open)}>
+    <summary className={summaryClassName}>{summary}</summary>
+    {expanded && children()}
+  </details>;
+}
+
 function FindingsList({ items, emptyMessage, onOpenFindings }: {
   items: readonly AdminFindingSummary[];
   emptyMessage: string;
   onOpenFindings?: () => void;
 }) {
+  const { referenced, unreferenced } = useMemo(() => {
+    const grouped = new Map<string, { reference: NonNullable<AdminFindingSummary["references"]>[number]; items: Map<string, AdminFindingSummary> }>();
+    items.forEach((item) => item.references?.forEach((reference) => {
+      const group = grouped.get(reference.id);
+      if (group) group.items.set(item.id, item);
+      else grouped.set(reference.id, { reference, items: new Map([[item.id, item]]) });
+    }));
+    const referencedItemIds = new Set([...grouped.values()].flatMap((group) => [...group.items.keys()]));
+    return { referenced: [...grouped.values()], unreferenced: items.filter((item) => !referencedItemIds.has(item.id)) };
+  }, [items]);
   if (!items.length) return <p className={styles.empty}>{emptyMessage}</p>;
 
-  const referenced = new Map<string, { reference: NonNullable<AdminFindingSummary["references"]>[number]; items: Map<string, AdminFindingSummary> }>();
-  items.forEach((item) => item.references?.forEach((reference) => {
-    const group = referenced.get(reference.id);
-    if (group) group.items.set(item.id, item);
-    else referenced.set(reference.id, { reference, items: new Map([[item.id, item]]) });
-  }));
-  const referencedItemIds = new Set([...referenced.values()].flatMap((group) => [...group.items.keys()]));
-  const unreferenced = items.filter((item) => !referencedItemIds.has(item.id));
-
   return <>
-    {[...referenced.values()].map(({ reference, items: referenceItems }) => {
+    {referenced.map(({ reference, items: referenceItems }) => {
       const [year, month] = reference.date.split("-");
-      return <details className={styles.reference} key={reference.id}>
-          <summary>
+      return <FindingDetails className={styles.reference} key={reference.id} summary={<>
             <span className={styles.referenceDate}><strong>{monthAbbreviations[Number(month) - 1] ?? month}</strong><small>{year}</small></span>
             <span className={styles.referenceInfo}><strong>{reference.workName}</strong><small>Responsável</small><span>{reference.responsible}</span></span>
             <i className={styles.referenceChevron} aria-hidden="true" />
-          </summary>
-          <div className={styles.referenceDetails}>
+          </>}>
+          {() => <div className={styles.referenceDetails}>
             <ul className={styles.referenceItems}>{[...referenceItems.values()].map((item) => <li key={item.id}>
               {onOpenFindings ? <button type="button" onClick={onOpenFindings}>{item.checklistItem ?? item.title}</button>
                 : <strong>{item.checklistItem ?? item.title}</strong>}
             </li>)}</ul>
-          </div>
-        </details>;
+          </div>}
+        </FindingDetails>;
     })}
     {unreferenced.length > 0 && <ul className={`${styles.list} ${styles.summaryRows}`}>{unreferenced.map((item) => <li key={item.id} className={`${styles.finding}${item.descriptions?.length ? ` ${styles.recurringFinding}` : ""}`}>
-      {item.descriptions?.length ? <details className={styles.recurringDetails}>
-        <summary className={styles.summaryRow}>
+      {item.descriptions?.length ? <FindingDetails className={styles.recurringDetails} summaryClassName={styles.summaryRow} summary={<>
           <strong className={styles.summaryItem}>{item.title}</strong>
           <span>{item.discipline ?? "—"}</span>
           <span>{item.workCount ?? 0} {item.workCount === 1 ? "obra" : "obras"}</span>
           <span>{item.occurrences ?? 0} {item.occurrences === 1 ? "ocorrência" : "ocorrências"}</span>
-        </summary>
-        <ul className={styles.recurringDescriptions}>{item.descriptions.map((description, index) => <li key={`${description.label ?? "item"}:${description.description}:${index}`}>
+        </>}>
+        {() => <ul className={styles.recurringDescriptions}>{item.descriptions!.map((description, index) => <li key={`${description.label ?? "item"}:${description.description}:${index}`}>
           {description.label && <strong>{description.label}</strong>}<span>{description.description}</span>
-        </li>)}</ul>
-      </details> : <div className={styles.summaryRow}>
+        </li>)}</ul>}
+      </FindingDetails> : <div className={styles.summaryRow}>
         {onOpenFindings ? <button type="button" className={styles.summaryItem} onClick={onOpenFindings}>{item.title}</button>
           : <strong className={styles.summaryItem}>{item.title}</strong>}
         <span>{item.discipline ?? "—"}</span>

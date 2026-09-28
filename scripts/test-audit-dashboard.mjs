@@ -3,6 +3,7 @@ import test from "node:test";
 import { registerHooks } from "node:module";
 import { pathToFileURL } from "node:url";
 import path from "node:path";
+import { createHash } from "node:crypto";
 import { buildAuditDashboard, buildDashboardRanking } from "../src/lib/audits/dashboard.ts";
 import { unavailableAuditDashboard } from "../src/lib/audits/dashboard-contracts.ts";
 import { parseAuditDashboardOverlay } from "../src/lib/audits/dashboard-overlay.ts";
@@ -23,7 +24,13 @@ const finding = (record, id = "item-1", overrides = {}) => ({ id, auditId: recor
   criterionTitle: "Armazenamento", nonconformity: "Fora do especificado", serious: true, subitem: "Contramarco", ...overrides });
 const snapshot = (audits, findings = []) => ({ available: true, audits, findings, responses: {}, criteriaSnapshots: {} });
 function clientFor(input, fail = false) {
-  return { calls: [], async rpc(name, parameters) { this.calls.push({name, parameters}); assert.equal(name, "read_published_audit_overview"); return { data: input, error: fail ? { message: "offline" } : null }; }, storage: { from() { throw new Error("Dashboard must not sign evidence"); } } };
+  const revision = createHash("md5").update(JSON.stringify(input)).digest("hex");
+  return { calls: [], async rpc(name, parameters) {
+    this.calls.push({name, parameters});
+    assert.equal(name, "read_published_audit_overview_if_changed");
+    return { data: parameters.p_known_revision === revision ? { revision, unchanged: true }
+      : { ...input, revision, unchanged: false }, error: fail ? { message: "offline" } : null };
+  }, storage: { from() { throw new Error("Dashboard must not sign evidence"); } } };
 }
 
 test("complete counts and plan groups remain independent of a ten-row history page", () => {
