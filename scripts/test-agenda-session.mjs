@@ -69,6 +69,13 @@ const stubModules = {
   "next/navigation": "export function redirect(destination) { throw Object.assign(new Error('redirect'), { destination }); }",
   "supabase/server": "export async function createClient(options) { const s = globalThis.__agendaSessionFixture; s.clients.push(options); return s.client; }",
   "access/workspace": "export async function readWorkspaceContext(active) { const s = globalThis.__agendaSessionFixture; s.workspaceReads.push(active); return s.contextAvailable ? s.context : null; }",
+  "agenda/batch-service": `
+    export async function createAgendaVisitsBatch(input, context, client) {
+      const s = globalThis.__agendaSessionFixture;
+      s.mutations.push({ name: 'create-batch', input, context, client });
+      return { status: 'success', message: 'Offline batch DAL accepted' };
+    }
+  `,
   "agenda/service": `
     function operation(name, input, context, client) {
       const s = globalThis.__agendaSessionFixture;
@@ -78,8 +85,8 @@ const stubModules = {
     export const createAgendaVisit = (...args) => operation('create', ...args);
     export const deleteAgendaVisit = (...args) => operation('delete', ...args);
     export const confirmAgendaVisit = (...args) => operation('confirm', ...args);
-    export async function readAgendaUpdate(client, context, revision) {
-      const s = globalThis.__agendaSessionFixture; s.receivedRevision = revision;
+    export async function readAgendaUpdate(client, context, revision, compact) {
+      const s = globalThis.__agendaSessionFixture; s.receivedRevision = revision; s.compact = compact;
       if (s.unchanged) { s.agendaReads.push({client, context}); return { unchanged: true, revision: s.snapshot.revision }; }
       return { unchanged: false, snapshot: await readAgendaSnapshot(client, context) };
     }
@@ -91,7 +98,7 @@ const stubModules = {
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 registerHooks({
   resolve(specifier, context, nextResolve) {
-    const key = ["supabase/server", "access/workspace", "agenda/service"].find((suffix) =>
+    const key = ["supabase/server", "access/workspace", "agenda/service", "agenda/batch-service"].find((suffix) =>
       specifier.endsWith(suffix) || specifier.endsWith(`${suffix}.ts`)) ?? specifier;
     if (Object.hasOwn(stubModules, key)) return {
       url: `data:text/javascript,${encodeURIComponent(stubModules[key])}`, shortCircuit: true,
@@ -104,6 +111,7 @@ const actions = await import("../src/app/agenda/actions.ts");
 const { GET, dynamic } = await import("../src/app/api/agenda/route.ts");
 const operations = [
   ["create", actions.createAgendaVisitAction],
+  ["create-batch", actions.createAgendaVisitsBatchAction],
   ["delete", actions.deleteAgendaVisitAction],
   ["confirm", actions.confirmAgendaVisitAction],
 ];
@@ -201,6 +209,12 @@ test("GET cannot expose stale data when workspace or persistent agenda is unavai
   await assertUnavailable(await GET(request()), 403); assert.equal(state.agendaReads.length, 0);
   reset(); state.snapshot = structuredClone(empty);
   await assertUnavailable(await GET(request()), 503); assert.equal(state.agendaReads.length, 1);
+});
+
+test("new tabs request compact synchronization while pre-deployment tabs keep full details", async () => {
+  reset(); await GET(request()); assert.equal(state.compact, false);
+  const url = new URL(request().url); url.searchParams.set("formato", "compacto");
+  await GET(new Request(url)); assert.equal(state.compact, true);
 });
 
 

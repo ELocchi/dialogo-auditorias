@@ -4,6 +4,7 @@ import { requireActiveProfile } from "@/lib/auth/session";
 import { readWorkspaceContext } from "@/lib/access/workspace";
 import { createClient } from "@/lib/supabase/server";
 import { confirmAgendaVisit, createAgendaVisit, deleteAgendaVisit } from "@/lib/agenda/service";
+import { createAgendaVisitsBatch } from "@/lib/agenda/batch-service";
 import { unavailableAgenda, type AgendaActorContext, type AgendaActionResult, type ConfirmAgendaVisitInput, type CreateAgendaVisitInput, type DeleteAgendaVisitInput } from "@/lib/agenda/contracts";
 
 async function execute(operation: typeof createAgendaVisit, input: unknown, expected: AgendaActorContext): Promise<AgendaActionResult> {
@@ -18,6 +19,10 @@ async function execute(operation: typeof createAgendaVisit, input: unknown, expe
 
 export async function createAgendaVisitAction(input: CreateAgendaVisitInput, expected: AgendaActorContext): Promise<AgendaActionResult> {
   return execute(createAgendaVisit, input, expected);
+}
+
+export async function createAgendaVisitsBatchAction(input: CreateAgendaVisitInput[], expected: AgendaActorContext): Promise<AgendaActionResult> {
+  return execute(createAgendaVisitsBatch, input, expected);
 }
 
 export async function deleteAgendaVisitAction(input: DeleteAgendaVisitInput, expected: AgendaActorContext): Promise<AgendaActionResult> {

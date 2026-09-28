@@ -9,8 +9,8 @@ import { roleLabels, moduleLabels, modelModule, canAccessWorkModule, canAccessMo
 import { beginScheduledVisitAudit, completePrototypeAudit, validatePrototypeAuditCompletion, updatePrototypeResponse, criteriaForAudit, criteriaForModel, modelDisplayName, type PrototypeAuditState } from "@/domain/prototype-audits";
 import { getSaoPauloToday } from "@/domain/visit-calendar";
 import type { ProfileWorkspaceContext } from "@/lib/access/workspace-context";
-import { unavailableAgenda, type AgendaActorContext, type AgendaSnapshot } from "@/lib/agenda/contracts";
-import { createAgendaVisitAction, deleteAgendaVisitAction, confirmAgendaVisitAction } from "@/app/agenda/actions";
+import { unavailableAgenda, type AgendaActorContext, type AgendaSnapshot, type CreateAgendaVisitInput } from "@/lib/agenda/contracts";
+import { createAgendaVisitAction, createAgendaVisitsBatchAction, deleteAgendaVisitAction, confirmAgendaVisitAction } from "@/app/agenda/actions";
 import { catalogVersion, unavailableCatalogs, type CatalogSnapshot } from "@/lib/catalogs/contracts";
 import { Icon, type IconName } from "./ui-icon";
 import { PrototypeDashboard, AuditList, AuditorScheduledAudits, PublishedAuditsPanel, DeferredScreen, AdministrativePanel, AuditPreview, type ActionPlanSource } from "./prototype-workspace";
@@ -402,6 +402,7 @@ function ProfileWorkspace({ context: providedContext, initialScreen, initialVisi
   };
   const agendaActions = {
     onCreate: (input: VisitInput) => runAgendaAction("create", input, (requestId) => createAgendaVisitAction({ ...input, requestId }, agendaActor)),
+    onCreateBatch: (inputs: CreateAgendaVisitInput[]) => runAgendaAction("create-batch", inputs, () => createAgendaVisitsBatchAction(inputs, agendaActor)),
     onDelete: (visitId: string, expectedRevision: number) => runAgendaAction(`delete:${visitId}`, { visitId, expectedRevision }, (requestId) => deleteAgendaVisitAction({ visitId, expectedRevision, requestId }, agendaActor)),
     onConfirm: (visitId: string, expectedRevision: number) => runAgendaAction(`confirm:${visitId}`, { visitId, expectedRevision }, (requestId) => confirmAgendaVisitAction({ visitId, expectedRevision, requestId }, agendaActor)),
   };

@@ -33,7 +33,7 @@ function fixture({ visits = [visit], auditors = [], error = null, mutationData =
     if (throws) throw new Error('private provider diagnostic');
     if (name === 'confirm_audit_visit' && !error) currentVisits = postConfirmationVisits ?? currentVisits.map((entry) => ({ ...entry, confirmationStatus: 'confirmed', confirmedAt: '2030-02-02T12:00:00Z' }));
     if (name === 'delete_audit_visit' && !error) currentVisits = currentVisits.filter((entry) => entry.id !== params.p_visit_id);
-    return name === 'read_audit_agenda_if_changed' ? { data: { unchanged: false, revision: 'a'.repeat(32), snapshot: { visits: currentVisits, auditors } }, error: readError } : { data: mutationData, error };
+    return name === 'read_compact_audit_agenda_if_changed' ? { data: { unchanged: false, revision: 'a'.repeat(32), snapshot: { visits: currentVisits, auditors } }, error: readError } : { data: mutationData, error };
   } } };
 }
 
@@ -121,7 +121,7 @@ test('auditoria designada fornece nome mínimo e confirmação sem incluir obra 
     const invalid = fixture({ visits: [changed] });
     assert.equal((await readAgendaSnapshot(invalid.client, ctx)).available, false);
     assert.equal((await confirmAgendaVisit(confirmation, ctx, invalid.client)).status, 'error');
-    assert.ok(invalid.calls.every((call) => call.name === 'read_audit_agenda_if_changed'));
+    assert.ok(invalid.calls.every((call) => call.name === 'read_compact_audit_agenda_if_changed'));
   }
   assert.equal((await readAgendaSnapshot(fixture({ visits: [assigned] }).client, { ...ctx, user: { ...ctx.user, modules: [] } })).available, false);
 });
@@ -193,7 +193,7 @@ test('work follow-up schedules without a model and still asks the assigned profe
 test('confirmation is scoped to the currently selected auditor before mutation', async () => {
   for (const role of ['administrative', 'engineering', 'quality-auditor']) {
     const f = fixture(); assert.equal((await confirmAgendaVisit(confirmation, context(role), f.client)).status, 'error');
-    assert.ok(f.calls.every((call) => call.name === 'read_audit_agenda_if_changed'));
+    assert.ok(f.calls.every((call) => call.name === 'read_compact_audit_agenda_if_changed'));
   }
   const other = fixture({ visits: [{ ...visit, auditorId: otherId }] });
   assert.equal((await confirmAgendaVisit(confirmation, context('safety-auditor'), other.client)).status, 'error');

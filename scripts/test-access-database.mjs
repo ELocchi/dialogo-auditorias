@@ -30,9 +30,11 @@ const followUpWorkspaceOnly = process.argv.includes("--follow-up-workspace-only"
 const followUpTargetedOnly = process.argv.includes("--follow-up-targeted-only");
 const accessContextOnly = process.argv.includes("--access-context-only");
 const administrationPageOnly = process.argv.includes("--administration-page-only");
-if (process.argv.slice(2).some((arg) => !["--baseline-only", "--assignment-only", "--overview-only", "--sync-only", "--projection-only", "--comparison-only", "--history-only", "--dashboard-sync-only", "--follow-up-workspace-only", "--follow-up-targeted-only", "--access-context-only", "--administration-page-only"].includes(arg))
-  || ([baselineOnly, assignmentOnly, overviewOnly, syncOnly, projectionOnly, comparisonOnly, historyOnly, dashboardSyncOnly, followUpWorkspaceOnly, followUpTargetedOnly, accessContextOnly, administrationPageOnly].filter(Boolean).length > 1)) {
-  throw new Error("Supported arguments: --baseline-only, --assignment-only, --overview-only, --sync-only, --projection-only, --comparison-only, --history-only, --dashboard-sync-only, --follow-up-workspace-only, --follow-up-targeted-only, --access-context-only or --administration-page-only");
+const batchAgendaOnly = process.argv.includes("--batch-agenda-only");
+const compactAgendaOnly = process.argv.includes("--compact-agenda-only");
+if (process.argv.slice(2).some((arg) => !["--baseline-only", "--assignment-only", "--overview-only", "--sync-only", "--projection-only", "--comparison-only", "--history-only", "--dashboard-sync-only", "--follow-up-workspace-only", "--follow-up-targeted-only", "--access-context-only", "--administration-page-only", "--batch-agenda-only", "--compact-agenda-only"].includes(arg))
+  || ([baselineOnly, assignmentOnly, overviewOnly, syncOnly, projectionOnly, comparisonOnly, historyOnly, dashboardSyncOnly, followUpWorkspaceOnly, followUpTargetedOnly, accessContextOnly, administrationPageOnly, batchAgendaOnly, compactAgendaOnly].filter(Boolean).length > 1)) {
+  throw new Error("Supported arguments: --baseline-only, --assignment-only, --overview-only, --sync-only, --projection-only, --comparison-only, --history-only, --dashboard-sync-only, --follow-up-workspace-only, --follow-up-targeted-only, --access-context-only, --administration-page-only, --batch-agenda-only or --compact-agenda-only");
 }
 
 async function loadPGlite() {
@@ -363,6 +365,16 @@ if (!baselineOnly) suites.push({
   omitHistoricPublicationBackfills: true,
 });
 
+for (const [name, migration, test] of [
+  ["B.38 Atomic agenda batches and replay authorization suite", "20260928001100_batch_agenda.sql", "batch_agenda.sql"],
+  ["B.39 Compact agenda and targeted detail authorization suite", "20260928001200_compact_agenda.sql", "compact_agenda.sql"],
+]) if (!baselineOnly) suites.push({
+  name,
+  migrations: readdirSync(path.join(projectRoot, "supabase", "migrations"))
+    .filter((item) => item.endsWith(".sql") && item <= migration && item !== "20260924000200_verify_published_audit_access.sql").sort(),
+  test, storageAdapter: true, omitHistoricPublicationBackfills: true,
+});
+
 const { PGlite } = await loadPGlite();
 for (const suite of suites.filter((item) => (!assignmentOnly || item.test === "audit_assignment_access.sql")
   && (!overviewOnly || item.test === "published_audit_overview.sql")
@@ -374,7 +386,9 @@ for (const suite of suites.filter((item) => (!assignmentOnly || item.test === "a
   && (!followUpWorkspaceOnly || item.test === "follow_up_workspace_reads.sql")
   && (!followUpTargetedOnly || item.test === "follow_up_targeted_reads.sql")
   && (!accessContextOnly || item.test === "access_context_reads.sql")
-  && (!administrationPageOnly || item.test === "paged_access_administration.sql"))) {
+  && (!administrationPageOnly || item.test === "paged_access_administration.sql")
+  && (!batchAgendaOnly || item.test === "batch_agenda.sql")
+  && (!compactAgendaOnly || item.test === "compact_agenda.sql"))) {
   const db = await PGlite.create();
   let currentSqlFile = "";
   try {
@@ -423,12 +437,17 @@ for (const suite of suites.filter((item) => (!assignmentOnly || item.test === "a
       await db.exec(phases[0]);
       await db.exec(readFileSync(path.join(projectRoot, "supabase", "migrations", suite.upgradeMigration), "utf8"));
       await db.exec(phases[1]);
-    } else if (suite.test === "agenda_sync.sql") {
+    } else if (suite.test === "agenda_sync.sql" || suite.test === "compact_agenda.sql") {
       // Expiry changes eligibility without writing any table. Separate SQL
       // statements are required because statement_timestamp is fixed per call.
-      const phases = testSql.split("-- AGENDA_BAN_EXPIRY_BOUNDARY");
+      const phases = testSql.split(suite.test === "agenda_sync.sql" ? "-- AGENDA_BAN_EXPIRY_BOUNDARY" : "-- COMPACT_AGENDA_BAN_EXPIRY_BOUNDARY");
       assert.equal(phases.length, 2, "The agenda expiry suite must contain exactly two phases.");
-      await db.exec(phases[0]);
+      const initialResults = await db.exec(phases[0]);
+      if (suite.test === "compact_agenda.sql") {
+        const metrics = initialResults.flatMap((result) => result.rows).find((row) => row.compact_agenda_fixture_metrics)?.compact_agenda_fixture_metrics;
+        assert.ok(metrics, "Compact agenda fixture must provide JSON byte evidence.");
+        console.log(`Synthetic compact agenda fixture (not production latency): ${JSON.stringify(metrics)}`);
+      }
       await new Promise((resolve) => setTimeout(resolve, 300));
       await db.exec(phases[1]);
     } else {

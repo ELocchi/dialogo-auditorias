@@ -35,20 +35,24 @@ export function parseConfirmAgendaVisit(input: unknown): ConfirmAgendaVisitInput
   return { requestId: input.requestId.toLowerCase(), visitId: input.visitId.toLowerCase(), expectedRevision: input.expectedRevision };
 }
 
-function parseVisit(raw: unknown, context: ProfileWorkspaceContext): Visit | null {
+export function parseAgendaVisit(raw: unknown, context: ProfileWorkspaceContext, allowCompact = false): Visit | null {
   const kind = record(raw) && raw.kind === undefined ? "audit" : record(raw) ? raw.kind : null;
+  const compact = allowCompact && record(raw) && !Object.hasOwn(raw, "note") && !Object.hasOwn(raw, "history")
+    && timestamp(raw.lastChangedAt) && isAgendaRevision(raw.detailVersion);
   if (!record(raw) || !uuid(raw.id) || !uuid(raw.workId) || !uuid(raw.auditorId) || !uuid(raw.createdBy)
     || (kind !== "audit" && kind !== "follow_up")
     || (raw.module !== "safety" && raw.module !== "quality")
     || (kind === "audit" ? !model(raw.modelId) || raw.module !== modelModule(raw.modelId) : raw.modelId !== null)
-    || !text(raw.note, 2000)
+    || (!compact && !text(raw.note, 2000))
     || typeof raw.date !== "string" || !isCalendarDate(raw.date) || !timestamp(raw.createdAt) || !revision(raw.revision)
-    || !text(raw.auditorName, 200) || !text(raw.createdByName, 200) || !Array.isArray(raw.history)
+    || !text(raw.auditorName, 200) || !text(raw.createdByName, 200) || (!compact && !Array.isArray(raw.history))
+    || (raw.lastChangedAt !== undefined && !timestamp(raw.lastChangedAt))
+    || (raw.detailVersion !== undefined && !isAgendaRevision(raw.detailVersion))
     || (raw.workName !== undefined && (!text(raw.workName, 200) || !raw.workName.trim()))
     || !["pending_confirmation", "confirmed"].includes(String(raw.confirmationStatus))
     || (raw.confirmationStatus === "confirmed" ? !timestamp(raw.confirmedAt) : raw.confirmedAt !== null)) return null;
   const history: Visit["history"][number][] = [];
-  for (const entry of raw.history) {
+  for (const entry of compact ? [] : raw.history as unknown[]) {
     if (!record(entry) || typeof entry.previousDate !== "string" || !isCalendarDate(entry.previousDate)
       || typeof entry.date !== "string" || !isCalendarDate(entry.date) || !text(entry.note, 2000)
       || !uuid(entry.changedBy) || !timestamp(entry.changedAt)) return null;
@@ -56,10 +60,13 @@ function parseVisit(raw: unknown, context: ProfileWorkspaceContext): Visit | nul
   }
   const visit: Visit = {
     id: raw.id, workId: raw.workId, module: raw.module, kind, modelId: raw.modelId as AuditModelId | null, auditorId: raw.auditorId,
-    date: raw.date, note: raw.note, createdBy: raw.createdBy, createdAt: raw.createdAt, history, revision: raw.revision,
+    date: raw.date, note: compact ? "" : raw.note as string, createdBy: raw.createdBy, createdAt: raw.createdAt, history, revision: raw.revision,
     confirmationStatus: raw.confirmationStatus as Visit["confirmationStatus"], confirmedAt: raw.confirmedAt as string | null,
     auditorName: raw.auditorName, createdByName: raw.createdByName,
     ...(typeof raw.workName === "string" ? { workName: raw.workName.trim() } : {}),
+    ...(compact ? { detailsLoaded: false as const } : {}),
+    ...(typeof raw.lastChangedAt === "string" ? { lastChangedAt: raw.lastChangedAt } : {}),
+    ...(typeof raw.detailVersion === "string" ? { detailVersion: raw.detailVersion } : {}),
   };
   const followedWork = context.works.some((work) => work.id === visit.workId);
   return (followedWork || (visit.kind === "audit" && !!visit.workName)) && canReadVisit(context.user, visit) ? visit : null;
@@ -84,7 +91,7 @@ function notificationsFor(visits: Visit[], context: ProfileWorkspaceContext): Ag
   const items: AgendaNotification[] = [];
   for (const visit of visits) {
     const workName = visit.workName ?? context.works.find((work) => work.id === visit.workId)!.name;
-    const createdAt = visit.history.at(-1)?.changedAt ?? visit.createdAt;
+    const createdAt = visit.lastChangedAt ?? visit.history.at(-1)?.changedAt ?? visit.createdAt;
     const detail = `${visit.kind === "follow_up" ? "Acompanhamento" : "Auditoria"} de ${moduleLabels[visit.module]} · ${formatAuditDate(visit.date)}`;
     const base = { workName, detail, href: `/app?secao=agenda&visita=${encodeURIComponent(visit.id)}` };
     if (canManageAgenda(context.user)) {
@@ -110,7 +117,7 @@ function parseAgendaData(data: unknown, context: ProfileWorkspaceContext): Agend
     for (const raw of data.visits) {
       if (context.profile === "ADMINISTRATIVO" && record(raw) && (raw.module === "safety" || raw.module === "quality")
         && !context.user.modules.includes(raw.module)) continue;
-      const visit = parseVisit(raw, context); if (!visit) return unavailableAgenda(); visits.push(visit);
+      const visit = parseAgendaVisit(raw, context, true); if (!visit) return unavailableAgenda(); visits.push(visit);
     }
     for (const raw of data.auditors) {
       if (context.profile === "ADMINISTRATIVO" && record(raw) && (raw.role === "safety-auditor" || raw.role === "quality-auditor")
@@ -126,11 +133,11 @@ function parseAgendaData(data: unknown, context: ProfileWorkspaceContext): Agend
 
 
 /** The database checks authority and revision in the same read-only snapshot. */
-export async function readAgendaUpdate(client: Client, context: ProfileWorkspaceContext, knownRevision: string | null = null): Promise<AgendaSyncResult> {
+export async function readAgendaUpdate(client: Client, context: ProfileWorkspaceContext, knownRevision: string | null = null, compact = true): Promise<AgendaSyncResult> {
   const unavailable = (): AgendaSyncResult => ({ unchanged: false, snapshot: unavailableAgenda() });
   try {
     const previous = isAgendaRevision(knownRevision) ? knownRevision : null;
-    const { data, error } = await client.rpc("read_audit_agenda_if_changed", {
+    const { data, error } = await client.rpc(compact ? "read_compact_audit_agenda_if_changed" : "read_audit_agenda_if_changed", {
       p_profile: context.profile, p_engineering_scope: context.engineeringScope,
       p_administrative_scope: context.administrativeScope ?? null, p_known_revision: previous,
     });

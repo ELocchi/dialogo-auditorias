@@ -25,7 +25,10 @@ export async function GET(request: Request) {
   const context = await readWorkspaceContext({ user, account, ...selected });
   if (!context) return Response.json(unavailableAgenda(), { status: 403, headers });
   const candidate = request.headers.get("If-None-Match")?.match(/^"([a-f0-9]{32})"$/)?.[1];
-  const result = await readAgendaUpdate(await createClient(), context, isAgendaRevision(candidate) ? candidate : null);
+  // Tabs opened before deployment still need their full notes; new clients
+  // explicitly opt in to the compact format and fetch details when opened.
+  const result = await readAgendaUpdate(await createClient(), context, isAgendaRevision(candidate) ? candidate : null,
+    query.get("formato") === "compacto");
   if (result.unchanged) return new Response(null, { status: 304, headers: { ...headers, ETag: `"${result.revision}"` } });
   const { snapshot } = result;
   return Response.json(snapshot, { status: snapshot.available ? 200 : 503,

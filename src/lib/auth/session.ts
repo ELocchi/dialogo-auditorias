@@ -1,19 +1,22 @@
 import "server-only";
 
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "../supabase/server.ts";
 import { corporateEmail } from "./validation.ts";
 import { effectiveDestination, readEffectiveAccount } from "./effective-access.ts";
 import { readActiveProfileContext } from "./active-profile-session.ts";
 
-export async function verifiedUser() {
+// React cache only shares reads inside one Server Component render. New requests
+// and calls outside a render (including Server Actions) still verify live access.
+export const verifiedUser = cache(async function verifiedUser() {
   try {
     const client = await createClient();
     const { data, error } = await client.auth.getUser();
     if (error || !data.user || !corporateEmail(data.user.email)) return null;
     return data.user;
   } catch { return null; }
-}
+});
 
 export async function requireUser() {
   const user = await verifiedUser();
@@ -21,7 +24,7 @@ export async function requireUser() {
   return user;
 }
 
-export async function ownAccessRequest(userId: string) {
+export const ownAccessRequest = cache(async function ownAccessRequest(userId: string) {
   try {
     const client = await createClient();
     const { data, error } = await client.from("access_requests")
@@ -30,11 +33,17 @@ export async function ownAccessRequest(userId: string) {
     if (error || !data || data.auth_user_id !== userId) return null;
     return data;
   } catch { return null; }
-}
+});
+
+// Use all identity fields checked by readEffectiveAccount as scalar cache keys;
+// separate user objects with the same verified identity can share this read.
+const effectiveAccountForIdentity = cache(async (id: string, email: string | undefined, emailConfirmedAt: string | undefined) => {
+  try { return await readEffectiveAccount(await createClient(), { id, email, email_confirmed_at: emailConfirmedAt }); }
+  catch { return null; }
+});
 
 export async function effectiveAccount(user: NonNullable<Awaited<ReturnType<typeof verifiedUser>>>) {
-  try { return await readEffectiveAccount(await createClient(), user); }
-  catch { return null; }
+  return effectiveAccountForIdentity(user.id, user.email, user.email_confirmed_at);
 }
 
 export async function requireActiveProfile() {
@@ -46,7 +55,7 @@ export async function requireActiveProfile() {
   return { user, account, ...context };
 }
 
-export async function requireAdministrator() {
+export const requireAdministrator = cache(async function requireAdministrator() {
   const { user, profile, administrativeScope } = await requireActiveProfile();
   if (profile !== "ADMINISTRATIVO" || administrativeScope !== "GERAL") redirect("/app");
   // Also ask the database helper; it checks the current Auth/account state.
@@ -58,4 +67,4 @@ export async function requireAdministrator() {
   } catch { /* Fail closed without disclosing provider errors. */ }
   if (!authorized) redirect("/minha-conta?acesso=restrito");
   return user;
-}
+});

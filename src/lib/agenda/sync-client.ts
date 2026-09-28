@@ -28,7 +28,7 @@ export class AgendaSyncClient {
   constructor(initialAgenda: AgendaSnapshot, actor: AgendaActorContext, fetcher: Fetch = fetch) {
     this.fetcher = fetcher;
     this.state = { agenda: initialAgenda, agendaSyncError: "", mutationPending: false };
-    this.query = new URLSearchParams({ usuario: actor.userId, perfil: actor.profile,
+    this.query = new URLSearchParams({ formato: "compacto", usuario: actor.userId, perfil: actor.profile,
       atuacao: actor.engineeringScope ?? "", administrativo: actor.administrativeScope ?? "" }).toString();
   }
   getState = () => this.state;

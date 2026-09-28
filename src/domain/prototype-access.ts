@@ -153,6 +153,10 @@ export interface Visit {
   note: string;
   createdBy: string;
   createdAt: string;
+  /** Compact calendar rows defer notes and rescheduling history until opened. */
+  detailsLoaded?: false;
+  lastChangedAt?: string;
+  detailVersion?: string;
   /** Persisted agenda records carry these fields; legacy preview fixtures do not. */
   revision?: number;
   confirmationStatus?: "pending_confirmation" | "confirmed";

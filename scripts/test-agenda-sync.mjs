@@ -24,6 +24,7 @@ test('unchanged poll sends the current revision, has no JSON parse and no React 
   assert.equal(calls.length, 2);
   assert.equal(calls[0][1].headers['If-None-Match'], `"${revision}"`);
   assert.match(calls[0][0], /atuacao=COORDENACAO/);
+  assert.match(calls[0][0], /formato=compacto/);
   assert.equal(calls[0][1].cache, 'no-store');
 });
 
@@ -94,7 +95,7 @@ test('invalid or unsolicited 304 never clears existing errors or introduces a sn
 test('server DAL performs one conditional RPC and validates unchanged revision before accepting it', async () => {
   const context = { profile: 'ENGENHARIA', engineeringScope: 'COORDENACAO', administrativeScope: null };
   let calls = 0;
-  const rpc = async (name, args) => { calls++; assert.equal(name, 'read_audit_agenda_if_changed');
+  const rpc = async (name, args) => { calls++; assert.equal(name, 'read_compact_audit_agenda_if_changed');
     assert.deepEqual(args, { p_profile: context.profile, p_engineering_scope: context.engineeringScope,
       p_administrative_scope: null, p_known_revision: revision });
     return { data: { unchanged: true, revision }, error: null }; };

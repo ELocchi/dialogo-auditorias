@@ -23,8 +23,10 @@ import {
 } from "@/domain/operational-records";
 import { getHistoryPage } from "@/domain/audit-history";
 import { getSaoPauloToday, isCalendarDate } from "@/domain/visit-calendar";
-import type { AgendaActionResult } from "@/lib/agenda/contracts";
+import type { AgendaActionResult, CreateAgendaVisitInput } from "@/lib/agenda/contracts";
+import { newRequestId } from "@/lib/agenda/sync-client";
 import { AdminVisitCalendar } from "./admin-visit-calendar";
+import { useAgendaVisitDetail } from "./use-agenda-visit-detail";
 import { Icon } from "./ui-icon";
 import styles from "./visit-agenda.module.css";
 import paginationStyles from "./history-pagination.module.css";
@@ -40,6 +42,7 @@ type VisitAgendaProps = {
   mutationPending?: boolean;
   syncError?: string;
   onCreate: (input: VisitInput) => Promise<AgendaActionResult>;
+  onCreateBatch?: (inputs: CreateAgendaVisitInput[]) => Promise<AgendaActionResult>;
   onDelete: (visitId: string, expectedRevision: number) => Promise<AgendaActionResult>;
   onConfirm: (visitId: string, expectedRevision: number) => Promise<AgendaActionResult>;
 };
@@ -59,14 +62,15 @@ export function VisitAgenda(props: VisitAgendaProps) {
   return <AgendaContext key={`${props.user.id}:${props.module}:${props.workId}`} {...props} />;
 }
 
-function AdministrativeAgenda({ user, works, users, visits, module, workId, available, mutationPending = false, syncError, onCreate, onDelete, onConfirm }: VisitAgendaProps) {
+function AdministrativeAgenda({ user, works, users, visits, module, workId, available, mutationPending = false, syncError, onCreate, onCreateBatch, onDelete, onConfirm }: VisitAgendaProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const addButtonRef = useRef<HTMLButtonElement>(null);
   const listId = useId();
   const dialogTitleId = useId();
   const [selectedAuditorId, setSelectedAuditorId] = useState<string | null>(null);
-  const [draftVisits, setDraftVisits] = useState<{ id: string; input: VisitInput }[]>([]);
+  const [draftVisits, setDraftVisits] = useState<{ id: string; requestId: string; input: VisitInput }[]>([]);
   const [exporting, setExporting] = useState(false);
+  const exportingRef = useRef(false);
   const [exportError, setExportError] = useState("");
   const authorizedWorks = works.filter((work) => user.modules.some((discipline) => canConsultAgenda(user, work.id, discipline)));
   const workIds = new Set(authorizedWorks.map((work) => work.id));
@@ -79,22 +83,22 @@ function AdministrativeAgenda({ user, works, users, visits, module, workId, avai
     auditorName: users.find((entry) => entry.id === input.auditorId)?.name,
   }));
   const sendAgenda = async () => {
-    if (exporting || mutationPending || draftVisits.length === 0) return;
+    if (exportingRef.current || mutationPending || draftVisits.length === 0) return;
+    exportingRef.current = true;
     setExporting(true);
     setExportError("");
-    let exported = 0;
     try {
-      for (const draft of draftVisits) {
-        const result = await onCreate(draft.input);
-        if (result.status !== "success") throw new Error(`${exported} de ${draftVisits.length} agendamentos foram enviados. ${result.message}`);
-        exported += 1;
-      }
+      if (draftVisits.length > 200) throw new Error("Envie até 200 agendamentos por vez.");
+      if (!onCreateBatch && draftVisits.length > 1) throw new Error("O envio de vários agendamentos não está disponível nesta visualização.");
+      const result = onCreateBatch
+        ? await onCreateBatch(draftVisits.map(({ input, requestId }) => ({ ...input, requestId })))
+        : await onCreate(draftVisits[0].input);
+      if (result.status !== "success") throw new Error(result.message);
       setDraftVisits([]);
       dialogRef.current?.close();
     } catch (cause) {
-      if (exported > 0) setDraftVisits((current) => current.slice(exported));
-      setExportError(errorMessage(cause, "Não foi possível exportar a agenda. Confira os itens restantes e tente novamente."));
-    } finally { setExporting(false); }
+      setExportError(errorMessage(cause, "Não foi possível confirmar o envio. Tente novamente com os mesmos dados."));
+    } finally { exportingRef.current = false; setExporting(false); }
   };
 
   return <>
@@ -118,15 +122,15 @@ function AdministrativeAgenda({ user, works, users, visits, module, workId, avai
       </section>
       <AdminVisitCalendar visits={authorizedVisits} works={authorizedWorks} auditors={users} viewerId={user.id} calendarOnly includeFollowUps={Boolean(selectedAuditorId)} selectedAuditorId={selectedAuditorId} onSelectAuditor={setSelectedAuditorId} />
     </div>
-    <dialog ref={dialogRef} className={styles.scheduleDialog} aria-labelledby={dialogTitleId} onCancel={(event) => { if (mutationPending) event.preventDefault(); }} onClose={() => addButtonRef.current?.focus()}>
-      <button type="button" className={`secondary ${styles.closeDialog}`} disabled={mutationPending} onClick={() => dialogRef.current?.close()}>Fechar</button>
+    <dialog ref={dialogRef} className={styles.scheduleDialog} aria-labelledby={dialogTitleId} onCancel={(event) => { if (mutationPending || exporting) event.preventDefault(); }} onClose={() => addButtonRef.current?.focus()}>
+      <button type="button" className={`secondary ${styles.closeDialog}`} disabled={mutationPending || exporting} onClick={() => dialogRef.current?.close()}>Fechar</button>
       <CreateVisitForm user={user} works={authorizedWorks} users={users} module={module} workId={workId}
         available={available} mutationPending={mutationPending} onCreate={onCreate} headingId={dialogTitleId}
-        draftCount={draftVisits.length} onStage={(input) => setDraftVisits((current) => [...current, { id: `draft-${crypto.randomUUID()}`, input }])}
+        draftCount={draftVisits.length} onStage={(input) => setDraftVisits((current) => [...current, { id: `draft-${newRequestId()}`, requestId: newRequestId(), input }])}
         previewVisits={previewVisits} exporting={exporting} exportError={exportError}
         onRemoveDraft={(draftId) => setDraftVisits((current) => current.filter((entry) => entry.id !== draftId))}
-        onUpdateDraft={(draftId, input) => setDraftVisits((current) => current.map((entry) => entry.id === draftId ? { ...entry, input } : entry))}
-        drafts={draftVisits} onImport={(inputs) => setDraftVisits((current) => [...current, ...inputs.map((input) => ({ id: `draft-${crypto.randomUUID()}`, input }))])}
+        onUpdateDraft={(draftId, input) => setDraftVisits((current) => current.map((entry) => entry.id === draftId ? { ...entry, requestId: newRequestId(), input } : entry))}
+        drafts={draftVisits} onImport={(inputs) => setDraftVisits((current) => [...current, ...inputs.map((input) => ({ id: `draft-${newRequestId()}`, requestId: newRequestId(), input }))])}
         onSend={() => { void sendAgenda(); }} />
     </dialog>
   </>;
@@ -367,6 +371,7 @@ function CreateVisitForm({ user, works, users, module, workId, available, mutati
           note: cell(rowNumber, "observacao").text.trim() });
       }
       if (imported.length === 0) throw new Error("A planilha não possui agendamentos para importar.");
+      if (imported.length + draftCount > 200) throw new Error("Envie até 200 agendamentos por vez. Reduza a planilha ou envie as visitas já adicionadas.");
       onImport(imported);
       setSuccess(`${imported.length} ${imported.length === 1 ? "agendamento importado" : "agendamentos importados"} para verificação.`);
     } catch (cause) {
@@ -431,6 +436,7 @@ function CreateVisitForm({ user, works, users, module, workId, available, mutati
       if (!isCalendarDate(input.date)) throw new Error("Selecione uma data válida para a visita.");
       const prepared = { ...input, note: input.note.trim() };
       if (onStage) {
+        if (draftCount >= 200) throw new Error("Envie as 200 visitas já adicionadas antes de incluir outras.");
         onStage(prepared);
         setSuccess("Visita adicionada à agenda para verificação.");
       } else {
@@ -456,7 +462,7 @@ function CreateVisitForm({ user, works, users, module, workId, available, mutati
       <AdminVisitCalendar visits={previewVisits} works={works} viewerId={`${user.id}:draft`} calendarOnly includeFollowUps colorBy="work" />
     </div>}
     <form onSubmit={submit} aria-busy={submitting}>
-      <fieldset className={styles.formFields} disabled={submitting || mutationPending}>
+      <fieldset className={styles.formFields} disabled={submitting || mutationPending || exporting || importing}>
       <div className={styles.draftTableWrap}>
         <table className={`${styles.draftTable} ${styles.editableTable}`} aria-label="Planilha editável de agendamentos">
           <thead><tr><th>Obra</th><th>Disciplina</th><th>Finalidade</th><th>Tipo de auditoria</th><th>Profissional</th><th>Data</th><th>Observação</th><th><span className={styles.actionLabel}>Ação</span></th></tr></thead>
@@ -543,6 +549,7 @@ export function VisitCard({ visit, user, users, work, available, mutationPending
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [expanded, setExpanded] = useState(!manager && !collapsedInitially);
+  const detail = useAgendaVisitDetail(visit, user, expanded, available);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [confirming, setConfirming] = useState(false);
@@ -641,7 +648,9 @@ export function VisitCard({ visit, user, users, work, available, mutationPending
           <p>Excluir este agendamento da agenda de todos os perfis? A visita deixará de aparecer no calendário e nas notificações.</p>
           <button type="button" className="secondary" disabled={!available || mutationPending || deleting} onClick={() => { void deleteVisit(); }}>{deleting ? "Excluindo…" : "Confirmar exclusão"}</button>
         </div>}
-        {visit.note && <p className={styles.visitNote}><strong>Observação: </strong>{visit.note}</p>}
+        {detail.loading && <p role="status">Carregando observação…</p>}
+        {detail.error && <div role="alert" className={styles.error}><p>{detail.error}</p>{available && <button type="button" className="secondary" onClick={detail.retry}>Tentar novamente</button>}</div>}
+        {detail.note && <p className={styles.visitNote}><strong>Observação: </strong>{detail.note}</p>}
 
         {error && <p role="alert" className={styles.error}>{error}</p>}
         {success && <p role="status" className={styles.success}>{success}</p>}
