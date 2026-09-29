@@ -45,7 +45,6 @@
 .panel[hidden] { display: none; }
 .heading { padding: 18px 18px 15px; border-bottom: 1px solid var(--line); }
 .heading h2 { margin: 0 0 5px; font-size: 16px; letter-spacing: -.15px; }
-.heading p { margin: 0; color: var(--muted); font-size: 12px; }
 .empty { margin: 0; padding: 30px 18px; color: var(--muted); font-size: 13px; text-align: center; }
 .list { max-height: min(360px, 50vh); margin: 0; padding: 6px; overflow-y: auto; list-style: none; }
 .list li + li { border-top: 1px solid var(--line); }
@@ -58,7 +57,7 @@ a.item:focus-visible, .itemButton:focus-visible { outline-offset: -3px; }
 .itemContent { display: grid; gap: 3px; min-width: 0; overflow-wrap: anywhere; }
 .itemContent strong { color: var(--navy); font-size: 12px; }
 .workName { font-size: 13px; }
-.detail { color: var(--muted); font-size: 12px; }
+.detail { color: var(--muted); font-size: 12px; white-space: pre-line; }
 .itemContent time { margin-top: 3px; color: var(--muted); font-size: 11px; }
 @media (max-width: 760px) { .panel { right: auto; left: 0; } }
 @media print { .root { display: none; } }

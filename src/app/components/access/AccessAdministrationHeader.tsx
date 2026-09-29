@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { ownAccessRequest } from "@/lib/auth/session";
 import { displayNameFromEmail } from "@/lib/auth/display-name";
 import { AdministrativeHeader } from "@/app/components/administrative-header";
-import { DialogoLogo } from "@/app/components/dialogo-logo";
+import { AuthHeader } from "@/app/components/auth/AuthHeader";
 
 type Identity = { id: string; email?: string };
 
@@ -21,12 +21,7 @@ export function AccessAdministrationHeader({ user }: { user: Identity }) {
   if (name) return <AdministrativeHeader name={name} email={user.email} userId={user.id} />;
   // Numeric mailboxes still use the stored name. Its read is independent of the
   // list, and the fallback has no interactive controls to lose state on reveal.
-  return <Suspense fallback={<header className="site-header" aria-busy="true">
-    <div className="header-inner"><div className="header-main">
-      <div className="brand"><DialogoLogo /></div>
-      <div className="header-title"><h1>Auditorias de obra</h1><p>Gestão de segurança e qualidade</p><span className="context-pill">ADMINISTRAÇÃO</span></div>
-    </div></div>
-  </header>}>
+  return <Suspense fallback={<div aria-busy="true"><AuthHeader className="site-header" context={<span className="context-pill">ADMINISTRAÇÃO</span>} /></div>}>
     <NamedHeader user={user} />
   </Suspense>;
 }

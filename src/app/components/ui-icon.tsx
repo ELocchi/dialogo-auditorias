@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-export type IconName = "overview" | "audits" | "occurrences" | "works" | "report" | "settings" | "arrow" | "plus" | "calendar" | "info" | "check" | "book" | "bell";
+export type IconName = "overview" | "audits" | "occurrences" | "works" | "report" | "settings" | "arrow" | "plus" | "search" | "edit" | "calendar" | "info" | "check" | "book" | "bell";
 const paths: Record<IconName, ReactNode> = {
   overview: <><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></>,
   audits: <><rect x="5" y="4" width="14" height="17" rx="2" /><path d="M9 4V2h6v2M8 12l3 3 5-6" /></>,
@@ -10,6 +10,8 @@ const paths: Record<IconName, ReactNode> = {
   settings: <><path d="m9 3-.6 2.1-2 .9-2-.5-2 3.5L4 10.5v3L2.4 15l2 3.5 2-.5 2 .9L9 21h6l.6-2.1 2-.9 2 .5 2-3.5-1.6-1.5v-3L21.6 9l-2-3.5-2 .5-2-.9L15 3H9Z" /><circle cx="12" cy="12" r="3" /></>,
   arrow: <path d="M4 12h16m-6-6 6 6-6 6" />,
   plus: <path d="M12 5v14M5 12h14" />,
+  search: <><circle cx="11" cy="11" r="7" /><path d="m16 16 5 5" /></>,
+  edit: <><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4Z" /><path d="m13.5 6.5 4 4" /></>,
   calendar: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M7 3v4m10-4v4M3 10h18m-13 5h2m4 0h2" /></>,
   info: <><circle cx="12" cy="12" r="9" /><path d="M12 11v6m0-10h.01" /></>,
   check: <path d="m5 12 4 4L19 6" />,

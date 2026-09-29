@@ -104,7 +104,6 @@ function AdministrativeAgenda({ user, works, users, visits, module, workId, avai
   return <>
     <div className="page-intro">
       <div><h2>Agenda de visitas</h2></div>
-      <span className="badge">Agendamento administrativo</span>
     </div>
     {(!available || syncError) && <p role="status" className={styles.availability}>{syncError || "A agenda está indisponível no momento. Não é possível agendar ou confirmar visitas agora."}</p>}
     <div className={styles.administrativeLayout}>
@@ -212,7 +211,6 @@ function AgendaContext({ user, works, users, visits, module, workId, available, 
         <h2>Agenda de visitas</h2>
         <p className="muted">O Administrativo agenda e pode excluir agendamentos. Auditores confirmam as visitas sob sua responsabilidade.</p>
       </div>
-      <span className="badge">{canManage ? "Agendamento administrativo" : "Consulta à agenda"}</span>
     </div>
     {(!available || syncError) && <p role="status" className={styles.availability}>{syncError || "A agenda está indisponível no momento. Tente novamente após a atualização."}</p>}
 

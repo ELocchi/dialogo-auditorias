@@ -47,6 +47,18 @@
 .referenceItems button:focus-visible { border-radius: 4px; outline: 2px solid var(--navy); outline-offset: 3px; }
 .referenceItems > li > strong { color: var(--navy); font-size: 12px; line-height: 1.5; }
 .summaryRows { margin-top: 16px; }
+.monthGroups { display: grid; gap: 12px; margin-top: 16px; }
+.monthGroup { overflow: hidden; border: 1px solid var(--line); border-left: 4px solid var(--red); border-radius: 10px; background: white; }
+.monthSummary { display: flex; align-items: center; gap: 10px; padding: 12px; color: var(--navy); cursor: pointer; list-style: none; }
+.monthSummary::-webkit-details-marker { display: none; }
+.monthInfo { display: grid; flex: 1; gap: 3px; min-width: 0; }
+.monthInfo strong { font-size: 13px; line-height: 1.4; }
+.monthInfo small { color: var(--muted); font-size: 10px; }
+.monthSummary > i { width: 8px; height: 8px; flex: none; border-right: 2px solid var(--navy); border-bottom: 2px solid var(--navy); transform: rotate(45deg); transition: transform .15s ease; }
+.monthGroup[open] .monthSummary > i { transform: rotate(225deg); }
+.monthSummary:focus-visible { outline: 2px solid var(--navy); outline-offset: -3px; }
+.monthItems { padding: 0 14px 14px; border-top: 1px solid var(--line); }
+.monthItems .summaryRows { margin-top: 14px; }
 .summaryRow { display: grid; grid-template-columns: minmax(220px, 2fr) minmax(90px, .65fr) minmax(78px, .5fr) minmax(105px, .65fr); align-items: center; gap: 14px; }
 .summaryRow > span { color: var(--muted); font-size: 11px; white-space: nowrap; }
 .summaryItem { min-width: 0; padding: 0; border: 0; background: transparent; color: var(--navy); font: inherit; font-size: 13px; font-weight: 700; line-height: 1.45; text-align: left; overflow-wrap: anywhere; }

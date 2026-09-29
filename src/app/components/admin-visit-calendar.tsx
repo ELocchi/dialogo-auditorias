@@ -2,7 +2,7 @@
 
 import { useId, useState } from "react";
 import { auditModelLabels, formatAuditDate, type WorkRecord } from "@/domain/operational-records";
-import { moduleLabels, type DemoUser, type AppModule, type Visit } from "@/domain/prototype-access";
+import { type DemoUser, type AppModule, type Visit } from "@/domain/prototype-access";
 import { assignAuditorColors, assignWorkColors } from "@/domain/auditor-calendar-colors";
 import { getCalendarDays, getSaoPauloToday, isCalendarDate, shiftCalendarMonth } from "@/domain/visit-calendar";
 import { Icon } from "./ui-icon";
@@ -76,17 +76,15 @@ export function AdminVisitCalendar({ visits, works, auditors = [], onViewAgenda,
   };
 
   return <section className={`panel ${styles.panel}${calendarOnly ? ` ${styles.calendarOnly}` : ""}`} aria-labelledby={headingId}>
-    <div className="panel-heading">
-      <div>{!calendarOnly && <span className="section-label">AGENDA DO PERFIL</span>}<h3 id={headingId}>{calendarOnly ? "Calendário" : "Agenda de visitas"}</h3></div>
-      <span className="icon-tile"><Icon name="calendar" /></span>
-    </div>
-    <div className={styles.toolbar}>
-      <div className={styles.monthNavigation} role="group" aria-label="Navegar pelo calendário">
-        <button type="button" className={styles.monthButton} aria-label="Mês anterior" disabled={month === "0001-01"} onClick={() => changeMonth(-1)}><Icon name="arrow" className={styles.previous} /></button>
-        <span id={monthId} className={styles.monthLabel} aria-live="polite">{monthLabel}</span>
-        <button type="button" className={styles.monthButton} aria-label="Próximo mês" disabled={month === "9999-12"} onClick={() => changeMonth(1)}><Icon name="arrow" /></button>
+    <div className={`panel-heading ${styles.heading}`}>
+      <h3 id={headingId}>{calendarOnly ? "Calendário" : "Agenda de visitas"}</h3>
+      <div className={styles.toolbar}>
+        <div className={styles.monthNavigation} role="group" aria-label="Navegar pelo calendário">
+          <button type="button" className={styles.monthButton} aria-label="Mês anterior" disabled={month === "0001-01"} onClick={() => changeMonth(-1)}><Icon name="arrow" className={styles.previous} /></button>
+          <span id={monthId} className={styles.monthLabel} aria-live="polite">{monthLabel}</span>
+          <button type="button" className={styles.monthButton} aria-label="Próximo mês" disabled={month === "9999-12"} onClick={() => changeMonth(1)}><Icon name="arrow" /></button>
+        </div>
       </div>
-      <button type="button" className={styles.todayButton} onClick={() => { setMonth(today.slice(0, 7)); setSelectedDate(calendarOnly ? null : today); }}>Hoje</button>
     </div>
     <table className={styles.calendar} aria-labelledby={monthId}>
       <thead><tr>{weekdays.map(([short, full]) => <th scope="col" key={short}><abbr title={full}>{short}</abbr></th>)}</tr></thead>
@@ -123,7 +121,7 @@ export function AdminVisitCalendar({ visits, works, auditors = [], onViewAgenda,
       {legendProfiles.length ? legendProfiles.map((profile) => <div className={styles.legendProfile} key={profile.id}>
         <span className={styles.legendIdentity}>{effectiveColorBy === "auditor" && onSelectAuditor && profileHasVisits.has(profile.id)
           ? <button type="button" className={styles.profileButton} aria-pressed={selectedAuditorId === profile.id} onClick={() => onSelectAuditor(selectedAuditorId === profile.id ? null : profile.id)}>{profile.name}</button>
-          : <strong>{profile.name}</strong>}{effectiveColorBy === "auditor" && <small>{[...profile.modules].map((module) => moduleLabels[module]).join(" e ")}{!profile.active ? " · sem acesso ativo" : ""}</small>}</span>
+          : <strong>{profile.name}</strong>}</span>
         <span className={styles.colorSwatch} style={{ backgroundColor: colors[profile.id] }} role="img" aria-label={`Cor de ${profile.name}`} />
       </div>) : <span className={styles.legendEmpty}>{effectiveColorBy === "work" ? "Nenhuma obra com visitas agendadas." : "Nenhum auditor autorizado nesta disciplina."}</span>}
     </div>}
@@ -135,7 +133,11 @@ export function AdminVisitCalendar({ visits, works, auditors = [], onViewAgenda,
       {visibleVisits.length ? <div className={styles.listScroll} role="region" aria-label="Visitas agendadas" tabIndex={0}>
         <ul className={styles.list}>{visibleVisits.map((visit) => <li key={visit.id} className={styles.visit}>
           <time dateTime={visit.date} className={styles.visitDate}>{formatAuditDate(visit.date).slice(0, 5)}</time>
-          <div className={styles.visitInfo}><strong>{workNames.get(visit.workId)}</strong><span>{visit.kind === "follow_up" ? "Acompanhamento da obra" : visit.modelId ? auditModelLabels[visit.modelId].name : "Auditoria"}</span></div>
+          <div className={styles.visitInfo}>
+            <strong>{workNames.get(visit.workId)}</strong>
+            <span>{visit.kind === "follow_up" ? "Acompanhamento da obra" : visit.modelId ? auditModelLabels[visit.modelId].name : "Auditoria"}</span>
+            <small>Responsável: {profiles.get(visit.auditorId)?.name || visit.auditorName?.trim() || "Não identificado"}</small>
+          </div>
           <span className={styles.auditorDot} style={{ backgroundColor: colors[colorKey(visit)] }} aria-hidden="true" />
         </li>)}</ul>
       </div> : <p className={styles.empty}>{selectedDate ? "Nenhuma visita agendada para este dia." : "Nenhuma visita agendada neste mês."}</p>}

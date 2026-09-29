@@ -25,20 +25,44 @@
   border-right: 1px solid var(--line);
 }
 
-.product strong,
-.product span {
+.productName,
+.productSubtitle {
   display: block;
 }
 
-.product strong {
-  color: var(--navy);
+.productName {
+  font-family: "Century Gothic", "Avenir Next", Arial, sans-serif;
   font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -.045em;
 }
 
-.product span {
+.productDialogo,
+.productAuditorias {
+  display: inline;
+}
+
+.productDialogo {
+  color: var(--navy);
+}
+
+.productAuditorias {
+  color: var(--red);
+}
+
+.productSubtitle {
   margin-top: 3px;
   color: var(--muted);
   font-size: 13px;
+}
+
+.productContext {
+  margin-top: 9px;
+}
+
+.headerActions {
+  min-width: 0;
+  margin-left: auto;
 }
 
 .main {
@@ -275,6 +299,7 @@
 
 @media (max-width: 600px) {
   .headerInner {
+    flex-wrap: wrap;
     gap: 16px;
     padding: 20px;
   }
@@ -283,12 +308,19 @@
     padding-right: 16px;
   }
 
-  .product strong {
+  .productName {
     font-size: 17px;
   }
 
-  .product span {
+  .productSubtitle {
     font-size: 11px;
+  }
+
+  .headerActions {
+    display: flex;
+    width: 100%;
+    justify-content: flex-end;
+    margin-left: 0;
   }
 
   .main {
@@ -312,7 +344,7 @@
     padding-right: 12px;
   }
 
-  .product strong {
+  .productName {
     font-size: 15px;
   }
 }

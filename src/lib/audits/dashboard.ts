@@ -90,7 +90,7 @@ export function buildAuditDashboard(snapshot: PublishedAuditSnapshot, works: rea
     mostSevere: summarizeSeriousFindings(findings, workNames),
     mostRecurring: getRecurringFindings(findings).map((finding) => ({
       id: finding.id, title: `${finding.item} · ${finding.description}`, discipline: moduleLabels[finding.module],
-      workCount: finding.workCount, occurrences: finding.occurrences, descriptions: finding.details,
+      month: finding.latestDate.slice(0, 7), workCount: finding.workCount, occurrences: finding.occurrences, descriptions: finding.details,
     })),
     ranking: buildDashboardRanking(scores),
     scoreMonths,

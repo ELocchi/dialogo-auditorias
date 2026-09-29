@@ -33,13 +33,9 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             autoComplete={isSignup ? "email" : "username"}
             autoCapitalize="none"
             spellCheck={false}
-            aria-describedby="email-guidance"
             required
           />
         </label>
-        <p id="email-guidance" className={styles.fieldHelp}>
-          Utilize seu endereço @dialogo.com.br.
-        </p>
         <label htmlFor="auth-password">
           {isSignup ? "Crie sua senha" : "Senha"}
           <input
@@ -47,13 +43,9 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             name="password"
             type="password"
             autoComplete={isSignup ? "new-password" : "current-password"}
-            aria-describedby="password-guidance"
             required
           />
         </label>
-        <p id="password-guidance" className={styles.fieldHelp}>
-          Senha própria do Diálogo Auditorias, independente da senha Microsoft.
-        </p>
         {isSignup && (
           <>
             <label htmlFor="auth-password-confirmation">
@@ -101,11 +93,8 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             : isSignup ? "Solicitar acesso" : "Entrar"}
         </button>
       </form>
-      {!isSignup && (
-        <p className={styles.recovery}>Esqueci minha senha <span>Em preparação</span></p>
-      )}
       <div className={styles.alternative}>
-        <span>{isSignup ? "Já possui uma conta?" : "Primeiro acesso?"}</span>
+        {isSignup && <span>Já possui uma conta?</span>}
         <Link href={isSignup ? "/entrar" : "/solicitar-acesso"}>
           {isSignup ? "Entrar" : "Solicitar acesso"}
         </Link>

@@ -9,6 +9,7 @@ export type AdminFindingSummary = {
   title: string;
   checklistItem?: string;
   discipline?: string;
+  month?: string;
   workCount?: number;
   occurrences?: number;
   descriptions?: Array<{ label?: string; description: string }>;
@@ -21,6 +22,13 @@ export type AdminFindingSummary = {
 };
 
 const monthAbbreviations = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
+const monthNameFormat = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" });
+
+function formatMonth(month: string) {
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return "Período geral";
+  const label = monthNameFormat.format(new Date(`${month}-01T12:00:00Z`));
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
 
 function FindingDetails({ className, summaryClassName, summary, children }: {
   className: string;
@@ -37,6 +45,32 @@ function FindingDetails({ className, summaryClassName, summary, children }: {
     <summary className={summaryClassName}>{summary}</summary>
     {expanded && children()}
   </details>;
+}
+
+function RecurringFindingsByMonth({ items, emptyMessage, onOpenFindings }: {
+  items: readonly AdminFindingSummary[];
+  emptyMessage: string;
+  onOpenFindings?: () => void;
+}) {
+  const groups = useMemo(() => {
+    const grouped = new Map<string, AdminFindingSummary[]>();
+    items.forEach((item) => {
+      const month = item.month && /^\d{4}-\d{2}$/.test(item.month) ? item.month : "";
+      grouped.set(month, [...(grouped.get(month) ?? []), item]);
+    });
+    return [...grouped.entries()].sort(([left], [right]) => right.localeCompare(left));
+  }, [items]);
+  if (!items.length) return <p className={styles.empty}>{emptyMessage}</p>;
+
+  return <div className={styles.monthGroups}>{groups.map(([month, monthItems]) =>
+    <FindingDetails key={month || "general"} className={styles.monthGroup} summaryClassName={styles.monthSummary} summary={<>
+      {month && <span className={styles.referenceDate}><strong>{monthAbbreviations[Number(month.slice(5)) - 1]}</strong><small>{month.slice(0, 4)}</small></span>}
+      <span className={styles.monthInfo}><strong>{formatMonth(month)}</strong><small>{monthItems.length} {monthItems.length === 1 ? "item recorrente" : "itens recorrentes"}</small></span>
+      <i aria-hidden="true" />
+    </>}>
+      {() => <div className={styles.monthItems}><FindingsList items={monthItems} emptyMessage={emptyMessage} onOpenFindings={onOpenFindings} /></div>}
+    </FindingDetails>)}
+  </div>;
 }
 
 function FindingsList({ items, emptyMessage, onOpenFindings }: {
@@ -110,7 +144,7 @@ export function AdminFindings({ mostSevere = [], mostRecurring = [], onOpenFindi
       </div>
       <div className={styles.group}>
         <h4>Mais recorrentes</h4>
-        <FindingsList items={mostRecurring} emptyMessage="Nenhum item recorrente nas auditorias publicadas." onOpenFindings={onOpenFindings} />
+        <RecurringFindingsByMonth items={mostRecurring} emptyMessage="Nenhum item recorrente nas auditorias publicadas." onOpenFindings={onOpenFindings} />
       </div>
     </div>
   </section>;

@@ -6,6 +6,7 @@ export type DashboardFindingSummary = {
   title: string;
   checklistItem?: string;
   discipline?: string;
+  month?: string;
   workCount?: number;
   occurrences?: number;
   descriptions?: Array<{ label?: string; description: string }>;

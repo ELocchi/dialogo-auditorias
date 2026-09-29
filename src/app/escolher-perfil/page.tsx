@@ -5,15 +5,15 @@ import { readActiveProfileContext } from "@/lib/auth/active-profile-session";
 import { getProfileContexts } from "@/lib/auth/active-profile";
 import { platformDisplayName } from "@/lib/auth/display-name";
 import { UserMenu } from "../components/auth/UserMenu";
-import { DialogoLogo } from "@/app/components/dialogo-logo";
+import { AuthHeader } from "../components/auth/AuthHeader";
 import { selectProfileAction } from "./actions";
 import styles from "./profile-selection.module.css";
 
 const descriptions: Record<AccessProfile, string> = {
-  ADMINISTRATIVO: "Administração, usuários e acessos, obras e acompanhamento geral.",
-  AUDITOR_SEGURANCA: "Agenda, auditorias e acompanhamento de segurança nas obras autorizadas.",
-  AUDITOR_QUALIDADE: "Agenda, auditorias e acompanhamento de qualidade nas obras autorizadas.",
-  ENGENHARIA: "Acompanhamento das auditorias e das pendências das obras autorizadas.",
+  ADMINISTRATIVO: "Administração, usuários, acessos e obras.",
+  AUDITOR_SEGURANCA: "Agenda, auditorias e acompanhamento de segurança.",
+  AUDITOR_QUALIDADE: "Agenda, auditorias e acompanhamento de qualidade.",
+  ENGENHARIA: "Acompanhamento das auditorias e das pendências.",
 };
 
 export default async function SelectProfilePage({ searchParams }: {
@@ -30,15 +30,9 @@ export default async function SelectProfilePage({ searchParams }: {
   return (
     <div className={styles.shell}>
       <a className="skip-link" href="#profile-content">Ir para o conteúdo</a>
-      <header className={styles.header}>
-        <div className={styles.headerInner}>
-          <div className={styles.brand}><DialogoLogo /></div>
-          <div className={styles.session}><UserMenu name={platformDisplayName(user.email)} /></div>
-        </div>
-      </header>
+      <AuthHeader><UserMenu name={platformDisplayName(user.email)} /></AuthHeader>
       <main className={styles.main} id="profile-content" tabIndex={-1}>
-        <p className={styles.eyebrow}>SEUS PERFIS DE ACESSO</p>
-        <h1>Como deseja entrar?</h1>
+        <h1>Perfis de Acesso</h1>
         {params.erro === "perfil" && <p className={styles.error} role="alert">Não foi possível selecionar esse perfil. Escolha uma das opções disponíveis abaixo.</p>}
         <div className={styles.grid}>
           {contexts.map(({ profile, engineeringScope, administrativeScope }) => {
@@ -46,16 +40,16 @@ export default async function SelectProfilePage({ searchParams }: {
               ? `${profileLabels[profile]} — ${engineeringLabels[engineeringScope]}`
               : profile === "ADMINISTRATIVO" && administrativeScope
                 ? administrativeLabels[administrativeScope] : profileLabels[profile];
+            const isCurrent = profile === current?.profile && engineeringScope === current.engineeringScope && administrativeScope === current.administrativeScope;
             return <form action={selectProfileAction} key={`${profile}:${engineeringScope}:${administrativeScope}`}>
               {engineeringScope && <input type="hidden" name="atuacao_engenharia" value={engineeringScope} />}
               {administrativeScope && <input type="hidden" name="atuacao_administrativa" value={administrativeScope} />}
-              <button className={styles.profile} name="perfil" value={profile} type="submit" aria-label={`Entrar como ${label}`}>
-                <span className={styles.profileTop}><span className={styles.profileTag}>{profile === current?.profile && engineeringScope === current.engineeringScope && administrativeScope === current.administrativeScope ? "PERFIL ATUAL" : "DISPONÍVEL"}</span><span aria-hidden="true">↗</span></span>
+              <button className={styles.profile} name="perfil" value={profile} type="submit" aria-label={`Entrar como ${label}${isCurrent ? ", perfil atual" : ""}`}>
+                {isCurrent && <span className={styles.currentIndicator} aria-hidden="true" />}
                 <strong>{label}</strong>
                 <span className={styles.profileDescription}>{profile === "ADMINISTRATIVO" && administrativeScope !== "GERAL"
                   ? `Agenda, roteiros e acompanhamento de ${administrativeScope === "SEGURANCA" ? "Segurança" : "Qualidade"}.`
                   : descriptions[profile]}</span>
-                <span className={styles.enter}>Entrar com este perfil <span aria-hidden="true">→</span></span>
               </button>
             </form>;
           })}

@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { canAccessWorkModule, canManageAgenda, canReadVisit, modelModule, moduleLabels, type DemoUser, type Visit } from "../../domain/prototype-access.ts";
-import { auditModelLabels, formatAuditDate, type AuditModelId } from "../../domain/operational-records.ts";
+import { auditModelLabels, type AuditModelId } from "../../domain/operational-records.ts";
 import { isCalendarDate } from "../../domain/visit-calendar.ts";
 import { uuidPattern } from "../access/validation.ts";
 import type { ProfileWorkspaceContext } from "../access/workspace-context.ts";
@@ -84,7 +84,9 @@ function parseAuditor(raw: unknown, context: ProfileWorkspaceContext): DemoUser 
   }
   if (new Set(scopes.map((scope) => scope.workId)).size !== scopes.length) return null;
   const workIds = scopes.map((scope) => scope.workId);
-  return { id: raw.id, name: raw.name, role: raw.role, modules: [discipline], workIds, agendaWorkIds: workIds, documentWorkIds: [], workModuleScopes: scopes };
+  const nameParts = raw.name.trim().split(/\s+/u);
+  const fallbackName = nameParts.length > 1 ? `${nameParts[0]} ${nameParts.at(-1)}` : raw.name.trim();
+  return { id: raw.id, name: fallbackName, role: raw.role, modules: [discipline], workIds, agendaWorkIds: workIds, documentWorkIds: [], workModuleScopes: scopes };
 }
 
 function notificationsFor(visits: Visit[], context: ProfileWorkspaceContext): AgendaNotification[] {
@@ -92,12 +94,12 @@ function notificationsFor(visits: Visit[], context: ProfileWorkspaceContext): Ag
   for (const visit of visits) {
     const workName = visit.workName ?? context.works.find((work) => work.id === visit.workId)!.name;
     const createdAt = visit.lastChangedAt ?? visit.history.at(-1)?.changedAt ?? visit.createdAt;
-    const detail = `${visit.kind === "follow_up" ? "Acompanhamento" : "Auditoria"} de ${moduleLabels[visit.module]} · ${formatAuditDate(visit.date)}`;
+    const detail = `${visit.kind === "follow_up" ? "Acompanhamento" : "Auditoria"} de ${moduleLabels[visit.module]}${visit.auditorName ? `\n${visit.auditorName}` : ""}`;
     const base = { workName, detail, href: `/app?secao=agenda&visita=${encodeURIComponent(visit.id)}` };
     if (canManageAgenda(context.user)) {
       items.push({ ...base, id: `${visit.id}:${visit.revision}:scheduled`, type: "visit_scheduled", createdAt });
       if (visit.confirmationStatus === "confirmed" && visit.confirmedAt) items.push({ ...base,
-        detail: `${detail} · ${visit.auditorName}`, id: `${visit.id}:${visit.revision}:confirmed`, type: "visit_confirmed", createdAt: visit.confirmedAt });
+        id: `${visit.id}:${visit.revision}:confirmed`, type: "visit_confirmed", createdAt: visit.confirmedAt });
     } else if ((context.user.role === "safety-auditor" || context.user.role === "quality-auditor")
       && visit.auditorId === context.user.id && canReadVisit(context.user, visit)
       && visit.confirmationStatus === "pending_confirmation") {

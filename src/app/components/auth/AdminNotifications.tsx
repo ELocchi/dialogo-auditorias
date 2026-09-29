@@ -170,7 +170,6 @@ export function AdminNotifications({ items = emptyNotifications, userId, loading
     <section id={panelId} className={styles.panel} aria-labelledby={headingId} hidden={!open}>
       <div className={styles.heading}>
         <h2 id={headingId}>Notificações</h2>
-        <p>Agendamentos, confirmações e auditorias publicadas</p>
       </div>
       {loading && <p className={styles.empty} role="status">Carregando notificações…</p>}
       {error && <p className={styles.empty} role="alert">{error}</p>}

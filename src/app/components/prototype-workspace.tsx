@@ -37,6 +37,7 @@ export function PrototypeDashboard({ user, module, works, agendaWorks = works, a
     id: finding.id,
     title: `${finding.item} · ${finding.description}`,
     discipline: moduleLabels[finding.module],
+    month: finding.latestDate.slice(0, 7),
     workCount: finding.workCount,
     occurrences: finding.occurrences,
     descriptions: finding.details,
@@ -72,17 +73,18 @@ export function PrototypeDashboard({ user, module, works, agendaWorks = works, a
       <Metric label="Obras relacionadas" value={works.length} description="Consultar obras" onClick={() => open("works")} />
       <Metric label="Roteiros disponíveis" value={module === "safety" ? 1 : 2} description="Consultar roteiro" onClick={() => open("audits")} />
     </div>
+    {findingsPanel}
     <div className="overview-grid">
       <AdminMonthlyRanking modules={[module]} publishedMonthlyScores={rankingScores} summary={summary?.ranking} available={summary?.available} />
       <AdminVisitCalendar visits={visits} works={agendaWorks} auditors={[user]} viewerId={user.id} onViewAgenda={() => open("agenda")} includeFollowUps showLegend={false} colorBy="work" />
     </div>
-    {findingsPanel}
   </>;
   return <>
     <div className="page-intro"><div><h2>{admin ? "Painel administrativo" : "Visão geral"}</h2>{!admin && <p className="muted">{`${moduleLabels[module]} · ${roleLabels[user.role]}${user.activity === "coordination" ? " / Coordenação" : user.activity === "site-team" ? " / Equipe da obra" : ""}`}</p>}</div></div>
     <div className={`stats-grid${admin ? " stats-grid-admin" : ""}${admin && !generalAdministrator ? " stats-grid-three" : ""}`}>
       {admin ? <>{agendaCard}{worksCard}{catalogsCard}{generalAdministrator && profilesCard}</> : <>{worksCard}{agendaCard}{profilesCard}{catalogsCard}</>}
     </div>
+    {admin && findingsPanel}
     <div className="overview-grid">
       {admin ? <AdminMonthlyRanking modules={user.modules} publishedMonthlyScores={rankingScores} summary={summary?.ranking} available={summary?.available} /> : module === "safety" ? <WorkRanking works={works} audits={audits} onViewWorks={() => open("works")} /> : <AdminMonthlyRanking modules={["quality"]} publishedMonthlyScores={rankingScores} summary={summary?.ranking} available={summary?.available} />}
       {admin ? <AdminVisitCalendar visits={visits} works={works} auditors={auditors} viewerId={user.id} onViewAgenda={() => open("agenda")} /> : <section className="panel"><div className="panel-heading"><div><span className="section-label">REGISTROS AUTORIZADOS</span><h3>Auditorias recentes</h3></div><span className="icon-tile"><Icon name="calendar" /></span></div>
@@ -91,7 +93,6 @@ export function PrototypeDashboard({ user, module, works, agendaWorks = works, a
         <button className="text-button panel-link" type="button" onClick={() => open("audits")}>Consultar auditorias<Icon name="arrow" /></button>
       </section>}
     </div>
-    {admin && findingsPanel}
   </>;
 }
 

@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useId, useState } from "react";
 import type { WorkRecord } from "@/domain/operational-records";
+import { Icon } from "./ui-icon";
 
 export type OccurrencePreviewRecord = { id: string; work: string; item: string; status: string; place: string; title: string; description: string };
 
@@ -20,32 +21,38 @@ function ChevronIcon() {
 
 export function Works({ works, canManage = false }: { works: readonly WorkRecord[]; canManage?: boolean }) {
   const [query, setQuery] = useState("");
-  const [status, setStatus] = useState("all");
-  const filteredWorks = works.filter((work) => searchable(`${work.name} ${work.city}`).includes(searchable(query.trim())) && (status === "all" || work.status === status));
-  const resetFilters = () => { setQuery(""); setStatus("all"); };
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchId = useId();
+  const filteredWorks = works.filter((work) => searchable(`${work.name} ${work.city}`).includes(searchable(query.trim())));
+  const resetFilters = () => setQuery("");
 
   return <div className="operational-view">
     <div className="page-intro">
       <div><h2>Obras</h2></div>
-      {canManage && <div className="work-create-action"><Link className="primary work-create-plus" href="/administracao/obras/nova" aria-label="Cadastrar obra" title="Cadastrar obra">+</Link></div>}
+      <div className="work-create-action">
+        {searchOpen && <div id={searchId} className="work-inline-search" role="search" aria-label="Filtrar obras">
+          <div className="work-search-field">
+            <input type="search" aria-label="Buscar obra" autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nome da obra ou cidade" />
+            {query && <button type="button" className="work-search-clear" onClick={resetFilters} aria-label="Limpar busca" title="Limpar busca">×</button>}
+          </div>
+        </div>}
+        <button type="button" className="secondary work-search-button" aria-label={searchOpen ? "Fechar busca de obras" : "Buscar obras"} title="Buscar obras" aria-expanded={searchOpen} aria-controls={searchId}
+          onClick={() => { if (searchOpen) setQuery(""); setSearchOpen((open) => !open); }}><Icon name="search" /></button>
+        {canManage && <Link className="primary work-create-plus" href="/administracao/obras/nova" aria-label="Cadastrar obra" title="Cadastrar obra">+</Link>}
+      </div>
     </div>
-
-    <div className="operational-filters work-filters" role="search" aria-label="Filtrar obras">
-      <label>Buscar obra<input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nome da obra ou cidade" /></label>
-      <label>Status<select className="filter-select" value={status} onChange={(event) => setStatus(event.target.value)}><option value="all">Todos os status</option><option>Ativa</option><option>Planejada</option></select></label>
-      <button type="button" className="secondary operational-clear" onClick={resetFilters} disabled={!query && status === "all"}>Limpar filtros</button>
-    </div>
-    <p className="operational-result-count" role="status">{filteredWorks.length} {filteredWorks.length === 1 ? "obra encontrada" : "obras encontradas"}</p>
-
     <div className="work-grid">
       {filteredWorks.map((work) => <article className="work-project-card" key={work.id}>
-        <div className="work-project-heading"><span className="work-building-icon"><BuildingIcon /></span><span className={`badge ${work.status === "Ativa" ? "badge-green" : "badge-slate"}`}>{work.status}</span></div>
+        <div className="work-project-heading">
+          <span className="work-building-icon"><BuildingIcon /></span>
+          {canManage && !work.isDemo && <a className="secondary work-edit-icon" href={`/administracao/obras/${work.id}`} aria-label={`Editar obra ${work.name}`} title="Editar obra"><Icon name="edit" /></a>}
+        </div>
         <h3>{work.name}</h3><p className="work-location">{work.address && <>{work.address}<br /></>}{work.city}</p>
         <dl className="work-project-data"><div><dt>Responsável técnico</dt><dd>{work.engineer}</dd></div><div><dt>Coordenação</dt><dd>{work.coordinator}</dd></div></dl>
-        <div className="work-project-footer"><span className="work-session-dot" />{work.isDemo ? "Cadastro demonstrativo" : "Obra cadastrada"}{canManage && !work.isDemo && <a className="secondary work-edit-link" href={`/administracao/obras/${work.id}`} aria-label={`Editar obra ${work.name}`}>Editar obra</a>}</div>
+        {work.isDemo && <div className="work-project-footer"><span className="work-session-dot" />Cadastro demonstrativo</div>}
       </article>)}
     </div>
-    {filteredWorks.length === 0 && <div className="operational-empty"><h3>Nenhuma obra encontrada</h3><p>Altere o nome ou o status para consultar as obras disponíveis.</p><button type="button" className="secondary" onClick={resetFilters}>Limpar filtros</button></div>}
+    {filteredWorks.length === 0 && <div className="operational-empty"><h3>Nenhuma obra encontrada</h3><p>Altere o nome para consultar as obras disponíveis.</p><button type="button" className="secondary" onClick={resetFilters}>Limpar filtros</button></div>}
   </div>;
 }
 

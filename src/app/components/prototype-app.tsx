@@ -540,7 +540,7 @@ function ProfileWorkspace({ context: providedContext, initialScreen, initialVisi
         {(currentScreen === "discussion" || currentScreen === "publication") && <DeferredScreen kind={currentScreen} />}
       </>}
       {!canAgenda && !isAdmin && currentScreen === "agenda" && <section className="panel"><h2>Nenhuma obra disponível na agenda</h2><p className="muted">Consulte seus acessos para verificar as obras autorizadas.</p></section>}
-      <footer className="page-footer"><span>Diálogo Engenharia · Auditorias</span><span>{profileLabel}</span></footer>
+      <footer className="page-footer"><span>Diálogo Engenharia · Auditorias</span></footer>
     </div></main>
   </div></AuditDetailsContext></AuditComparisonProvider></AuditPhotoProvider></AuditHistoryProvider>;
 }

@@ -1,14 +1,14 @@
 .panel { min-width: 0; }
-.toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin: 20px 0 12px; }
+.heading { gap: 22px; }
+.heading h3 { flex: none; margin: 0; }
+.toolbar { display: flex; flex: 1; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 10px 22px; min-width: 0; }
 .monthNavigation { display: flex; align-items: center; gap: 6px; min-width: 0; }
-.monthLabel { min-width: 135px; color: var(--navy); font-size: 14px; font-weight: 600; text-align: center; }
-.monthButton, .todayButton { display: inline-flex; align-items: center; justify-content: center; min-height: 36px; border: 1px solid var(--line); border-radius: 7px; background: white; color: var(--navy); }
-.monthButton { width: 36px; padding: 7px; }
+.monthLabel { display: inline-flex; align-items: center; justify-content: center; min-width: 135px; min-height: 36px; color: var(--navy); font-size: 14px; font-weight: 600; line-height: 1; text-align: center; }
+.monthButton { display: inline-flex; align-items: center; justify-content: center; width: 36px; min-height: 36px; padding: 7px; border: 1px solid var(--line); border-radius: 7px; background: white; color: var(--navy); }
 .monthButton svg { width: 17px; height: 17px; }
 .previous { transform: rotate(180deg); }
-.todayButton { padding: 7px 12px; font-size: 12px; }
-.monthButton:hover:not(:disabled), .todayButton:hover { background: #edf2f8; }
-.calendar { width: 100%; min-width: 0; border-collapse: separate; border-spacing: 3px; table-layout: fixed; }
+.monthButton:hover:not(:disabled) { background: #edf2f8; }
+.calendar { width: 100%; min-width: 0; margin-top: 12px; border-collapse: separate; border-spacing: 3px; table-layout: fixed; }
 .calendar th, .calendar td { padding: 0; border: 0; background: transparent; text-align: center; }
 .calendar th { height: 30px; color: var(--muted); font-size: 10px; font-weight: 600; letter-spacing: 0; text-transform: none; }
 .calendar abbr { text-decoration: none; }
@@ -29,7 +29,6 @@ button.day:hover { background: #e8eef7; }
 .profileButton:hover { text-decoration: underline; }
 .profileButton[aria-pressed="true"] { font-weight: 800; text-decoration: underline; }
 .profileButton:focus-visible { outline: 2px solid var(--navy); outline-offset: 3px; border-radius: 2px; }
-.legendIdentity small { color: var(--muted); font-size: 10px; }
 .colorTrigger { width: 20px; height: 20px; padding: 0; border: 1px solid rgb(0 0 0 / 12%); border-radius: 50%; }
 .colorSwatch { display: inline-block; flex: 0 0 auto; width: 16px; height: 16px; border: 1px solid rgb(0 0 0 / 12%); border-radius: 50%; }
 .colorTrigger[aria-expanded="true"] { outline: 2px solid var(--navy); outline-offset: 2px; }
@@ -52,11 +51,13 @@ button.day:hover { background: #e8eef7; }
 .visitInfo { display: grid; flex: 1; gap: 3px; min-width: 0; overflow-wrap: anywhere; }
 .visitInfo strong { color: var(--navy); font-size: 12px; }
 .visitInfo span { color: var(--muted); font-size: 11px; }
+.visitInfo small { color: var(--muted); font-size: 10px; }
 .agendaLink { width: 100%; }
 @media (max-width: 480px) {
   .monthLabel { min-width: 126px; font-size: 12px; }
   .monthNavigation { gap: 3px; }
-  .toolbar { margin-top: 16px; gap: 8px; }
+  .heading { align-items: stretch; }
+  .toolbar { flex-basis: 100%; gap: 8px; }
   .calendar { border-spacing: 2px; }
   .day { min-height: 40px; }
 }
