@@ -10,7 +10,7 @@
     "verify:supabase": "node --experimental-strip-types scripts/check-supabase.mjs",
     "test:supabase": "node --experimental-strip-types --test scripts/test-supabase.mjs",
     "verify:auth-setup": "node --experimental-strip-types scripts/check-auth-setup.mjs",
-    "test:auth": "node --experimental-strip-types --test scripts/test-auth.mjs scripts/test-login-diagnostics.mjs",
+    "test:auth": "node --experimental-strip-types --test scripts/test-auth.mjs scripts/test-login-diagnostics.mjs scripts/test-email-confirmation.mjs",
     "verify:security": "node --experimental-strip-types scripts/verify-security-catalog.mjs",
     "test:navigation": "node --experimental-strip-types scripts/test-audit-navigation.mjs",
     "test:ranking": "node --experimental-strip-types --test scripts/test-work-ranking.mjs scripts/test-admin-ranking.mjs",

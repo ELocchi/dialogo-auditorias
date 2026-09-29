@@ -10,7 +10,7 @@ const nextConfig: NextConfig = {
     // Next 16.3 can log Server Function arguments, including form passwords.
     serverFunctions: false,
     browserToTerminal: false,
-    incomingRequests: { ignore: [/^\/auth\/callback(?:[/?]|$)/] },
+    incomingRequests: { ignore: [/^\/auth\/callback(?:[/?]|$)/, /^\/confirmar-email(?:[/?]|$)/] },
   },
 };
 
