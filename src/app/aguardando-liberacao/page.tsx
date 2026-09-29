@@ -6,11 +6,16 @@ import { AuthShell } from "../components/auth/AuthShell";
 import { LogoutButton } from "../components/auth/LogoutButton";
 import styles from "../components/auth/auth.module.css";
 
+export const dynamic = "force-dynamic";
+
 export default async function PendingAccessPage() {
   const user = await requireUser();
   const account = await effectiveAccount(user);
   if (account) redirect(await readActiveProfile(user.id, account) ? "/app" : effectiveDestination(account));
   const request = await ownAccessRequest(user.id);
+  if (request && ["PENDENTE_APROVACAO", "APROVADO"].includes(request.status_acesso) && user.email_confirmed_at && !request.email_confirmado_em) {
+    redirect("/confirmar-email");
+  }
   return (
     <AuthShell title="Aguardando liberação" description="Seu acesso está aguardando liberação do Administrativo.">
       <p className={styles.notice}>{request?.status_acesso === "APROVADO"

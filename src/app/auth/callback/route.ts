@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
       const { error } = await client.auth.exchangeCodeForSession(code);
       if (!error) {
         const { data, error: identityError } = await client.auth.getUser();
-        if (!identityError && data.user && corporateEmail(data.user.email)) destination = "/aguardando-liberacao";
+        if (!identityError && data.user?.email_confirmed_at && corporateEmail(data.user.email)) destination = "/confirmar-email";
       }
     } catch {
       // Never log confirmation codes, complete links or provider errors.

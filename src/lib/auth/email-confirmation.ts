@@ -2,40 +2,35 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AuthActionResult } from "./contracts.ts";
 import { corporateEmail } from "./validation.ts";
 
-export const emailConfirmationError = "Não foi possível confirmar este e-mail. O link pode ter expirado ou já ter sido utilizado. Se já confirmou seu e-mail, tente entrar.";
+export const emailConfirmationError = "Não foi possível concluir a confirmação. Entre novamente e tente confirmar seu e-mail.";
 
-/** TokenHash is opaque. Reject ambiguous fields and malformed/oversized links. */
-export function emailConfirmationToken(value: unknown): string | null {
-  return typeof value === "string" && /^[A-Za-z0-9_-]{16,512}$/.test(value) ? value : null;
-}
-
-type Dependencies = { createClient: () => Promise<Pick<SupabaseClient, "auth">> };
+type Dependencies = { createClient: () => Promise<Pick<SupabaseClient, "auth" | "rpc">> };
 const failed = (): AuthActionResult => ({ state: { status: "error", message: emailConfirmationError } });
 
-/** Only the explicit confirmation POST may consume the email token. */
+/** Only an explicit authenticated POST makes a signup eligible for review. */
 export async function confirmEmail(form: FormData, deps: Dependencies): Promise<AuthActionResult> {
   if (!(form instanceof FormData)) return failed();
-  const values = form.getAll("token_hash");
-  const token = values.length === 1 ? emailConfirmationToken(values[0]) : null;
-  if (!token) return failed();
 
   try {
     const client = await deps.createClient();
-    // Never accept an OTP type, identity, destination or access grant from the form.
-    const { data, error } = await client.auth.verifyOtp({ token_hash: token, type: "email" });
+    // The email link establishes the session; never trust identity or status
+    // submitted in a form. Opening an email link does not submit this step.
+    const { data, error } = await client.auth.getUser();
     const user = data?.user;
     if (error || !user?.id || !corporateEmail(user.email)
-      || !user.email_confirmed_at || !Number.isFinite(Date.parse(user.email_confirmed_at))
-      || !data.session || data.session.user?.id !== user.id) return failed();
+      || !user.email_confirmed_at || !Number.isFinite(Date.parse(user.email_confirmed_at))) return failed();
 
-    // Auth confirmation only makes the request eligible for administrative review.
-    // This flow never writes accounts, profiles, grants or approval decisions.
+    // The database rechecks live Auth state and binds the write to auth.uid().
+    // It records only the confirmation; it never approves or grants access.
+    const { data: confirmed, error: confirmationError } = await client.rpc("confirm_own_access_request_email");
+    if (confirmationError || confirmed !== true) return failed();
+
     return {
       state: { status: "success", message: "E-mail confirmado. Aguarde a liberação do Administrativo." },
       redirectTo: "/aguardando-liberacao",
     };
   } catch {
-    // Tokens, complete links and provider details must never be logged or returned.
+    // Sessions, identity data and provider details must never be logged or returned.
     return failed();
   }
 }
