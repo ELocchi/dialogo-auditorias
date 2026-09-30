@@ -22,12 +22,12 @@ async function activeContext(expected: AgendaActorContext) {
 }
 
 export type WorkFinding = { id: string; workId: string; module: "safety" | "quality"; location: string; description: string;
-  correction: string; photoFileName: string; createdAt: string };
+  correction: string; serious: boolean; photoFileName: string; createdAt: string };
 type WorkFindingRow = { id: string; work_id: string; modulo: "SEGURANCA" | "QUALIDADE"; location: string; description: string;
-  correction: string; photo_file_name: string; created_at: string };
+  correction: string; serious: boolean; photo_file_name: string; created_at: string };
 const toWorkFinding = (row: WorkFindingRow): WorkFinding => ({ id: row.id, workId: row.work_id,
   module: row.modulo === "SEGURANCA" ? "safety" : "quality",
-  location: row.location, description: row.description, correction: row.correction,
+  location: row.location, description: row.description, correction: row.correction, serious: row.serious,
   photoFileName: row.photo_file_name, createdAt: row.created_at });
 
 const findingModule = (profile: string) => profile === "AUDITOR_SEGURANCA" ? "SEGURANCA" : profile === "AUDITOR_QUALIDADE" ? "QUALIDADE" : null;
@@ -37,7 +37,7 @@ export async function readWorkFindingsAction(expected: AgendaActorContext): Prom
   const findingDiscipline = context ? findingModule(context.profile) : null;
   if (!context || !findingDiscipline) return { available: false, findings: [] };
   const { data, error } = await (await createClient()).from("follow_up_work_findings")
-    .select("id,work_id,modulo,location,description,correction,photo_file_name,created_at")
+    .select("id,work_id,modulo,location,description,correction,serious,photo_file_name,created_at")
     .eq("auditor_auth_user_id", context.user.id).eq("modulo", findingDiscipline).is("completed_at", null).order("created_at", { ascending: false }).limit(1000);
   if (error || !data) return { available: false, findings: [] };
   const authorized = new Set(context.works.map((work) => work.id));
@@ -50,7 +50,7 @@ export async function readEngineeringWorkFindingsAction(module: "safety" | "qual
     return { available: false, findings: [] };
   const authorized = new Set(context.works.map((work) => work.id));
   const { data, error } = await (await createClient()).from("follow_up_work_findings")
-    .select("id,work_id,modulo,location,description,correction,photo_file_name,created_at")
+    .select("id,work_id,modulo,location,description,correction,serious,photo_file_name,created_at")
     .eq("modulo", module === "safety" ? "SEGURANCA" : "QUALIDADE")
     .is("completed_at", null).order("created_at", { ascending: false }).limit(1000);
   if (error || !data) return { available: false, findings: [] };
@@ -67,12 +67,14 @@ export async function createWorkFindingAction(formData: FormData, expected: Agen
   const location = formData.get("location");
   const description = formData.get("description");
   const correction = formData.get("correction");
+  const serious = formData.get("serious");
   const photo = formData.get("photo");
   if (!context || !findingDiscipline
     || typeof workId !== "string" || !uuidPattern.test(workId) || !context.works.some((work) => work.id === workId)
     || typeof location !== "string" || location.length > 200
     || typeof description !== "string" || description.trim().length < 5 || description.length > 2000
     || typeof correction !== "string" || correction.trim().length < 5 || correction.length > 2000
+    || (serious !== "true" && serious !== "false")
     || !(photo instanceof File) || photo.size === 0 || photo.size > maxPhotoBytes)
     return { status: "error", message: "Confira a obra, os textos e a foto do apontamento." };
   const bytes = new Uint8Array(await photo.arrayBuffer());
@@ -88,8 +90,8 @@ export async function createWorkFindingAction(formData: FormData, expected: Agen
   if (upload.error) return { status: "error", message: "Não foi possível enviar a foto. Confira o armazenamento do projeto." };
   const { data, error } = await client.from("follow_up_work_findings").insert({
     id, work_id: workId, modulo: findingDiscipline, auditor_auth_user_id: context.user.id, location: location.trim(),
-    description: description.trim(), correction: correction.trim(), photo_file_name: fileName,
-  }).select("id,work_id,modulo,location,description,correction,photo_file_name,created_at").single();
+    description: description.trim(), correction: correction.trim(), serious: serious === "true", photo_file_name: fileName,
+  }).select("id,work_id,modulo,location,description,correction,serious,photo_file_name,created_at").single();
   if (error || !data) {
     await client.storage.from(followUpPhotoBucket).remove([path]);
     return { status: "error", message: "Não foi possível salvar o apontamento. Confira a atualização do banco de dados." };
@@ -128,7 +130,7 @@ export async function saveFollowUpReportAction(input: unknown, expected: AgendaA
   if (visit.confirmationStatus !== "confirmed" || visit.date > getSaoPauloToday())
     return { status: "error", message: "Para criar o relatório, confirme a visita e aguarde a data agendada." };
   const previousFindings = snapshot.reports.flatMap((entry) => entry.findings);
-  const workFindings = snapshot.workFindings.map(({ id, location, description, correction }) => ({ id, location, description, correction }));
+  const workFindings = snapshot.workFindings.map(({ id, location, description, correction, serious }) => ({ id, location, description, correction, serious }));
   const findings = resolveReportFindings(value.findings, previousFindings, [...(snapshot.draft?.findings ?? []), ...workFindings]);
   if (!findings) return { status: "error", message: value.findings.length
     ? "Os apontamentos mudaram. Atualize a página e selecione novamente."

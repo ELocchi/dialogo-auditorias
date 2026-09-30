@@ -1,23 +1,13 @@
-/** Registro editorial das mudanças no aplicativo. Atualizar junto com cada versão. */
+/** Registro operacional. Incluir somente deploys e backups cuja execução foi confirmada. */
 export const platformUpdates = [
   {
-    date: "2026-09-23",
-    title: "Auditoria real e relatórios de Qualidade",
-    description: "Auditoria publicada da BoulevarDiálogo, pesos FVS, critérios de Qualidade e novos padrões dos PDFs de auditoria e plano de ação.",
-  },
-  {
-    date: "2026-09-16",
-    title: "Administração e roteiros",
-    description: "Controle de acessos e manutenção reunidos na Administração. Consulta e edição dos roteiros concentradas em Roteiros e versões.",
+    date: "2026-09-29",
+    title: "Deploy da plataforma",
+    description: "Alterações de design, navegação e agenda dos perfis.",
   },
   {
     date: "2026-09-14",
-    title: "Agenda administrativa",
-    description: "Calendário de visitas, agendamento e confirmação pelo auditor com avisos dentro da plataforma.",
-  },
-  {
-    date: "2026-09-13",
-    title: "Usuários, perfis e obras",
-    description: "Gestão de acessos por perfil e cadastro administrativo de obras.",
+    title: "Deploy da plataforma e banco",
+    description: "Alterações no processo da auditoria, agenda administrativa e pesos dos roteiros.",
   },
 ] as const;

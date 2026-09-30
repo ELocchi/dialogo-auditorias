@@ -3,7 +3,7 @@
 import { requireActiveProfile } from "@/lib/auth/session";
 import { readWorkspaceContext } from "@/lib/access/workspace";
 import { createClient } from "@/lib/supabase/server";
-import { readCatalogSnapshot, saveCatalogRevision } from "@/lib/catalogs/service";
+import { readCatalogSnapshot, saveCatalogRevision, saveFvsWeightsRevision } from "@/lib/catalogs/service";
 import { unavailableCatalogs, type CatalogSaveResult, type CatalogSnapshot } from "@/lib/catalogs/contracts";
 import type { AgendaActorContext } from "@/lib/agenda/contracts";
 
@@ -15,6 +15,16 @@ export async function saveCatalogRevisionAction(formData: FormData): Promise<Cat
   const context = await readWorkspaceContext(active);
   if (!context) return { status: "error", message: "Não foi possível confirmar seus acessos." };
   return saveCatalogRevision(formData, context, await createClient({ writableCookies: true }));
+}
+
+export async function saveFvsWeightsRevisionAction(formData: FormData): Promise<CatalogSaveResult> {
+  const active = await requireActiveProfile();
+  if (active.profile !== "ADMINISTRATIVO" || formData.get("actorId") !== active.user.id) {
+    return { status: "error", message: "O usuário ou perfil mudou. Atualize a página antes de continuar." };
+  }
+  const context = await readWorkspaceContext(active);
+  if (!context) return { status: "error", message: "Não foi possível confirmar seus acessos." };
+  return saveFvsWeightsRevision(formData, context, await createClient({ writableCookies: true }));
 }
 
 export async function refreshCatalogsAction(expected: AgendaActorContext): Promise<CatalogSnapshot> {

@@ -1,8 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ProfileWorkspaceContext } from "../access/workspace-context.ts";
 import { modelModule } from "../../domain/prototype-access.ts";
-import { catalogModelIds, bundledCatalog, unavailableCatalogs, type CatalogSaveResult, type CatalogSnapshot, type CatalogVersion } from "./contracts.ts";
-import { isRecord, isModel, isUuid, validText, parseCriteria, parseRevisionForm, parseUpload } from "./validation.ts";
+import { catalogModelIds, bundledCatalog, bundledFvsWeights, unavailableCatalogs, type CatalogSaveResult, type CatalogSnapshot, type CatalogVersion, type FvsWeightVersion } from "./contracts.ts";
+import { isRecord, isModel, isUuid, validText, parseCriteria, parseFvsRevisionForm, parseFvsServices, parseRevisionForm, parseUpload } from "./validation.ts";
 
 type Client = Pick<SupabaseClient, "rpc">;
 export const missingCatalogMigration = (error: { code?: string } | null) => error?.code === "PGRST202" || error?.code === "42883";
@@ -35,8 +35,46 @@ export async function readCatalogSnapshot(client: Client, context: ProfileWorksp
       });
       versions.push(initial);
     }
-    return { available: true, versions };
+    let fvsWeights: FvsWeightVersion | undefined;
+    if (context.user.modules.includes("quality") && (context.profile === "ADMINISTRATIVO" || context.profile === "AUDITOR_QUALIDADE")) {
+      const current = await client.rpc("read_fvs_services", { p_profile: context.profile });
+      if (current.error && !missingCatalogMigration(current.error)) return unavailableCatalogs();
+      if (!current.error && current.data !== null) {
+        const raw = current.data;
+        if (!isRecord(raw) || !isUuid(raw.id) || !Number.isInteger(raw.version) || Number(raw.version) < 1
+          || !validText(raw.label, 80) || !raw.label.trim() || typeof raw.createdAt !== "string" || !Number.isFinite(Date.parse(raw.createdAt))) return unavailableCatalogs();
+        const services = parseFvsServices(raw.services);
+        if (!services) return unavailableCatalogs();
+        fvsWeights = { id: raw.id, version: Number(raw.version), label: raw.label, services, createdAt: raw.createdAt };
+      } else fvsWeights = bundledFvsWeights();
+    }
+    return { available: true, versions, fvsWeights };
   } catch { return unavailableCatalogs(); }
+}
+
+export async function saveFvsWeightsRevision(form: FormData, context: ProfileWorkspaceContext, client: Client): Promise<CatalogSaveResult> {
+  const failure = (message: string): CatalogSaveResult => ({ status: "error", message });
+  if (context.profile !== "ADMINISTRATIVO" || context.user.role !== "administrative" || !context.user.modules.includes("quality")) {
+    return failure("Somente o Administrativo de Qualidade pode editar os pesos FVS.");
+  }
+  const value = parseFvsRevisionForm(form);
+  if (!value || value.actorId !== context.user.id) return failure("Confira os pesos e o usuário antes de salvar a revisão.");
+  try {
+    const { data, error } = await client.rpc("save_fvs_services_revision", {
+      p_request_id: value.requestId, p_expected_version: value.expectedVersion,
+      p_revision_label: value.label, p_change_note: value.note, p_services: value.services,
+    });
+    if (error) {
+      if (missingCatalogMigration(error)) return failure("A edição dos pesos FVS estará disponível após a atualização da plataforma.");
+      if (error.code === "40001") return failure("Outra revisão dos pesos FVS foi salva. Atualize a página antes de editar novamente.");
+      if (error.code === "42501") return failure("Seu acesso mudou. Entre novamente no perfil Administrativo de Qualidade.");
+      if (error.code === "22023") return failure("Informe pesos entre 1 e 5 para todas as FVS.");
+      return failure("Não foi possível confirmar os pesos FVS. Mantenha esta janela aberta e tente novamente.");
+    }
+    if (!isUuid(data)) return failure("Não foi possível confirmar a revisão dos pesos FVS.");
+    const snapshot = await readCatalogSnapshot(client, context);
+    return { status: "success", message: snapshot.available ? "Pesos FVS salvos para as próximas auditorias." : "Pesos FVS salvos. Atualize a página para consultar a revisão.", snapshot };
+  } catch { return failure("Não foi possível confirmar os pesos FVS. Mantenha esta janela aberta e tente novamente."); }
 }
 
 export async function saveCatalogRevision(form: FormData, context: ProfileWorkspaceContext, client: Client): Promise<CatalogSaveResult> {

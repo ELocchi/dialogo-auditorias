@@ -1,14 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { bundledCatalog, catalogModelIds } from "../src/lib/catalogs/contracts.ts";
-import { parseCriteria, parseRevisionForm, parseUpload, MAX_PDF_BYTES, MAX_WORD_BYTES } from "../src/lib/catalogs/validation.ts";
-import { readCatalogSnapshot, saveCatalogRevision } from "../src/lib/catalogs/service.ts";
+import { bundledCatalog, bundledFvsWeights, catalogModelIds } from "../src/lib/catalogs/contracts.ts";
+import { parseCriteria, parseFvsRevisionForm, parseRevisionForm, parseUpload, MAX_PDF_BYTES, MAX_WORD_BYTES } from "../src/lib/catalogs/validation.ts";
+import { readCatalogSnapshot, saveCatalogRevision, saveFvsWeightsRevision } from "../src/lib/catalogs/service.ts";
 
 const actor = "d1a80000-0000-4000-8000-000000000001";
 const request = "d1a80000-0000-4000-8000-000000000002";
 const revisionId = "d1a80000-0000-4000-8000-000000000003";
+const fvsRevisionId = "d1a80000-0000-4000-8000-000000000004";
 const context = { profile: "ADMINISTRATIVO", engineeringScope: null, user: { id: actor, role: "administrative", modules: ["safety", "quality"] } };
 const revision = (modelId = "security-it07-r02") => ({ ...bundledCatalog(modelId), id: revisionId, version: 1, createdAt: "2026-09-16T12:00:00Z" });
+const fvsRevision = () => ({ ...bundledFvsWeights(), id: fvsRevisionId, version: 1, createdAt: "2026-09-23T12:00:00Z" });
 function form(model = "security-it07-r02") {
   const result = new FormData();
   for (const [key,value] of Object.entries({ requestId: request, actorId: actor, modelId: model, expectedVersion: "0", revisionLabel: "03", changeNote: "Atualização de teste isolada", criteria: JSON.stringify(bundledCatalog(model).criteria) })) result.set(key,value);
@@ -104,7 +106,8 @@ test("Save passes complete criteria/documents atomically and normalization stays
   const payloads=[];
   const client={ rpc:async(name,params)=>{
     if(name === "save_audit_catalog_revision") { payloads.push(params); return {data:revisionId,error:null}; }
-    assert.equal(name,"read_audit_catalogs"); return {data:[revision()],error:null};
+    if(name === "read_audit_catalogs") return {data:[revision()],error:null};
+    assert.equal(name,"read_fvs_services"); return {data:fvsRevision(),error:null};
   }};
   const input=form(); input.set("pdf",pdf());
   const first=await saveCatalogRevision(input,context,client); const retry=await saveCatalogRevision(input,context,client);
@@ -122,13 +125,33 @@ test("Conflicts, revocations, missing migration and unknown save failures never 
 });
 
 test("Fresh catalogs merge initial versions and reject malformed, duplicate or out-of-scope data", async () => {
-  const initial=await readCatalogSnapshot({rpc:async()=>({data:[],error:null})},context);
+  const validClient={rpc:async(name)=>({data:name === "read_fvs_services" ? fvsRevision() : [],error:null})};
+  const initial=await readCatalogSnapshot(validClient,context);
   assert.equal(initial.available,true); assert.deepEqual(initial.versions.map(v=>v.criteria.length),[205,10,23]);
+  assert.equal(initial.fvsWeights.services.length, bundledFvsWeights().services.length);
   for (const data of [null,{},[revision(),revision()],[{...revision(),criteria:[]}],[{...revision(),createdAt:"invalid"}]]) {
-    assert.equal((await readCatalogSnapshot({rpc:async()=>({data,error:null})},context)).available,false);
+    assert.equal((await readCatalogSnapshot({rpc:async(name)=>({data:name === "read_fvs_services" ? fvsRevision() : data,error:null})},context)).available,false);
   }
   const safety={...context,profile:"AUDITOR_SEGURANCA",user:{...context.user,role:"safety-auditor",modules:["safety"]}};
   assert.equal((await readCatalogSnapshot({rpc:async()=>({data:[revision("quality-f175")],error:null})},safety)).available,false);
+});
+
+test("FVS weight revisions accept only the complete 1-to-5 service list and preserve idempotent payloads", async () => {
+  const input = new FormData();
+  const current = bundledFvsWeights();
+  for (const [key,value] of Object.entries({ requestId: request, actorId: actor, expectedVersion: "0", revisionLabel: "Peso FVS", changeNote: "Pesos revisados", services: JSON.stringify(current.services) })) input.set(key,value);
+  assert.ok(parseFvsRevisionForm(input));
+  const invalid = new FormData(); for (const [key,value] of input) invalid.append(key,value);
+  const changed = structuredClone(current.services); changed[0].weight = 6;
+  invalid.set("services",JSON.stringify(changed)); assert.equal(parseFvsRevisionForm(invalid),null);
+  const calls=[]; const client={rpc:async(name,params)=>{
+    if(name === "save_fvs_services_revision") { calls.push(params); return {data:fvsRevisionId,error:null}; }
+    if(name === "read_audit_catalogs") return {data:[],error:null};
+    return {data:fvsRevision(),error:null};
+  }};
+  const result=await saveFvsWeightsRevision(input,context,client);
+  assert.equal(result.status,"success"); assert.equal(result.snapshot.fvsWeights.version,1);
+  assert.equal(calls[0].p_services.length,current.services.length);
 });
 
 test("Engineering receives no technical weights; leaks fail closed", async () => {

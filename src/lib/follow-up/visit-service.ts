@@ -76,10 +76,11 @@ function parseWorkFinding(value: unknown, visit: Visit): WorkFinding | null {
   if (!object(value) || !uuid(value.id) || !uuid(value.workId) || value.workId.toLowerCase() !== visit.workId
     || value.module !== visit.module || !text(value.location, 200)
     || !text(value.description, 2000, 5) || !text(value.correction, 2000, 5)
+    || typeof value.serious !== "boolean"
     || typeof value.photoFileName !== "string" || parsePhotoFileName(value.photoFileName)?.findingId !== value.id.toLowerCase()
     || !timestamp(value.createdAt)) return null;
   return { id: value.id.toLowerCase(), workId: visit.workId, module: visit.module,
-    location: value.location, description: value.description, correction: value.correction,
+    location: value.location, description: value.description, correction: value.correction, serious: value.serious,
     photoFileName: value.photoFileName, createdAt: value.createdAt };
 }
 

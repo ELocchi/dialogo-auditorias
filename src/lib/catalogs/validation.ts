@@ -2,6 +2,7 @@ import type { Criterion } from "../../domain/catalogs.ts";
 import { uuidPattern } from "../access/validation.ts";
 import { catalogModelIds } from "./contracts.ts";
 import type { AuditModelId } from "../../domain/operational-records.ts";
+import type { FvsService } from "../../domain/fvs-services.ts";
 
 export const MAX_CRITERIA_BYTES = 4 * 1024 * 1024;
 export const MAX_PDF_BYTES = 5 * 1024 * 1024;
@@ -99,4 +100,35 @@ export async function parseUpload(value: FormDataEntryValue | null, kind: "pdf" 
   const bytes = Buffer.from(await value.arrayBuffer());
   if (kind === "pdf" ? bytes.subarray(0, 5).toString("ascii") !== "%PDF-" : !bytes.subarray(0, 4).equals(Buffer.from([0x50, 0x4b, 0x03, 0x04]))) throw new Error("O conteúdo não corresponde ao formato do arquivo.");
   return { name: value.name, base64: bytes.toString("base64") };
+}
+
+export function parseFvsServices(value: unknown): FvsService[] | null {
+  if (!Array.isArray(value) || !value.length || value.length > 500) return null;
+  const labels = new Set<string>();
+  const services: FvsService[] = [];
+  for (const item of value) {
+    if (!isRecord(item) || Object.keys(item).some((key) => !["document", "service", "weight", "label"].includes(key))
+      || !validText(item.document, 200) || !item.document.trim()
+      || !validText(item.service, 1000) || !item.service.trim()
+      || !validText(item.label, 1200) || item.label !== `${item.document} - ${item.service}`
+      || typeof item.weight !== "number" || !Number.isFinite(item.weight) || item.weight < 1 || item.weight > 5
+      || labels.has(item.label)) return null;
+    labels.add(item.label);
+    services.push({ document: item.document, service: item.service, weight: item.weight, label: item.label });
+  }
+  return services;
+}
+
+export function parseFvsRevisionForm(form: FormData) {
+  const permitted = ["requestId", "actorId", "expectedVersion", "revisionLabel", "changeNote", "services"];
+  if ([...form.keys()].some((key) => !permitted.includes(key))) return null;
+  const requestId = field(form, "requestId"), actorId = field(form, "actorId"), version = field(form, "expectedVersion");
+  const label = field(form, "revisionLabel"), note = field(form, "changeNote"), raw = field(form, "services");
+  if (!isUuid(requestId) || !isUuid(actorId) || !version || !/^\d{1,9}$/.test(version)
+    || !validText(label, 80) || !label.trim() || !validText(note, 2000) || !note.trim()
+    || !raw || Buffer.byteLength(raw) > MAX_CRITERIA_BYTES) return null;
+  try {
+    const services = parseFvsServices(JSON.parse(raw));
+    return services ? { requestId: requestId.toLowerCase(), actorId: actorId.toLowerCase(), expectedVersion: Number(version), label: label.trim(), note: note.trim(), services } : null;
+  } catch { return null; }
 }

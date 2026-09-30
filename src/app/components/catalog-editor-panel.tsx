@@ -2,14 +2,15 @@
 
 import { useEffect, useId, useRef, useState, useTransition, type FormEvent } from "react";
 import { referenceDocuments } from "@/domain/reference-documents";
-import { fvsServices } from "@/domain/fvs-services";
+import { fvsServices, type FvsService } from "@/domain/fvs-services";
 import { getCriterionDisplayTitle, getCriterionWeight, securityGroups, securityWeightConfiguration, type Criterion } from "@/domain/catalogs";
-import { saveCatalogRevisionAction } from "@/app/catalogs/actions";
-import type { CatalogSnapshot, CatalogVersion } from "@/lib/catalogs/contracts";
+import { saveCatalogRevisionAction, saveFvsWeightsRevisionAction } from "@/app/catalogs/actions";
+import type { CatalogSnapshot, CatalogVersion, FvsWeightVersion } from "@/lib/catalogs/contracts";
 import styles from "./catalog-editor-panel.module.css";
 
 type CatalogEditorPanelProps = {
   version: CatalogVersion;
+  fvsWeights?: FvsWeightVersion;
   available: boolean;
   setupPending?: boolean;
   actorId: string;
@@ -51,7 +52,7 @@ function previewSubgroupHeading(item: Criterion) {
   return { code: match?.[1] ?? item.code.split(".").slice(0, -1).join("."), title: match?.[2] ?? item.subgroup };
 }
 
-function AuditorFormPreview({ item, security }: { item: Criterion; security: boolean }) {
+function AuditorFormPreview({ item, security, services }: { item: Criterion; security: boolean; services: readonly FvsService[] }) {
   const group = groupHeading(item.group);
   const subgroup = previewSubgroupHeading(item);
   const quantitative = item.verificationRule === "Dividido pela quantidade verificada";
@@ -66,7 +67,7 @@ function AuditorFormPreview({ item, security }: { item: Criterion; security: boo
       <p className="criterion-description"><strong>Descrição:</strong> {item.text}</p>
       {(security ? item.analysisCriterion : item.verificationRule) && <p className="criterion-detail"><strong>Critério de análise:</strong> {security ? item.analysisCriterion : item.verificationRule}</p>}
       <div className="answer-fieldset">
-        {security ? <div className="answer-options answer-options-security"><button type="button" className="answer" disabled><span>×</span><small>Totalmente não conforme</small></button><button type="button" className="answer" disabled><span>!</span><small>Parcialmente não conforme</small></button><button type="button" className="answer" disabled><span>✓</span><small>Conforme</small></button><button type="button" className="answer" disabled><span>—</span><small>Não aplicável</small></button><span className="inline-photo-cell"><button type="button" className="inline-photo" disabled aria-label="Adicionar foto">+</button></span></div> : quantitative ? <div className="quantity-checks"><div className={`quantity-check${weightedChecks ? " has-check-weight" : ""}`}><button type="button" className="remove-verified-item" disabled aria-label="Remover item">×</button>{weightedChecks ? <select className="check-label filter-select" disabled defaultValue=""><option value="">Selecione o serviço verificado</option>{fvsServices.map((service) => <option value={service.label} key={`${service.document}:${service.service}`}>{service.label}</option>)}</select> : <input className="check-label" disabled value="Item verificado 1" readOnly />}{weightedChecks && <input className="check-weight" disabled placeholder="Peso" />}<button type="button" className="check-option noncompliant" disabled>×</button><button type="button" className="check-option compliant" disabled>✓</button><span className="inline-photo-cell"><button type="button" className="inline-photo" disabled aria-label="Adicionar foto">+</button></span><input className="check-note" disabled placeholder="Observações" /></div><button type="button" className="add-verified-item" disabled aria-label="Adicionar item">+</button></div> : <div className={`answer-options answer-options-quality${notApplicable ? " has-not-applicable" : ""}`}>
+        {security ? <div className="answer-options answer-options-security"><button type="button" className="answer" disabled><span>×</span><small>Totalmente não conforme</small></button><button type="button" className="answer" disabled><span>!</span><small>Parcialmente não conforme</small></button><button type="button" className="answer" disabled><span>✓</span><small>Conforme</small></button><button type="button" className="answer" disabled><span>—</span><small>Não aplicável</small></button><span className="inline-photo-cell"><button type="button" className="inline-photo" disabled aria-label="Adicionar foto">+</button></span></div> : quantitative ? <div className="quantity-checks"><div className={`quantity-check${weightedChecks ? " has-check-weight" : ""}`}><button type="button" className="remove-verified-item" disabled aria-label="Remover item">×</button>{weightedChecks ? <select className="check-label filter-select" disabled defaultValue=""><option value="">Selecione o serviço verificado</option>{services.map((service) => <option value={service.label} key={`${service.document}:${service.service}`}>{service.label}</option>)}</select> : <input className="check-label" disabled value="Item verificado 1" readOnly />}{weightedChecks && <input className="check-weight" disabled placeholder="Peso" />}<button type="button" className="check-option noncompliant" disabled>×</button><button type="button" className="check-option compliant" disabled>✓</button><span className="inline-photo-cell"><button type="button" className="inline-photo" disabled aria-label="Adicionar foto">+</button></span><input className="check-note" disabled placeholder="Observações" /></div><button type="button" className="add-verified-item" disabled aria-label="Adicionar item">+</button></div> : <div className={`answer-options answer-options-quality${notApplicable ? " has-not-applicable" : ""}`}>
           <button type="button" className="answer answer-Noconforme" disabled><span>×</span><small>Não conforme</small></button>
           <button type="button" className="answer answer-Conforme" disabled><span>✓</span><small>Conforme</small></button>
           {notApplicable && <button type="button" className="answer answer-NA" disabled><span>—</span><small>Não aplicável</small></button>}
@@ -78,7 +79,7 @@ function AuditorFormPreview({ item, security }: { item: Criterion; security: boo
   </section>;
 }
 
-export function CatalogEditorPanel({ version, available, setupPending, actorId, onSaved, onClose }: CatalogEditorPanelProps) {
+export function CatalogEditorPanel({ version, fvsWeights, available, setupPending, actorId, onSaved, onClose }: CatalogEditorPanelProps) {
   const unavailableMessage = setupPending ? "O salvamento de revisões estará disponível após a atualização da plataforma." : "Não foi possível consultar a revisão atual. Atualize a página antes de salvar.";
   // Keep the reviewed base revision while editing, including after a conflict.
   const [base] = useState(version);
@@ -91,6 +92,7 @@ export function CatalogEditorPanel({ version, available, setupPending, actorId, 
     const equalSecurityWeight = version.criteria.length ? Number((10 / version.criteria.length).toFixed(8)) : 0;
     return version.criteria.map((item) => ({
       ...item,
+      subgroup: version.modelId === "security-it07-r02" ? item.subgroup : "",
       configuredWeight: migrateEqualSecurityWeights ? equalSecurityWeight : item.configuredWeight,
       analysisCriterion: version.modelId === "security-it07-r02" ? item.analysisCriterion ?? item.orientations.map((orientation) => orientation.text).join("\n\n") : item.analysisCriterion,
       groupWeight: version.modelId === "security-it07-r02" ? item.groupWeight ?? defaultSecurityGroupWeights.get(item.group.match(/^\d+/)?.[0] ?? "") ?? 1 : item.groupWeight,
@@ -98,12 +100,13 @@ export function CatalogEditorPanel({ version, available, setupPending, actorId, 
     }));
   });
   const referenceCriteriaRef = useRef<Criterion[]>(structuredClone(criteria));
-  const [mode, setMode] = useState<"items" | "weights" | "upload">("items");
+  const [mode, setMode] = useState<"items" | "weights" | "fvs_weights" | "upload">("items");
   const [selectedId, setSelectedId] = useState(version.criteria[0]?.id ?? "");
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set(version.criteria.map((item) => item.group)));
   const [collapsedSubgroups, setCollapsedSubgroups] = useState<Set<string>>(() => new Set(version.criteria.map((item) => `${item.group}:${item.subgroup || "Itens do grupo"}`)));
   const [collapsedWeightGroups, setCollapsedWeightGroups] = useState<Set<string>>(() => new Set(version.criteria.map((item) => item.group)));
   const [weights, setWeights] = useState<Record<string, string>>({});
+  const [fvsWeightDrafts, setFvsWeightDrafts] = useState<Record<string, string>>(() => Object.fromEntries((fvsWeights?.services ?? fvsServices).map((service) => [service.label, String(service.weight)])));
   const [revisionLabel, setRevisionLabel] = useState(() => version.label.split(/\s+—\s+ajuste\s+\d+/i)[0].trim());
   const [pdf, setPdf] = useState<File | null>(null);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
@@ -131,6 +134,9 @@ export function CatalogEditorPanel({ version, available, setupPending, actorId, 
     return groups;
   }, {});
   const blocked = pending || saved;
+  const currentFvsServices = (fvsWeights?.services ?? fvsServices).map((service) => ({ ...service, weight: Number((fvsWeightDrafts[service.label] ?? String(service.weight)).replace(",", ".")) }));
+  const hasFvsItem = criteria.some((item) => /\bfvs\b/i.test(`${item.title} ${item.text}`));
+  const securityModel = base.modelId === "security-it07-r02";
 
   const changed = () => {
     requestIdRef.current = null;
@@ -292,6 +298,29 @@ export function CatalogEditorPanel({ version, available, setupPending, actorId, 
     if (savingRef.current || saved) return;
     setFeedback(null);
     if (!available) { setFeedback({ status: "error", message: unavailableMessage }); return; }
+    if (mode === "fvs_weights") {
+      if (currentFvsServices.some((service) => !Number.isFinite(service.weight) || service.weight < 1 || service.weight > 5)) {
+        setFeedback({ status: "error", message: "Informe um peso entre 1 e 5 para todas as FVS." }); return;
+      }
+      requestIdRef.current ??= newRequestId();
+      const formData = new FormData();
+      formData.set("requestId", requestIdRef.current); formData.set("actorId", actorId);
+      formData.set("expectedVersion", String(fvsWeights?.version ?? 0));
+      formData.set("revisionLabel", fvsWeights?.label ?? "Peso FVS");
+      formData.set("changeNote", "Pesos dos serviços FVS atualizados pela administração de Qualidade.");
+      formData.set("services", JSON.stringify(currentFvsServices));
+      savingRef.current = true;
+      startTransition(async () => {
+        try {
+          const result = await saveFvsWeightsRevisionAction(formData);
+          if (result.status !== "success") { setFeedback({ status: "error", message: result.message }); return; }
+          setSaved(true); setFeedback({ status: "success", message: result.message });
+          if (result.snapshot?.available) { onSaved(result.snapshot); onClose(); }
+        } catch { setFeedback({ status: "error", message: "Não foi possível confirmar os pesos FVS. Tente novamente." }); }
+        finally { savingRef.current = false; }
+      });
+      return;
+    }
     if (mode === "upload" && !revisionLabel.trim()) {
       setFeedback({ status: "error", message: "Informe o nome da nova revisão." }); return;
     }
@@ -342,9 +371,9 @@ export function CatalogEditorPanel({ version, available, setupPending, actorId, 
 
   return <section id="catalog-editor" className={styles.panel} aria-labelledby={headingId}>
     <header className={styles.header}>
-      <div><span className={styles.eyebrow}>ADMINISTRAÇÃO DE ROTEIROS</span><h2 id={headingId} ref={headingRef} tabIndex={-1}>Editar roteiro</h2><p>{referenceDocuments[base.modelId].catalogName.replace(" rev. 02", "")} · Revisão {baseLabel} · {criteria.length} itens</p></div>
-      <button type="button" className="secondary" disabled={pending}
-        onClick={() => { if (!savingRef.current) onClose(); }}>Voltar ao documento</button>
+      <div><h2 id={headingId} ref={headingRef} tabIndex={-1}>Editar roteiro</h2></div>
+      <button type="button" className={styles.closeButton} disabled={pending} aria-label="Fechar edição e voltar ao documento" title="Voltar ao documento"
+        onClick={() => { if (!savingRef.current) onClose(); }}><span aria-hidden="true">×</span></button>
     </header>
 
     <form id={formId} className={styles.form} onSubmit={submit} aria-busy={pending}>
@@ -356,6 +385,8 @@ export function CatalogEditorPanel({ version, available, setupPending, actorId, 
               onClick={() => { changed(); setMode("items"); }}>Editar itens</button>
             {base.modelId === "security-it07-r02" && <button type="button" aria-pressed={mode === "weights"} className={mode === "weights" ? styles.activeMode : undefined}
               onClick={() => { changed(); setMode("weights"); }}>Editar pesos</button>}
+            {base.modelId !== "security-it07-r02" && hasFvsItem && <button type="button" aria-pressed={mode === "fvs_weights"} className={mode === "fvs_weights" ? styles.activeMode : undefined}
+              onClick={() => { changed(); setMode("fvs_weights"); }}>Pesos das FVS</button>}
             <button type="button" aria-pressed={mode === "upload"} className={mode === "upload" ? styles.activeMode : undefined}
               onClick={() => { changed(); setMode("upload"); }}>Enviar nova revisão</button>
           </div>
@@ -377,7 +408,7 @@ export function CatalogEditorPanel({ version, available, setupPending, actorId, 
                       if (next.has(group)) next.delete(group); else next.add(group);
                       return next;
                     })}><span><strong>{groupParts(group).code}</strong><span className={styles.treeTitle}>{groupParts(group).title}</span></span><span aria-hidden="true">⌄</span></button>
-                    {!collapsed && <><div className={styles.editorSubgroups}>{Object.entries(subgroups).map(([subgroup, subgroupItems]) => {
+                    {!collapsed && (securityModel ? <><div className={styles.editorSubgroups}>{Object.entries(subgroups).map(([subgroup, subgroupItems]) => {
                       const subgroupKey = `${group}:${subgroup}`;
                       const subgroupCollapsed = collapsedSubgroups.has(subgroupKey);
                       return <section className={styles.editorSubgroup} key={subgroupKey}>
@@ -388,7 +419,7 @@ export function CatalogEditorPanel({ version, available, setupPending, actorId, 
                         })}><span><strong>{subgroupParts(subgroup, subgroupItems[0]?.code ?? "").code}</strong><span className={styles.treeTitle}>{subgroupParts(subgroup, subgroupItems[0]?.code ?? "").title}</span></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5" /></svg></button>
                         {!subgroupCollapsed && <><div className={styles.editorItems}>{subgroupItems.map((item) => <button type="button" key={item.id} className={item.id === selected?.id ? styles.selectedEditorItem : undefined} aria-pressed={item.id === selected?.id} onClick={() => setSelectedId(item.id)}><strong>{item.code}</strong><span>{item.title}</span></button>)}</div><button type="button" className={`${styles.groupAddItem} ${styles.itemAddButton}`} onClick={() => addItem(group, subgroup)}>+ Adicionar item</button></>}
                       </section>;
-                    })}</div><button type="button" className={styles.groupAddItem} onClick={() => addSubgroup(group)}>+ Adicionar subgrupo</button></>}
+                    })}</div><button type="button" className={styles.groupAddItem} onClick={() => addSubgroup(group)}>+ Adicionar subgrupo</button></> : <><div className={styles.editorItems}>{items.map((item) => <button type="button" key={item.id} className={item.id === selected?.id ? styles.selectedEditorItem : undefined} aria-pressed={item.id === selected?.id} onClick={() => setSelectedId(item.id)}><strong>{item.code}</strong><span>{item.title}</span></button>)}</div><button type="button" className={`${styles.groupAddItem} ${styles.itemAddButton}`} onClick={() => addItem(group, "")}>+ Adicionar item</button></>)}
                   </section>;
                 })}
               </div>
@@ -399,10 +430,10 @@ export function CatalogEditorPanel({ version, available, setupPending, actorId, 
                 <label>Código do grupo<input required maxLength={100} value={groupParts(selected.group).code} onChange={(event) => changeGroupParts(event.target.value, groupParts(selected.group).title)} /></label>
                 <label>Título do grupo<input required maxLength={2000} value={groupParts(selected.group).title} onChange={(event) => changeGroupParts(groupParts(selected.group).code, event.target.value)} /></label>
               </div>
-              <div className={styles.identityFields}>
+              {securityModel && <div className={styles.identityFields}>
                 <label>Código do subgrupo<input maxLength={100} value={subgroupParts(selected.subgroup, selected.code).code} onChange={(event) => changeSubgroupParts(event.target.value, subgroupParts(selected.subgroup, selected.code).title)} /></label>
                 <label>Título do subgrupo<input maxLength={2000} value={subgroupParts(selected.subgroup, selected.code).title} onChange={(event) => changeSubgroupParts(subgroupParts(selected.subgroup, selected.code).code, event.target.value)} placeholder="Itens do grupo" /></label>
-              </div>
+              </div>}
               <div className={styles.identityFields}>
                 <label>Código do item<input required maxLength={100} value={selected.code} onChange={(event) => changeItem({ code: event.target.value })} /></label>
                 <label>Título do item<input required maxLength={2000} value={selected.title} onChange={(event) => changeItem({ title: event.target.value })} /></label>
@@ -415,12 +446,14 @@ export function CatalogEditorPanel({ version, available, setupPending, actorId, 
               {base.modelId !== "security-it07-r02" && <label>Nota do item<input type="text" inputMode="decimal" value={weights[selected.id] ?? String(getCriterionWeight(selected) ?? "")}
                 onChange={(event) => { changed(); setWeights((current) => ({ ...current, [selected.id]: event.target.value })); }} />
               </label>}
+              {base.modelId !== "security-it07-r02" && /\bfvs\b/i.test(`${selected.title} ${selected.text}`) && <button type="button" className={styles.fvsWeightsShortcut}
+                onClick={() => { changed(); setMode("fvs_weights"); }}>Editar pesos das FVS</button>}
               <div className={styles.removeActions}>
                 <button type="button" onClick={removeItem} disabled={criteria.length <= 1}>Excluir item</button>
                 <button type="button" onClick={removeGroup} disabled={new Set(criteria.map((item) => item.group)).size <= 1}>Excluir grupo</button>
               </div>
             </div> : <p className={styles.empty}>Nenhum item corresponde à busca.</p>}
-            {selected && <AuditorFormPreview item={criteriaWithWeights().find((item) => item.id === selected.id) ?? selected} security={base.modelId === "security-it07-r02"} />}
+            {selected && <AuditorFormPreview item={criteriaWithWeights().find((item) => item.id === selected.id) ?? selected} security={base.modelId === "security-it07-r02"} services={currentFvsServices} />}
           </section> : mode === "weights" ? <section className={styles.weightsEditor} aria-label="Pesos do roteiro de Segurança">
             <header><h3>Pesos de Segurança</h3></header>
             <div className={styles.weightsTableWrap}><table className={styles.weightsTable}>
@@ -442,6 +475,18 @@ export function CatalogEditorPanel({ version, available, setupPending, actorId, 
                   <td><label><span className={styles.visuallyHidden}>{`Peso do item ${item.code}`}</span><input aria-label={`Peso do item ${item.code}`} type="text" inputMode="decimal" value={weights[item.id] ?? String(getCriterionWeight(item) ?? "")} onChange={(event) => { changed(); setWeights((current) => ({ ...current, [item.id]: event.target.value })); }} /></label></td></>}
                 </tr>)}
               </tbody>})}
+            </table></div>
+          </section> : mode === "fvs_weights" ? <section className={styles.weightsEditor} aria-label="Pesos dos serviços FVS">
+            <header><h3>Pesos das FVS</h3><p>Defina um peso de 1 a 5 para cada serviço. A nova revisão será usada nas próximas auditorias.</p></header>
+            <div className={styles.weightsTableWrap}><table className={`${styles.weightsTable} ${styles.fvsWeightsTable}`}>
+              <thead><tr><th scope="col">FVS</th><th scope="col">Serviço</th><th scope="col">Peso</th></tr></thead>
+              <tbody>{(fvsWeights?.services ?? fvsServices).map((service) => <tr key={service.label}>
+                <td><strong>{service.document}</strong></td><td><span>{service.service}</span></td>
+                <td><label><span className={styles.visuallyHidden}>{`Peso da ${service.document}`}</span><input aria-label={`Peso da ${service.document} — ${service.service}`} type="text" inputMode="decimal" value={fvsWeightDrafts[service.label] ?? String(service.weight)} onChange={(event) => {
+                  const value = event.target.value; if (value && !/^\d(?:[.,]\d+)?$/.test(value)) return;
+                  changed(); setFvsWeightDrafts((current) => ({ ...current, [service.label]: value }));
+                }} /></label></td>
+              </tr>)}</tbody>
             </table></div>
           </section> : <section className={styles.uploadIntroduction}><h3>Documento de referência do roteiro</h3></section>}
 
@@ -483,7 +528,7 @@ export function CatalogEditorPanel({ version, available, setupPending, actorId, 
         {feedback && <p className={feedback.status === "error" ? styles.error : styles.success} role={feedback.status === "error" ? "alert" : "status"}>{feedback.message}</p>}
       </div>
       <footer className={styles.footer}>
-        {mode !== "upload" && <span>{pending ? "Salvando alterações…" : saved ? "Alterações salvas." : `${criteria.length} itens no roteiro · Soma dos pesos: ${currentScoreTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} de 10,00`}</span>}
+        {mode !== "upload" && <span>{pending ? "Salvando alterações…" : saved ? "Alterações salvas." : mode === "fvs_weights" ? `${currentFvsServices.length} serviços FVS` : `${criteria.length} itens no roteiro · Soma dos pesos: ${currentScoreTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} de 10,00`}</span>}
         <button type="submit" className="primary" disabled={!available || blocked || !criteria.length}>{pending ? "Salvando…" : saved ? "Alterações salvas" : mode === "upload" ? "Salvar documento de referência" : "Salvar alterações"}</button>
       </footer>
     </form>

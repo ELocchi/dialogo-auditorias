@@ -63,6 +63,10 @@ test("FVS usa o peso específico do serviço na proporção do item", () => {
     { id: "1", label: "FVS-24 - Forro em placas de gesso acartonado", compliant: false },
     { id: "2", label: "FVS-6B - Revestimento interno – Massa Interna", compliant: true },
   ]), 5 / 9);
+  assert.equal(calculateChecksCompliance([
+    { id: "1", label: "FVS-24 - Forro em placas de gesso acartonado", weight: 1, compliant: false },
+    { id: "2", label: "FVS-6B - Revestimento interno – Massa Interna", weight: 5, compliant: true },
+  ]), 5 / 6, "o peso salvo no rascunho preserva a revisão usada pela auditoria");
 });
 
 test("roteiro de Segurança usa o mesmo peso nos itens e mantém os pesos dos grupos", () => {

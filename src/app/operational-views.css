@@ -23,7 +23,7 @@
 .work-search-clear { position: absolute; top: 50%; right: 7px; display: grid; width: 29px; height: 29px; padding: 0; place-items: center; border: 0; border-radius: 6px; background: transparent; color: var(--navy); font-size: 21px; line-height: 1; transform: translateY(-50%); }
 .work-search-clear:hover { background: #edf2f8; }
 .work-create-action small { max-width: 240px; color: #637186; font-size: 11px; line-height: 1.5; text-align: right; }
-.work-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.work-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
 .work-project-card { min-width: 0; padding: 25px 27px 0; border: 1px solid #dce1e7; border-left: 5px solid #c7353c; border-radius: 11px; background: #fff; }
 .work-project-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
 .work-building-icon { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 10px; background: #f0f3f8; color: #213e6b; }
@@ -60,6 +60,7 @@
 .occurrence-detail-body dd { margin: 0; color: #294366; }
 .occurrence-detail-body p { margin: 0; color: #637186; font-size: 12px; line-height: 1.6; }
 @media (max-width: 1100px) {
+  .work-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .occurrence-filters { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .occurrence-filters .operational-clear { justify-self: start; min-height: 38px; }
 }

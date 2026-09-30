@@ -1,17 +1,27 @@
 .layout { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); align-items: start; gap: 24px; }
-.backLink { display: inline-flex; align-items: center; min-height: 36px; margin-bottom: 14px; color: var(--navy); font-size: 13px; font-weight: 600; text-decoration: none; }
-.backLink:hover { text-decoration: underline; }
+.pageHeading { display: flex; align-items: center; gap: 16px; margin-bottom: 26px; }
+.headingText { flex: 1; min-width: 0; }
+.headingText h2 { margin: 0; color: var(--navy); font-size: 25px; letter-spacing: -.3px; }
+.headingText p { margin: 7px 0 0; color: var(--muted); font-size: 13px; }
+.backButton { display: flex; width: 50px; height: 50px; flex: 0 0 50px; align-items: center; justify-content: center; padding: 0; border: 0; background: transparent; color: var(--red); text-decoration: none; }
+.backButton:hover { color: #a92b32; }
+.backButton:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; border-radius: 7px; }
+.backButton svg { display: block; width: 26px; height: 26px; flex: 0 0 26px; }
 .reportIndex { width: 100%; max-width: 1000px; margin: 0 auto; }
-.indexHeading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
-.indexHeading h3 { margin: 0; }
-.indexHeading a { text-decoration: none; }
-.reportList { margin: 0; padding: 0; list-style: none; }
-.reportList li { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 0; }
-.reportList li + li { border-top: 1px solid var(--line); }
-.reportList li > span { display: grid; gap: 5px; }
-.reportList strong { color: var(--navy); font-size: 14px; }
-.reportList small { color: var(--muted); font-size: 12px; }
+.pageHeading > a { text-decoration: none; }
+.addReportButton { display: grid; width: 44px; min-width: 44px; height: 44px; min-height: 44px; place-items: center; padding: 0; font-size: 24px; line-height: 1; }
+.reportList { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
+.reportList li { display: flex; min-width: 0; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--line); border-left: 4px solid var(--red); border-radius: 10px; background: var(--surface); }
+.reportDate { display: flex; width: 60px; height: 62px; flex: 0 0 60px; flex-direction: column; align-items: center; justify-content: center; border: 1px solid var(--navy); border-radius: 8px; background: var(--navy); color: white; }
+.reportDate strong { color: white; font-size: 20px; line-height: 1; }
+.reportDate small { margin-top: 5px; color: white; font-size: 9px; }
+.reportInfo { display: grid; flex: 1; min-width: 0; gap: 4px; overflow-wrap: anywhere; }
+.reportInfo strong { color: var(--navy); font-size: 12px; }
+.reportInfo small { color: var(--muted); font-size: 9px; }
 .reportList a { text-decoration: none; white-space: nowrap; }
+.downloadButton { display: grid; width: 40px; min-width: 40px; height: 40px; min-height: 40px; place-items: center; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--navy); }
+.downloadButton:hover { border-color: var(--navy); background: #e8eef7; }
+.downloadButton svg { width: 20px; height: 20px; }
 .dialogBackdrop { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 20px; background: #13284499; }
 .nameDialog { width: min(100%, 460px); padding: 24px; border: 1px solid var(--line); border-radius: 12px; background: white; box-shadow: 0 18px 52px #0c20384d; }
 .nameDialog h3 { margin: 0 0 8px; color: var(--navy); font-size: 20px; }
@@ -47,8 +57,10 @@
 .photos img { width: 100%; height: 100%; object-fit: cover; }
 .findings strong, .findings span { display: block; }
 .findings strong { color: var(--navy); font-size: 13px; }
+.seriousBadge { display: inline-flex; width: fit-content; margin-left: 8px; padding: 3px 7px; border-radius: 999px; background: var(--red); color: white; font-size: 9px; font-style: normal; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; vertical-align: middle; }
 .findings span { margin-top: 5px; color: var(--muted); font-size: 11px; }
 .findings p { margin: 7px 0 0; font-size: 12px; }
 @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
 @media (max-width: 580px) { .closedPanel { padding: 12px; } .closedActions, .closedActions a { width: 100%; } }
-@media (max-width: 580px) { .reportList li { align-items: stretch; flex-direction: column; } .reportList a, .indexHeading a, .indexHeading button { width: 100%; } }
+@media (max-width: 580px) { .reportList li { align-items: center; } }
+@media (max-width: 580px) { .pageHeading { gap: 12px; } .headingText h2 { font-size: 22px; } .backButton { width: 44px; height: 44px; flex-basis: 44px; } .backButton svg { width: 23px; height: 23px; flex-basis: 23px; } }

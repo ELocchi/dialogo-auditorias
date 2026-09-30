@@ -26,6 +26,11 @@ export default async function SelectProfilePage({ searchParams }: {
   if (account.perfis.length === 1) redirect("/app");
   const current = await readActiveProfileContext(user.id, account);
   const params = await searchParams;
+  const profileColumns = [
+    { label: "Perfis administrativos", contexts: contexts.filter((context) => context.profile === "ADMINISTRATIVO") },
+    { label: "Perfis de auditoria", contexts: contexts.filter((context) => context.profile === "AUDITOR_SEGURANCA" || context.profile === "AUDITOR_QUALIDADE") },
+    { label: "Perfis de Engenharia", contexts: contexts.filter((context) => context.profile === "ENGENHARIA") },
+  ].filter((column) => column.contexts.length > 0);
 
   return (
     <div className={styles.shell}>
@@ -35,24 +40,26 @@ export default async function SelectProfilePage({ searchParams }: {
         <h1>Perfis de Acesso</h1>
         {params.erro === "perfil" && <p className={styles.error} role="alert">Não foi possível selecionar esse perfil. Escolha uma das opções disponíveis abaixo.</p>}
         <div className={styles.grid}>
-          {contexts.map(({ profile, engineeringScope, administrativeScope }) => {
-            const label = profile === "ENGENHARIA" && engineeringScope
-              ? `${profileLabels[profile]} — ${engineeringLabels[engineeringScope]}`
-              : profile === "ADMINISTRATIVO" && administrativeScope
-                ? administrativeLabels[administrativeScope] : profileLabels[profile];
-            const isCurrent = profile === current?.profile && engineeringScope === current.engineeringScope && administrativeScope === current.administrativeScope;
-            return <form action={selectProfileAction} key={`${profile}:${engineeringScope}:${administrativeScope}`}>
-              {engineeringScope && <input type="hidden" name="atuacao_engenharia" value={engineeringScope} />}
-              {administrativeScope && <input type="hidden" name="atuacao_administrativa" value={administrativeScope} />}
-              <button className={styles.profile} name="perfil" value={profile} type="submit" aria-label={`Entrar como ${label}${isCurrent ? ", perfil atual" : ""}`}>
-                {isCurrent && <span className={styles.currentIndicator} aria-hidden="true" />}
-                <strong>{label}</strong>
-                <span className={styles.profileDescription}>{profile === "ADMINISTRATIVO" && administrativeScope !== "GERAL"
-                  ? `Agenda, roteiros e acompanhamento de ${administrativeScope === "SEGURANCA" ? "Segurança" : "Qualidade"}.`
-                  : descriptions[profile]}</span>
-              </button>
-            </form>;
-          })}
+          {profileColumns.map((column) => <section className={styles.profileColumn} aria-label={column.label} key={column.label}>
+            {column.contexts.map(({ profile, engineeringScope, administrativeScope }) => {
+              const label = profile === "ENGENHARIA" && engineeringScope
+                ? `${profileLabels[profile]} — ${engineeringLabels[engineeringScope]}`
+                : profile === "ADMINISTRATIVO" && administrativeScope
+                  ? administrativeLabels[administrativeScope] : profileLabels[profile];
+              const isCurrent = profile === current?.profile && engineeringScope === current.engineeringScope && administrativeScope === current.administrativeScope;
+              return <form action={selectProfileAction} key={`${profile}:${engineeringScope}:${administrativeScope}`}>
+                {engineeringScope && <input type="hidden" name="atuacao_engenharia" value={engineeringScope} />}
+                {administrativeScope && <input type="hidden" name="atuacao_administrativa" value={administrativeScope} />}
+                <button className={styles.profile} name="perfil" value={profile} type="submit" aria-label={`Entrar como ${label}${isCurrent ? ", perfil atual" : ""}`}>
+                  {isCurrent && <span className={styles.currentIndicator} aria-hidden="true" />}
+                  <strong>{label}</strong>
+                  <span className={styles.profileDescription}>{profile === "ADMINISTRATIVO" && administrativeScope !== "GERAL"
+                    ? `Agenda, roteiros e acompanhamento de ${administrativeScope === "SEGURANCA" ? "Segurança" : "Qualidade"}.`
+                    : descriptions[profile]}</span>
+                </button>
+              </form>;
+            })}
+          </section>)}
         </div>
       </main>
     </div>

@@ -20,7 +20,7 @@ const audit = (number = 201, overrides = {}) => ({ id: uuid(number), workId: uui
 const finding = (record, overrides = {}) => ({ id: "item-1", auditId: record.id, workId: record.workId, modelId: record.modelId,
   auditDate: record.date, auditor: record.auditor, module: "quality", item: "02.04", criterionTitle: "Armazenamento",
   description: "Armazenamento — Contramarco", nonconformity: "Fora do especificado", serious: true, subitem: "Contramarco", ...overrides });
-const overview = (audits = [audit()], findings = audits.map((record) => finding(record))) => ({ audits, findings });
+const overview = (audits = [audit()], findings = audits.map((record) => finding(record)), workFindings = []) => ({ audits, findings, workFindings });
 const snapshot = (input) => ({ ...input, available: true, responses: {}, criteriaSnapshots: {} });
 const token = (input) => createHash("md5").update(JSON.stringify(input)).digest("hex");
 const deferred = () => { let resolve; const promise = new Promise((done) => { resolve = done; }); return { promise, resolve }; };

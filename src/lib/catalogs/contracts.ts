@@ -1,4 +1,5 @@
 import type { Criterion } from "../../domain/catalogs.ts";
+import { fvsServices, type FvsService } from "../../domain/fvs-services.ts";
 import { criteriaForModel } from "../../domain/prototype-audits.ts";
 import type { AuditModelId } from "../../domain/operational-records.ts";
 
@@ -14,8 +15,16 @@ export type CatalogVersion = {
 export type CatalogSnapshot = {
   available: boolean;
   versions: CatalogVersion[];
+  fvsWeights?: FvsWeightVersion;
   /** Only a missing migration permits the bundled catalog for a new preview. */
   setupPending?: boolean;
+};
+export type FvsWeightVersion = {
+  id: string | null;
+  version: number;
+  label: string;
+  services: FvsService[];
+  createdAt: string | null;
 };
 export type CatalogSaveResult = { status: "success" | "error"; message: string; snapshot?: CatalogSnapshot };
 export const catalogModelIds: AuditModelId[] = ["security-it07-r02", "quality-f175", "quality-f176"];
@@ -27,3 +36,4 @@ export function catalogVersion(snapshot: CatalogSnapshot, modelId: AuditModelId)
   return snapshot.versions.find((entry) => entry.modelId === modelId) ?? bundledCatalog(modelId);
 }
 export const unavailableCatalogs = (): CatalogSnapshot => ({ available: false, versions: [] });
+export const bundledFvsWeights = (): FvsWeightVersion => ({ id: null, version: 0, label: "Peso FVS", services: fvsServices.map((service) => ({ ...service })), createdAt: null });

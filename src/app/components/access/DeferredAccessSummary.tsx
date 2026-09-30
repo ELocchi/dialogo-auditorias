@@ -28,15 +28,15 @@ export function DeferredAccessSummary({ actor }: { actor: AgendaActorContext }) 
   }, [key, userId, profile, engineeringScope, administrativeScope, attempt]);
   const current = state.key === key ? state : { key, status: "loading" as const };
   return <div className={styles.embedded}>
-    <div className={styles.intro}><h2>Usuários e acessos</h2></div>
+    <div className={styles.intro}><h3>Usuários e acessos</h3></div>
     {current.status === "error" ? <div className={styles.error} role="alert">
       <p>{current.message}</p>
       <button type="button" className="secondary" onClick={() => {
         setState({ key, status: "loading" }); setAttempt((value) => value + 1);
       }}>Tentar novamente</button>
     </div> : current.status === "loading" ? <p className="muted" role="status">Carregando resumo de acessos...</p> : <div className={styles.stats}>
-      <Link prefetch={false} className={`${styles.stat} ${styles.statLink}`} href="/administracao/usuarios/pendentes" target="_blank" rel="noopener noreferrer"
-        aria-label={`${current.summary.pendingCount} aprovações pendentes. Abrir em uma nova janela.`}><strong>{current.summary.pendingCount}</strong><span>Aprovações</span></Link>
+      <Link prefetch={false} className={`${styles.stat} ${styles.statLink}`} href="/administracao/usuarios/pendentes"
+        aria-label={`${current.summary.pendingCount} aprovações pendentes. Abrir aprovações.`}><strong>{current.summary.pendingCount}</strong><span>Aprovações</span></Link>
       <Link className={`${styles.stat} ${styles.statLink}`} href="/administracao/usuarios/historico"
         aria-label={`${current.summary.activeCount} contas ativas. Abrir Aprovações e Histórico.`}><strong>{current.summary.activeCount}</strong><span>Contas Ativas</span></Link>
     </div>}

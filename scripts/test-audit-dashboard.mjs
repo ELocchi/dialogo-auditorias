@@ -22,7 +22,7 @@ const audit = (number, overrides = {}) => ({ id: uuid(number), workId: works[0].
 const finding = (record, id = "item-1", overrides = {}) => ({ id, auditId: record.id, workId: record.workId, auditDate: record.date, auditor: record.auditor,
   module: record.modelId === "security-it07-r02" ? "safety" : "quality", modelId: record.modelId, item: "02.04", description: "Armazenamento — Contramarco",
   criterionTitle: "Armazenamento", nonconformity: "Fora do especificado", serious: true, subitem: "Contramarco", ...overrides });
-const snapshot = (audits, findings = []) => ({ available: true, audits, findings, responses: {}, criteriaSnapshots: {} });
+const snapshot = (audits, findings = [], workFindings = []) => ({ available: true, audits, findings, workFindings, responses: {}, criteriaSnapshots: {} });
 function clientFor(input, fail = false) {
   const revision = createHash("md5").update(JSON.stringify(input)).digest("hex");
   return { calls: [], async rpc(name, parameters) {
@@ -85,6 +85,17 @@ test("scope filtering excludes every metric, ranking and finding from other work
   assert.deepEqual(summary.ranking.monthly["2026-09"].safety,[]);
   assert.deepEqual(summary.pendingPlanKeys,[`${allowed.id}:quality:${works[0].id}`]);
   assert.deepEqual(buildAuditDashboard({available:false,audits:[allowed],findings:[finding(allowed)]},works),unavailableAuditDashboard());
+});
+
+test("serious overview combines active follow-up findings with serious audit items", () => {
+  const record = audit(201);
+  const followUp = { id: uuid(701), workId: works[0].id, module: "quality", createdDate: "2026-09-29",
+    responsible: "Auditor de teste", description: "Guarda-corpo ausente", correction: "Instalar guarda-corpo" };
+  const summary = buildAuditDashboard(snapshot([record], [finding(record)]), works, ["quality"], [followUp]);
+  assert.equal(summary.mostSevere.length, 2);
+  assert.equal(summary.mostSevere[0].source, "follow_up");
+  assert.equal(summary.mostSevere[0].checklistItem, "Apontamento · Guarda-corpo ausente");
+  assert.equal(summary.mostSevere[1].source, "audits");
 });
 
 test("overlay accepts only this auditor's authorized, published session records and discards evidence fields", () => {

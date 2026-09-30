@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import type { DemoUser, Visit } from "@/domain/prototype-access";
 import { canReadVisit } from "@/domain/prototype-access";
@@ -12,11 +13,11 @@ import { maxPhotoBytes, maxPhotosPerFinding } from "@/lib/follow-up/photos";
 import { completeFindingAction, completeWorkFindingAction, createWorkFindingAction, uploadFindingPhotosAction } from "@/app/follow-up/actions";
 import { useFollowUpSnapshot, isFollowUpWorkspaceSnapshot } from "./use-follow-up-snapshot";
 import { useFollowUpPhotoStore } from "./use-follow-up-photos";
-import { FollowUpPhotoPicker, FollowUpVisitRow, FollowUpWorkFindingRow, FollowUpSavedFindingRow } from "./follow-up-workspace-rows";
+import { FollowUpPhotoPicker, FollowUpWorkFindingRow, FollowUpSavedFindingRow } from "./follow-up-workspace-rows";
 import styles from "./follow-up-workspace.module.css";
 
 type Props = { user: DemoUser; visits: readonly Visit[]; works: readonly WorkRecord[]; actor: AgendaActorContext; agendaAvailable: boolean };
-const emptyFinding = (): FollowUpFinding => ({ id: "", location: "", description: "", correction: "" });
+const emptyFinding = (): FollowUpFinding => ({ id: "", location: "", description: "", correction: "", serious: false });
 const noCompleted: readonly string[] = [];
 
 export function FollowUpWorkspace(props: Props) {
@@ -32,7 +33,6 @@ function FollowUpWorkspaceSession({ user, visits, works, actor, agendaAvailable 
     .sort((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id)), [visits, user, discipline, authorizedWorks]);
   const { data: snapshot, loading, error: readError, retry, update } = useFollowUpSnapshot(actor, "/api/follow-up/workspace", isFollowUpWorkspaceSnapshot);
   const photoStore = useFollowUpPhotoStore(actor);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [filterWorkId, setFilterWorkId] = useState("");
   const [adding, setAdding] = useState(false);
   const [targetWorkId, setTargetWorkId] = useState("");
@@ -55,7 +55,15 @@ function FollowUpWorkspaceSession({ user, visits, works, actor, agendaAvailable 
   const worksWithFindings = useMemo(() => new Set(workFindings.map((entry) => entry.workId)), [workFindings]);
   const visibleWorkFindings = useMemo(() => filterWorkId ? workFindings.filter((item) => item.workId === filterWorkId) : workFindings, [filterWorkId, workFindings]);
   const visibleSavedFindings = useMemo(() => filterWorkId ? savedFindings.filter((item) => item.workId === filterWorkId) : savedFindings, [filterWorkId, savedFindings]);
-  const toggleVisit = useCallback((id: string) => setExpandedId((current) => current === id ? null : id), []);
+  const scheduledById = useMemo(() => new Map(scheduled.map((visit) => [visit.id, visit])), [scheduled]);
+  const visibleReports = useMemo(() => (snapshot?.reports ?? []).filter((report) => scheduledById.has(report.visitId))
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt) || right.id.localeCompare(left.id)), [snapshot?.reports, scheduledById]);
+  const createReportVisit = scheduled.find((visit) => {
+    const reportCount = reportsByVisit.get(visit.id)?.length ?? 0;
+    const hasFindings = (draftByVisit.get(visit.id)?.findings.length ?? 0) > 0;
+    return agendaAvailable && available && visit.confirmationStatus === "confirmed" && visit.date <= today
+      && (reportCount > 0 || hasFindings || worksWithFindings.has(visit.workId));
+  });
 
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   useEffect(() => { if (previewUrl) return () => URL.revokeObjectURL(previewUrl); }, [previewUrl]);
@@ -85,6 +93,7 @@ function FollowUpWorkspaceSession({ user, visits, works, actor, agendaAvailable 
       const formData = new FormData();
       formData.set("workId", targetWorkId); formData.set("location", finding.location);
       formData.set("description", finding.description); formData.set("correction", finding.correction); formData.set("photo", photoFiles[0]);
+      formData.set("serious", finding.serious ? "true" : "false");
       const result = await createWorkFindingAction(formData, actor);
       if (!mounted.current) return;
       if (result.status === "success" && result.finding) {
@@ -138,16 +147,28 @@ function FollowUpWorkspaceSession({ user, visits, works, actor, agendaAvailable 
     {!agendaAvailable && <p className={styles.availability} role="status">A agenda está indisponível no momento. Atualize a página para consultar as visitas.</p>}
     {readError && <p className={styles.availability} role="alert">Não foi possível consultar os relatórios e apontamentos. <button type="button" className="secondary" onClick={retry}>Tentar novamente</button></p>}
     <div className={styles.layout}>
-      <section className={`panel ${styles.listPanel}`} aria-label="Visitas de acompanhamento">
-        <div className="panel-heading"><h3>Visitas de acompanhamento</h3></div>
-        {scheduled.length ? <div className={styles.visitList}>{scheduled.map((visit) => {
-          const reportCount = reportsByVisit.get(visit.id)?.length ?? 0;
-          const hasFindings = (draftByVisit.get(visit.id)?.findings.length ?? 0) > 0;
-          const availableToCreate = agendaAvailable && available && visit.confirmationStatus === "confirmed" && visit.date <= today
-            && (reportCount > 0 || hasFindings || worksWithFindings.has(visit.workId));
-          return <FollowUpVisitRow key={visit.id} visit={visit} workName={authorizedWorks.get(visit.workId)?.name} auditorName={user.name} reportCount={reportCount}
-            expanded={expandedId === visit.id} availableToCreate={availableToCreate} hasFindings={hasFindings} onToggle={toggleVisit} />;
-        })}</div> : <p className="muted">Nenhuma visita de acompanhamento atribuída a este perfil.</p>}
+      <section className={`panel ${styles.listPanel}`} aria-label="Relatórios orientativos">
+        <div className={`panel-heading ${styles.reportHeader}`}><h3>Relatórios orientativos</h3>
+          {createReportVisit ? <Link className={`primary ${styles.addReportButton}`} href={`/app/acompanhamento/relatorio/${createReportVisit.id}?novo=1`}
+              aria-label="Criar novo relatório" title="Criar novo relatório">+</Link>
+            : <button type="button" className={`primary ${styles.addReportButton}`} disabled aria-label="Criar novo relatório"
+                title="Confirme uma visita e registre um apontamento para criar o relatório">+</button>}
+        </div>
+        {visibleReports.length ? <ul className={styles.reportList}>{visibleReports.map((report) => {
+          const savedAt = new Date(report.updatedAt);
+          const day = savedAt.toLocaleDateString("pt-BR", { day: "2-digit", timeZone: "America/Sao_Paulo" });
+          const month = savedAt.toLocaleDateString("pt-BR", { month: "short", timeZone: "America/Sao_Paulo" }).replace(".", "").toUpperCase();
+          const year = savedAt.toLocaleDateString("pt-BR", { year: "numeric", timeZone: "America/Sao_Paulo" });
+          const date = savedAt.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+          return <li key={report.id}>
+            <span className={styles.reportDate}><strong>{day}</strong><small>{month} {year}</small></span>
+            <span className={styles.reportInfo}><strong>{report.title}</strong><small>{date}</small></span>
+            <a className={styles.reportDownload} href={`/app/acompanhamento/relatorio/${report.visitId}/pdf?relatorio=${report.id}`} download
+              aria-label={`Baixar PDF: ${report.title}`} title="Baixar PDF">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" /></svg>
+            </a>
+          </li>;
+        })}</ul> : snapshot && !loading && !readError ? <p className="muted">Nenhum relatório orientativo salvo para este perfil.</p> : null}
       </section>
       <section className={`panel ${styles.findingsPanel}`} aria-label="Apontamentos de acompanhamento">
         <div className={`panel-heading ${styles.findingHeader}`}><h3>Apontamentos</h3>
@@ -167,6 +188,11 @@ function FollowUpWorkspaceSession({ user, visits, works, actor, agendaAvailable 
             <label>Local (opcional)<input maxLength={200} disabled={disabled} value={finding.location} onChange={(event) => setFinding((current) => ({ ...current, location: event.target.value }))} placeholder="Pavimento, ambiente ou frente de serviço" /></label>
             <label>O que precisa de correção<textarea required minLength={5} maxLength={2000} disabled={disabled} value={finding.description} onChange={(event) => setFinding((current) => ({ ...current, description: event.target.value }))} /></label>
             <label>Orientação para correção<textarea required minLength={5} maxLength={2000} disabled={disabled} value={finding.correction} onChange={(event) => setFinding((current) => ({ ...current, correction: event.target.value }))} /></label>
+            <fieldset className={styles.seriousField} disabled={disabled}>
+              <legend>Este apontamento é um item grave?</legend>
+              <div><label><input type="radio" name="serious" checked={finding.serious !== true} onChange={() => setFinding((current) => ({ ...current, serious: false }))} />Não</label>
+                <label><input type="radio" name="serious" checked={finding.serious === true} onChange={() => setFinding((current) => ({ ...current, serious: true }))} />Sim</label></div>
+            </fieldset>
             <label>Obra<select required value={targetWorkId} disabled={disabled} onChange={(event) => setTargetWorkId(event.target.value)}>{works.map((work) => <option key={work.id} value={work.id}>{work.name}</option>)}</select></label>
             <div className={styles.findingActions}><button type="button" className="secondary" disabled={pending} onClick={() => setAdding(false)}>Cancelar</button><button type="submit" className="primary" disabled={disabled}>{pending ? "Salvando…" : "Salvar apontamento"}</button></div>
           </>}

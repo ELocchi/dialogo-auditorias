@@ -3,7 +3,7 @@ import { uuidPattern } from "../access/validation.ts";
 import type { ProfileWorkspaceContext } from "../access/workspace-context.ts";
 
 type Client = Pick<SupabaseClient, "rpc">;
-export type FollowUpFinding = { id: string; location: string; description: string; correction: string };
+export type FollowUpFinding = { id: string; location: string; description: string; correction: string; serious?: boolean };
 export type FollowUpReport = {
   id: string;
   title: string;
@@ -27,11 +27,14 @@ const canReadReports = (context: ProfileWorkspaceContext) => auditor(context) ||
 const failure = (message: string): SaveFollowUpResult => ({ status: "error", message });
 
 function parseFinding(value: unknown): FollowUpFinding | null {
-  if (!record(value) || Object.keys(value).length !== 4 || !uuid(value.id)
+  if (!record(value) || Object.keys(value).some((key) => !["id", "location", "description", "correction", "serious"].includes(key))
+    || Object.keys(value).length < 4 || !uuid(value.id)
     || !text(value.location, 200) || !text(value.description, 2000, 5)
-    || !text(value.correction, 2000, 5)) return null;
+    || !text(value.correction, 2000, 5)
+    || (value.serious !== undefined && typeof value.serious !== "boolean")) return null;
   return { id: value.id.toLowerCase(), location: value.location.trim(),
-    description: value.description.trim(), correction: value.correction.trim() };
+    description: value.description.trim(), correction: value.correction.trim(),
+    ...(value.serious !== undefined ? { serious: value.serious } : {}) };
 }
 
 export function parseFindings(value: unknown): FollowUpFinding[] | null {

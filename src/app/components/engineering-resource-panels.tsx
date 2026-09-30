@@ -147,7 +147,7 @@ export function EngineeringResourcePanels({ actor, works, module, catalogs, audi
               if (expanded) next.delete(finding.id); else next.add(finding.id);
               return next;
             })}>
-              <span className={styles.findingSummaryText}><strong>{finding.description}</strong></span>
+              <span className={styles.findingSummaryText}><strong>{finding.description}{finding.serious && <em className={styles.seriousFlag}>Item grave</em>}</strong></span>
               <i className={`${styles.chevron}${expanded ? ` ${styles.chevronExpanded}` : ""}`} aria-hidden="true" />
             </button>
             {expanded && <div className={styles.otherFindingDetails} id={detailsId}>

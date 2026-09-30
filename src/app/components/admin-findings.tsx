@@ -7,6 +7,7 @@ import styles from "./admin-findings.module.css";
 export type AdminFindingSummary = {
   id: string;
   title: string;
+  source?: "audits" | "follow_up";
   checklistItem?: string;
   discipline?: string;
   month?: string;
@@ -50,7 +51,7 @@ function FindingDetails({ className, summaryClassName, summary, children }: {
 function RecurringFindingsByMonth({ items, emptyMessage, onOpenFindings }: {
   items: readonly AdminFindingSummary[];
   emptyMessage: string;
-  onOpenFindings?: () => void;
+  onOpenFindings?: (source?: "audits" | "follow_up") => void;
 }) {
   const groups = useMemo(() => {
     const grouped = new Map<string, AdminFindingSummary[]>();
@@ -76,7 +77,7 @@ function RecurringFindingsByMonth({ items, emptyMessage, onOpenFindings }: {
 function FindingsList({ items, emptyMessage, onOpenFindings }: {
   items: readonly AdminFindingSummary[];
   emptyMessage: string;
-  onOpenFindings?: () => void;
+  onOpenFindings?: (source?: "audits" | "follow_up") => void;
 }) {
   const { referenced, unreferenced } = useMemo(() => {
     const grouped = new Map<string, { reference: NonNullable<AdminFindingSummary["references"]>[number]; items: Map<string, AdminFindingSummary> }>();
@@ -100,7 +101,7 @@ function FindingsList({ items, emptyMessage, onOpenFindings }: {
           </>}>
           {() => <div className={styles.referenceDetails}>
             <ul className={styles.referenceItems}>{[...referenceItems.values()].map((item) => <li key={item.id}>
-              {onOpenFindings ? <button type="button" onClick={onOpenFindings}>{item.checklistItem ?? item.title}</button>
+              {onOpenFindings ? <button type="button" onClick={() => onOpenFindings(item.source)}>{item.checklistItem ?? item.title}</button>
                 : <strong>{item.checklistItem ?? item.title}</strong>}
             </li>)}</ul>
           </div>}
@@ -117,7 +118,7 @@ function FindingsList({ items, emptyMessage, onOpenFindings }: {
           {description.label && <strong>{description.label}</strong>}<span>{description.description}</span>
         </li>)}</ul>}
       </FindingDetails> : <div className={styles.summaryRow}>
-        {onOpenFindings ? <button type="button" className={styles.summaryItem} onClick={onOpenFindings}>{item.title}</button>
+        {onOpenFindings ? <button type="button" className={styles.summaryItem} onClick={() => onOpenFindings(item.source)}>{item.title}</button>
           : <strong className={styles.summaryItem}>{item.title}</strong>}
         <span>{item.discipline ?? "—"}</span>
         <span>{item.workCount ?? 0} {item.workCount === 1 ? "obra" : "obras"}</span>
@@ -130,7 +131,7 @@ function FindingsList({ items, emptyMessage, onOpenFindings }: {
 export function AdminFindings({ mostSevere = [], mostRecurring = [], onOpenFindings }: {
   mostSevere?: readonly AdminFindingSummary[];
   mostRecurring?: readonly AdminFindingSummary[];
-  onOpenFindings?: () => void;
+  onOpenFindings?: (source?: "audits" | "follow_up") => void;
 }) {
   return <section className={`panel ${styles.panel}`} aria-label="Principais apontamentos">
     <div className={styles.heading}>

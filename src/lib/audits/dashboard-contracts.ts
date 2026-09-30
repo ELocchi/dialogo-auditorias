@@ -4,6 +4,7 @@ import type { AppModule } from "../../domain/prototype-access.ts";
 export type DashboardFindingSummary = {
   id: string;
   title: string;
+  source?: "audits" | "follow_up";
   checklistItem?: string;
   discipline?: string;
   month?: string;

@@ -59,7 +59,9 @@ const editor = (tree) => elements(tree).find((element) => element.type?.name ===
 
 test("report index reads one visit and never lists Storage or sends report bodies to the editor", async () => {
   reset(); const tree = await page(); assert.deepEqual(state.reads, [{ kind: "visit", visitId }]); assert.deepEqual(state.lists, []); assert.equal(editor(tree), undefined);
-  assert.ok(elements(tree).some((element) => element.props?.href === `/app/acompanhamento/relatorio/${visitId}?relatorio=${reportId}`));
+  const download = elements(tree).find((element) => element.props?.href === `/app/acompanhamento/relatorio/${visitId}/pdf?relatorio=${reportId}`);
+  assert.ok(download); assert.equal(download.props.download, true); assert.equal(download.props.title, "Baixar PDF");
+  assert.ok(!elements(tree).some((element) => element.props?.href === `/app/acompanhamento/relatorio/${visitId}?relatorio=${reportId}`));
   assert.ok(elements(tree).some((element) => element.props?.href === `/app/acompanhamento/relatorio/${visitId}?novo=1`));
 });
 

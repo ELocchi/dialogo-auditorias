@@ -67,13 +67,13 @@ const uploadForm = () => { const form = new FormData(); form.set("visitId", visi
 test("save resolves server findings from one target snapshot and performs only the authoritative save RPC", async () => {
   reset(); state.snapshot.reports = [{ ...report, findings: [{ ...finding, description: "Texto do relatório anterior" }] }];
   state.snapshot.draft.findings = [{ ...finding, description: "Texto salvo no rascunho" }];
-  const workFinding = { ...finding, id: id(6), description: "Apontamento atual da obra", workId, module: "quality", photoFileName: `${id(6)}_${id(7)}.png`, createdAt: timestamp };
+  const workFinding = { ...finding, id: id(6), description: "Apontamento atual da obra", workId, module: "quality", serious: true, photoFileName: `${id(6)}_${id(7)}.png`, createdAt: timestamp };
   state.snapshot.workFindings = [workFinding];
   const selected = [{ ...finding, description: "Texto manipulado pelo cliente" }, { ...finding, id: workFinding.id }];
   const result = await actions.saveFollowUpReportAction({ ...input, findings: selected }, actor);
   assert.equal(result.status, "success"); assert.deepEqual(state.targeted, [visitId]); assert.equal(state.contextReads, 1);
   assert.deepEqual(state.calls.map(({ name }) => name), ["save_follow_up_report"]);
-  assert.deepEqual(state.calls[0].args.p_findings, [state.snapshot.draft.findings[0], { id: workFinding.id, location: workFinding.location, description: workFinding.description, correction: workFinding.correction }]);
+  assert.deepEqual(state.calls[0].args.p_findings, [state.snapshot.draft.findings[0], { id: workFinding.id, location: workFinding.location, description: workFinding.description, correction: workFinding.correction, serious: true }]);
   assert.equal(state.storage.length, 0);
 });
 

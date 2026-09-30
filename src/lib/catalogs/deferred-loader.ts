@@ -62,6 +62,12 @@ function validCatalogs(value: unknown): value is CatalogSnapshot {
   const snapshot = value as Partial<CatalogSnapshot>;
   if (!(snapshot.available === true || (snapshot.available === false && snapshot.setupPending === true))
     || !Array.isArray(snapshot.versions) || snapshot.versions.length > 3) return false;
+  if (snapshot.fvsWeights !== undefined && (!snapshot.fvsWeights || !Number.isInteger(snapshot.fvsWeights.version)
+    || snapshot.fvsWeights.version < 0 || typeof snapshot.fvsWeights.label !== "string" || !Array.isArray(snapshot.fvsWeights.services)
+    || snapshot.fvsWeights.services.length < 1 || snapshot.fvsWeights.services.length > 500
+    || snapshot.fvsWeights.services.some((service) => !service || typeof service.document !== "string" || typeof service.service !== "string"
+      || typeof service.label !== "string" || service.label !== `${service.document} - ${service.service}`
+      || typeof service.weight !== "number" || service.weight < 1 || service.weight > 5))) return false;
   return snapshot.versions.every((version) => version && ["security-it07-r02", "quality-f175", "quality-f176"].includes(version.modelId)
     && Number.isInteger(version.version) && version.version >= 0 && typeof version.label === "string"
     && Array.isArray(version.criteria) && version.criteria.length > 0);

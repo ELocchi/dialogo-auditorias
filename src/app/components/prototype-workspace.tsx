@@ -19,7 +19,8 @@ import { MaintenanceHistory } from "./maintenance-history";
 import { DialogoLogo } from "./dialogo-logo";
 import { sortAuditHistory } from "@/domain/audit-history";
 import { HistoryPagination } from "./history-pagination";
-import { HistoryFilters, HistoryLoadStatus, usePublishedHistoryPage } from "./published-history-page";
+import { HistoryFilters, HistoryLoadStatus, HistoryMonthFilter, usePublishedHistoryPage } from "./published-history-page";
+import { getSaoPauloToday } from "@/domain/visit-calendar";
 import styles from "./prototype-workspace.module.css";
 import engineeringStyles from "./engineering-overview.module.css";
 
@@ -31,9 +32,14 @@ export function PrototypeDashboard({ user, module, works, agendaWorks = works, a
   const ownDrafts = audits.filter((audit) => canEditAudit(user, audit));
   const published = audits.filter((audit) => audit.status === "Publicada");
   const workNames = new Map(works.map((work) => [work.id, work.name]));
-  const visibleFindings = auditFindings.filter((finding) => workNames.has(finding.workId));
-  const seriousItems = summary?.mostSevere ?? summarizeSeriousFindings(visibleFindings.filter((finding) => finding.serious === true), workNames);
-  const recurringItems: AdminFindingSummary[] = summary?.mostRecurring ?? getRecurringFindings(visibleFindings).map((finding) => ({
+  const visibleFindings = auditFindings.filter((finding) => workNames.has(finding.workId)
+    && user.modules.includes(finding.module)
+    && (!auditor || finding.module === module));
+  const localSeriousItems = summarizeSeriousFindings(visibleFindings.filter((finding) => finding.serious === true), workNames);
+  const seriousItems = summary?.mostSevere
+    ? [...new Map([...summary.mostSevere, ...localSeriousItems].map((item) => [item.id, item])).values()]
+    : localSeriousItems;
+  const localRecurringItems: AdminFindingSummary[] = getRecurringFindings(visibleFindings).map((finding) => ({
     id: finding.id,
     title: `${finding.item} · ${finding.description}`,
     discipline: moduleLabels[finding.module],
@@ -42,6 +48,9 @@ export function PrototypeDashboard({ user, module, works, agendaWorks = works, a
     occurrences: finding.occurrences,
     descriptions: finding.details,
   }));
+  const recurringItems: AdminFindingSummary[] = summary?.mostRecurring
+    ? [...new Map([...summary.mostRecurring, ...localRecurringItems].map((item) => [item.id, item])).values()]
+    : localRecurringItems;
   const publishedMonthlyScores: PublishedMonthlyWorkScore[] = published.flatMap((audit) => {
     const workName = workNames.get(audit.workId);
     if (typeof audit.finalScore !== "number" || !workName) return [];
@@ -60,7 +69,8 @@ export function PrototypeDashboard({ user, module, works, agendaWorks = works, a
   const publishedCount = summary ? summary.available ? summary.publishedCount : "--" : published.length;
   const findingsPanel = summary?.available === false
     ? <section className="panel" aria-label="Principais apontamentos"><h3>Principais apontamentos</h3><p role="status">Não foi possível carregar os apontamentos das auditorias.</p></section>
-    : <AdminFindings mostSevere={seriousItems} mostRecurring={recurringItems} onOpenFindings={auditor ? () => open("audits") : undefined} />;
+    : <AdminFindings mostSevere={seriousItems} mostRecurring={recurringItems}
+      onOpenFindings={auditor ? (source) => open(source === "follow_up" ? "follow_up" : "audits") : undefined} />;
   const worksCard = <Metric label="Obras disponíveis" value={works.length} description={admin ? "Consultar obras" : undefined} onClick={() => open("works")} />;
   const agendaCard = <Metric label={admin ? "Visitas Agendadas" : auditor ? "Auditorias Agendadas" : "Visitas na agenda"} value={admin && visits.length === 0 ? "--" : auditor ? scheduledAudits : visits.length} description={admin ? "Consultar agenda" : undefined} onClick={works[0] && canConsultAgenda(user, works[0].id, module) ? () => open("agenda") : undefined} />;
   const profilesCard = <Metric label={admin ? "Perfis cadastrados" : "Relatórios publicados"} value={admin ? activeAccountCount ?? "--" : publishedCount} description={admin ? "Consultar perfis" : auditor ? "Consultar auditorias" : undefined} onClick={() => open(admin ? "settings" : auditor ? "audits" : "report")} />;
@@ -131,6 +141,7 @@ function summarizeSeriousFindings(findings: readonly PublishedAuditFinding[], wo
       summary: {
         id: key,
         title: finding.nonconformity,
+        source: "audits",
         checklistItem: `${finding.item} · ${finding.description}`,
         discipline: moduleLabels[finding.module],
         workCount: 1,
@@ -339,8 +350,11 @@ export function PublishedAuditsPanel({ user, works, audits, module, onCreateActi
   onDownloadActionPlan?: (source: ActionPlanSource) => void;
 }) {
   const [publicationWorkId, setPublicationWorkId] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [month, setMonth] = useState(() => getSaoPauloToday().slice(0, 7));
+  const [year, monthNumber] = month.split("-").map(Number);
+  const dateFrom = month ? `${month}-01` : "";
+  const dateTo = month && Number.isInteger(year) && Number.isInteger(monthNumber)
+    ? `${month}-${String(new Date(Date.UTC(year, monthNumber, 0)).getUTCDate()).padStart(2, "0")}` : "";
   const workById = new Map(works.map((work) => [work.id, work]));
   const published = sortAuditHistory(audits.filter((audit) => audit.status === "Publicada" && modelModule(audit.modelId) === module
     && workById.has(audit.workId) && canReadAudit(user, audit)));
@@ -353,10 +367,10 @@ export function PublishedAuditsPanel({ user, works, audits, module, onCreateActi
   const showFilteredExample = showExample && (!publicationWorkId || publicationWorkId === exampleWork.id);
 
   return <section className="panel" aria-label={`Auditorias publicadas de ${moduleLabels[module]}`}>
-    <div className={`panel-heading ${styles.publicationHeading}`}><h3>Auditorias publicadas</h3>
+    <div className={`panel-heading ${styles.publicationHeading}`}><h3>{moduleLabels[module]}</h3>
       {showExample && <span className="badge badge-amber">Prévia de teste</span>}
     </div>
-    <HistoryFilters works={works} workId={publicationWorkId} onWorkChange={setPublicationWorkId} dateFrom={dateFrom} dateTo={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} label="Filtrar auditorias publicadas" />
+    <HistoryMonthFilter works={works} workId={publicationWorkId} onWorkChange={setPublicationWorkId} month={month} onMonthChange={setMonth} label="Filtrar auditorias publicadas" />
           <HistoryLoadStatus history={publicationPage} />
           <div className={styles.publicationColumns}>
       <div className={styles.publicationColumn}>
@@ -424,10 +438,11 @@ export function DeferredScreen({ kind }: { kind: keyof typeof deferred }) {
 }
 
 export function AdministrativePanel({ accessContent }: { accessContent?: ReactNode }) {
-  const [tab, setTab] = useState("users");
-  const entries = [["users", "Usuários e acessos"], ["history", "Histórico de manutenção"]];
-  return <><div className="page-intro"><div><h2>Administração</h2></div></div><nav className="subnav" aria-label="Manutenção administrativa">{entries.map(([id, label]) => <button className={`subnav-item${id === tab ? " active" : ""}`} key={id} type="button" onClick={() => setTab(id)}>{label}</button>)}</nav>
-    {tab === "users" ? accessContent : <MaintenanceHistory />}
+  return <><div className="page-intro"><div><h2>Administração</h2></div></div>
+    <div className={styles.administrationSections}>
+      <section className="panel" aria-label="Usuários e acessos">{accessContent}</section>
+      <MaintenanceHistory />
+    </div>
   </>;
 }
 

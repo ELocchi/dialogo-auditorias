@@ -14,7 +14,7 @@ const report = { id: reportId, title: "Relatório de teste", visitId, revision: 
   participants: "Equipe da obra", subjects: "Assuntos da visita", decisions: "Decisões da visita", findings: [finding], updatedAt };
 const draft = { visitId, revision: 3, findings: [finding], updatedAt };
 const fileName = `${findingId}_${id(7)}.jpg`;
-const workFinding = { ...finding, workId, module: "quality", photoFileName: fileName, createdAt: updatedAt };
+const workFinding = { ...finding, workId, module: "quality", serious: true, photoFileName: fileName, createdAt: updatedAt };
 const snapshot = { available: true, visit, reports: [report], draft, workFindings: [workFinding] };
 const detail = { available: true, visit, report, workPhotos: [{ findingId, fileName, scopeId: workId }] };
 
@@ -115,6 +115,7 @@ test("malformed or duplicate visit children fail the complete snapshot instead o
     (raw) => { raw.workFindings.push(raw.workFindings[0]); },
     (raw) => { raw.workFindings[0].workId = id(80); },
     (raw) => { raw.workFindings[0].module = "safety"; },
+    (raw) => { raw.workFindings[0].serious = "yes"; },
     (raw) => { raw.workFindings[0].photoFileName = `${id(80)}_${id(7)}.jpg`; },
     (raw) => { raw.visit = null; },
   ]) {

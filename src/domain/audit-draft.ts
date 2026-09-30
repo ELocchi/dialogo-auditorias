@@ -37,9 +37,10 @@ export const updateItemResponse = (drafts: AuditDrafts, model: string, criterion
 export const getResponseLabel = (response: ItemResponse): string => response.answer ?? "Não respondido";
 
 export function getDraftCheckWeight(check: DraftCheck): number | null {
+  if (typeof check.weight === "number" && Number.isFinite(check.weight) && check.weight > 0) return check.weight;
   const catalogWeight = fvsServices.find((service) => service.label === check.label)?.weight;
   if (typeof catalogWeight === "number" && Number.isFinite(catalogWeight) && catalogWeight > 0) return catalogWeight;
-  return typeof check.weight === "number" && Number.isFinite(check.weight) && check.weight > 0 ? check.weight : null;
+  return null;
 }
 
 export function calculateChecksCompliance(checks: readonly DraftCheck[]): number | null {

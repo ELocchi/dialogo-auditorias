@@ -47,7 +47,7 @@ export async function AccessAdministration({ embedded = false, pendingPage = 1, 
           <Pagination current={pendingPage} total={data.total + (previewRequest ? 1 : 0)} kind="pendentes" other={historyPage} embedded={false} base="/administracao/usuarios/pendentes?" />
         </section> : data.view === "history" ? <HistorySection data={data} historyPage={historyPage} actorId={user.id} /> : <>
         <div className={styles.stats}>
-          <Link className={`${styles.stat} ${styles.statLink}`} href="/administracao/usuarios/pendentes" target="_blank" rel="noopener noreferrer" aria-label={`${data.pendingCount + (previewRequest ? 1 : 0)} aprovações pendentes. Abrir em uma nova janela.`}><strong>{data.pendingCount + (previewRequest ? 1 : 0)}</strong><span>Aprovações</span></Link>
+          <Link className={`${styles.stat} ${styles.statLink}`} href="/administracao/usuarios/pendentes" aria-label={`${data.pendingCount + (previewRequest ? 1 : 0)} aprovações pendentes. Abrir aprovações.`}><strong>{data.pendingCount + (previewRequest ? 1 : 0)}</strong><span>Aprovações</span></Link>
           <Link className={`${styles.stat} ${styles.statLink}`} href="/administracao/usuarios/historico" aria-label={`${data.activeCount} contas ativas. Abrir Aprovações e Histórico.`}><strong>{data.activeCount}</strong><span>Contas Ativas</span></Link>
         </div>
         </>}

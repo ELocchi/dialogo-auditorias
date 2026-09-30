@@ -13,7 +13,7 @@ const finding = { id: findingId, location: "Segundo andar", description: "CorreÃ
 const report = { id: reportId, title: "RelatÃ³rio de acompanhamento", visitId, revision: 1, findings: [finding], updatedAt };
 const draft = { visitId, revision: 1, findings: [finding], updatedAt };
 const fileName = `${findingId}_${id(6)}.jpg`;
-const workFinding = { ...finding, workId, module: "quality", photoFileName: fileName, createdAt: updatedAt };
+const workFinding = { ...finding, workId, module: "quality", serious: true, photoFileName: fileName, createdAt: updatedAt };
 const snapshot = { available: true, reports: [report], drafts: [draft], completed: [`${visitId}:${findingId}`], workFindings: [workFinding] };
 const index = { available: true, reports: [{ id: reportId, title: report.title, visitId, updatedAt }] };
 let state;
@@ -105,6 +105,7 @@ test("malformed or out-of-scope workspace results fail as a whole", async () => 
     (raw) => { raw.reports[0].findings[0].description = "bad"; },
     (raw) => { raw.workFindings[0].workId = id(90); },
     (raw) => { raw.workFindings[0].module = "safety"; },
+    (raw) => { raw.workFindings[0].serious = "yes"; },
     (raw) => { raw.workFindings[0].photoFileName = "wrong.jpg"; },
     (raw) => { raw.workFindings[0].createdAt = "wrong"; },
   ]) {

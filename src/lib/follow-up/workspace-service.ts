@@ -51,12 +51,13 @@ function parseWorkFinding(value: unknown, context: ProfileWorkspaceContext): Wor
   if (!object(value) || !uuid(value.id) || !uuid(value.workId)
     || value.module !== discipline
     || !text(value.location, 200) || !text(value.description, 2000, 5) || !text(value.correction, 2000, 5)
+    || typeof value.serious !== "boolean"
     || typeof value.photoFileName !== "string" || parsePhotoFileName(value.photoFileName)?.findingId !== value.id.toLowerCase()
     || !timestamp(value.createdAt)) return null;
   if (!context.works.some((work) => work.id === value.workId)
     || !context.user.workModuleScopes?.some((scope) => scope.workId === value.workId && scope.module === value.module)) return null;
   return { id: value.id.toLowerCase(), workId: value.workId.toLowerCase(), module: discipline,
-    location: value.location, description: value.description, correction: value.correction,
+    location: value.location, description: value.description, correction: value.correction, serious: value.serious,
     photoFileName: value.photoFileName, createdAt: value.createdAt };
 }
 

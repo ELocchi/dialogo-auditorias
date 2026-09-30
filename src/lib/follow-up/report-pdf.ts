@@ -115,7 +115,8 @@ export async function createFollowUpReportPdf({ report, workName, visitDate, aud
   startFindingsPage();
   for (const [index, finding] of report.findings.entries()) {
     ensureFindingsSpace(55);
-    findingLines(`${index + 1}. ${finding.description}`, bold, 10);
+    findingLines(`${index + 1}. ${finding.description}${finding.serious ? " · ITEM GRAVE" : ""}`, bold, 10,
+      finding.serious ? red : navy);
     if (finding.location) findingLines(`Local: ${finding.location}`, regular, 9, muted, 14);
     findingLines(`Orientação para correção: ${finding.correction}`, regular, 9, navy, 14);
     y -= 9;

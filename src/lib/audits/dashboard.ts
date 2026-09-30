@@ -5,6 +5,11 @@ import { modelModule, moduleLabels, type AppModule } from "../../domain/prototyp
 import type { PublishedAuditFinding, PublishedAuditSnapshot } from "./contracts.ts";
 import { unavailableAuditDashboard, type AuditDashboardSnapshot, type DashboardFindingSummary, type DashboardRanking } from "./dashboard-contracts.ts";
 
+export type SeriousWorkFinding = {
+  id: string; workId: string; module: AppModule; createdDate: string; responsible: string;
+  description: string; correction: string;
+};
+
 export function buildDashboardRanking(scores: readonly PublishedMonthlyWorkScore[]): DashboardRanking {
   const byMonth = new Map<string, PublishedMonthlyWorkScore[]>();
   const byYear = new Map<string, PublishedMonthlyWorkScore[]>();
@@ -48,6 +53,7 @@ function summarizeSeriousFindings(findings: readonly PublishedAuditFinding[], wo
       summary: {
         id: key,
         title: finding.nonconformity,
+        source: "audits",
         checklistItem: `${finding.item} · ${finding.description}`,
         discipline: moduleLabels[finding.module],
         workCount: 1,
@@ -62,7 +68,23 @@ function summarizeSeriousFindings(findings: readonly PublishedAuditFinding[], wo
     .slice(0, 5);
 }
 
-export function buildAuditDashboard(snapshot: PublishedAuditSnapshot, works: readonly WorkRecord[], modules: readonly AppModule[] = ["safety", "quality"]): AuditDashboardSnapshot {
+function summarizeSeriousWorkFindings(findings: readonly SeriousWorkFinding[], workNames: ReadonlyMap<string, string>): DashboardFindingSummary[] {
+  return findings.slice().sort((left, right) => right.createdDate.localeCompare(left.createdDate) || left.id.localeCompare(right.id))
+    .slice(0, 5).map((finding) => ({
+      id: `follow-up:${finding.id}`,
+      title: finding.correction,
+      checklistItem: `Apontamento · ${finding.description}`,
+      source: "follow_up",
+      discipline: moduleLabels[finding.module],
+      workCount: 1,
+      occurrences: 1,
+      references: [{ id: `follow-up:${finding.id}`, date: finding.createdDate,
+        workName: workNames.get(finding.workId) ?? "Obra", responsible: finding.responsible }],
+    }));
+}
+
+export function buildAuditDashboard(snapshot: PublishedAuditSnapshot, works: readonly WorkRecord[], modules: readonly AppModule[] = ["safety", "quality"],
+  seriousWorkFindings: readonly SeriousWorkFinding[] = []): AuditDashboardSnapshot {
   if (!snapshot.available) return unavailableAuditDashboard();
   const workNames = new Map(works.map((work) => [work.id, work.name]));
   const audits = snapshot.audits.filter((audit) => audit.status === "Publicada" && workNames.has(audit.workId) && modules.includes(modelModule(audit.modelId)));
@@ -87,7 +109,8 @@ export function buildAuditDashboard(snapshot: PublishedAuditSnapshot, works: rea
     findingCount: findingKeys(),
     findingCounts: { safety: findingKeys("safety"), quality: findingKeys("quality") },
     pendingPlanKeys: [...new Set(findings.map((finding) => `${finding.auditId}:${finding.module}:${finding.workId}`))],
-    mostSevere: summarizeSeriousFindings(findings, workNames),
+    mostSevere: [...summarizeSeriousWorkFindings(seriousWorkFindings.filter((finding) => workNames.has(finding.workId)
+      && modules.includes(finding.module)), workNames), ...summarizeSeriousFindings(findings, workNames)],
     mostRecurring: getRecurringFindings(findings).map((finding) => ({
       id: finding.id, title: `${finding.item} · ${finding.description}`, discipline: moduleLabels[finding.module],
       month: finding.latestDate.slice(0, 7), workCount: finding.workCount, occurrences: finding.occurrences, descriptions: finding.details,

@@ -1,10 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
 import { EvidenceThumbnail } from "./evidence-thumbnail";
 import { followUpPhotoThumbnailUrl } from "@/lib/photos/urls";
 import type { Visit } from "@/domain/prototype-access";
-import { formatAuditDate, type WorkRecord } from "@/domain/operational-records";
 import { getSaoPauloToday } from "@/domain/visit-calendar";
 import type { AgendaActorContext } from "@/lib/agenda/contracts";
 import type { FollowUpFinding, FollowUpReport } from "@/lib/follow-up/service";
@@ -15,11 +15,23 @@ import { createReportPdfResource } from "@/lib/follow-up/report-pdf-resource";
 import styles from "./follow-up-report-page.module.css";
 
 type FollowUpReportPageProps = {
-  visit: Visit; work: WorkRecord; actor: AgendaActorContext; agendaAvailable: boolean;
+  visit: Visit; actor: AgendaActorContext; agendaAvailable: boolean;
+  backHref: string; backLabel: string;
   initialReport?: FollowUpReport; initialReportedFindings: FollowUpFinding[]; initialDraft?: FindingDraft;
   initialPhotos: FindingPhoto[]; initialWorkFindings: WorkFinding[];
   reportsAvailable: boolean; draftsAvailable: boolean;
 };
+
+function ReportHeading({ title, subtitle, backHref, backLabel }: {
+  title: string; subtitle?: string; backHref: string; backLabel: string;
+}) {
+  return <div className={styles.pageHeading}>
+    <Link className={styles.backButton} href={backHref} aria-label={backLabel} title={backLabel}>
+      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 12H4m7-7-7 7 7 7" /></svg>
+    </Link>
+    <div className={styles.headingText}><h2>{title}</h2>{subtitle && <p>{subtitle}</p>}</div>
+  </div>;
+}
 
 export function FollowUpReportPage(props: FollowUpReportPageProps) {
   const { userId, profile, engineeringScope, administrativeScope } = props.actor;
@@ -70,7 +82,7 @@ function ClosedReportPdf({ visitId, report, autoDownload, message }: {
   </>;
 }
 
-function FollowUpReportSession({ visit, work, actor, agendaAvailable, initialReport, initialReportedFindings, initialDraft, initialPhotos, initialWorkFindings, reportsAvailable, draftsAvailable }: FollowUpReportPageProps) {
+function FollowUpReportSession({ visit, actor, agendaAvailable, backHref, backLabel, initialReport, initialReportedFindings, initialDraft, initialPhotos, initialWorkFindings, reportsAvailable, draftsAvailable }: FollowUpReportPageProps) {
   const [report, setReport] = useState(initialReport);
   const [participants, setParticipants] = useState(initialReport?.participants ?? "");
   const [subjects, setSubjects] = useState(initialReport?.subjects ?? "");
@@ -95,7 +107,7 @@ function FollowUpReportSession({ visit, work, actor, agendaAvailable, initialRep
   }
   for (const finding of initialWorkFindings) {
     if (!findings.some((entry) => entry.id === finding.id)) findings.push({ id: finding.id,
-      location: finding.location, description: finding.description, correction: finding.correction });
+      location: finding.location, description: finding.description, correction: finding.correction, serious: finding.serious });
   }
   const selectedFindings = findings.filter((finding) => selectedIds.includes(finding.id));
   const canWrite = !report && agendaAvailable && reportsAvailable && draftsAvailable
@@ -126,15 +138,14 @@ function FollowUpReportSession({ visit, work, actor, agendaAvailable, initialRep
   };
 
   if (report) return <div className={styles.closedLayout}>
-    <div className="page-intro"><div><h2>{report.title}</h2><p className="muted">{work.name} · {formatAuditDate(visit.date)}</p></div></div>
+    <ReportHeading title={report.title} backHref={backHref} backLabel={backLabel} />
     <section className={`panel ${styles.closedPanel}`} aria-label="Relatório orientativo fechado">
       <ClosedReportPdf key={report.id} visitId={visit.id} report={report} autoDownload={!initialReport} message={message} />
     </section>
   </div>;
 
   return <>
-    <div className="page-intro"><div><h2>Criar relatório orientativo</h2>
-      <p className="muted">{work.name} · {formatAuditDate(visit.date)}</p></div></div>
+    <ReportHeading title="Criar relatório orientativo" backHref={backHref} backLabel={backLabel} />
     <div className={styles.layout}>
       <section className="panel" aria-label="Criação do relatório orientativo">
         <div className="panel-heading"><h3>Relatório da visita</h3></div>
@@ -163,7 +174,7 @@ function FollowUpReportSession({ visit, work, actor, agendaAvailable, initialRep
             <label className={styles.findingChoice}><input type="checkbox" checked={selectedIds.includes(finding.id)}
               disabled={!canWrite || pending} onChange={(event) => setSelectedIds((current) => event.target.checked
                 ? [...current, finding.id] : current.filter((id) => id !== finding.id))} />
-              <span className={styles.findingText}><strong>{finding.description}</strong>
+              <span className={styles.findingText}><strong>{finding.description}{finding.serious && <em className={styles.seriousBadge}>Item grave</em>}</strong>
                 {finding.location && <span>Local: {finding.location}</span>}
                 <span>Orientação para correção: {finding.correction}</span></span></label>
             {initialPhotos.some((photo) => photo.findingId === finding.id) && <div className={styles.photos}>

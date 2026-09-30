@@ -47,3 +47,24 @@ export function HistoryFilters({ works, workId, onWorkChange, dateFrom, dateTo, 
     <label>Até<input className="filter-select" aria-label={`${label}: data final`} type="date" value={dateTo} min={dateFrom || undefined} onChange={(event) => onToChange(event.target.value)} /></label>
   </div>;
 }
+
+export function HistoryMonthFilter({ works, workId, onWorkChange, month, onMonthChange, label }: {
+  works?: readonly WorkRecord[]; workId?: string; onWorkChange?: (value: string) => void;
+  month: string; onMonthChange: (value: string) => void; label: string;
+}) {
+  const selectedYear = Number(month.slice(0, 4));
+  const currentYear = Number(new Intl.DateTimeFormat("en", { year: "numeric", timeZone: "America/Sao_Paulo" }).format(new Date()));
+  const years = [...new Set([...Array.from({ length: currentYear - 1999 }, (_, index) => currentYear - index), selectedYear])]
+    .filter((year) => Number.isInteger(year) && year >= 2000).sort((left, right) => right - left);
+  const monthNames = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+  const options = years.flatMap((year) => monthNames.map((name, index) => ({
+    value: `${year}-${String(index + 1).padStart(2, "0")}`,
+    label: `${name} de ${year}`,
+  })));
+  return <div className={styles.filters} role="group" aria-label={label}>
+    {works && onWorkChange && <label>Obra<select className="filter-select" aria-label={`${label}: obra`} value={workId ?? ""} onChange={(event) => onWorkChange(event.target.value)}><option value="">Todas as obras</option>{works.map((work) => <option key={work.id} value={work.id}>{work.name}</option>)}</select></label>}
+    <label>Mês<select className="filter-select" aria-label={`${label}: mês`} value={month} onChange={(event) => onMonthChange(event.target.value)}>
+      {options.map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}
+    </select></label>
+  </div>;
+}

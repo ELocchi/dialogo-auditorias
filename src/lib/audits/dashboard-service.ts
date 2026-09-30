@@ -2,13 +2,34 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ProfileWorkspaceContext } from "../access/workspace-context.ts";
 import type { AppModule } from "../../domain/prototype-access.ts";
 import { parsePublishedAuditOverview } from "./service.ts";
-import { buildAuditDashboard } from "./dashboard.ts";
+import { buildAuditDashboard, type SeriousWorkFinding } from "./dashboard.ts";
 import { unavailableAuditDashboard, type AuditDashboardSnapshot } from "./dashboard-contracts.ts";
 import { parseAuditDashboardOverlay } from "./dashboard-overlay.ts";
-import { isRecord } from "../catalogs/validation.ts";
+import { isRecord, isUuid, validText } from "../catalogs/validation.ts";
 
 type Client = Pick<SupabaseClient, "rpc">;
 type CachedDashboard = { revision: string; json: string; bytes: number; expires: number };
+
+function parseSeriousWorkFindings(value: unknown, context: ProfileWorkspaceContext): SeriousWorkFinding[] | null {
+  if (!Array.isArray(value)) return null;
+  const scopes = new Set((context.user.workModuleScopes ?? []).map((scope) => `${scope.workId}:${scope.module}`));
+  const ids = new Set<string>();
+  const result: SeriousWorkFinding[] = [];
+  for (const raw of value) {
+    if (!isRecord(raw) || !isUuid(raw.id) || ids.has(raw.id.toLowerCase()) || !isUuid(raw.workId)
+      || (raw.module !== "safety" && raw.module !== "quality")
+      || !scopes.has(`${raw.workId.toLowerCase()}:${raw.module}`)
+      || typeof raw.createdDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(raw.createdDate)
+      || !validText(raw.responsible, 200) || !raw.responsible.trim()
+      || !validText(raw.description, 2000) || raw.description.trim().length < 5
+      || !validText(raw.correction, 2000) || raw.correction.trim().length < 5) return null;
+    ids.add(raw.id.toLowerCase());
+    result.push({ id: raw.id.toLowerCase(), workId: raw.workId.toLowerCase(), module: raw.module,
+      createdDate: raw.createdDate, responsible: raw.responsible.trim(),
+      description: raw.description.trim(), correction: raw.correction.trim() });
+  }
+  return result;
+}
 
 function dashboardContextKey(context: ProfileWorkspaceContext): string {
   return JSON.stringify([
@@ -75,8 +96,9 @@ export function createAuditDashboardReader(options: {
         return JSON.parse(cached.json) as AuditDashboardSnapshot;
       }
       const snapshot = parsePublishedAuditOverview(data, context);
+      const seriousWorkFindings = parseSeriousWorkFindings(data.workFindings, context);
       if (!snapshot.available || !Array.isArray(data.audits) || !Array.isArray(data.findings)
-        || snapshot.audits.length !== data.audits.length || snapshot.findings?.length !== data.findings.length)
+        || !seriousWorkFindings || snapshot.audits.length !== data.audits.length || snapshot.findings?.length !== data.findings.length)
         throw new Error("Dashboard projection unavailable");
       const modules: readonly AppModule[] = context.profile === "AUDITOR_QUALIDADE" ? ["quality"]
         : context.profile === "AUDITOR_SEGURANCA" ? ["safety"] : context.user.modules;
@@ -84,13 +106,13 @@ export function createAuditDashboardReader(options: {
         const persistedIds = new Set(snapshot.audits.map((audit) => audit.id));
         if (overlay.audits.some((audit) => persistedIds.has(audit.id))) throw new Error("Conflicting publication");
       }
-      const summary = buildAuditDashboard(snapshot, context.works, modules);
+      const summary = buildAuditDashboard(snapshot, context.works, modules, seriousWorkFindings);
       remember(key, data.revision, summary);
       if (!overlay) return summary;
       return buildAuditDashboard({ ...snapshot,
         audits: [...snapshot.audits, ...overlay.audits],
         findings: [...(snapshot.findings ?? []), ...(overlay.findings ?? [])],
-      }, context.works, modules);
+      }, context.works, modules, seriousWorkFindings);
     } catch {
       remove(key);
       // Never serve cached data after a failed permission check or database read.

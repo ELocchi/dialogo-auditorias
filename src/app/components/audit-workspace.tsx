@@ -7,7 +7,7 @@ import type { AuditPdfInput, PdfPhotoSource } from "@/lib/pdf/types";
 import { memo, useCallback, useId, useMemo, useReducer, useRef, useState } from "react";
 import { useEffect } from "react";
 import { getCriterionDisplayTitle, getCriterionWeight, qualityModels, type Criterion } from "@/domain/catalogs";
-import { fvsServices } from "@/domain/fvs-services";
+import { fvsServices as bundledFvsServices, type FvsService } from "@/domain/fvs-services";
 import type { AuditModelId } from "@/domain/operational-records";
 import { referenceDocuments } from "@/domain/reference-documents";
 import { CatalogEditorPanel } from "./catalog-editor-panel";
@@ -176,7 +176,7 @@ export function Catalog({ model, setModel, query, setQuery, criteria, showItemLi
       })}
     </div>
 
-    {editingId && catalogs && actorId && onCatalogsSaved && <CatalogEditorPanel key={editingId} version={catalogVersion(catalogs, editingId)} available={catalogs.available} setupPending={catalogs.setupPending} actorId={actorId} onSaved={onCatalogsSaved} onClose={() => { setEditingId(null); requestAnimationFrame(() => editorTrigger.current?.focus()); }} />}
+    {editingId && catalogs && actorId && onCatalogsSaved && <CatalogEditorPanel key={editingId} version={catalogVersion(catalogs, editingId)} fvsWeights={catalogs.fvsWeights} available={catalogs.available} setupPending={catalogs.setupPending} actorId={actorId} onSaved={onCatalogsSaved} onClose={() => { setEditingId(null); requestAnimationFrame(() => editorTrigger.current?.focus()); }} />}
 
     {catalogs && !catalogs.available && !catalogs.setupPending && !editingId && <p className="source-note" role="status">Não foi possível consultar as revisões atuais. Atualize a página para tentar novamente.</p>}
 
@@ -246,6 +246,7 @@ type NewAuditProps = {
   readOnly?: boolean;
   showWeights?: boolean;
   previousAudits?: readonly PreviousAudit[];
+  fvsServices?: readonly FvsService[];
 };
 
 type AuditReviewProps = {
@@ -367,7 +368,7 @@ function isRequiredPhotoMissing(criterion: Criterion, response: ItemResponse): b
   return (response.answer === "0" || response.answer === "5" || response.answer === "Não conforme") && !response.photos?.length;
 }
 
-export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts, updateDraft, onFinish, details, workName = "Residencial Horizonte · Guarulhos", responseKey = model, readOnly = false, previousAudits = noPreviousAudits }: NewAuditProps) {
+export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts, updateDraft, onFinish, details, workName = "Residencial Horizonte · Guarulhos", responseKey = model, readOnly = false, previousAudits = noPreviousAudits, fvsServices = bundledFvsServices }: NewAuditProps) {
   const photoStore = useAuditPhotoStore();
   const [selectedItemOpen, setSelectedItemOpen] = useState(false);
   const [, refreshPhotos] = useReducer((version: number) => version + 1, 0);

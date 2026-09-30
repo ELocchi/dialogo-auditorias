@@ -23,12 +23,12 @@ export function useAuditDashboard(initial: AuditDashboardSnapshot | undefined, a
   const hydrated = hydration.actorKey === actorKey ? hydration.initial : undefined;
   const [result, setResult] = useState<{ key: string; attempt: number; snapshot: AuditDashboardSnapshot } | null>(null);
   const [attempt, setAttempt] = useState(0);
-  const hasLocal = locals.length > 0;
+  const hasLocal = remote && locals.length > 0;
   const key = JSON.stringify([actorKey, overlay]);
   const completed = result?.key === key && result.attempt === attempt
     || !hasLocal && hydrated !== undefined && attempt === 0;
   useEffect(() => {
-    if (!remote || !visible || completed) return;
+    if (!visible || completed) return;
     const controller = new AbortController();
     const parameters = new URLSearchParams({ usuario: userId, perfil: profile, atuacao: engineeringScope ?? "", administrativo: administrativeScope ?? "" });
     fetch(`/api/audits/dashboard?${parameters}`, { credentials: "same-origin", cache: "no-store", signal: controller.signal,
@@ -40,10 +40,11 @@ export function useAuditDashboard(initial: AuditDashboardSnapshot | undefined, a
         if (!controller.signal.aborted) setResult({ key, attempt, snapshot });
       }).catch(() => { if (!controller.signal.aborted) setResult({ key, attempt, snapshot: unavailableAuditDashboard() }); });
     return () => controller.abort();
-  }, [remote, visible, hasLocal, userId, profile, engineeringScope, administrativeScope, overlay, attempt, key, completed]);
+  }, [visible, hasLocal, userId, profile, engineeringScope, administrativeScope, overlay, attempt, key, completed]);
+  const selected = result?.key === key ? result.snapshot : hydrated ?? unavailableAuditDashboard();
   return {
-    summary: !remote ? undefined : result?.key === key ? result.snapshot : hydrated ?? unavailableAuditDashboard(),
-    loading: Boolean(remote && visible && !completed),
+    summary: !remote && !selected.available ? undefined : selected,
+    loading: Boolean(visible && !completed),
     retry: () => setAttempt((value) => value + 1),
   };
 }

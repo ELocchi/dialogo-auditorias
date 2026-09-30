@@ -38,7 +38,8 @@ registerHooks({
     if (specifier.startsWith("react/") && context.parentURL?.startsWith("data:")) {
       return nextResolve(specifier, { ...context, parentURL: import.meta.url });
     }
-    if (stubs[specifier]) return { url: `data:text/javascript,${encodeURIComponent(stubs[specifier])}`, shortCircuit: true };
+    const stub = stubs[specifier] ?? (specifier === "../dialogo-logo" ? stubs["@/app/components/dialogo-logo"] : null);
+    if (stub) return { url: `data:text/javascript,${encodeURIComponent(stub)}`, shortCircuit: true };
     if (specifier.endsWith(".css")) return { url: "data:text/javascript,export default {}", shortCircuit: true };
     if (specifier.startsWith("@/")) {
       const base = path.join(root, "src", specifier.slice(2));
@@ -124,7 +125,7 @@ for (const route of routes) {
       assert.ok(!state.wire.includes(state.user.email));
 
       state.authorization.resolve(state.user);
-      await until(() => state.nameReads.length === 1 && state.listReads.length === 1 && state.wire.includes("Gestão de segurança e qualidade"),
+      await until(() => state.nameReads.length === 1 && state.listReads.length === 1 && state.wire.includes("ADMINISTRAÇÃO"),
         "both independent reads start before the name or data resolves");
       assert.deepEqual(state.nameReads, [state.user.id]);
       assert.deepEqual(state.listReads, [route.listProps]);
