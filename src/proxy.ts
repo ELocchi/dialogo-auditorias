@@ -30,5 +30,7 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/", "/entrar", "/solicitar-acesso", "/confirmar-email", "/aguardando-liberacao", "/escolher-perfil", "/minha-conta", "/administracao/:path*", "/auth/:path*", "/app/:path*", "/api/agenda", "/api/reference-documents/:path*"],
+  // Agenda handlers validate the live user, account and workspace themselves.
+  // Keeping them out avoids a second remote getUser call on every sync poll.
+  matcher: ["/", "/entrar", "/solicitar-acesso", "/confirmar-email", "/aguardando-liberacao", "/escolher-perfil", "/minha-conta", "/administracao/:path*", "/auth/:path*", "/app/:path*", "/api/reference-documents/:path*"],
 };

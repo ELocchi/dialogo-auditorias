@@ -113,7 +113,7 @@ test("missing workspace never loads operational data", async () => {
 test("section resources preserve calendar-dependent engineering flows and skip unrelated sections", () => {
   for (const screen of ["overview", "engineering_quality", "engineering_safety"]) assert.deepEqual(workspaceResources(screen), { agenda: true, dashboard: true });
   for (const screen of ["agenda", "audits", "follow_up", "fill", "audit_review"]) assert.deepEqual(workspaceResources(screen), { agenda: true, dashboard: false });
-  for (const screen of ["works", "settings", "criteria", "report"]) assert.deepEqual(workspaceResources(screen), { agenda: false, dashboard: false });
+  for (const screen of ["works", "settings", "criteria", "report", "engineering_coordination"]) assert.deepEqual(workspaceResources(screen), { agenda: false, dashboard: false });
   assert.equal(workspaceEntryScreen("agenda", "ENGENHARIA", "EQUIPE_OBRA", null), "agenda");
   assert.equal(workspaceEntryScreen("administracao", "AUDITOR_QUALIDADE", null, null), "overview");
 });

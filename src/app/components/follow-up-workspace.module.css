@@ -30,12 +30,17 @@
 .addFindingForm { display: grid; gap: 14px; margin-bottom: 16px; padding: 16px; border: 1px solid var(--line); border-radius: 8px; background: #fafbfd; }
 .addFindingForm label { display: grid; gap: 7px; color: var(--navy); font-size: 12px; font-weight: 700; }
 .addFindingForm textarea { min-height: 88px; resize: vertical; }
-.seriousField { display: grid; gap: 8px; margin: 0; padding: 0; border: 0; }
-.seriousField legend { color: var(--navy); font-size: 12px; font-weight: 700; }
-.seriousField > div { display: flex; gap: 8px; }
-.seriousField label { display: flex; min-width: 82px; align-items: center; justify-content: center; gap: 7px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 7px; background: white; cursor: pointer; }
-.seriousField label:has(input:checked) { border-color: var(--navy); box-shadow: inset 0 0 0 1px var(--navy); }
-.seriousField input { width: 15px; height: 15px; margin: 0; accent-color: var(--navy); }
+.addFindingForm .workSelect { width: 100%; height: 43px; min-height: 43px; margin: 0; -webkit-appearance: none; appearance: none; border: 1px solid #ccd4e0; border-radius: 9px; padding: 0 30px 0 14px; background: white url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='m1 1 5 5 5-5' fill='none' stroke='%23213961' stroke-width='1.8'/%3E%3C/svg%3E") no-repeat right 12px center; color: var(--navy); font-size: 13px; font-weight: 700; cursor: pointer; }
+.addFindingForm .workSelect:hover { border-color: #9aaecb; background-color: #f2f5fa; }
+.findingTopRow { display: flex; align-items: flex-start; gap: 12px; }
+.findingTopRow .photoField { flex: 1; min-width: 0; }
+.seriousToggle { display: grid; width: 44px; height: 44px; flex: 0 0 44px; place-items: center; padding: 0; border: 1px solid #aebbd0; border-radius: 8px; background: white; color: var(--navy); transition: background-color .15s ease, border-color .15s ease, color .15s ease; }
+.seriousToggle:hover:not(:disabled) { border-color: var(--navy); background: #f5f7fb; }
+.seriousToggleActive { border-color: var(--red); background: var(--red); color: white; }
+.seriousToggleActive:hover:not(:disabled) { border-color: #a72a31; background: #a72a31; }
+.seriousToggle svg { width: 27px; height: 25px; overflow: visible; }
+.seriousToggle path { fill: none; stroke: currentColor; stroke-linejoin: round; stroke-width: 2.4; }
+.seriousToggle text { fill: currentColor; font: 800 15px Arial, sans-serif; text-anchor: middle; }
 .seriousBadge { display: inline-flex; width: fit-content; margin-left: 8px; padding: 3px 7px; border-radius: 999px; background: var(--red); color: white; font-size: 9px; font-style: normal; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; vertical-align: middle; }
 .photoField, .addPhotoField, .photoPicker { display: grid; gap: 7px; }
 .photoField > strong, .addPhotoField > strong { color: var(--navy); font-size: 12px; }

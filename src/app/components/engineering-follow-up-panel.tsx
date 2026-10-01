@@ -27,9 +27,9 @@ function EngineeringFollowUpSession({ actor, visits, works, module }: Props) {
     return visit && work && (!workId || work.id === workId) ? [{ report, visit, work }] : [];
   }).sort((first, second) => second.report.updatedAt.localeCompare(first.report.updatedAt)), [data?.reports, visitById, workById, workId]);
 
-  return <section className="panel" aria-label={`Acompanhamento de ${moduleLabels[module]}`}>
+  return <section className="panel" aria-label={`Relatório Orientativo de ${moduleLabels[module]}`}>
     <div className={`panel-heading ${styles.heading}`}>
-      <div><h3>Acompanhamento</h3><p>Relatórios orientativos publicados</p></div>
+      <h3>Relatório Orientativo</h3>
       {works.length > 1 && <select className="filter-select" value={workId} onChange={(event) => setWorkId(event.target.value)} aria-label="Filtrar relatórios orientativos por obra">
         <option value="">Todas as obras</option>{works.map((work) => <option key={work.id} value={work.id}>{work.name}</option>)}
       </select>}

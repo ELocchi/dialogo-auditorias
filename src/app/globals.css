@@ -266,3 +266,10 @@ td small { display: block; color: var(--muted); font-size: 10px; margin-top: 5px
   .report-heading { flex-wrap: nowrap; }
   .report-footnote, .report-sheet .muted { color: #465366; }
 }
+.evidence-thumbnail-unavailable {
+  display: inline-block;
+  max-width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f6f8fb;
+}

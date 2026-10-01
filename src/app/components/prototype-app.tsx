@@ -46,6 +46,7 @@ const FollowUpWorkspace = dynamic(() => import("./follow-up-workspace").then((mo
 const ActionPlanEditor = dynamic(() => import("./action-plan-editor").then((module) => module.ActionPlanEditor), { loading: loadingPanel });
 const EngineeringFollowUpPanel = dynamic(() => import("./engineering-follow-up-panel").then((module) => module.EngineeringFollowUpPanel), { loading: loadingPanel });
 const EngineeringResourcePanels = dynamic(() => import("./engineering-resource-panels").then((module) => module.EngineeringResourcePanels), { loading: loadingPanel });
+const EngineeringRoutesPanel = dynamic(() => import("./engineering-resource-panels").then((module) => module.EngineeringRoutesPanel), { loading: loadingPanel });
 const DeferredAccessSummary = dynamic(() => import("./access/DeferredAccessSummary").then((module) => module.DeferredAccessSummary), { loading: loadingPanel });
 
 type PrototypeAppProps = {
@@ -110,7 +111,8 @@ function ProfileWorkspace({ context: providedContext, initialScreen, initialVisi
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const agendaScreen = screen === "report" && ["safety-auditor", "quality-auditor"].includes(baseUser.role) ? "audits" : screen;
   const needsAgenda = workspaceResources(agendaScreen).agenda || notificationsOpen;
-  const { agenda: syncedAgenda, agendaSyncError, mutationPending, runAgendaAction, removePublishedVisit } = useAgenda(initialAgenda, baseUser.id, context.profile, context.engineeringScope, context.administrativeScope, needsAgenda);
+  const liveAgendaRefresh = agendaScreen === "agenda" || notificationsOpen;
+  const { agenda: syncedAgenda, agendaSyncError, mutationPending, runAgendaAction, removePublishedVisit } = useAgenda(initialAgenda, baseUser.id, context.profile, context.engineeringScope, context.administrativeScope, needsAgenda, liveAgendaRefresh);
   const { user, visits, agenda, localTestVisitIds } = useMemo(() => {
     const localTestVisits: Visit[] = [
       { id: "local-audit-flow-security", workId: localTestWork.id, module: "safety", kind: "audit", modelId: "security-it07-r02", auditorId: baseUser.id, date: getSaoPauloToday(), note: "Teste local do relatório de Segurança.", createdBy: baseUser.id, createdAt: `${getSaoPauloToday()}T12:00:00.000-03:00`, revision: 1, confirmationStatus: "confirmed", confirmedAt: `${getSaoPauloToday()}T12:00:00.000-03:00`, auditorName: baseUser.name, createdByName: "Teste local", history: [] },
@@ -157,22 +159,26 @@ function ProfileWorkspace({ context: providedContext, initialScreen, initialVisi
   const [actionPlanDrafts, setActionPlanDrafts] = useState<Record<string, readonly ActionPlanRow[]>>({});
   const [publishedActionPlans, setPublishedActionPlans] = useState<Record<string, { bytes: Uint8Array; fileName: string }>>({});
 
-  const availableModules = user.modules.filter((module) => canAccessModule(user, module));
+  const availableModules = useMemo(() => user.modules.filter((module) => canAccessModule(user, module)), [user]);
   const auditModule = selectedModule && availableModules.includes(selectedModule) ? selectedModule : availableModules[0] ?? null;
-  const availableWorks = context.works.filter((work) => auditModule && canAccessWorkModule(user, work.id, auditModule));
+  const availableWorks = useMemo(() => context.works.filter((work) => auditModule && canAccessWorkModule(user, work.id, auditModule)),
+    [context.works, auditModule, user]);
   const work = availableWorks.find((entry) => entry.id === selectedWorkId) ?? availableWorks[0];
   const isAdmin = user.role === "administrative";
   const isAuditor = user.role === "safety-auditor" || user.role === "quality-auditor";
   const isEngineering = user.role === "engineering";
   const isGeneralAdmin = isAdmin && context.administrativeScope === "GERAL";
-  const catalogModules = isAdmin ? availableModules : auditModule ? [auditModule] : [];
-  const modelIds = (["security-it07-r02", "quality-f175", "quality-f176"] as const).filter((id) => catalogModules.includes(modelModule(id)));
+  const catalogModules = useMemo(() => isAdmin ? availableModules : auditModule ? [auditModule] : [], [isAdmin, availableModules, auditModule]);
+  const modelIds = useMemo(() => (["security-it07-r02", "quality-f175", "quality-f176"] as const)
+    .filter((id) => catalogModules.includes(modelModule(id))), [catalogModules]);
   const currentCatalogId = modelIds.includes(catalogId) ? catalogId : modelIds[0];
   const currentModelName = currentCatalogId ? modelDisplayName(currentCatalogId) : "Sem roteiro autorizado";
-  const canAgenda = visits.some((visit) => canReadVisit(user, visit))
+  const readableVisits = useMemo(() => visits.filter((visit) => canReadVisit(user, visit)), [visits, user]);
+  const canAgenda = readableVisits.length > 0
     || context.works.some((entry) => user.modules.some((discipline) => canConsultAgenda(user, entry.id, discipline)));
   const canDocuments = !!auditModule && !!work && canReadOperationalDocuments(user, work.id, auditModule);
-  const readablePublishedAudits = session.audits.filter((audit) => audit.status === "Publicada" && canReadAudit(user, audit));
+  const readableAudits = useMemo(() => session.audits.filter((audit) => canReadAudit(user, audit)), [session.audits, user]);
+  const readablePublishedAudits = useMemo(() => readableAudits.filter((audit) => audit.status === "Publicada"), [readableAudits]);
   const canPublishedReports = (initialDashboard?.publishedCount ?? 0) > 0 || readablePublishedAudits.length > 0
     || remoteAudits && context.works.some((entry) => availableModules.some((module) => canAccessWorkModule(user, entry.id, module)));
   const publishedReportModules = availableModules.filter((module) => initialDashboard?.publishedModules.includes(module) || readablePublishedAudits.some((audit) => modelModule(audit.modelId) === module));
@@ -182,9 +188,11 @@ function ProfileWorkspace({ context: providedContext, initialScreen, initialVisi
       : context.administrativeScope === "SEGURANCA" ? ["safety"]
         : context.administrativeScope === "QUALIDADE" ? ["quality"] : []
     : reportModules;
-  const moduleAudits = session.audits.filter((audit) => modelModule(audit.modelId) === auditModule && canReadAudit(user, audit));
-  const contextualAudits = moduleAudits.filter((audit) => audit.workId === work?.id);
-  const contextualVisits = visits.filter((visit) => visit.workId === work?.id && visit.module === auditModule && canReadVisit(user, visit));
+  const moduleAudits = useMemo(() => readableAudits.filter((audit) => modelModule(audit.modelId) === auditModule), [readableAudits, auditModule]);
+  const contextualAudits = useMemo(() => moduleAudits.filter((audit) => audit.workId === work?.id), [moduleAudits, work?.id]);
+  const contextualVisits = useMemo(() => readableVisits.filter((visit) => visit.workId === work?.id && visit.module === auditModule),
+    [readableVisits, work?.id, auditModule]);
+  const startedVisitIds = useMemo(() => new Set(session.audits.map((audit) => audit.visitId).filter((id): id is string => !!id)), [session.audits]);
   const completedReview = screen === "audit_review" && completedPreview?.audit.id === activeAuditId ? completedPreview : null;
   const activeAudit = moduleAudits.find((audit) => audit.id === activeAuditId) ?? completedReview?.audit;
   const activeAuditWork = activeAudit ? agendaWorks.find((entry) => entry.id === activeAudit.workId) ?? completedReview?.work : undefined;
@@ -202,7 +210,10 @@ function ProfileWorkspace({ context: providedContext, initialScreen, initialVisi
     }] : []);
   }, [activeAuditHistory, firstHistoryResponses, secondHistoryResponses, thirdHistoryResponses]);
   const preview = activeAudit ?? contextualAudits.find((audit) => canEditAudit(user, audit));
-  const criteria = catalogState.status === "ready" && !isAdmin && currentCatalogId ? catalogVersion(catalogs, currentCatalogId).criteria.filter((item) => `${item.code} ${item.text} ${item.group} ${item.subgroup}`.toLocaleLowerCase("pt-BR").includes(catalogQuery.toLocaleLowerCase("pt-BR"))) : [];
+  const criteria = useMemo(() => catalogState.status === "ready" && !isAdmin && currentCatalogId
+    ? catalogVersion(catalogs, currentCatalogId).criteria.filter((item) => `${item.code} ${item.text} ${item.group} ${item.subgroup}`
+      .toLocaleLowerCase("pt-BR").includes(catalogQuery.toLocaleLowerCase("pt-BR"))) : [],
+  [catalogState.status, isAdmin, currentCatalogId, catalogs, catalogQuery]);
 
   useEffect(() => {
     if (!localAuditFlow || !activeAudit) return;
@@ -371,11 +382,14 @@ function ProfileWorkspace({ context: providedContext, initialScreen, initialVisi
     return () => { cancelled = true; };
   }, [catalogs, localReportWork.id, localScenario, session, user.id]);
 
+  const coordination = isEngineering && user.activity === "coordination";
   const nav: { key: string; label: string; icon: IconName }[] = isEngineering ? [
     { key: "overview", label: "Visão geral", icon: "overview" },
     ...(user.activity === "site-team" ? [{ key: "agenda", label: "Agenda", icon: "calendar" as const }] : []),
-    { key: "engineering_quality", label: "Qualidade", icon: "audits" },
-    { key: "engineering_safety", label: "Segurança", icon: "check" },
+    ...(coordination
+      ? [{ key: "engineering_coordination", label: "Qualidade e Segurança", icon: "audits" as const }]
+      : [{ key: "engineering_quality", label: "Qualidade", icon: "audits" as const },
+        { key: "engineering_safety", label: "Segurança", icon: "helmet" as const }]),
     { key: "works", label: "Obras", icon: "works" },
   ] : [
     { key: "overview", label: isAdmin ? "Painel administrativo" : "Visão geral", icon: "overview" },
@@ -526,15 +540,16 @@ function ProfileWorkspace({ context: providedContext, initialScreen, initialVisi
         </div>
         {preview && work && canEditAudit(user, preview) && <AuditPreview audit={preview} work={work} />}
       </>}
-      {currentScreen === "overview" && (auditModule ? <PrototypeDashboard summary={dashboardSummary} user={user} module={auditModule} works={isAdminOverview || isEngineering ? context.works : availableWorks} audits={isAdminOverview || isEngineering ? session.audits.filter((audit) => canReadAudit(user, audit)) : moduleAudits} auditFindings={isEngineering ? publishedAuditFindings : dashboardAuditFindings} publishedActionPlanKeys={isEngineering ? Object.keys(publishedActionPlans) : []} visits={isAdminOverview || isEngineering || user.role === "safety-auditor" || user.role === "quality-auditor" ? visits.filter((visit) => canReadVisit(user, visit) && (isAdminOverview || isEngineering || visit.module === auditModule)) : contextualVisits} auditors={isAdminOverview || isEngineering ? agenda.auditors : []} activeAccountCount={activeAccountCount} generalAdministrator={isGeneralAdmin} previewRanking={localScenario} agendaWorks={agendaWorks} open={navigate} /> : <section className="panel"><h2>Visão geral</h2><p className="muted">Este perfil ainda não tem obras e módulos autorizados. Consulte seus acessos ou solicite a liberação ao Administrativo.</p></section>)}
+      {currentScreen === "overview" && (auditModule ? <PrototypeDashboard summary={dashboardSummary} user={user} module={auditModule} works={isAdminOverview || isEngineering ? context.works : availableWorks} audits={isAdminOverview || isEngineering ? readableAudits : moduleAudits} auditFindings={isEngineering ? publishedAuditFindings : dashboardAuditFindings} publishedActionPlanKeys={isEngineering ? Object.keys(publishedActionPlans) : []} visits={isAdminOverview || isEngineering ? readableVisits : isAuditor ? readableVisits.filter((visit) => visit.module === auditModule) : contextualVisits} auditors={isAdminOverview || isEngineering ? agenda.auditors : []} activeAccountCount={activeAccountCount} generalAdministrator={isGeneralAdmin} previewRanking={localScenario} agendaWorks={agendaWorks} open={navigate} /> : <section className="panel"><h2>Visão geral</h2><p className="muted">Este perfil ainda não tem obras e módulos autorizados. Consulte seus acessos ou solicite a liberação ao Administrativo.</p></section>)}
       {currentScreen === "engineering_quality" && isEngineering && <EngineeringSection findingCount={dashboardSummary?.available ? dashboardSummary.findingCounts.quality : undefined} title="Qualidade" module="quality" user={user} works={context.works} audits={session.audits} auditFindings={publishedAuditFindings} visits={visits} actor={agendaActor} catalogs={catalogs} deferCatalogs={deferCatalogs} onCreateActionPlan={user.activity === "site-team" ? (source) => { setActionPlanSource(source); setScreen("action_plan"); } : undefined} hasPublishedActionPlan={(source) => Boolean(publishedActionPlans[actionPlanSourceKey(source)])} onDownloadActionPlan={downloadActionPlan} />}
       {currentScreen === "engineering_safety" && isEngineering && <EngineeringSection findingCount={dashboardSummary?.available ? dashboardSummary.findingCounts.safety : undefined} title="Segurança" module="safety" user={user} works={context.works} audits={session.audits} auditFindings={publishedAuditFindings} visits={visits} actor={agendaActor} catalogs={catalogs} deferCatalogs={deferCatalogs} onCreateActionPlan={user.activity === "site-team" ? (source) => { setActionPlanSource(source); setScreen("action_plan"); } : undefined} hasPublishedActionPlan={(source) => Boolean(publishedActionPlans[actionPlanSourceKey(source)])} onDownloadActionPlan={downloadActionPlan} />}
+      {currentScreen === "engineering_coordination" && coordination && <EngineeringCoordinationSection user={user} works={context.works} audits={session.audits} catalogs={catalogs} deferCatalogs={deferCatalogs} hasPublishedActionPlan={(source) => Boolean(publishedActionPlans[actionPlanSourceKey(source)])} onDownloadActionPlan={downloadActionPlan} />}
       {currentScreen === "action_plan" && actionPlanSource && user.activity === "site-team" && <AuditDetailGate auditId={actionPlanSource.example || actionPlanAudit?.isDemo ? "" : actionPlanSource.auditId ?? ""}><ActionPlanEditor key={`${actionPlanDraftKey}:prefill-v5`} workName={actionPlanSource.workName} auditDate={actionPlanSource.date} auditScore={actionPlanAudit?.finalScore ?? null} module={actionPlanSource.module} authorName={user.name} findings={actionPlanFindings} draft={actionPlanDrafts[actionPlanDraftKey]} example={actionPlanSource.example} prefillTest={localScenario && actionPlanSource.module === "quality" && /boulevar/i.test(actionPlanSource.workName)} onSave={(rows) => setActionPlanDrafts((current) => ({ ...current, [actionPlanDraftKey]: rows }))} onPublish={(publication) => setPublishedActionPlans((current) => ({ ...current, [actionPlanDraftKey]: publication }))} onBack={() => setScreen(`engineering_${actionPlanSource.module}`)} /></AuditDetailGate>}
       {currentScreen === "works" && <Works works={context.works} canManage={isGeneralAdmin} />}
       {currentScreen === "follow_up" && isAuditor && <FollowUpWorkspace user={user} visits={visits} works={context.works} actor={agendaActor} agendaAvailable={agenda.available} />}
       {currentScreen === "settings" && isGeneralAdmin && <AdministrativePanel accessContent={<DeferredAccessSummary actor={agendaActor} />} />}
       {currentScreen === "criteria" && currentCatalogId && !isAuditor && deferCatalogs(<Catalog model={currentModelName} setModel={(name) => { const id = modelIds.find((entry) => modelDisplayName(entry) === name); if (id) { setCatalogId(id); setCatalogQuery(""); } }} query={catalogQuery} setQuery={setCatalogQuery} criteria={criteria} showItemList={!isAdmin} allowedModels={modelIds.map(modelDisplayName)} showWeights={canReadTechnicalWeights(user, modelModule(currentCatalogId))} showReferenceDocuments={isAdmin} catalogs={catalogs} actorId={isAdmin ? user.id : undefined} onCatalogsSaved={isAdmin ? setCatalogs : undefined} />)}
-      {currentScreen === "audits" && (isAuditor ? <AuditorScheduledAudits user={user} works={agendaWorks} audits={moduleAudits} auditFindings={publishedAuditFindings.filter((finding) => finding.module === auditModule)} visits={visits} users={agenda.auditors} available={agenda.available} mutationPending={mutationPending} onDelete={agendaActions.onDelete} onConfirm={agendaActions.onConfirm} onStartAudit={startScheduledAudit} startedVisitIds={new Set(session.audits.map((audit) => audit.visitId).filter((id): id is string => !!id))}
+      {currentScreen === "audits" && (isAuditor ? <AuditorScheduledAudits user={user} works={agendaWorks} audits={moduleAudits} auditFindings={publishedAuditFindings.filter((finding) => finding.module === auditModule)} visits={visits} users={agenda.auditors} available={agenda.available} mutationPending={mutationPending} onDelete={agendaActions.onDelete} onConfirm={agendaActions.onConfirm} onStartAudit={startScheduledAudit} startedVisitIds={startedVisitIds}
         catalog={currentCatalogId ? deferCatalogs(<Catalog embedded model={currentModelName} setModel={(name) => { const id = modelIds.find((entry) => modelDisplayName(entry) === name); if (id) { setCatalogId(id); setCatalogQuery(""); } }} query={catalogQuery} setQuery={setCatalogQuery} criteria={criteria} showItemList={false} showReferenceDocuments allowedModels={modelIds.map(modelDisplayName)} showWeights={canReadTechnicalWeights(user, modelModule(currentCatalogId))} catalogs={catalogs} />) : <p className="muted">Nenhum roteiro autorizado para este perfil.</p>} /> : <AuditList module={auditModule ?? undefined} workId={work?.id} contextKey={`${auditModule}:${work?.id ?? ""}`} user={user} works={availableWorks} audits={contextualAudits} onOpen={openAudit} />)}
       {isAdminAgenda && auditModule && <VisitAgenda key={user.id} user={user} works={context.works} users={agenda.auditors} visits={visits} module={auditModule} workId={work?.id ?? ""} available={agenda.available} mutationPending={mutationPending} syncError={agendaSyncError} {...agendaActions} />}
       {currentScreen === "agenda" && !isAdmin && canAgenda && <VisitAgenda key={user.id} user={user} works={agendaWorks} users={agenda.auditors} visits={visits} module={auditModule ?? "safety"} workId={work?.id ?? ""} available={agenda.available} mutationPending={mutationPending} syncError={agendaSyncError} {...agendaActions} />}
@@ -574,6 +589,25 @@ function EngineeringSection({ title, module, user, works, audits, auditFindings,
       <PublishedAuditsPanel user={user} works={works} audits={audits} module={module} onCreateActionPlan={onCreateActionPlan} hasPublishedActionPlan={hasPublishedActionPlan} onDownloadActionPlan={onDownloadActionPlan} />
       <EngineeringFollowUpPanel actor={actor} visits={visits} works={works} module={module} />
       <EngineeringResourcePanels findingCount={findingCount} actor={actor} works={works} module={module} catalogs={catalogs} deferCatalogs={deferCatalogs} auditFindings={auditFindings.filter((finding) => finding.module === module)} />
+    </div>
+  </>;
+}
+
+function EngineeringCoordinationSection({ user, works, audits, catalogs, deferCatalogs, hasPublishedActionPlan, onDownloadActionPlan }: {
+  user: ProfileWorkspaceContext["user"];
+  works: ProfileWorkspaceContext["works"];
+  audits: readonly AuditRecord[];
+  catalogs: CatalogSnapshot;
+  deferCatalogs: (children: ReactNode) => ReactNode;
+  hasPublishedActionPlan: (source: ActionPlanSource) => boolean;
+  onDownloadActionPlan: (source: ActionPlanSource) => void;
+}) {
+  return <>
+    <div className="page-intro"><div><h2>Qualidade e Segurança</h2></div></div>
+    <div className={styles.coordinationSection}>
+      <PublishedAuditsPanel user={user} works={works} audits={audits} module="quality" hasPublishedActionPlan={hasPublishedActionPlan} onDownloadActionPlan={onDownloadActionPlan} />
+      <PublishedAuditsPanel user={user} works={works} audits={audits} module="safety" hasPublishedActionPlan={hasPublishedActionPlan} onDownloadActionPlan={onDownloadActionPlan} />
+      <EngineeringRoutesPanel modules={["quality", "safety"]} catalogs={catalogs} deferCatalogs={deferCatalogs} />
     </div>
   </>;
 }

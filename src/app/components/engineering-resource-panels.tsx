@@ -8,6 +8,7 @@ import { auditModelLabels, formatAuditDate, type AuditModelId, type WorkRecord }
 import type { AgendaActorContext } from "@/lib/agenda/contracts";
 import { catalogVersion, type CatalogSnapshot } from "@/lib/catalogs/contracts";
 import { groupAuditHistoryFindings } from "@/domain/audit-history";
+import { followUpPhotoThumbnailUrl } from "@/lib/photos/urls";
 import { HistoryPagination, useHistoryPage } from "./history-pagination";
 import { HistoryFilters, HistoryLoadStatus, usePublishedHistoryPage } from "./published-history-page";
 import { useAuditDetails } from "./audit-details-context";
@@ -33,11 +34,12 @@ export type PublishedAuditFinding = {
   evidencePhotos?: readonly { name: string; url?: string; thumbnailUrl?: string }[];
 };
 
-export function PublishedAuditFindingsList({ auditFindings, works, module, contextKey = "" }: {
+export function PublishedAuditFindingsList({ auditFindings, works, module, contextKey = "", heading }: {
   auditFindings: readonly PublishedAuditFinding[];
   works: readonly WorkRecord[];
   contextKey?: string;
   module?: AppModule;
+  heading?: string;
 }) {
   const [workId, setWorkId] = useState("");
   const [dateFrom, setDateFrom] = useState("");
@@ -56,7 +58,9 @@ export function PublishedAuditFindingsList({ auditFindings, works, module, conte
   const localHistory = useHistoryPage(groupedAuditFindings, JSON.stringify([contextKey, workId, dateFrom, dateTo, works.map((work) => work.id).sort()]));
   const history = page.remote ? { ...page, items: groupedAuditFindings } : localHistory;
 
-  return <><HistoryFilters works={works} workId={workId} onWorkChange={setWorkId} dateFrom={dateFrom} dateTo={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} label="Filtrar apontamentos" />
+  const filters = <HistoryFilters className={heading ? styles.headingFilters : undefined} works={works} workId={workId} onWorkChange={setWorkId} dateFrom={dateFrom} dateTo={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} label="Filtrar apontamentos" />;
+
+  return <>{heading ? <div className={`panel-heading ${styles.findingsHeading}`}><h3>{heading}</h3>{filters}</div> : filters}
     <HistoryLoadStatus history={page} />
     {!history.items.length && page.status === "ready" && <p className="muted">Nenhum apontamento incluído em relatório de auditoria publicado neste período.</p>}
     <div className={styles.auditGroups}>{history.items.map((group, groupIndex) => {
@@ -109,7 +113,7 @@ export function PublishedAuditFindingsList({ auditFindings, works, module, conte
   })}</div><HistoryPagination {...history} label="Páginas das auditorias com apontamentos" /></>;
 }
 
-export function EngineeringResourcePanels({ actor, works, module, catalogs, auditFindings = [], findingCount, deferCatalogs = (content) => content }: {
+export function EngineeringResourcePanels({ actor, works, module, catalogs, auditFindings = [], deferCatalogs = (content) => content }: {
   actor: AgendaActorContext;
   works: readonly WorkRecord[];
   module: AppModule;
@@ -118,13 +122,11 @@ export function EngineeringResourcePanels({ actor, works, module, catalogs, audi
   findingCount?: number;
   deferCatalogs?: (children: ReactNode) => ReactNode;
 }) {
-  const totalAuditFindings = findingCount ?? auditFindings.length;
   const [findings, setFindings] = useState<WorkFinding[]>([]);
   const [available, setAvailable] = useState(true);
   const [expandedOtherFindings, setExpandedOtherFindings] = useState<Set<string>>(() => new Set());
   const { userId, profile, engineeringScope, administrativeScope } = actor;
   const workNames = new Map(works.map((work) => [work.id, work.name]));
-  const modelIds: AuditModelId[] = module === "safety" ? ["security-it07-r02"] : ["quality-f175", "quality-f176"];
   useEffect(() => {
     let active = true;
     readEngineeringWorkFindingsAction(module, { userId, profile, engineeringScope, administrativeScope })
@@ -135,12 +137,12 @@ export function EngineeringResourcePanels({ actor, works, module, catalogs, audi
 
   return <div className={styles.grid}>
     <section className="panel" aria-label={`Apontamentos de ${moduleLabels[module]}`}>
-      <div className="panel-heading"><div><h3>Apontamentos</h3>{totalAuditFindings > 0 && <p className={styles.summary}>{totalAuditFindings} não conformidade{totalAuditFindings === 1 ? "" : "s"} extraída{totalAuditFindings === 1 ? "" : "s"} de auditoria publicada</p>}</div></div>
-      <PublishedAuditFindingsList auditFindings={auditFindings} works={works} module={module} contextKey={JSON.stringify([module, userId, profile, engineeringScope, administrativeScope])} />
+      <PublishedAuditFindingsList heading="Apontamentos" auditFindings={auditFindings} works={works} module={module} contextKey={JSON.stringify([module, userId, profile, engineeringScope, administrativeScope])} />
       {!available ? <p className="muted">Não foi possível consultar os demais apontamentos.</p>
         : findings.length ? <><span className={styles.listLabel}>OUTROS APONTAMENTOS</span><ul className={styles.findings}>{findings.slice(0, 6).map((finding, findingIndex) => {
           const expanded = expandedOtherFindings.has(finding.id);
           const detailsId = `other-finding-${findingIndex}`;
+          const photoUrl = `/app/acompanhamento/obras/${finding.workId}/fotos/${finding.photoFileName}`;
           return <li className={styles.auditFinding} key={finding.id}>
             <button type="button" className={styles.findingSummary} aria-expanded={expanded} aria-controls={detailsId} onClick={() => setExpandedOtherFindings((current) => {
               const next = new Set(current);
@@ -151,14 +153,31 @@ export function EngineeringResourcePanels({ actor, works, module, catalogs, audi
               <i className={`${styles.chevron}${expanded ? ` ${styles.chevronExpanded}` : ""}`} aria-hidden="true" />
             </button>
             {expanded && <div className={styles.otherFindingDetails} id={detailsId}>
-              <span>{workNames.get(finding.workId) ?? "Obra"}{finding.location ? ` · ${finding.location}` : ""}</span>
-              <p>{finding.correction}</p>
+              <a className={styles.otherFindingPhoto} href={photoUrl} target="_blank" rel="noopener noreferrer" aria-label="Abrir foto do apontamento">
+                <EvidenceThumbnail thumbnailSrc={followUpPhotoThumbnailUrl(photoUrl, actor)} originalSrc={photoUrl} alt={`Foto de ${finding.description}`} width={110} height={82} />
+              </a>
+              <div className={styles.otherFindingText}>
+                <span>{workNames.get(finding.workId) ?? "Obra"}{finding.location ? ` · ${finding.location}` : ""}</span>
+                <p>{finding.correction}</p>
+              </div>
             </div>}
           </li>;
         })}</ul></>
           : null}
     </section>
-    {deferCatalogs(<section className="panel" aria-label={`Roteiros de ${moduleLabels[module]}`}>
+    <EngineeringRoutesPanel modules={[module]} catalogs={catalogs} deferCatalogs={deferCatalogs} />
+  </div>;
+}
+
+export function EngineeringRoutesPanel({ modules, catalogs, deferCatalogs = (content) => content }: {
+  modules: readonly AppModule[];
+  catalogs: CatalogSnapshot;
+  deferCatalogs?: (children: ReactNode) => ReactNode;
+}) {
+  const modelIds: AuditModelId[] = modules.flatMap((module) => module === "safety"
+    ? ["security-it07-r02" as const] : ["quality-f175" as const, "quality-f176" as const]);
+  const discipline = modules.length === 1 ? moduleLabels[modules[0]] : "Qualidade e Segurança";
+  return deferCatalogs(<section className="panel" aria-label={`Roteiros de ${discipline}`}>
       <div className="panel-heading"><h3>Roteiros</h3></div>
       <ul className={styles.catalogs}>{modelIds.map((modelId) => {
         const version = catalogVersion(catalogs, modelId);
@@ -168,6 +187,5 @@ export function EngineeringResourcePanels({ actor, works, module, catalogs, audi
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" /></svg>
           </a></li>;
       })}</ul>
-    </section>)}
-  </div>;
+    </section>);
 }

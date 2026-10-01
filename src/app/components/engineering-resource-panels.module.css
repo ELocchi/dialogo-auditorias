@@ -1,7 +1,10 @@
 .grid { display: contents; }
 .grid > section { min-width: 0; }
+.findingsHeading { display: flex; align-items: center; justify-content: space-between; flex-wrap: nowrap; gap: 10px; }
+.headingFilters { flex: 0 0 auto; flex-wrap: nowrap; align-items: center; width: max-content; margin: 0; margin-left: auto; }
+.headingFilters label { min-width: 0; }
+.headingFilters select { width: 150px; min-width: 0; }
 .findings, .catalogs { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
-.summary { margin: 5px 0 0; color: var(--muted); font-size: 11px; }
 .listLabel { display: block; margin: 16px 0 8px; color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .04em; }
 .auditGroups { display: grid; gap: 12px; }
 .auditGroup { overflow: hidden; border: 1px solid var(--line); border-left: 4px solid var(--red); border-radius: 10px; background: var(--surface); }
@@ -47,8 +50,11 @@
 .findingPhotos a { display: grid; min-width: 0; gap: 5px; padding: 5px; border: 1px solid var(--line); border-radius: 7px; background: white; color: var(--navy); text-decoration: none; }
 .findingPhotos img { display: block; width: 100%; height: 90px; border-radius: 5px; object-fit: cover; }
 .findingPhotos small { overflow: hidden; color: var(--navy); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
-.otherFindingDetails { display: grid; gap: 7px; padding: 13px 16px 15px; border-top: 1px solid var(--line); background: #f7f9fc; }
+.otherFindingDetails { display: grid; grid-template-columns: 110px minmax(0, 1fr); align-items: start; gap: 12px; padding: 13px 16px 15px; border-top: 1px solid var(--line); background: #f7f9fc; }
+.otherFindingPhoto { display: block; overflow: hidden; border: 1px solid var(--line); border-radius: 7px; background: white; }
+.otherFindingPhoto img { display: block; width: 100%; height: 82px; object-fit: cover; }
+.otherFindingText { display: grid; min-width: 0; gap: 7px; }
 .otherFindingDetails span { color: var(--muted); font-size: 11px; }
 .otherFindingDetails p { color: var(--ink); font-size: 12px; line-height: 1.45; }
 @media (max-width: 900px) { .findingDetails { grid-template-columns: 1fr 1fr; } .findingPhotos { grid-column: 1 / -1; } }
-@media (max-width: 640px) { .catalogs li { grid-template-columns: 1fr; } .catalogs a { width: 100%; } .findingDetails { grid-template-columns: 1fr; } .findingPhotos { grid-column: auto; } }
+@media (max-width: 640px) { .findingsHeading { align-items: flex-end; flex-wrap: wrap; } .headingFilters { flex-wrap: wrap; width: 100%; margin-left: 0; } .headingFilters select { width: 100%; } .catalogs li { grid-template-columns: 1fr; } .catalogs a { width: 100%; } .findingDetails { grid-template-columns: 1fr; } .findingPhotos { grid-column: auto; } .otherFindingDetails { grid-template-columns: 82px minmax(0, 1fr); } .otherFindingPhoto img { height: 68px; } }

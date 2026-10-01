@@ -1,6 +1,4 @@
 .heading { align-items: center; gap: 16px; }
-.heading div { display: grid; gap: 5px; }
-.heading p { margin: 0; color: var(--muted); font-size: .9rem; }
 .heading select { min-width: 190px; max-width: 240px; }
 .list { display: grid; gap: 12px; }
 .card { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px; border: 1px solid var(--line); border-left: 5px solid var(--red); border-radius: 14px; }

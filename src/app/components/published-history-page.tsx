@@ -2,10 +2,30 @@
 
 import { useState } from "react";
 import type { AuditRecord, WorkRecord } from "@/domain/operational-records";
+import { getSaoPauloToday, shiftCalendarMonth } from "@/domain/visit-calendar";
 import type { AuditHistoryQuery } from "@/lib/audits/history-contracts";
 import { useAuditHistory } from "./audit-history-context";
 import { useHistoryPage } from "./history-pagination";
+import { Icon } from "./ui-icon";
+import calendarStyles from "./admin-visit-calendar.module.css";
 import styles from "./history-pagination.module.css";
+
+const monthLabelFormatter = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" });
+
+function MonthNavigation({ month, onMonthChange, label }: { month: string; onMonthChange: (value: string) => void; label: string }) {
+  const monthLabel = monthLabelFormatter.format(new Date(`${month}-01T12:00:00Z`));
+  return <div className={calendarStyles.monthNavigation} role="group" aria-label={label}>
+    <button type="button" className={calendarStyles.monthButton} aria-label="Mês anterior" disabled={month === "0001-01"} onClick={() => onMonthChange(shiftCalendarMonth(month, -1))}><Icon name="arrow" className={calendarStyles.previous} /></button>
+    <span className={calendarStyles.monthLabel} aria-live="polite">{monthLabel}</span>
+    <button type="button" className={calendarStyles.monthButton} aria-label="Próximo mês" disabled={month === "9999-12"} onClick={() => onMonthChange(shiftCalendarMonth(month, 1))}><Icon name="arrow" /></button>
+  </div>;
+}
+
+function monthRange(month: string) {
+  const [year, monthNumber] = month.split("-").map(Number);
+  const lastDay = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
+  return { from: `${month}-01`, to: `${month}-${String(lastDay).padStart(2, "0")}` };
+}
 
 export function usePublishedHistoryPage(audits: readonly AuditRecord[], filters: AuditHistoryQuery, contextKey: string) {
   const key = JSON.stringify([contextKey, filters]);
@@ -37,34 +57,28 @@ export function HistoryLoadStatus({ history }: { history: { status: string; mess
   return null;
 }
 
-export function HistoryFilters({ works, workId, onWorkChange, dateFrom, dateTo, onFromChange, onToChange, label }: {
+export function HistoryFilters({ works, workId, onWorkChange, dateFrom, dateTo, onFromChange, onToChange, label, className }: {
   works?: readonly WorkRecord[]; workId?: string; onWorkChange?: (value: string) => void;
-  dateFrom: string; dateTo: string; onFromChange: (value: string) => void; onToChange: (value: string) => void; label: string;
+  dateFrom: string; dateTo: string; onFromChange: (value: string) => void; onToChange: (value: string) => void; label: string; className?: string;
 }) {
-  return <div className={styles.filters} role="group" aria-label={label}>
-    {works && onWorkChange && <label>Obra<select className="filter-select" aria-label={`${label}: obra`} value={workId ?? ""} onChange={(event) => onWorkChange(event.target.value)}><option value="">Todas as obras</option>{works.map((work) => <option key={work.id} value={work.id}>{work.name}</option>)}</select></label>}
-    <label>De<input className="filter-select" aria-label={`${label}: data inicial`} type="date" value={dateFrom} max={dateTo || undefined} onChange={(event) => onFromChange(event.target.value)} /></label>
-    <label>Até<input className="filter-select" aria-label={`${label}: data final`} type="date" value={dateTo} min={dateFrom || undefined} onChange={(event) => onToChange(event.target.value)} /></label>
+  const month = (/^\d{4}-\d{2}-\d{2}$/.test(dateFrom) ? dateFrom : /^\d{4}-\d{2}-\d{2}$/.test(dateTo) ? dateTo : getSaoPauloToday()).slice(0, 7);
+  const selectMonth = (nextMonth: string) => {
+    const range = monthRange(nextMonth);
+    onFromChange(range.from);
+    onToChange(range.to);
+  };
+  return <div className={`${styles.filters}${className ? ` ${className}` : ""}`} role="group" aria-label={label}>
+    {works && onWorkChange && <label><select className="filter-select" aria-label={`${label}: obra`} value={workId ?? ""} onChange={(event) => onWorkChange(event.target.value)}><option value="">Todas as obras</option>{works.map((work) => <option key={work.id} value={work.id}>{work.name}</option>)}</select></label>}
+    <MonthNavigation month={month} onMonthChange={selectMonth} label={`${label}: navegar por mês`} />
   </div>;
 }
 
-export function HistoryMonthFilter({ works, workId, onWorkChange, month, onMonthChange, label }: {
+export function HistoryMonthFilter({ works, workId, onWorkChange, month, onMonthChange, label, className }: {
   works?: readonly WorkRecord[]; workId?: string; onWorkChange?: (value: string) => void;
-  month: string; onMonthChange: (value: string) => void; label: string;
+  month: string; onMonthChange: (value: string) => void; label: string; className?: string;
 }) {
-  const selectedYear = Number(month.slice(0, 4));
-  const currentYear = Number(new Intl.DateTimeFormat("en", { year: "numeric", timeZone: "America/Sao_Paulo" }).format(new Date()));
-  const years = [...new Set([...Array.from({ length: currentYear - 1999 }, (_, index) => currentYear - index), selectedYear])]
-    .filter((year) => Number.isInteger(year) && year >= 2000).sort((left, right) => right - left);
-  const monthNames = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
-  const options = years.flatMap((year) => monthNames.map((name, index) => ({
-    value: `${year}-${String(index + 1).padStart(2, "0")}`,
-    label: `${name} de ${year}`,
-  })));
-  return <div className={styles.filters} role="group" aria-label={label}>
-    {works && onWorkChange && <label>Obra<select className="filter-select" aria-label={`${label}: obra`} value={workId ?? ""} onChange={(event) => onWorkChange(event.target.value)}><option value="">Todas as obras</option>{works.map((work) => <option key={work.id} value={work.id}>{work.name}</option>)}</select></label>}
-    <label>Mês<select className="filter-select" aria-label={`${label}: mês`} value={month} onChange={(event) => onMonthChange(event.target.value)}>
-      {options.map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}
-    </select></label>
+  return <div className={`${styles.filters}${className ? ` ${className}` : ""}`} role="group" aria-label={label}>
+    {works && onWorkChange && <label><select className="filter-select" aria-label={`${label}: obra`} value={workId ?? ""} onChange={(event) => onWorkChange(event.target.value)}><option value="">Todas as obras</option>{works.map((work) => <option key={work.id} value={work.id}>{work.name}</option>)}</select></label>}
+    <MonthNavigation month={month} onMonthChange={onMonthChange} label={`${label}: navegar por mês`} />
   </div>;
 }

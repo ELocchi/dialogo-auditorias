@@ -10,10 +10,15 @@
 }
 .heading h3 { flex: 1 1 200px; margin: 0; font-size: 18px; }
 .filters { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; max-width: 100%; }
-.month, .year, .period { display: grid; min-width: 0; max-width: 100%; }
-.month select { width: 190px; }
+.year, .period { display: grid; min-width: 0; max-width: 100%; }
 .year select { width: 92px; }
 .period select { width: 98px; }
+.monthNavigation { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.monthLabel { display: inline-flex; align-items: center; justify-content: center; min-width: 135px; min-height: 36px; color: var(--navy); font-size: 14px; font-weight: 600; line-height: 1; text-align: center; }
+.monthButton { display: inline-flex; align-items: center; justify-content: center; width: 36px; min-height: 36px; padding: 7px; border: 1px solid var(--line); border-radius: 7px; background: white; color: var(--navy); }
+.monthButton svg { width: 17px; height: 17px; }
+.previous { transform: rotate(180deg); }
+.monthButton:hover:not(:disabled) { background: #edf2f8; }
 .rankings {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
@@ -41,3 +46,7 @@
 .table tbody .score { color: var(--navy); font-weight: 700; white-space: nowrap; }
 .table .empty { padding: 28px 10px; color: var(--muted); font-size: 12px; font-weight: 400; text-align: center; }
 .srOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+@media (max-width: 480px) {
+  .monthLabel { min-width: 126px; font-size: 12px; }
+  .monthNavigation { gap: 3px; }
+}

@@ -12,7 +12,7 @@ const weekdays = [["Dom", "Domingo"], ["Seg", "Segunda-feira"], ["Ter", "Terça-
 const monthFormat = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" });
 const dayFormat = new Intl.DateTimeFormat("pt-BR", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
 
-export function AdminVisitCalendar({ visits, works, auditors = [], onViewAgenda, calendarOnly = false, includeFollowUps = false, showLegend = true, colorBy = "auditor", selectedAuditorId = null, onSelectAuditor, highlightAuditDays = false, keepVisitorColors = false }: {
+export function AdminVisitCalendar({ visits, works, auditors = [], onViewAgenda, calendarOnly = false, includeFollowUps = false, showLegend = true, colorBy = "auditor", selectedAuditorId = null, onSelectAuditor, selectedWorkId = null, onSelectWork, highlightAuditDays = false, keepVisitorColors = false }: {
   visits: readonly Visit[];
   works: readonly WorkRecord[];
   auditors?: readonly DemoUser[];
@@ -24,6 +24,8 @@ export function AdminVisitCalendar({ visits, works, auditors = [], onViewAgenda,
   colorBy?: "auditor" | "work";
   selectedAuditorId?: string | null;
   onSelectAuditor?: (auditorId: string | null) => void;
+  selectedWorkId?: string | null;
+  onSelectWork?: (workId: string | null) => void;
   highlightAuditDays?: boolean;
   keepVisitorColors?: boolean;
 }) {
@@ -40,8 +42,10 @@ export function AdminVisitCalendar({ visits, works, auditors = [], onViewAgenda,
   const eligibleVisits = visits.filter((visit) => (includeFollowUps || visit.kind === "audit")
     && workNames.has(visit.workId) && isCalendarDate(visit.date));
   const profileHasVisits = new Set(eligibleVisits.map((visit) => visit.auditorId));
+  const workHasVisits = new Set(eligibleVisits.map((visit) => visit.workId));
   const monthVisits = eligibleVisits.filter((visit) => visit.date.startsWith(`${month}-`)
-    && (!selectedAuditorId || visit.auditorId === selectedAuditorId))
+    && (!selectedAuditorId || visit.auditorId === selectedAuditorId)
+    && (!selectedWorkId || visit.workId === selectedWorkId))
     .sort((left, right) => left.date.localeCompare(right.date) || left.id.localeCompare(right.id));
   const profiles = new Map<string, { id: string; name: string; modules: Set<AppModule>; active: boolean }>();
   for (const auditor of auditors) {
@@ -121,6 +125,8 @@ export function AdminVisitCalendar({ visits, works, auditors = [], onViewAgenda,
       {legendProfiles.length ? legendProfiles.map((profile) => <div className={styles.legendProfile} key={profile.id}>
         <span className={styles.legendIdentity}>{effectiveColorBy === "auditor" && onSelectAuditor && profileHasVisits.has(profile.id)
           ? <button type="button" className={styles.profileButton} aria-pressed={selectedAuditorId === profile.id} onClick={() => onSelectAuditor(selectedAuditorId === profile.id ? null : profile.id)}>{profile.name}</button>
+          : effectiveColorBy === "work" && onSelectWork && workHasVisits.has(profile.id)
+            ? <button type="button" className={styles.profileButton} aria-pressed={selectedWorkId === profile.id} onClick={() => onSelectWork(selectedWorkId === profile.id ? null : profile.id)}>{profile.name}</button>
           : <strong>{profile.name}</strong>}</span>
         <span className={styles.colorSwatch} style={{ backgroundColor: colors[profile.id] }} role="img" aria-label={`Cor de ${profile.name}`} />
       </div>) : <span className={styles.legendEmpty}>{effectiveColorBy === "work" ? "Nenhuma obra com visitas agendadas." : "Nenhum auditor autorizado nesta disciplina."}</span>}

@@ -41,6 +41,29 @@ test('pages load only on demand, deduplicate canonical filters and bind native f
   assert.deepEqual(ready.snapshot, page(query));
 });
 
+test('coordination batches matching quality and safety pages behind one authenticated request', async () => {
+  const coordination = { ...actor, profile: 'ENGENHARIA', engineeringScope: 'COORDENACAO' };
+  const quality = audit(1);
+  const safety = { ...audit(2), modelId: 'security-it07-r02' };
+  let calls = 0;
+  const loader = createAuditHistoryLoader(coordination, async (url) => {
+    calls++;
+    const requested = new URL(url, 'https://test.example');
+    assert.equal(requested.pathname, '/api/audits/history/coordination');
+    assert.equal(requested.searchParams.has('module'), false);
+    return Response.json({
+      quality: page({ includeFindings: false }, [quality]),
+      safety: page({ includeFindings: false }, [safety]),
+    });
+  });
+  const qualityRequest = loader.loadPage({ module: 'quality', includeFindings: false });
+  const safetyRequest = loader.loadPage({ module: 'safety', includeFindings: false });
+  await Promise.all([qualityRequest, safetyRequest]);
+  assert.equal(calls, 1);
+  assert.deepEqual(loader.getState(auditHistoryKey({ module: 'quality', includeFindings: false })).snapshot.audits, [quality]);
+  assert.deepEqual(loader.getState(auditHistoryKey({ module: 'safety', includeFindings: false })).snapshot.audits, [safety]);
+});
+
 test('separate filters and pages cannot overwrite each other after responses arrive out of order', async () => {
   const first = deferred(), second = deferred();
   const loader = createAuditHistoryLoader(actor, async (url) => new URL(url, 'https://test.example').searchParams.get('page') === '1' ? first.promise : second.promise);

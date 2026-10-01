@@ -2,7 +2,9 @@
 
 import { useId, useState } from "react";
 import { getAnnualAdminRanking, getMonthlyAdminRanking, type PublishedMonthlyWorkScore } from "@/domain/admin-ranking";
+import { shiftCalendarMonth } from "@/domain/visit-calendar";
 import type { DashboardRanking } from "@/lib/audits/dashboard-contracts";
+import { Icon } from "./ui-icon";
 import styles from "./admin-monthly-ranking.module.css";
 
 export type AdminMonthlyRankingRow = {
@@ -35,8 +37,9 @@ const monthFormatter = new Intl.DateTimeFormat("en-CA", {
 const scoreFormatter = new Intl.NumberFormat("pt-BR", {
   minimumFractionDigits: 2, maximumFractionDigits: 2,
 });
-const monthNames = ["janeiro", "fevereiro", "março", "abril", "maio", "junho",
-  "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+const monthLabelFormatter = new Intl.DateTimeFormat("pt-BR", {
+  month: "long", year: "numeric", timeZone: "UTC",
+});
 
 function currentMonth() {
   const parts = monthFormatter.formatToParts(new Date());
@@ -80,13 +83,13 @@ export function AdminMonthlyRanking({ month, onMonthChange, year, onYearChange, 
     selectedYear,
     ...availableMonths.map((month) => month.slice(0, 4)),
   ])].filter((value) => /^(?!0000)\d{4}$/.test(value)).sort((left, right) => right.localeCompare(left));
-  const monthYears = [...new Set([currentMonth().slice(0, 4), selectedMonth.slice(0, 4),
-    ...availableMonths.map((month) => month.slice(0, 4))])]
-    .filter((value) => /^(?!0000)\d{4}$/.test(value)).sort((left, right) => right.localeCompare(left));
-  const monthOptions = monthYears.flatMap((optionYear) => monthNames.map((label, index) => ({
-    value: `${optionYear}-${String(index + 1).padStart(2, "0")}`,
-    label: `${label} de ${optionYear}`,
-  }))).sort((left, right) => right.value.localeCompare(left.value));
+  const monthLabel = monthLabelFormatter.format(new Date(`${selectedMonth}-01T12:00:00Z`));
+  const monthReadOnly = month !== undefined && !onMonthChange;
+  const changeMonth = (direction: -1 | 1) => {
+    const nextMonth = shiftCalendarMonth(selectedMonth, direction);
+    if (month === undefined) setLocalMonth(nextMonth);
+    onMonthChange?.(nextMonth);
+  };
   const annual = period === "year";
   const periodRanking = summary ? (annual ? summary.annual[selectedYear] : summary.monthly[selectedMonth]) : undefined;
   const safetyRanking = summary ? periodRanking?.safety ?? [] : annual ? getAnnualAdminRanking(publishedMonthlyScores ?? [], selectedYear, "safety")
@@ -116,17 +119,11 @@ export function AdminMonthlyRanking({ month, onMonthChange, year, onYearChange, 
             }}>
             {yearOptions.map((option) => <option key={option} value={option}>{option}</option>)}
           </select>
-        </label> : <label className={styles.month} htmlFor={monthId}>
-          <span className={styles.srOnly}>Mês de referência</span>
-          <select className="filter-select" id={monthId} value={selectedMonth}
-            required disabled={month !== undefined && !onMonthChange}
-            onChange={(event) => {
-              const nextMonth = event.target.value;
-              if (!/^(?!0000)\d{4}-(0[1-9]|1[0-2])$/.test(nextMonth)) return;
-              if (month === undefined) setLocalMonth(nextMonth);
-              onMonthChange?.(nextMonth);
-            }}>{monthOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select>
-        </label>}
+        </label> : <div className={styles.monthNavigation} role="group" aria-label="Navegar pelo mês do ranking">
+          <button type="button" className={styles.monthButton} aria-label="Mês anterior" disabled={monthReadOnly || selectedMonth === "0001-01"} onClick={() => changeMonth(-1)}><Icon name="arrow" className={styles.previous} /></button>
+          <span id={monthId} className={styles.monthLabel} aria-live="polite">{monthLabel}</span>
+          <button type="button" className={styles.monthButton} aria-label="Próximo mês" disabled={monthReadOnly || selectedMonth === "9999-12"} onClick={() => changeMonth(1)}><Icon name="arrow" /></button>
+        </div>}
       </div>
     </div>
     {!available ? <p role="status">Não foi possível carregar o ranking das obras.</p> : <div className={styles.rankings}>

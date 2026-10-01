@@ -1,8 +1,17 @@
 import type { NextConfig } from "next";
 
+const lanDevelopment = Boolean(process.env.LAN_DEV_ORIGIN);
+
 const nextConfig: NextConfig = {
   allowedDevOrigins: process.env.LAN_DEV_ORIGIN ? [process.env.LAN_DEV_ORIGIN] : [],
-  experimental: { serverActions: { bodySizeLimit: "12mb" } },
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "12mb",
+      // Some browsers send `Origin: null` from a LAN HTTP preview. Permit it
+      // only when that preview is explicitly enabled; production stays strict.
+      allowedOrigins: lanDevelopment ? ["null"] : [],
+    },
+  },
   outputFileTracingIncludes: {
     "/api/reference-documents/*": ["./private/reference-documents/*.pdf", "./private/reference-documents/*.docx"],
   },

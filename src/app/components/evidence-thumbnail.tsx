@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 
-/** Prefer the small derivative; a decode or request failure falls back once. */
+/** Use the small derivative when available without downloading the full image after a failed request. */
 export function EvidenceThumbnail({ thumbnailSrc, originalSrc, alt, width, height }: {
   thumbnailSrc?: string;
   originalSrc: string;
@@ -13,8 +13,10 @@ export function EvidenceThumbnail({ thumbnailSrc, originalSrc, alt, width, heigh
 }) {
   const [failedPhoto, setFailedPhoto] = useState<string | null>(null);
   const photoKey = JSON.stringify([thumbnailSrc, originalSrc]);
-  const usingThumbnail = !!thumbnailSrc && failedPhoto !== photoKey;
-  const src = usingThumbnail ? thumbnailSrc : originalSrc;
+  if (thumbnailSrc && failedPhoto === photoKey) {
+    return <span role="img" aria-label={`${alt} indisponível`} style={{ width, height }} className="evidence-thumbnail-unavailable" />;
+  }
+  const src = thumbnailSrc ?? originalSrc;
   return <Image key={src} src={src} alt={alt} width={width} height={height} unoptimized
-    onError={usingThumbnail ? () => setFailedPhoto(photoKey) : undefined} />;
+    onError={thumbnailSrc ? () => setFailedPhoto(photoKey) : undefined} />;
 }

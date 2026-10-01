@@ -169,6 +169,7 @@ function EngineeringOverview({ user, works, audits, auditFindings, summary, publ
   open: (screen: string) => void;
 }) {
   const [selectedVisitorId, setSelectedVisitorId] = useState<string | null>(null);
+  const [selectedCalendarWorkId, setSelectedCalendarWorkId] = useState<string | null>(null);
   const workNames = new Map(works.map((work) => [work.id, work.name]));
   const publishedScores: PublishedMonthlyWorkScore[] = audits.flatMap((audit) => {
     const workName = workNames.get(audit.workId);
@@ -205,15 +206,20 @@ function EngineeringOverview({ user, works, audits, auditFindings, summary, publ
 
   return <>
     <div className="page-intro"><div><h2>Visão geral</h2></div></div>
-    <div className={engineeringStyles.metrics}>
+    {user.activity !== "coordination" && <div className={engineeringStyles.metrics}>
       <EngineeringMetric label="Apontamentos" value={summary?.available === false ? "--" : String(findingCount).padStart(2, "0")} />
       <EngineeringMetric label="Planos de ação" value={summary?.available === false ? "--" : String(pendingPlanCount).padStart(2, "0")} detail="Pendentes" />
       <EngineeringMetric label="Nota" value={monthlyAverage} detail={summary?.available === false ? "Consulta indisponível" : scoreMonth === currentMonth ? "Média do mês" : scoreMonth ? "Último mês com nota" : "Sem notas publicadas"} accent />
-    </div>
+    </div>}
     <div className={engineeringStyles.content}>
       <AdminMonthlyRanking modules={["safety", "quality"]} publishedMonthlyScores={rankingScores} summary={summary?.ranking} available={summary?.available} />
-      <AdminVisitCalendar visits={visits} works={works} auditors={auditors} viewerId={user.id} calendarOnly includeFollowUps
-        colorBy="auditor" selectedAuditorId={selectedVisitorId} onSelectAuditor={setSelectedVisitorId} keepVisitorColors highlightAuditDays onViewAgenda={() => open("agenda")} />
+      <AdminVisitCalendar visits={visits} works={works} auditors={auditors} viewerId={user.id} calendarOnly includeFollowUps={user.activity !== "coordination"}
+        colorBy={user.activity === "coordination" ? "work" : "auditor"}
+        selectedAuditorId={user.activity === "coordination" ? null : selectedVisitorId}
+        onSelectAuditor={user.activity === "coordination" ? undefined : setSelectedVisitorId}
+        selectedWorkId={user.activity === "coordination" ? selectedCalendarWorkId : null}
+        onSelectWork={user.activity === "coordination" ? setSelectedCalendarWorkId : undefined}
+        keepVisitorColors={user.activity !== "coordination"} highlightAuditDays onViewAgenda={() => open("agenda")} />
     </div>
   </>;
 }
@@ -368,11 +374,10 @@ export function PublishedAuditsPanel({ user, works, audits, module, onCreateActi
 
   return <section className="panel" aria-label={`Auditorias publicadas de ${moduleLabels[module]}`}>
     <div className={`panel-heading ${styles.publicationHeading}`}><h3>{moduleLabels[module]}</h3>
-      {showExample && <span className="badge badge-amber">Prévia de teste</span>}
+      <HistoryMonthFilter className={styles.publicationFilters} works={works} workId={publicationWorkId} onWorkChange={setPublicationWorkId} month={month} onMonthChange={setMonth} label="Filtrar auditorias publicadas" />
     </div>
-    <HistoryMonthFilter works={works} workId={publicationWorkId} onWorkChange={setPublicationWorkId} month={month} onMonthChange={setMonth} label="Filtrar auditorias publicadas" />
-          <HistoryLoadStatus history={publicationPage} />
-          <div className={styles.publicationColumns}>
+    <HistoryLoadStatus history={publicationPage} />
+    <div className={styles.publicationColumns}>
       <div className={styles.publicationColumn}>
         <h4>Auditoria</h4>
         {publicationItems.length ? publicationItems.map((audit) => <PublishedDocumentCard key={audit.id} example={audit.isDemo} date={audit.date}

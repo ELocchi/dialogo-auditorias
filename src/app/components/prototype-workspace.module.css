@@ -8,8 +8,11 @@
 .auditorLayout { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 24px; }
 .auditorSidebar { display: grid; grid-auto-rows: max-content; align-self: start; align-content: start; min-width: 0; gap: 24px; }
 .publicationColumns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 16px; }
-.publicationHeading { display: grid; grid-template-columns: minmax(0, 1fr) 150px auto; align-items: center; gap: 8px; }
+.publicationHeading { display: flex; align-items: center; justify-content: space-between; flex-wrap: nowrap; gap: 10px; }
 .publicationHeading h3 { min-width: 0; }
+.publicationFilters { flex: 0 0 auto; flex-wrap: nowrap; align-items: center; width: max-content; margin: 0; margin-left: auto; }
+.publicationFilters label { min-width: 0; }
+.publicationFilters select { width: 150px; min-width: 0; }
 .publicationColumn { display: grid; align-content: start; gap: 12px; min-width: 0; }
 .publicationColumn h4 { margin: 0; color: var(--navy); font-size: 13px; }
 .publicationColumn > .muted { margin: 0; }
@@ -28,7 +31,7 @@
 .publicationDetails { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
 .publicationDetails span { color: var(--muted); font-size: 10px; }
 .publicationDetails button { font-size: 10px; }
-@media (max-width: 600px) { .publicationColumns { grid-template-columns: 1fr; } .publicationHeading { grid-template-columns: minmax(0, 1fr) auto; } .publicationHeading h3 { grid-column: 1 / -1; } }
+@media (max-width: 600px) { .publicationColumns { grid-template-columns: 1fr; } .publicationHeading { align-items: flex-end; flex-wrap: wrap; } .publicationFilters { flex-wrap: wrap; width: 100%; margin-left: 0; } .publicationFilters select { width: 100%; } }
 .scheduledPanel { min-width: 0; }
 .scheduledList { display: grid; gap: 12px; max-height: 740px; overflow-y: auto; margin-top: 16px; padding-right: 3px; }
 .scheduledList article { padding: 16px; }

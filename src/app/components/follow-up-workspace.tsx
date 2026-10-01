@@ -159,10 +159,11 @@ function FollowUpWorkspaceSession({ user, visits, works, actor, agendaAvailable 
           const day = savedAt.toLocaleDateString("pt-BR", { day: "2-digit", timeZone: "America/Sao_Paulo" });
           const month = savedAt.toLocaleDateString("pt-BR", { month: "short", timeZone: "America/Sao_Paulo" }).replace(".", "").toUpperCase();
           const year = savedAt.toLocaleDateString("pt-BR", { year: "numeric", timeZone: "America/Sao_Paulo" });
-          const date = savedAt.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+          const visit = scheduledById.get(report.visitId);
+          const workName = visit ? authorizedWorks.get(visit.workId)?.name ?? "Obra" : "Obra";
           return <li key={report.id}>
             <span className={styles.reportDate}><strong>{day}</strong><small>{month} {year}</small></span>
-            <span className={styles.reportInfo}><strong>{report.title}</strong><small>{date}</small></span>
+            <span className={styles.reportInfo}><strong>{report.title}</strong><small>{workName}</small></span>
             <a className={styles.reportDownload} href={`/app/acompanhamento/relatorio/${report.visitId}/pdf?relatorio=${report.id}`} download
               aria-label={`Baixar PDF: ${report.title}`} title="Baixar PDF">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" /></svg>
@@ -178,22 +179,26 @@ function FollowUpWorkspaceSession({ user, visits, works, actor, agendaAvailable 
           <button type="button" className={`primary ${styles.addFindingButton}`} aria-label="Adicionar apontamento" title="Adicionar apontamento" disabled={disabled || works.length === 0} onClick={beginFinding}>+</button>
         </div>
         {adding && <form className={styles.addFindingForm} onSubmit={(event) => { void submitFinding(event); }}>
-          <div className={styles.photoField} role="group" aria-label="Foto obrigatória"><FollowUpPhotoPicker disabled={disabled} previewUrl={previewUrl} onSelect={(file) => {
-            if (file.size === 0 || file.size > maxPhotoBytes || !["image/jpeg", "image/png"].includes(file.type)) {
-              setPhotoFiles([]); setPreviewUrl(null); setError("Escolha ou tire uma foto JPG ou PNG de até 3 MB."); return;
-            }
-            setPhotoFiles([file]); setPreviewUrl(URL.createObjectURL(file)); setError("");
-          }} /></div>
+          <div className={styles.findingTopRow}>
+            <div className={styles.photoField} role="group" aria-label="Foto obrigatória"><FollowUpPhotoPicker disabled={disabled} previewUrl={previewUrl} onSelect={(file) => {
+              if (file.size === 0 || file.size > maxPhotoBytes || !["image/jpeg", "image/png"].includes(file.type)) {
+                setPhotoFiles([]); setPreviewUrl(null); setError("Escolha ou tire uma foto JPG ou PNG de até 3 MB."); return;
+              }
+              setPhotoFiles([file]); setPreviewUrl(URL.createObjectURL(file)); setError("");
+            }} /></div>
+            <button type="button" className={`${styles.seriousToggle}${finding.serious ? ` ${styles.seriousToggleActive}` : ""}`}
+              aria-label={finding.serious ? "Desmarcar item grave" : "Marcar como item grave"}
+              title={finding.serious ? "Item marcado como grave" : "Marcar como item grave"}
+              aria-pressed={finding.serious === true} disabled={disabled}
+              onClick={() => setFinding((current) => ({ ...current, serious: !current.serious }))}>
+              <svg viewBox="0 0 32 29" aria-hidden="true"><path d="M14.1 3.2a2.2 2.2 0 0 1 3.8 0l11.2 19.4a2.2 2.2 0 0 1-1.9 3.3H4.8a2.2 2.2 0 0 1-1.9-3.3L14.1 3.2Z" /><text x="16" y="21.2">!</text></svg>
+            </button>
+          </div>
           {photoFiles.length > 0 && <>
             <label>Local (opcional)<input maxLength={200} disabled={disabled} value={finding.location} onChange={(event) => setFinding((current) => ({ ...current, location: event.target.value }))} placeholder="Pavimento, ambiente ou frente de serviço" /></label>
             <label>O que precisa de correção<textarea required minLength={5} maxLength={2000} disabled={disabled} value={finding.description} onChange={(event) => setFinding((current) => ({ ...current, description: event.target.value }))} /></label>
             <label>Orientação para correção<textarea required minLength={5} maxLength={2000} disabled={disabled} value={finding.correction} onChange={(event) => setFinding((current) => ({ ...current, correction: event.target.value }))} /></label>
-            <fieldset className={styles.seriousField} disabled={disabled}>
-              <legend>Este apontamento é um item grave?</legend>
-              <div><label><input type="radio" name="serious" checked={finding.serious !== true} onChange={() => setFinding((current) => ({ ...current, serious: false }))} />Não</label>
-                <label><input type="radio" name="serious" checked={finding.serious === true} onChange={() => setFinding((current) => ({ ...current, serious: true }))} />Sim</label></div>
-            </fieldset>
-            <label>Obra<select required value={targetWorkId} disabled={disabled} onChange={(event) => setTargetWorkId(event.target.value)}>{works.map((work) => <option key={work.id} value={work.id}>{work.name}</option>)}</select></label>
+            <label>Obra<select className={`filter-select ${styles.workSelect}`} required value={targetWorkId} disabled={disabled} onChange={(event) => setTargetWorkId(event.target.value)}>{works.map((work) => <option key={work.id} value={work.id}>{work.name}</option>)}</select></label>
             <div className={styles.findingActions}><button type="button" className="secondary" disabled={pending} onClick={() => setAdding(false)}>Cancelar</button><button type="submit" className="primary" disabled={disabled}>{pending ? "Salvando…" : "Salvar apontamento"}</button></div>
           </>}
         </form>}

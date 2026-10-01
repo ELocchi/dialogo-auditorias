@@ -24,7 +24,7 @@ export function auditHistoryKey(input: AuditHistoryQuery): string {
 /** One profile owns this bounded metadata cache; full responses never enter it. */
 export function createAuditHistoryLoader(actor: AgendaActorContext, fetcher: typeof fetch = fetch, now = Date.now) {
   const states = new Map<string, AuditHistoryState>();
-  const pending = new Map<string, { controller: AbortController; promise: Promise<void> }>();
+  const pending = new Map<string, { controller: AbortController; promise: Promise<void>; query: ResolvedAuditHistoryQuery; handledBy?: string }>();
   const listeners = new Map<string, Set<() => void>>();
   const accessed = new Map<string, number>();
   const loadedAt = new Map<string, number>();
@@ -64,15 +64,68 @@ export function createAuditHistoryLoader(actor: AgendaActorContext, fetcher: typ
     if (existing) return existing.promise;
     if (!refresh && current?.status === "ready" && now() - (loadedAt.get(key) ?? 0) < cacheLifetimeMs) return Promise.resolve();
     const controller = new AbortController();
-    const parameters = new URLSearchParams({ usuario: actor.userId, perfil: actor.profile,
-      atuacao: actor.engineeringScope ?? "", administrativo: actor.administrativeScope ?? "" });
-    for (const [name, value] of Object.entries(query)) parameters.set(name, String(value));
+    const parametersFor = (entry: ResolvedAuditHistoryQuery) => {
+      const parameters = new URLSearchParams({ usuario: actor.userId, perfil: actor.profile,
+        atuacao: actor.engineeringScope ?? "", administrativo: actor.administrativeScope ?? "" });
+      for (const [name, value] of Object.entries(entry)) parameters.set(name, String(value));
+      return parameters;
+    };
+    const compatibleCoordinationPair = () => {
+      if (actor.profile !== "ENGENHARIA" || actor.engineeringScope !== "COORDENACAO"
+        || (query.module !== "quality" && query.module !== "safety")) return undefined;
+      const signature = ({ module: _module, ...rest }: ResolvedAuditHistoryQuery) => JSON.stringify(rest);
+      return [...pending.entries()].find(([otherKey, request]) => otherKey !== key && !request.handledBy
+        && request.query.module !== query.module && (request.query.module === "quality" || request.query.module === "safety")
+        && signature(request.query) === signature(query));
+    };
     // Schedule the request after registration so synchronous failures and reentrant
     // subscriptions cannot leave a stale promise or duplicate the same page.
     const promise = Promise.resolve().then(async () => {
+      const request = pending.get(key);
+      if (request?.handledBy) {
+        await pending.get(request.handledBy)?.promise;
+        return;
+      }
+      let pairedKey: string | undefined;
       try {
         if (controller.signal.aborted) return;
-        const response = await fetcher(`/api/audits/history?${parameters}`, {
+        const pair = compatibleCoordinationPair();
+        if (pair) {
+          const [otherKey, otherRequest] = pair;
+          pairedKey = otherKey;
+          otherRequest.handledBy = key;
+          const common = { ...query };
+          delete common.module;
+          const response = await fetcher(`/api/audits/history/coordination?${parametersFor(common)}`, {
+            credentials: "same-origin", cache: "no-store", signal: controller.signal,
+          });
+          if (controller.signal.aborted) return;
+          if (response.status === 401 || response.status === 403) {
+            clear();
+            publish(key, { status: "error", message: denied });
+            publish(otherKey, { status: "error", message: denied });
+            return;
+          }
+          if (!response.ok) throw new Error(unavailable);
+          const value: unknown = await response.json();
+          if (controller.signal.aborted) return;
+          if (!isRecord(value)) throw new Error(unavailable);
+          const parsed = ([[key, request], [otherKey, otherRequest]] as const).map(([entryKey, entryRequest]) => {
+            if (!entryRequest || entryRequest.controller.signal.aborted) return null;
+            const module = entryRequest.query.module;
+            const snapshot = module && parseAuditHistoryPage(value[module], entryRequest.query);
+            if (!snapshot) throw new Error(unavailable);
+            return [entryKey, snapshot] as const;
+          });
+          for (const entry of parsed) {
+            if (!entry) continue;
+            const [entryKey, snapshot] = entry;
+            loadedAt.set(entryKey, now());
+            publish(entryKey, { status: "ready", snapshot });
+          }
+          return;
+        }
+        const response = await fetcher(`/api/audits/history?${parametersFor(query)}`, {
           credentials: "same-origin", cache: "no-store", signal: controller.signal,
         });
         if (controller.signal.aborted) return;
@@ -87,13 +140,22 @@ export function createAuditHistoryLoader(actor: AgendaActorContext, fetcher: typ
         loadedAt.set(key, now());
         publish(key, { status: "ready", snapshot });
       } catch {
-        if (!controller.signal.aborted) publish(key, { status: "error", snapshot: current?.snapshot, message: unavailable });
+        if (!controller.signal.aborted) {
+          publish(key, { status: "error", snapshot: current?.snapshot, message: unavailable });
+          if (pairedKey) {
+            const pairedState = states.get(pairedKey);
+            publish(pairedKey, { status: "error", snapshot: pairedState?.snapshot, message: unavailable });
+          }
+        }
       } finally {
         if (pending.get(key)?.controller === controller) pending.delete(key);
+        for (const [otherKey, request] of pending) {
+          if (request.handledBy === key) pending.delete(otherKey);
+        }
         trim();
       }
     });
-    pending.set(key, { controller, promise });
+    pending.set(key, { controller, promise, query });
     publish(key, { status: "loading", snapshot: current?.snapshot });
     return promise;
   };
