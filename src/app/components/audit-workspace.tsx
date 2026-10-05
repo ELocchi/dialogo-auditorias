@@ -519,11 +519,11 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
               <button data-tooltip={`Não conforme: item ${criterion.code}, verificação ${checkIndex + 1}`} type="button" className={check.compliant === false ? "check-option noncompliant active" : "check-option noncompliant"} aria-label={`Não conforme: item ${criterion.code}, verificação ${checkIndex + 1}`} aria-pressed={check.compliant === false} onClick={() => {
                 const checks = quantityChecks;
                 updateDraft({ ...response, checks: checks.map((entry) => entry.id === check.id ? { ...entry, compliant: false } : entry) });
-              }}><span aria-hidden="true">×</span><small className="check-option-text">Não conforme</small></button>
+              }}><span aria-hidden="true">×</span></button>
               <button data-tooltip={`Conforme: item ${criterion.code}, verificação ${checkIndex + 1}`} type="button" className={check.compliant === true ? "check-option compliant active" : "check-option compliant"} aria-label={`Conforme: item ${criterion.code}, verificação ${checkIndex + 1}`} aria-pressed={check.compliant === true} onClick={() => {
                 const checks = quantityChecks;
                 updateDraft({ ...response, checks: checks.map((entry) => entry.id === check.id ? { ...entry, compliant: true } : entry) });
-              }}><span aria-hidden="true">✓</span><small className="check-option-text">Conforme</small></button>
+              }}><span aria-hidden="true">✓</span></button>
               <span className="inline-photo-cell">{!photoStore.get(check.photos?.at(-1) ?? "") && <button type="button" className="inline-photo" aria-label={`Adicionar foto ao item verificado ${checkIndex + 1}`} data-tooltip="Adicionar foto" onClick={() => { setPhotoTarget(check.id); photoInput.current?.click(); }}><span aria-hidden="true">+</span><small className="mobile-action-label">Foto</small></button>}<AuditPhotoThumbnail label={`item ${criterion.code}, verificação ${checkIndex + 1}`} file={photoStore.get(check.photos?.at(-1) ?? "")} onAdd={() => { setPhotoTarget(check.id); photoInput.current?.click(); }} onDelete={() => {
                 updateDraft({ ...response, checks: quantityChecks.map((entry) => entry.id === check.id ? { ...entry, photos: (entry.photos ?? []).slice(0, -1) } : entry) });
               }} /></span>
