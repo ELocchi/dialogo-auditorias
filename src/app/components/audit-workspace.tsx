@@ -443,9 +443,8 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
   return <>
     <div className="page-intro">
       <div>
-        <p className="kicker">NOVA AUDITORIA · COLETA DE TESTE</p>
         <h2>{readOnly ? "Consultar auditoria" : "Preencher auditoria"}</h2>
-        <p className="muted">{readOnly ? "Consulta autorizada, sem edição das respostas do auditor." : "Registre as verificações. Obra, responsável e versão pertencem a esta auditoria."}</p>
+        {readOnly && <p className="muted">Consulta autorizada, sem edição das respostas do auditor.</p>}
       </div>
       <span className="badge badge-amber">Rascunho nesta sessão</span>
     </div>
