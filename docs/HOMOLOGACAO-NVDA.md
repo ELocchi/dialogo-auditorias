@@ -1,5 +1,9 @@
 # Homologação pública para NVDA
 
+Publicado em 05/10/2026: **https://dialogo-auditorias-nvda.onrender.com/revisao-acessibilidade**.
+
+Código publicado: `6c7f010d13b69c8cf03233cad533c7738e0f08c6`. Serviço `srv-db1uht3bc2fs73ehd0u0`; deploy `dep-db1uhtbbc2fs73ehd210`. Acesso sem conta, com dados fictícios.
+
 ## Configuração
 
 - Serviço dedicado: `dialogo-auditorias-nvda`, plano gratuito no Render.
@@ -26,4 +30,6 @@ Esse teste verifica disponibilidade das telas e bloqueio de rotas/mutações. Re
 
 Esta homologação cobre a interação com a interface: nomes, dicas, foco, estados, diálogos e navegação por teclado. Cadastros, envio, publicação, download de documentos reais e confirmação por e-mail não são executados. Ao terminar a validação, o serviço pode ser removido sem perda de dados operacionais.
 
-Verificação local: build/TypeScript e lint aprovados; 33 regressões, 16 interações de navegador, 14 cenários axe sem violações e 17 casos HTTP aprovados. A leitura pelo NVDA continua pendente. Status de publicação e evidências serão registrados após a verificação do endereço externo.
+Verificação local: build/TypeScript e lint aprovados; 33 regressões, 16 interações de navegador, 14 cenários axe sem violações e 17 casos HTTP aprovados.
+
+Verificação do endereço publicado: 16 interações, 14 cenários axe sem violações e 17 casos HTTP aprovados, Chrome 154.0.8037.97. Evidências mantidas localmente em `docs/evidence/action-audit/homologacao/publicado/`, `http-publicado.json` e `resultado-publicado.json`. **A leitura pelo NVDA continua pendente.**
