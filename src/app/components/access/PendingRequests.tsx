@@ -117,10 +117,10 @@ function RequestCard({ request, works, action, pending, isSelf, preview }: { req
                   {works.map((work) => <option key={work.id} value={work.id}>{work.nome}</option>)}
                 </select>
               </label>
-              <button data-tooltip={`Remover acesso ${index + 1} de ${profileLabels[profile]}`} type="button" className="secondary" aria-label={`Remover acesso ${index + 1} de ${profileLabels[profile]}`} onClick={() => setRows((current) => current.filter((item) => item.key !== row.key))}>Remover</button>
+              <button data-tooltip="Remover acesso" type="button" className="secondary" aria-label={`Remover acesso ${index + 1} de ${profileLabels[profile]}`} onClick={() => setRows((current) => current.filter((item) => item.key !== row.key))}>Remover</button>
             </div>)}
-            {profile === "ENGENHARIA" && <button className={`primary ${styles.addGrantButton}`} type="button" aria-label="Adicionar outra obra para Engenharia" data-tooltip="Adicionar outra obra" disabled={expandedGrants.length + 2 > 400 || works.length === 0} onClick={() => setRows((current) => [...current, { key: Math.max(-1, ...current.map((row) => row.key)) + 1, perfil: profile, obra_id: "", modulo: "" }])}>+</button>}
-            {profile !== "ENGENHARIA" && <button className={`primary ${styles.addGrantButton}`} type="button" aria-label={`Adicionar outra obra para ${profileLabels[profile]}`} data-tooltip="Adicionar outra obra" disabled={expandedGrants.length + 1 > 400 || works.length === 0} onClick={() => setRows((current) => [...current, { key: Math.max(-1, ...current.map((row) => row.key)) + 1, perfil: profile, obra_id: "", modulo: firstModule(profile) }])}>+</button>}
+            {profile === "ENGENHARIA" && <button className={`primary ${styles.addGrantButton}`} type="button" aria-label="Adicionar obra: Engenharia" data-tooltip="Adicionar obra" disabled={expandedGrants.length + 2 > 400 || works.length === 0} onClick={() => setRows((current) => [...current, { key: Math.max(-1, ...current.map((row) => row.key)) + 1, perfil: profile, obra_id: "", modulo: "" }])}>+</button>}
+            {profile !== "ENGENHARIA" && <button className={`primary ${styles.addGrantButton}`} type="button" aria-label={`Adicionar obra: ${profileLabels[profile]}`} data-tooltip="Adicionar obra" disabled={expandedGrants.length + 1 > 400 || works.length === 0} onClick={() => setRows((current) => [...current, { key: Math.max(-1, ...current.map((row) => row.key)) + 1, perfil: profile, obra_id: "", modulo: firstModule(profile) }])}>+</button>}
           </fieldset>)}
             </div>
           </div>

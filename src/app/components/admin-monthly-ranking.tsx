@@ -120,9 +120,9 @@ export function AdminMonthlyRanking({ month, onMonthChange, year, onYearChange, 
             {yearOptions.map((option) => <option key={option} value={option}>{option}</option>)}
           </select>
         </label> : <div className={styles.monthNavigation} role="group" aria-label="Navegar pelo mês do ranking">
-          <button data-tooltip="Mês anterior do ranking" type="button" className={styles.monthButton} aria-label="Mês anterior do ranking" disabled={monthReadOnly || selectedMonth === "0001-01"} onClick={() => changeMonth(-1)}><Icon name="arrow" className={styles.previous} /></button>
+          <button data-tooltip="Mês anterior" type="button" className={styles.monthButton} aria-label="Mês anterior: ranking" disabled={monthReadOnly || selectedMonth === "0001-01"} onClick={() => changeMonth(-1)}><Icon name="arrow" className={styles.previous} /></button>
           <span id={monthId} className={styles.monthLabel} aria-live="polite">{monthLabel}</span>
-          <button data-tooltip="Próximo mês do ranking" type="button" className={styles.monthButton} aria-label="Próximo mês do ranking" disabled={monthReadOnly || selectedMonth === "9999-12"} onClick={() => changeMonth(1)}><Icon name="arrow" /></button>
+          <button data-tooltip="Próximo mês" type="button" className={styles.monthButton} aria-label="Próximo mês: ranking" disabled={monthReadOnly || selectedMonth === "9999-12"} onClick={() => changeMonth(1)}><Icon name="arrow" /></button>
         </div>}
       </div>
     </div>

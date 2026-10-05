@@ -161,7 +161,7 @@ export function AdminNotifications({ items = emptyNotifications, userId, loading
         triggerRef.current?.focus();
       }
     }}>
-    <button data-tooltip={`${open ? "Fechar" : "Abrir"} notificações${unreadCount ? `, ${countLabel}` : ""}`} ref={triggerRef} type="button" className={styles.trigger}
+    <button data-tooltip={open ? "Fechar notificações" : "Abrir notificações"} ref={triggerRef} type="button" className={styles.trigger}
       aria-label={`${open ? "Fechar" : "Abrir"} notificações${unreadCount ? `, ${countLabel}` : ""}`}
       aria-expanded={open} aria-controls={panelId} onClick={() => setOpen((previous) => !previous)}>
       <Icon name="bell" />

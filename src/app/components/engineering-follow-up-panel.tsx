@@ -57,6 +57,6 @@ const EngineeringFollowUpReportCard = memo(function EngineeringFollowUpReportCar
       <span>{report.workName}</span>
       <small>Responsável: {report.auditorName}</small>
     </div>
-    <a data-tooltip={`Baixar PDF: ${report.title}, ${report.workName}, ${formatAuditDate(report.date)}`} className="secondary" href={report.pdfHref} download aria-label={`Baixar PDF: ${report.title}, ${report.workName}, ${formatAuditDate(report.date)}`}>Baixar PDF</a>
+    <a data-tooltip="Baixar PDF" className="secondary" href={report.pdfHref} download aria-label={`Baixar PDF: ${report.title}, ${report.workName}, ${formatAuditDate(report.date)}`}>Baixar PDF</a>
   </article>;
 });

@@ -101,7 +101,7 @@ function FindingsList({ items, emptyMessage, onOpenFindings }: {
           </>}>
           {() => <div className={styles.referenceDetails}>
             <ul className={styles.referenceItems}>{[...referenceItems.values()].map((item) => <li key={item.id}>
-              {onOpenFindings ? <button type="button" data-tooltip={item.source === "follow_up" ? "Abrir a seção de apontamentos de acompanhamento" : "Abrir a seção de auditorias"} onClick={() => onOpenFindings(item.source)}>{item.checklistItem ?? item.title}</button>
+              {onOpenFindings ? <button type="button" data-tooltip={item.source === "follow_up" ? "Ver apontamentos" : "Ver auditorias"} onClick={() => onOpenFindings(item.source)}>{item.checklistItem ?? item.title}</button>
                 : <strong>{item.checklistItem ?? item.title}</strong>}
             </li>)}</ul>
           </div>}
@@ -118,7 +118,7 @@ function FindingsList({ items, emptyMessage, onOpenFindings }: {
           {description.label && <strong>{description.label}</strong>}<span>{description.description}</span>
         </li>)}</ul>}
       </FindingDetails> : <div className={styles.summaryRow}>
-        {onOpenFindings ? <button type="button" className={styles.summaryItem} data-tooltip={item.source === "follow_up" ? "Abrir a seção de apontamentos de acompanhamento" : "Abrir a seção de auditorias"} onClick={() => onOpenFindings(item.source)}>{item.title}</button>
+        {onOpenFindings ? <button type="button" className={styles.summaryItem} data-tooltip={item.source === "follow_up" ? "Ver apontamentos" : "Ver auditorias"} onClick={() => onOpenFindings(item.source)}>{item.title}</button>
           : <strong className={styles.summaryItem}>{item.title}</strong>}
         <span>{item.discipline ?? "—"}</span>
         <span>{item.workCount ?? 0} {item.workCount === 1 ? "obra" : "obras"}</span>

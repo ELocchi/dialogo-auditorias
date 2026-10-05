@@ -38,7 +38,7 @@ export default async function MyAccountPage() {
             : <p className={styles.notice}>Nenhuma obra autorizada.</p>}</div>
       </details></div>}
       <div className={styles.accountActions}>
-        <Link className={styles.accountBackButton} href="/escolher-perfil" aria-label="Voltar à seleção de perfis" data-tooltip="Voltar à seleção de perfis">
+        <Link className={styles.accountBackButton} href="/escolher-perfil" aria-label="Voltar aos perfis" data-tooltip="Voltar aos perfis">
           <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 12H4m7-7-7 7 7 7" /></svg>
         </Link>
         <LogoutButton />

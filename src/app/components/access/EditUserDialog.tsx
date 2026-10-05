@@ -144,9 +144,9 @@ function EditUserForm({ account, grants, works, name, email, actorId, onClose }:
                   {works.map((work) => <option value={work.id} key={work.id}>{work.nome}</option>)}
                 </select>
               </label>
-              <button data-tooltip={`Remover obra ${index + 1} de ${profileLabels[profile]}`} type="button" className="secondary" aria-label={`Remover obra ${index + 1} de ${profileLabels[profile]}`} onClick={() => setRows((current) => current.filter((item) => item.key !== row.key))}>Remover</button>
+              <button data-tooltip="Remover obra" type="button" className="secondary" aria-label={`Remover obra ${index + 1} de ${profileLabels[profile]}`} onClick={() => setRows((current) => current.filter((item) => item.key !== row.key))}>Remover</button>
             </div>)}
-            <button type="button" className={`primary ${styles.addGrantButton}`} aria-label={`Adicionar obra para ${profileLabels[profile]}`} data-tooltip="Adicionar obra" onClick={() => addRow(profile)}>+</button>
+            <button type="button" className={`primary ${styles.addGrantButton}`} aria-label={`Adicionar obra: ${profileLabels[profile]}`} data-tooltip="Adicionar obra" onClick={() => addRow(profile)}>+</button>
           </fieldset>)}
           {account.auth_user_id === actorId && <p className={styles.editSelfNotice}>Ao alterar seu próprio perfil, a nova autorização será aplicada na próxima navegação.</p>}
         </fieldset>

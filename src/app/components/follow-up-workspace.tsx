@@ -160,7 +160,7 @@ function FollowUpWorkspaceSession({ user, visits, works, actor, agendaAvailable 
           {createReportWork ? <Link className={`primary ${styles.addReportButton}`} href={`/app/acompanhamento/relatorio/novo?obra=${createReportWork.id}`}
               aria-label="Criar relatório orientativo" data-tooltip="Criar relatório orientativo">+</Link>
             : <button type="button" className={`primary ${styles.addReportButton}`} disabled aria-label="Criar relatório orientativo"
-                data-tooltip="Nenhuma obra disponível para este perfil">+</button>}
+                data-tooltip="Sem obras disponíveis">+</button>}
         </div>
         {!createReportWork && <p className="muted">Para criar um relatório, é necessário ter uma obra disponível neste perfil.</p>}
         {visibleReports.length ? <ul className={styles.reportList}>{visibleReports.map((report) => {
@@ -196,7 +196,7 @@ function FollowUpWorkspaceSession({ user, visits, works, actor, agendaAvailable 
             }} /></div>
             <button type="button" className={`${styles.seriousToggle}${finding.serious ? ` ${styles.seriousToggleActive}` : ""}`}
               aria-label={finding.serious ? "Desmarcar item grave" : "Marcar como item grave"}
-              data-tooltip={finding.serious ? "Retirar a indicação de item grave" : "Marcar este apontamento como grave"}
+              data-tooltip={finding.serious ? "Desmarcar grave" : "Marcar como grave"}
               aria-pressed={finding.serious === true} disabled={disabled}
               onClick={() => setFinding((current) => ({ ...current, serious: !current.serious }))}>
               <svg viewBox="0 0 32 29" aria-hidden="true"><path d="M14.1 3.2a2.2 2.2 0 0 1 3.8 0l11.2 19.4a2.2 2.2 0 0 1-1.9 3.3H4.8a2.2 2.2 0 0 1-1.9-3.3L14.1 3.2Z" /><text x="16" y="21.2">!</text></svg>

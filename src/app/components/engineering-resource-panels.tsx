@@ -103,7 +103,7 @@ export function PublishedAuditFindingsList({ auditFindings, works, module, conte
             <div><span>Critério</span><p>{finding.verificationCriterion || "Não informado"}</p></div>
             <div><span>Status</span><strong className={finding.serious ? styles.statusNonconforming : styles.status}>{finding.serious ? "Item grave" : finding.status || "Com apontamento"}</strong></div>
             <div className={styles.findingPhotos}><span>Foto</span>{finding.evidencePhotos?.length ? <div>{finding.evidencePhotos.map((photo, photoIndex) => photo.url
-              ? <a href={photo.url} target="_blank" rel="noopener noreferrer" key={`${photo.name}:${photoIndex}`} data-tooltip="Abrir foto em nova guia"><EvidenceThumbnail thumbnailSrc={photo.thumbnailUrl} originalSrc={photo.url} alt={`Evidência do item ${finding.item}`} width={160} height={100} /><small>{photo.name}</small></a>
+              ? <a href={photo.url} target="_blank" rel="noopener noreferrer" key={`${photo.name}:${photoIndex}`} data-tooltip="Foto em nova guia"><EvidenceThumbnail thumbnailSrc={photo.thumbnailUrl} originalSrc={photo.url} alt={`Evidência do item ${finding.item}`} width={160} height={100} /><small>{photo.name}</small></a>
               : <small key={`${photo.name}:${photoIndex}`}>{photo.name}</small>)}</div>
               : <p>Nenhuma foto anexada.</p>}</div>
           </div>}
@@ -153,7 +153,7 @@ export function EngineeringResourcePanels({ actor, works, module, catalogs, audi
               <i className={`${styles.chevron}${expanded ? ` ${styles.chevronExpanded}` : ""}`} aria-hidden="true" />
             </button>
             {expanded && <div className={styles.otherFindingDetails} id={detailsId}>
-              <a data-tooltip={`Abrir foto em nova guia: ${finding.description}`} className={styles.otherFindingPhoto} href={photoUrl} target="_blank" rel="noopener noreferrer" aria-label={`Abrir foto em nova guia: ${finding.description}`}>
+              <a data-tooltip="Foto em nova guia" className={styles.otherFindingPhoto} href={photoUrl} target="_blank" rel="noopener noreferrer" aria-label={`Abrir foto em nova guia: ${finding.description}`}>
                 <EvidenceThumbnail thumbnailSrc={followUpPhotoThumbnailUrl(photoUrl, actor)} originalSrc={photoUrl} alt={`Foto de ${finding.description}`} width={110} height={82} />
               </a>
               <div className={styles.otherFindingText}>

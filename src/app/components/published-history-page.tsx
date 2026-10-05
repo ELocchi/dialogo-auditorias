@@ -15,9 +15,9 @@ const monthLabelFormatter = new Intl.DateTimeFormat("pt-BR", { month: "long", ye
 function MonthNavigation({ month, onMonthChange, label }: { month: string; onMonthChange: (value: string) => void; label: string }) {
   const monthLabel = monthLabelFormatter.format(new Date(`${month}-01T12:00:00Z`));
   return <div className={calendarStyles.monthNavigation} role="group" aria-label={label}>
-    <button data-tooltip={`Mês anterior: ${label}`} type="button" className={calendarStyles.monthButton} aria-label={`Mês anterior: ${label}`} disabled={month === "0001-01"} onClick={() => onMonthChange(shiftCalendarMonth(month, -1))}><Icon name="arrow" className={calendarStyles.previous} /></button>
+    <button data-tooltip="Mês anterior" type="button" className={calendarStyles.monthButton} aria-label={`Mês anterior: ${label}`} disabled={month === "0001-01"} onClick={() => onMonthChange(shiftCalendarMonth(month, -1))}><Icon name="arrow" className={calendarStyles.previous} /></button>
     <span className={calendarStyles.monthLabel} aria-live="polite">{monthLabel}</span>
-    <button data-tooltip={`Próximo mês: ${label}`} type="button" className={calendarStyles.monthButton} aria-label={`Próximo mês: ${label}`} disabled={month === "9999-12"} onClick={() => onMonthChange(shiftCalendarMonth(month, 1))}><Icon name="arrow" /></button>
+    <button data-tooltip="Próximo mês" type="button" className={calendarStyles.monthButton} aria-label={`Próximo mês: ${label}`} disabled={month === "9999-12"} onClick={() => onMonthChange(shiftCalendarMonth(month, 1))}><Icon name="arrow" /></button>
   </div>;
 }
 

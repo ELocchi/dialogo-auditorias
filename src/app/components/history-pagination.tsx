@@ -26,8 +26,8 @@ export function HistoryPagination({ page, pageCount, total, first, last, onPageC
   return <nav className={styles.pagination} aria-label={label}>
     <p aria-live="polite">{first}–{last} de {total} auditorias<span>Página {page} de {pageCount}</span></p>
     <div>
-      <button data-tooltip={`Página anterior: ${label}`} type="button" className="secondary" aria-label={`Página anterior: ${label}`} disabled={page === 1} onClick={() => onPageChange(page - 1)}>Anterior</button>
-      <button data-tooltip={`Próxima página: ${label}`} type="button" className="secondary" aria-label={`Próxima página: ${label}`} disabled={page === pageCount} onClick={() => onPageChange(page + 1)}>Próxima</button>
+      <button data-tooltip="Página anterior" type="button" className="secondary" aria-label={`Página anterior: ${label}`} disabled={page === 1} onClick={() => onPageChange(page - 1)}>Anterior</button>
+      <button data-tooltip="Próxima página" type="button" className="secondary" aria-label={`Próxima página: ${label}`} disabled={page === pageCount} onClick={() => onPageChange(page + 1)}>Próxima</button>
     </div>
   </nav>;
 }

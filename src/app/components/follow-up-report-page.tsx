@@ -189,11 +189,11 @@ function FollowUpReportSession({ visit, actor, agendaAvailable, backHref, backLa
                 <span>Orientação para correção: {finding.correction}</span></span></label>
             {initialPhotos.some((photo) => photo.findingId === finding.id) && <div className={styles.photos}>
               {initialPhotos.filter((photo) => photo.findingId === finding.id).map((photo) =>
-                <a data-tooltip={`Abrir foto em nova guia: ${finding.description}`} key={photo.fileName} href={`/app/acompanhamento/fotos/${visit.id}/${photo.fileName}`} target="_blank" rel="noreferrer" aria-label={`Abrir foto em nova guia: ${finding.description}`}>
+                <a data-tooltip="Foto em nova guia" key={photo.fileName} href={`/app/acompanhamento/fotos/${visit.id}/${photo.fileName}`} target="_blank" rel="noreferrer" aria-label={`Abrir foto em nova guia: ${finding.description}`}>
                   <EvidenceThumbnail thumbnailSrc={followUpPhotoThumbnailUrl(`/app/acompanhamento/fotos/${visit.id}/${photo.fileName}`, actor)} originalSrc={`/app/acompanhamento/fotos/${visit.id}/${photo.fileName}`} alt={`Foto de ${finding.description}`} width={110} height={82} /></a>)}</div>}
             {initialWorkFindings.some((item) => item.id === finding.id) && <div className={styles.photos}>
               {initialWorkFindings.filter((item) => item.id === finding.id).map((item) =>
-                <a data-tooltip={`Abrir foto em nova guia: ${finding.description}`} key={item.id} href={`/app/acompanhamento/obras/${item.workId}/fotos/${item.photoFileName}`} target="_blank" rel="noreferrer" aria-label={`Abrir foto em nova guia: ${finding.description}`}>
+                <a data-tooltip="Foto em nova guia" key={item.id} href={`/app/acompanhamento/obras/${item.workId}/fotos/${item.photoFileName}`} target="_blank" rel="noreferrer" aria-label={`Abrir foto em nova guia: ${finding.description}`}>
                   <EvidenceThumbnail thumbnailSrc={followUpPhotoThumbnailUrl(`/app/acompanhamento/obras/${item.workId}/fotos/${item.photoFileName}`, actor)} originalSrc={`/app/acompanhamento/obras/${item.workId}/fotos/${item.photoFileName}`} alt={`Foto de ${finding.description}`} width={110} height={82} /></a>)}</div>}
           </li>)}</ul></> : <p className="muted">Nenhum apontamento registrado para esta visita.</p>}
       </section>

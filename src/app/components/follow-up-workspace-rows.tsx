@@ -25,8 +25,8 @@ export function FollowUpPhotoPicker({ onSelect, disabled, previewUrl }: { onSele
       <button type="button" className="secondary" disabled={disabled} onClick={() => galleryInput.current?.click()}>Escolher foto</button>
       <button type="button" className="secondary" disabled={disabled} onClick={() => cameraInput.current?.click()}>Tirar foto</button>
     </div>}
-    <input ref={galleryInput} type="file" accept="image/jpeg,image/png" disabled={disabled} onChange={select} aria-label="Escolher foto do dispositivo" tabIndex={-1} style={{ display: "none" }} />
-    <input ref={cameraInput} type="file" accept="image/jpeg,image/png" capture="environment" disabled={disabled} onChange={select} aria-label="Tirar foto com a câmera" tabIndex={-1} style={{ display: "none" }} />
+    <input ref={galleryInput} type="file" accept="image/jpeg,image/png" disabled={disabled} onChange={select} aria-label="Escolher foto" tabIndex={-1} style={{ display: "none" }} />
+    <input ref={cameraInput} type="file" accept="image/jpeg,image/png" capture="environment" disabled={disabled} onChange={select} aria-label="Tirar foto" tabIndex={-1} style={{ display: "none" }} />
     {previewUrl && <Image className={styles.photoPreview} src={previewUrl} alt="Foto selecionada para o apontamento" width={640} height={480} unoptimized />}
   </div>;
 }
@@ -36,9 +36,9 @@ export const FollowUpWorkFindingRow = memo(function FollowUpWorkFindingRow({ ite
 }) {
   const original = `/app/acompanhamento/obras/${item.workId}/fotos/${item.photoFileName}`;
   return <li>
-    <div className={styles.findingMedia}><a data-tooltip={`Abrir foto em nova guia: ${item.description}`} href={original} target="_blank" rel="noreferrer" aria-label={`Abrir foto em nova guia: ${item.description}`}><EvidenceThumbnail thumbnailSrc={followUpPhotoThumbnailUrl(original, actor)} originalSrc={original} alt={`Foto de ${item.description}`} width={90} height={90} /></a></div>
+    <div className={styles.findingMedia}><a data-tooltip="Foto em nova guia" href={original} target="_blank" rel="noreferrer" aria-label={`Abrir foto em nova guia: ${item.description}`}><EvidenceThumbnail thumbnailSrc={followUpPhotoThumbnailUrl(original, actor)} originalSrc={original} alt={`Foto de ${item.description}`} width={90} height={90} /></a></div>
     <div className={styles.findingDetails}><strong>{item.description}{item.serious && <em className={styles.seriousBadge}>Item grave</em>}</strong><span>{workName}{item.location ? ` · ${item.location}` : ""}</span><p>Orientação: {item.correction}</p></div>
-    <button type="button" className={`secondary ${styles.findingComplete}`} disabled={disabled} aria-label={`Marcar como concluído: ${item.description}`} data-tooltip="Concluir o apontamento e retirá-lo da lista de pendências" onClick={() => onComplete(item.id)}>Marcar como concluído</button>
+    <button type="button" className={`secondary ${styles.findingComplete}`} disabled={disabled} aria-label={`Concluir apontamento: ${item.description}`} data-tooltip="Concluir apontamento" onClick={() => onComplete(item.id)}>Concluir apontamento</button>
   </li>;
 });
 
@@ -52,11 +52,11 @@ export const FollowUpSavedFindingRow = memo(function FollowUpSavedFindingRow({ i
   return <li ref={ref}>
     <div className={styles.findingMedia}>{status === "ready" ? itemPhotos.length ? itemPhotos.map((photo) => {
       const original = `/app/acompanhamento/fotos/${item.visitId}/${photo.fileName}`;
-      return <a data-tooltip={`Abrir foto em nova guia: ${item.description}`} key={photo.fileName} href={original} target="_blank" rel="noreferrer" aria-label={`Abrir foto em nova guia: ${item.description}`}><EvidenceThumbnail thumbnailSrc={followUpPhotoThumbnailUrl(original, actor)} originalSrc={original} alt={`Foto de ${item.description}`} width={90} height={90} /></a>;
+      return <a data-tooltip="Foto em nova guia" key={photo.fileName} href={original} target="_blank" rel="noreferrer" aria-label={`Abrir foto em nova guia: ${item.description}`}><EvidenceThumbnail thumbnailSrc={followUpPhotoThumbnailUrl(original, actor)} originalSrc={original} alt={`Foto de ${item.description}`} width={90} height={90} /></a>;
     }) : <span>Sem foto</span> : status === "error" ? <span role="status">{message ?? "Não foi possível consultar a foto."}<button type="button" className="secondary" onClick={retry}>Recarregar foto</button></span> : <span role="status">Carregando foto…</span>}</div>
     <div className={styles.findingDetails}><strong>{item.description}{item.serious && <em className={styles.seriousBadge}>Item grave</em>}</strong><span>{item.workName} · {formatAuditDate(item.date)}{item.location ? ` · ${item.location}` : ""}</span><p>Orientação: {item.correction}</p>
       {status === "ready" && item.source === "saved" && itemPhotos.length < maxPhotosPerFinding && <div className={styles.addPhotoField}><strong>Adicionar foto</strong><FollowUpPhotoPicker disabled={disabled} onSelect={(file) => onUpload(file, item.visitId, item.id)} /></div>}
     </div>
-    <button type="button" className={`secondary ${styles.findingComplete}`} disabled={disabled} aria-label={`Marcar como concluído: ${item.description}`} data-tooltip="Concluir o apontamento e retirá-lo da lista de pendências" onClick={() => onComplete(item.visitId, item.id)}>Marcar como concluído</button>
+    <button type="button" className={`secondary ${styles.findingComplete}`} disabled={disabled} aria-label={`Concluir apontamento: ${item.description}`} data-tooltip="Concluir apontamento" onClick={() => onComplete(item.visitId, item.id)}>Concluir apontamento</button>
   </li>;
 });
