@@ -1,5 +1,7 @@
 "use client";
 
+import { BackLink } from "@/app/components/back-control";
+
 import Link from "next/link";
 import { startTransition, useActionState, type FormEvent } from "react";
 import { createWorkAction } from "@/app/administracao/usuarios/actions";
@@ -63,6 +65,6 @@ export function WorkForm({ activeProfiles }: { activeProfiles: ActiveTeamProfile
       <div className={styles.field}><label htmlFor="new-work-observacoes">Informações adicionais da obra</label><textarea id="new-work-observacoes" name="observacoes" rows={5} maxLength={workFieldLimits.observacoes} aria-invalid={Boolean(error("observacoes"))} aria-describedby={error("observacoes") ? "new-work-error-observacoes" : undefined} />{error("observacoes") && <p id="new-work-error-observacoes" className={styles.fieldError}>{error("observacoes")}</p>}</div>
     </fieldset>
     {state.message && <div className={state.status === "error" ? styles.error : styles.success} role={state.status === "error" ? "alert" : "status"} aria-live="polite"><p>{state.message}</p>{state.workId && <p><Link href={`/administracao/obras/${state.workId}`}>Abrir cadastro da obra</Link></p>}</div>}
-    <div className={styles.formActions}><button className="primary" type="submit" disabled={pending}>{pending ? "Cadastrando…" : "Cadastrar obra"}</button><Link href="/app?secao=obras" className="secondary">Cancelar e voltar às obras</Link></div>
+    <div className={styles.formActions}><button className="primary" type="submit" disabled={pending}>{pending ? "Cadastrando…" : "Cadastrar obra"}</button><BackLink href="/app?secao=obras" label="Voltar às obras" tooltip="Cancelar e voltar" /></div>
   </form>;
 }

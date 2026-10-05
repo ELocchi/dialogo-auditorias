@@ -131,6 +131,7 @@ function FollowUpWorkspaceSession({ user, visits, works, actor, agendaAvailable 
         const saved = result.draft;
         update((current) => ({ ...current, ...(saved ? { drafts: [...current.drafts.filter((entry) => entry.visitId !== saved.visitId), saved] } : {}), completed: [...current.completed, `${visitId}:${findingId}`] }));
         setMessage(result.message);
+        requestAnimationFrame(() => document.getElementById("follow-up-findings-heading")?.focus());
       } else setError(result.message);
     } catch { if (mounted.current) setError("Não foi possível concluir a pendência. Tente novamente."); }
     finally { finishMutation(); }
@@ -143,6 +144,7 @@ function FollowUpWorkspaceSession({ user, visits, works, actor, agendaAvailable 
       if (completed) {
         update((current) => ({ ...current, workFindings: current.workFindings.filter((item) => item.id !== id) }));
         setMessage("Pendência concluída e removida da lista ativa.");
+        requestAnimationFrame(() => document.getElementById("follow-up-findings-heading")?.focus());
       } else setError("Não foi possível concluir a pendência. Atualize a página e tente novamente.");
     } catch { if (mounted.current) setError("Não foi possível concluir a pendência. Tente novamente."); }
     finally { finishMutation(); }
@@ -151,15 +153,16 @@ function FollowUpWorkspaceSession({ user, visits, works, actor, agendaAvailable 
   return <>
     <div className="page-intro"><h2>Acompanhamento</h2></div>
     {!agendaAvailable && <p className={styles.availability} role="status">A agenda está indisponível no momento. Atualize a página para consultar as visitas.</p>}
-    {readError && <p className={styles.availability} role="alert">Não foi possível consultar os relatórios e apontamentos. <button type="button" className="secondary" onClick={retry}>Tentar novamente</button></p>}
+    {readError && <p className={styles.availability} role="alert">Não foi possível consultar os relatórios e apontamentos. <button type="button" className="secondary" onClick={retry}>Recarregar relatórios e apontamentos</button></p>}
     <div className={styles.layout}>
       <section className={`panel ${styles.listPanel}`} aria-label="Relatórios orientativos">
         <div className={`panel-heading ${styles.reportHeader}`}><h3>Relatórios orientativos</h3>
           {createReportWork ? <Link className={`primary ${styles.addReportButton}`} href={`/app/acompanhamento/relatorio/novo?obra=${createReportWork.id}`}
-              aria-label="Criar novo relatório" title="Criar novo relatório">+</Link>
-            : <button type="button" className={`primary ${styles.addReportButton}`} disabled aria-label="Criar novo relatório"
-                title="Nenhuma obra disponível para este perfil">+</button>}
+              aria-label="Criar relatório orientativo" data-tooltip="Criar relatório orientativo">+</Link>
+            : <button type="button" className={`primary ${styles.addReportButton}`} disabled aria-label="Criar relatório orientativo"
+                data-tooltip="Sem obras disponíveis">+</button>}
         </div>
+        {!createReportWork && <p className="muted">Para criar um relatório, é necessário ter uma obra disponível neste perfil.</p>}
         {visibleReports.length ? <ul className={styles.reportList}>{visibleReports.map((report) => {
           const savedAt = new Date(report.displayDate);
           const day = savedAt.toLocaleDateString("pt-BR", { day: "2-digit", timeZone: "America/Sao_Paulo" });
@@ -169,7 +172,7 @@ function FollowUpWorkspaceSession({ user, visits, works, actor, agendaAvailable 
             <span className={styles.reportDate}><strong>{day}</strong><small>{month} {year}</small></span>
             <span className={styles.reportInfo}><strong>{report.title}</strong><small>{report.workName}</small></span>
             <a className={styles.reportDownload} href={report.pdfHref} download
-              aria-label={`Baixar PDF: ${report.title}`} title="Baixar PDF">
+              aria-label={`Baixar PDF: ${report.title}`} data-tooltip="Baixar PDF">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" /></svg>
             </a>
           </li>;
@@ -177,11 +180,11 @@ function FollowUpWorkspaceSession({ user, visits, works, actor, agendaAvailable 
         {standalone.loading && <p className="muted" role="status">Carregando relatórios…</p>}
       </section>
       <section className={`panel ${styles.findingsPanel}`} aria-label="Apontamentos de acompanhamento">
-        <div className={`panel-heading ${styles.findingHeader}`}><h3>Apontamentos</h3>
+        <div className={`panel-heading ${styles.findingHeader}`}><h3 id="follow-up-findings-heading" tabIndex={-1}>Apontamentos</h3>
           <select className="filter-select" aria-label="Filtrar apontamentos por obra" value={filterWorkId} onChange={(event) => setFilterWorkId(event.target.value)}>
             <option value="">Todas as obras</option>{works.map((work) => <option key={work.id} value={work.id}>{work.name}</option>)}
           </select>
-          <button type="button" className={`primary ${styles.addFindingButton}`} aria-label="Adicionar apontamento" title="Adicionar apontamento" disabled={disabled || works.length === 0} onClick={beginFinding}>+</button>
+          <button type="button" className={`primary ${styles.addFindingButton}`} aria-label="Adicionar apontamento" data-tooltip="Adicionar apontamento" disabled={disabled || works.length === 0} onClick={beginFinding}>+</button>
         </div>
         {adding && <form className={styles.addFindingForm} onSubmit={(event) => { void submitFinding(event); }}>
           <div className={styles.findingTopRow}>
@@ -193,7 +196,7 @@ function FollowUpWorkspaceSession({ user, visits, works, actor, agendaAvailable 
             }} /></div>
             <button type="button" className={`${styles.seriousToggle}${finding.serious ? ` ${styles.seriousToggleActive}` : ""}`}
               aria-label={finding.serious ? "Desmarcar item grave" : "Marcar como item grave"}
-              title={finding.serious ? "Item marcado como grave" : "Marcar como item grave"}
+              data-tooltip={finding.serious ? "Desmarcar grave" : "Marcar como grave"}
               aria-pressed={finding.serious === true} disabled={disabled}
               onClick={() => setFinding((current) => ({ ...current, serious: !current.serious }))}>
               <svg viewBox="0 0 32 29" aria-hidden="true"><path d="M14.1 3.2a2.2 2.2 0 0 1 3.8 0l11.2 19.4a2.2 2.2 0 0 1-1.9 3.3H4.8a2.2 2.2 0 0 1-1.9-3.3L14.1 3.2Z" /><text x="16" y="21.2">!</text></svg>

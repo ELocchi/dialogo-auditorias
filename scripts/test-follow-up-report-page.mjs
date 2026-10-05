@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { registerHooks } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import ts from "typescript";
 
@@ -38,7 +38,10 @@ registerHooks({
   resolve(specifier, context, nextResolve) {
     if (stubs[specifier]) return { url: `data:text/javascript,${encodeURIComponent(stubs[specifier])}`, shortCircuit: true };
     if (specifier.endsWith(".css")) return { url: "data:text/javascript,export default {}", shortCircuit: true };
-    if (specifier.startsWith("@/")) return nextResolve(pathToFileURL(path.join(root, "src", `${specifier.slice(2)}.ts`)).href, context);
+    if (specifier.startsWith("@/")) {
+      const base = path.join(root, "src", specifier.slice(2));
+      return nextResolve(pathToFileURL(existsSync(`${base}.tsx`) ? `${base}.tsx` : `${base}.ts`).href, context);
+    }
     return nextResolve(specifier, context);
   },
   load(url, context, nextLoad) {
@@ -60,7 +63,7 @@ const editor = (tree) => elements(tree).find((element) => element.type?.name ===
 test("report index reads one visit and never lists Storage or sends report bodies to the editor", async () => {
   reset(); const tree = await page(); assert.deepEqual(state.reads, [{ kind: "visit", visitId }]); assert.deepEqual(state.lists, []); assert.equal(editor(tree), undefined);
   const download = elements(tree).find((element) => element.props?.href === `/app/acompanhamento/relatorio/${visitId}/pdf?relatorio=${reportId}`);
-  assert.ok(download); assert.equal(download.props.download, true); assert.equal(download.props.title, "Baixar PDF");
+  assert.ok(download); assert.equal(download.props.download, true); assert.equal(download.props["data-tooltip"], "Baixar PDF");
   assert.ok(!elements(tree).some((element) => element.props?.href === `/app/acompanhamento/relatorio/${visitId}?relatorio=${reportId}`));
   assert.ok(elements(tree).some((element) => element.props?.href === `/app/acompanhamento/relatorio/${visitId}?novo=1`));
 });

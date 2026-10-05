@@ -3,10 +3,6 @@
 .headingText { flex: 1; min-width: 0; }
 .headingText h2 { margin: 0; color: var(--navy); font-size: 25px; letter-spacing: -.3px; }
 .headingText p { margin: 7px 0 0; color: var(--muted); font-size: 13px; }
-.backButton { display: flex; width: 50px; height: 50px; flex: 0 0 50px; align-items: center; justify-content: center; padding: 0; border: 0; background: transparent; color: var(--red); text-decoration: none; }
-.backButton:hover { color: #a92b32; }
-.backButton:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; border-radius: 7px; }
-.backButton svg { display: block; width: 26px; height: 26px; flex: 0 0 26px; }
 .reportIndex { width: 100%; max-width: 1000px; margin: 0 auto; }
 .pageHeading > a { text-decoration: none; }
 .addReportButton { display: grid; width: 44px; min-width: 44px; height: 44px; min-height: 44px; place-items: center; padding: 0; font-size: 24px; line-height: 1; }
@@ -22,8 +18,8 @@
 .downloadButton { display: grid; width: 40px; min-width: 40px; height: 40px; min-height: 40px; place-items: center; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--navy); }
 .downloadButton:hover { border-color: var(--navy); background: #e8eef7; }
 .downloadButton svg { width: 20px; height: 20px; }
-.dialogBackdrop { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 20px; background: #13284499; }
-.nameDialog { width: min(100%, 460px); padding: 24px; border: 1px solid var(--line); border-radius: 12px; background: white; box-shadow: 0 18px 52px #0c20384d; }
+.nameDialog::backdrop { background: #13284499; }
+.nameDialog { width: min(calc(100vw - 32px), 460px); max-height: 88dvh; overflow: auto; padding: 24px; border: 1px solid var(--line); border-radius: 12px; background: white; box-shadow: 0 18px 52px #0c20384d; }
 .nameDialog h3 { margin: 0 0 8px; color: var(--navy); font-size: 20px; }
 .nameDialog > p { margin: 0 0 20px; color: var(--muted); font-size: 13px; }
 .nameDialog form { display: grid; gap: 18px; }
@@ -63,4 +59,4 @@
 @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
 @media (max-width: 580px) { .closedPanel { padding: 12px; } .closedActions, .closedActions a { width: 100%; } }
 @media (max-width: 580px) { .reportList li { align-items: center; } }
-@media (max-width: 580px) { .pageHeading { gap: 12px; } .headingText h2 { font-size: 22px; } .backButton { width: 44px; height: 44px; flex-basis: 44px; } .backButton svg { width: 23px; height: 23px; flex-basis: 23px; } }
+@media (max-width: 580px) { .pageHeading { gap: 12px; } .headingText h2 { font-size: 22px; } }

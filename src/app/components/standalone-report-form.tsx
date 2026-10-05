@@ -85,7 +85,7 @@ export function StandaloneReportForm({ works, actor, today, initialWorkId }: {
           : !loaded ? <p className="muted" role="status">Carregando apontamentos…</p>
           : !findingState.available ? <div className={styles.notice} role="alert">
             <p>Não foi possível consultar os apontamentos. Você pode salvar o relatório sem incluí-los.</p>
-            <button className="secondary" type="button" disabled={pending} onClick={() => setAttempt(n => n + 1)}>Tentar novamente</button>
+            <button className="secondary" type="button" disabled={pending} onClick={() => setAttempt(n => n + 1)}>Recarregar apontamentos</button>
           </div> : !findings.length ? <p className="muted">Nenhum apontamento pendente nesta obra.</p> :
           <ul className={styles.findings}>{findings.map(finding => <li key={finding.id}>
             <label className={styles.findingChoice}>

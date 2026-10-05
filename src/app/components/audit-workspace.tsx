@@ -1,8 +1,10 @@
 "use client";
 
+import { BackButton, BackHeading } from "@/app/components/back-control";
+
+import { AuditPhotoThumbnail } from "./audit-photo-thumbnail";
 import { SafetyClosureDialog } from "./safety-closure-dialog";
 import { safetyScore, toggleGroupNA, type SafetyClosure } from "@/domain/safety-audit";
-import Image from "next/image";
 import { generatePdf } from "@/lib/pdf/client";
 import { awardedItemScore, scoreLabel, getGroupHeading, getSubgroupHeading, displayAuditDate } from "@/lib/pdf/audit-format";
 import type { AuditPdfInput, PdfPhotoSource } from "@/lib/pdf/types";
@@ -163,7 +165,7 @@ export function Catalog({ model, setModel, query, setQuery, criteria, showItemLi
         const name = security ? "Segurança do Trabalho" : item;
         const editable = !!reference && !!catalogs && !!actorId && !!onCatalogsSaved;
         const downloadHref = reference ? `/api/reference-documents/${reference.id}?download=pdf` : "";
-        return <div key={item} className={`model-card ${previewStyles.card}${editable ? ` editable ${previewStyles.editable}` : ""}${reference && model === item ? ` ${previewStyles.selected}` : ""}`}><button
+        return <div key={item} className={`model-card ${previewStyles.card}${editable ? ` editable ${previewStyles.editable}` : ""}${reference && model === item ? ` ${previewStyles.selected}` : ""}`}><button data-tooltip={reference ? "Selecionar roteiro" : undefined}
           type="button"
           className={`${model === item ? "model-tab active" : "model-tab"} ${previewStyles.modelButton}`}
           aria-pressed={model === item}
@@ -171,9 +173,9 @@ export function Catalog({ model, setModel, query, setQuery, criteria, showItemLi
           onClick={() => { setModel(item); setEditingId(null); }}
         >
           <span>{name}</span>
-        </button>{reference && model === item && !editingId && <a className={previewStyles.button} href={downloadHref} download aria-label={`Baixar PDF: ${name}`} title="Baixar PDF">
+        </button>{reference && model === item && !editingId && <a className={previewStyles.button} href={downloadHref} download aria-label={`Baixar PDF: ${name}`} data-tooltip="Baixar PDF">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" /></svg>
-        </a>}{editable && <button type="button" className="model-edit" disabled={editingId !== null} aria-label={`Editar roteiro: ${name}`} title="Editar itens ou enviar nova revisão" aria-controls="catalog-editor" onClick={(event) => { editorTrigger.current = event.currentTarget; setModel(item); setEditingId(reference.id); }}>
+        </a>}{editable && <button type="button" className="model-edit" disabled={editingId !== null} aria-label={`Editar roteiro: ${name}`} data-tooltip="Editar roteiro" aria-controls="catalog-editor" onClick={(event) => { editorTrigger.current = event.currentTarget; setModel(item); setEditingId(reference.id); }}>
           <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m16 3 5 5M4 15 16 3a2 2 0 0 1 5 5L9 20l-6 1 1-6ZM4 15l5 5" /></svg>
         </button>}</div>;
       })}
@@ -304,7 +306,7 @@ export function AuditReview({ model, modelId, workName, details, criteria, draft
   }, {});
   return <section className="audit-review" aria-labelledby="audit-review-title">
     <header className="audit-review-heading">
-      <div><p className="kicker">REVISÃO DO RELATÓRIO</p><h2 id="audit-review-title">Conferir antes de publicar</h2><p>Revise os resultados preenchidos antes da publicação.</p></div>
+      <div><p className="kicker">REVISÃO DO RELATÓRIO</p><BackHeading><BackButton label="Voltar ao preenchimento" disabled={published || publishing} onClick={onBack} /><h2 id="audit-review-title">Conferir antes de publicar</h2></BackHeading><p>Revise os resultados preenchidos antes da publicação.</p></div>
       <div className="audit-review-final-score"><small>NOTA FINAL</small><span className="audit-final-score-value"><strong>{finalScore?.toFixed(2).replace(".", ",") ?? "—"}</strong>{security && Boolean(safetyClosure?.accidents.length) && <svg className="audit-accident-alert" viewBox="0 0 24 24" role="img" aria-label="Acidentes registrados nesta auditoria"><title>Acidentes registrados nesta auditoria</title><path d="M12 3 2 21h20L12 3Z" /><path d="M12 9v5" /><circle cx="12" cy="17.5" r=".8" /></svg>}</span></div>
     </header>
     {security && <section className="panel" aria-label="Composição da nota"><p>Nota bruta: <strong>{scores.raw?.toFixed(2).replace(".", ",") ?? "Sem itens aplicáveis"}</strong> · Penalidades: <strong>{scores.penalty.toFixed(2).replace(".", ",")}</strong></p><p>{safetyClosure?.hadAccidents ? `${safetyClosure.accidents.length} acidente(s) registrado(s)` : "Nenhum acidente declarado"}</p>{safetyClosure?.accidents.map((a, i) => <p key={i}>{displayAuditDate(a.date)} · {a.type === "leave" ? "Com afastamento" : "Comum"}<br />{a.event}<br />Justificativa: {a.justification}</p>)}</section>}
@@ -315,7 +317,6 @@ export function AuditReview({ model, modelId, workName, details, criteria, draft
       <div><small>AUDITOR RESPONSÁVEL</small><strong>{details.auditor}</strong></div>
     </div>
     <div className="audit-review-actions">
-      <button type="button" className="secondary" disabled={published || publishing} onClick={onBack}>Voltar ao preenchimento</button>
       <button type="button" className="primary" disabled={!pdfUrl || published || publishing} onClick={async () => { if (publishing) return; setPublishing(true); try { if (await onPublish()) setPublished(true); } finally { setPublishing(false); } }}>{published ? "Auditoria publicada" : publishing ? "Publicando…" : pdfUrl ? "Publicar auditoria" : "Gerando prévia…"}</button>
     </div>
     <div className="audit-review-groups">
@@ -338,7 +339,7 @@ export function AuditReview({ model, modelId, workName, details, criteria, draft
       </section>})}
     </div>
     {pdfError && <p className="audit-review-pdf-error" role="alert">{pdfError}</p>}
-    {pdfUrl && <section className="audit-review-pdf"><div><h3>Prévia do relatório em PDF</h3><span><a className="secondary" href={pdfUrl} target="_blank" rel="noreferrer">Abrir PDF</a><a className="primary" href={pdfUrl} download={`Relatório de Auditoria - ${workName}.pdf`}>Baixar PDF</a></span></div><iframe src={pdfUrl} title="Prévia do relatório da auditoria em PDF" /></section>}
+    {pdfUrl && <section className="audit-review-pdf"><div><h3>Prévia do relatório em PDF</h3><span><a className="secondary" href={pdfUrl} target="_blank" rel="noreferrer">Abrir PDF em nova guia</a><a className="primary" href={pdfUrl} download={`Relatório de Auditoria - ${workName}.pdf`}>Baixar PDF</a></span></div><iframe src={pdfUrl} title="Prévia do relatório da auditoria em PDF" /></section>}
   </section>;
 }
 
@@ -352,8 +353,8 @@ function verificationVisual(response: { answer?: string }): { icon: string; labe
 
 function VerificationMark({ response, missingPhoto = false }: { response: { answer?: string }; missingPhoto?: boolean }) {
   const visual = verificationVisual(response);
-  return visual ? <span className={`verification-mark ${visual.tone}${missingPhoto ? " missing-photo" : ""}`} aria-label={visual.label} title={visual.label}>{visual.icon}</span>
-    : <span className="verification-mark unanswered" aria-label="Não respondido" title="Não respondido">·</span>;
+  return visual ? <span role="img" className={`verification-mark ${visual.tone}${missingPhoto ? " missing-photo" : ""}`} aria-label={visual.label} title={visual.label}>{visual.icon}</span>
+    : <span role="img" className="verification-mark unanswered" aria-label="Não respondido" title="Não respondido">·</span>;
 }
 
 function previewAuditHistory(date: string, model: string, criteria: readonly Criterion[]): readonly PreviousAudit[] {
@@ -460,7 +461,7 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
     <section className="audit-progress" aria-label="Andamento do preenchimento">
       <div className="progress-description">
         <strong>Preenchimento da auditoria</strong>
-        <span><b>{answered}</b> de {criteria.length} itens</span>
+        <span role="status"><b>{answered}</b> de {criteria.length} itens preenchidos</span>
         <div className="progress-meter">
           <progress value={answered} max={criteria.length || 1} aria-label={`${progress.toLocaleString("pt-BR")}% dos itens preenchidos`} />
           <small className="progress-percentage">{progress.toLocaleString("pt-BR")}%</small>
@@ -468,7 +469,7 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
       </div>
       <div className="audit-score-actions">
         <div className="partial-score"><small>NOTA PARCIAL</small><strong>{partialScore === null ? "—" : partialScore.toFixed(2).replace(".", ",")}</strong></div>
-        {!readOnly && onFinish && <button type="button" className="primary" disabled={!allItemsAnswered} onClick={() => { if (security) { const missing = criteria.find(c => isRequiredPhotoMissing(c, getItemResponse(drafts, responseKey, c))); if (missing) { setClosureError(`Adicione uma foto ao item ${missing.code}.`); return; } setClosureError(""); setClosing(true); } else onFinish(); }}>Fechar auditoria</button>}
+        {!readOnly && onFinish && <button type="button" className="primary" data-tooltip={security ? "Revisar acidentes e relatório" : "Revisar relatório"} disabled={!allItemsAnswered} onClick={() => { if (security) { const missing = criteria.find(c => isRequiredPhotoMissing(c, getItemResponse(drafts, responseKey, c))); if (missing) { setClosureError(`Adicione uma foto ao item ${missing.code}.`); return; } setClosureError(""); setClosing(true); } else onFinish(); }}>Revisar auditoria</button>}
       </div>
     </section>
 
@@ -482,7 +483,7 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
           <span className="question-group-number">{getGroupHeading(criterion.group).number}</span>
           <span className="question-group-title">{getGroupHeading(criterion.group).title}</span>
           <div className="question-group-actions">
-            <button type="button" className={`serious-item-button${response.serious ? " active" : ""}`} aria-label={response.serious ? "Desmarcar item grave" : "Marcar como item grave"} title={response.serious ? "Item marcado como grave" : "Marcar como item grave"} aria-pressed={response.serious === true} disabled={readOnly} onClick={() => updateDraft({ ...response, serious: !response.serious })}>
+            <button type="button" className={`serious-item-button${response.serious ? " active" : ""}`} aria-label={`${response.serious ? "Desmarcar" : "Marcar"} como grave: ${criterion.code}`} data-tooltip={response.serious ? "Desmarcar grave" : "Marcar como grave"} aria-pressed={response.serious === true} disabled={readOnly} onClick={() => updateDraft({ ...response, serious: !response.serious })}>
               <svg viewBox="0 0 32 29" aria-hidden="true"><path d="M14.1 3.2a2.2 2.2 0 0 1 3.8 0l11.2 19.4a2.2 2.2 0 0 1-1.9 3.3H4.8a2.2 2.2 0 0 1-1.9-3.3L14.1 3.2Z" /><text x="16" y="21.2">!</text></svg>
             </button>
             {security && <div className={`question-verification ${verificationVisual(response)?.tone ?? "unanswered"}${missingRequiredPhoto ? " missing-photo" : ""}`}><small>VERIFICAÇÃO</small><VerificationMark response={response} /></div>}
@@ -501,40 +502,42 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
         <fieldset className="answer-fieldset" aria-label="Resultado da verificação" disabled={readOnly}>
           {criterion.verificationRule === "Dividido pela quantidade verificada" && !security ? <div className="quantity-checks">
             {quantityChecks.map((check, checkIndex) => <div className={`quantity-check${check.compliant === false ? " has-photo-action" : ""}${perCheckWeights ? " has-check-weight" : ""}`} key={check.id}>
-              <button type="button" className="remove-verified-item" aria-label={`Remover item verificado ${checkIndex + 1}`} onClick={() => {
+              <button data-tooltip="Remover verificação" type="button" className="remove-verified-item" aria-label={`Remover verificação ${checkIndex + 1}: ${criterion.code}`} onClick={(event) => {
+                const field = event.currentTarget.closest(".quantity-checks");
                 const checks = quantityChecks;
                 updateDraft({ ...response, checks: checks.filter((entry) => entry.id !== check.id) });
-              }}>×</button>
+                requestAnimationFrame(() => field?.querySelector<HTMLButtonElement>(".add-verified-item")?.focus());
+              }}><span aria-hidden="true">×</span><small className="mobile-action-label">Remover</small></button>
               {perCheckWeights ? <select className="check-label filter-select" required aria-label={`Serviço verificado ${checkIndex + 1}`} value={check.label} onChange={(event) => {
                 const checks = quantityChecks;
                 const service = fvsServices.find((entry) => entry.label === event.target.value);
                 updateDraft({ ...response, checks: checks.map((entry) => entry.id === check.id ? { ...entry, label: event.target.value, weight: service?.weight ?? null } : entry) });
-              }}><option value="">Selecione o serviço verificado</option>{check.label && !fvsServices.some((service) => service.label === check.label) && <option value={check.label}>{check.label}</option>}{fvsServices.map((service) => <option value={service.label} key={`${service.document}:${service.service}`}>{service.label}</option>)}</select> : <input className="check-label" aria-label={`Identificação do item verificado ${checkIndex + 1}`} value={check.label} onChange={(event) => {
+              }}><option value="">Selecione o serviço verificado</option>{check.label && !fvsServices.some((service) => service.label === check.label) && <option value={check.label}>{check.label}</option>}{fvsServices.map((service) => <option value={service.label} key={`${service.document}:${service.service}`}>{service.label}</option>)}</select> : <input className="check-label" aria-label={`Item verificado ${checkIndex + 1}`} value={check.label} onChange={(event) => {
                 const checks = quantityChecks;
                 updateDraft({ ...response, checks: checks.map((entry) => entry.id === check.id ? { ...entry, label: event.target.value } : entry) });
               }} />}
-              {perCheckWeights && <input className="check-weight" type="text" aria-label={`Peso do item verificado ${checkIndex + 1}`} placeholder="Peso" value={getDraftCheckWeight(check) ?? ""} readOnly />}
-              <button type="button" className={check.compliant === false ? "check-option noncompliant active" : "check-option noncompliant"} aria-label="Não conforme" aria-pressed={check.compliant === false} onClick={() => {
+              {perCheckWeights && <input className="check-weight" type="text" aria-label={`Peso da verificação ${checkIndex + 1}`} placeholder="Peso" value={getDraftCheckWeight(check) ?? ""} readOnly />}
+              <button data-tooltip="Não conforme" type="button" className={check.compliant === false ? "check-option noncompliant active" : "check-option noncompliant"} aria-label={`Não conforme: ${criterion.code}, verificação ${checkIndex + 1}`} aria-pressed={check.compliant === false} onClick={() => {
                 const checks = quantityChecks;
                 updateDraft({ ...response, checks: checks.map((entry) => entry.id === check.id ? { ...entry, compliant: false } : entry) });
-              }}>×</button>
-              <button type="button" className={check.compliant === true ? "check-option compliant active" : "check-option compliant"} aria-label="Conforme" aria-pressed={check.compliant === true} onClick={() => {
+              }}><span aria-hidden="true">×</span></button>
+              <button data-tooltip="Conforme" type="button" className={check.compliant === true ? "check-option compliant active" : "check-option compliant"} aria-label={`Conforme: ${criterion.code}, verificação ${checkIndex + 1}`} aria-pressed={check.compliant === true} onClick={() => {
                 const checks = quantityChecks;
                 updateDraft({ ...response, checks: checks.map((entry) => entry.id === check.id ? { ...entry, compliant: true } : entry) });
-              }}>✓</button>
-              <span className="inline-photo-cell">{!photoStore.get(check.photos?.at(-1) ?? "") && <button type="button" className="inline-photo" aria-label={`Adicionar foto ao item verificado ${checkIndex + 1}`} title="Adicionar foto" onClick={() => { setPhotoTarget(check.id); photoInput.current?.click(); }}>+</button>}<AuditPhotoThumbnail file={photoStore.get(check.photos?.at(-1) ?? "")} onAdd={() => { setPhotoTarget(check.id); photoInput.current?.click(); }} onDelete={() => {
+              }}><span aria-hidden="true">✓</span></button>
+              <span className="inline-photo-cell">{!photoStore.get(check.photos?.at(-1) ?? "") && <button type="button" className="inline-photo" aria-label={`Adicionar foto: ${criterion.code}, verificação ${checkIndex + 1}`} data-tooltip="Adicionar foto" onClick={() => { setPhotoTarget(check.id); photoInput.current?.click(); }}><span aria-hidden="true">+</span><small className="mobile-action-label">Foto</small></button>}<AuditPhotoThumbnail label={`item ${criterion.code}, verificação ${checkIndex + 1}`} file={photoStore.get(check.photos?.at(-1) ?? "")} onAdd={() => { setPhotoTarget(check.id); photoInput.current?.click(); }} onDelete={() => {
                 updateDraft({ ...response, checks: quantityChecks.map((entry) => entry.id === check.id ? { ...entry, photos: (entry.photos ?? []).slice(0, -1) } : entry) });
               }} /></span>
-              <input className="check-note" aria-label={`Observação do item verificado ${checkIndex + 1}`} placeholder="Observações" value={check.note ?? ""} onChange={(event) => {
+              <input className="check-note" aria-label={`Observação da verificação ${checkIndex + 1}`} placeholder="Observações" value={check.note ?? ""} onChange={(event) => {
                 const checks = quantityChecks;
                 updateDraft({ ...response, checks: checks.map((entry) => entry.id === check.id ? { ...entry, note: event.target.value } : entry) });
               }} />
             </div>)}
-            <button type="button" className="add-verified-item" aria-label="Adicionar item verificado" title="Adicionar item verificado" onClick={() => {
+            <button type="button" className="add-verified-item" aria-label={`Adicionar verificação: ${criterion.code}`} data-tooltip="Adicionar verificação" onClick={() => {
               const checks = quantityChecks;
               const number = checks.length + 1;
               updateDraft({ ...response, checks: [...checks, { id: `${criterion.id}-${number}`, label: perCheckWeights ? "" : `Item verificado ${number}`, compliant: null, ...(perCheckWeights ? { weight: null } : {}) }] });
-            }}>+</button>
+            }}><span aria-hidden="true">+</span><small className="mobile-action-label">Adicionar verificação</small></button>
           </div> : <div className={`answer-options${security ? " answer-options-security" : ` answer-options-quality${supportsNotApplicable ? " has-not-applicable" : ""}`}`}>
             {options.map((value) => {
               const label = value === "0" ? "Totalmente não conforme" : value === "5" ? "Parcialmente não conforme" : value === "10" ? "Conforme" : value === "N/A" ? "Não aplicável" : value;
@@ -542,9 +545,9 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
                 <span>{value === "0" || value === "Não conforme" ? "×" : value === "5" ? "!" : value === "10" || value === "Conforme" ? "✓" : "—"}</span><small>{label}</small>
               </button>;
             })}
-            <span className="inline-photo-cell qualitative-photo-list">{(response.photos ?? []).map((reference, photoIndex) => <AuditPhotoThumbnail key={`${reference}:${photoIndex}`} file={photoStore.get(reference)} onAdd={() => { setPhotoTarget("item"); photoInput.current?.click(); }} onDelete={() => {
+            <span className="inline-photo-cell qualitative-photo-list">{(response.photos ?? []).map((reference, photoIndex) => <AuditPhotoThumbnail label={`item ${criterion.code}, foto ${photoIndex + 1}`} key={`${reference}:${photoIndex}`} file={photoStore.get(reference)} onAdd={() => { setPhotoTarget("item"); photoInput.current?.click(); }} onDelete={() => {
               updateDraft({ ...response, photos: (response.photos ?? []).filter((_, index) => index !== photoIndex) });
-            }} />)}<button type="button" className="inline-photo" aria-label="Adicionar foto ao item" title="Adicionar foto" onClick={() => { setPhotoTarget("item"); photoInput.current?.click(); }}>+</button></span>
+            }} />)}<button type="button" className="inline-photo" aria-label={`Adicionar foto: ${criterion.code}`} data-tooltip="Adicionar foto" onClick={() => { setPhotoTarget("item"); photoInput.current?.click(); }}><span aria-hidden="true">+</span><small className="mobile-action-label">Foto</small></button></span>
           </div>}
         </fieldset>
 
@@ -573,34 +576,10 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
     {selectedItemOpen && criterion && <div className="item-navigation-bottom">
       <button type="button" className="secondary" disabled={activeIndex === 0 || !criterion} onClick={() => move(-1)}><span aria-hidden="true">←</span> Anterior</button>
       <span>Item <strong>{criterion ? activeIndex + 1 : 0}</strong> de {criteria.length}</span>
-      {activeIndex < criteria.length - 1 ? <button type="button" className="primary" onClick={() => move(1)}>Próximo item <span aria-hidden="true">→</span></button> : <button type="button" className="secondary" onClick={() => setSelectedItemOpen(false)}>Voltar ao resumo</button>}
+      {activeIndex < criteria.length - 1 ? <button type="button" className="primary" onClick={() => move(1)}>Próximo item <span aria-hidden="true">→</span></button> : <BackButton label="Voltar ao resumo" onClick={() => setSelectedItemOpen(false)} />}
     </div>}
     </section>
   </>;
-}
-
-function AuditPhotoThumbnail({ file, onAdd, onDelete }: { file?: File; onAdd: () => void; onDelete: () => void }) {
-  const [preview, setPreview] = useState<{ file: File; url: string } | null>(null);
-  const url = preview?.file === file ? preview?.url : undefined;
-  const [open, setOpen] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  useEffect(() => {
-    let cancelled = false;
-    const nextUrl = file ? URL.createObjectURL(file) : null;
-    queueMicrotask(() => { if (!cancelled) setPreview(file && nextUrl ? { file, url: nextUrl } : null); });
-    return () => { cancelled = true; if (nextUrl) URL.revokeObjectURL(nextUrl); };
-  }, [file]);
-  return file && url ? <span className="audit-photo-menu-wrap">
-    <button type="button" className="audit-photo-thumbnail-button" onClick={() => setOpen(true)} onContextMenu={(event) => { event.preventDefault(); setMenuOpen(true); }} aria-label="Ampliar foto adicionada" aria-haspopup="menu" aria-expanded={menuOpen}>
-      <Image className="audit-photo-thumbnail" src={url} alt="Pré-visualização da foto adicionada" width={44} height={44} unoptimized />
-    </button>
-    {menuOpen && <span className="audit-photo-context-menu" role="menu">
-      <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); setOpen(true); }}>Visualizar imagem</button>
-      <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); onAdd(); }}>Adicionar outra imagem</button>
-      <button type="button" role="menuitem" className="delete" onClick={() => { setMenuOpen(false); onDelete(); }}>Excluir imagem</button>
-    </span>}
-    {open && <div className="audit-photo-modal" role="dialog" aria-modal="true" aria-label="Visualização da foto" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}><div><button type="button" onClick={() => setOpen(false)} aria-label="Fechar visualização">×</button><Image src={url} alt="Foto adicionada ampliada" width={1400} height={1050} unoptimized /></div></div>}
-  </span> : null;
 }
 
 const ItemPickerRow = memo(function ItemPickerRow({ criterion, index, answer, answered, missingRequiredPhoto, previousAudits, active, onSelect }: {
@@ -647,10 +626,10 @@ function ItemPicker({ id, model, criteria, drafts, previousAudits, activeId, sec
         const groupEntries = Object.values(subgroups).flat();
         const groupScore = entriesScore(groupEntries);
         const groupNA = groupEntries.some(({ criterion }) => drafts[model]?.[criterion.id]?.autoGroupNA);
-        const groupNALabel = groupNA ? "Reativar grupo e restaurar respostas" : "Preencher não respondidos como Não se aplica";
+        const groupNALabel = groupNA ? "Restaurar respostas" : "Não se aplica";
         return <div className="item-picker-group" key={group}>
         <div className="item-picker-group-heading">
-        {security && onToggleGroup && <button type="button" className="group-na-button" disabled={!groupNA && !groupEntries.some(({ criterion }) => !drafts[model]?.[criterion.id]?.answer)} aria-label={`${groupNALabel}: ${group}`} title={groupNALabel} aria-pressed={groupNA} onClick={() => onToggleGroup(group)}>N/A</button>}
+        {security && onToggleGroup && <button type="button" className="group-na-button" disabled={!groupNA && !groupEntries.some(({ criterion }) => !drafts[model]?.[criterion.id]?.answer)} aria-label={`N/A — ${groupNALabel}: ${group}`} data-tooltip={groupNA ? "Restaurar respostas" : "Preencher itens sem resposta"} aria-pressed={groupNA} onClick={() => onToggleGroup(group)}>N/A</button>}
         <h4><button type="button" aria-expanded={!collapsed} onClick={() => setCollapsedGroups((current) => {
           const next = new Set(current);
           if (next.has(group)) next.delete(group); else next.add(group);

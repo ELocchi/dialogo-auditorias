@@ -31,9 +31,9 @@ export function ActiveTeamProfiles({ profiles, initialLinks = [], available = tr
       {selected.map((link) => {
         const profile = profilesById.get(link.id);
         if (!profile) return null;
-        return <article className={styles.selectedProfile} key={link.id}><span><strong>{profile.nome}</strong><small>{link.cargo || "Cargo não informado"}</small></span><button type="button" className={styles.removeProfile} disabled={!available} onClick={() => setSelected((previous) => previous.filter((value) => value.id !== link.id))}>Remover</button></article>;
+        return <article className={styles.selectedProfile} key={link.id}><span><strong>{profile.nome}</strong><small>{link.cargo || "Cargo não informado"}</small></span><button type="button" className={styles.removeProfile} disabled={!available} aria-label={`Remover da equipe: ${profile.nome}`}  data-tooltip="Remover da equipe" onClick={() => { setSelected((previous) => previous.filter((value) => value.id !== link.id)); requestAnimationFrame(() => document.getElementById("work-team-user")?.focus()); }}>Remover da equipe</button></article>;
       })}
-      {unavailableLinks.map((link) => <article className={styles.selectedProfile} key={link.id}><span><strong>Usuário fora da lista ativa</strong><small>{link.cargo || "Cargo não informado"}</small></span><button type="button" className={styles.removeProfile} disabled={!available} onClick={() => setSelected((previous) => previous.filter((value) => value.id !== link.id))}>Remover</button></article>)}
+      {unavailableLinks.map((link, index) => <article className={styles.selectedProfile} key={link.id}><span><strong>Usuário fora da lista ativa</strong><small>{link.cargo || "Cargo não informado"}</small></span><button type="button" className={styles.removeProfile} disabled={!available} aria-label={`Remover da equipe: usuário indisponível ${index + 1}`} data-tooltip="Remover da equipe" onClick={() => { setSelected((previous) => previous.filter((value) => value.id !== link.id)); requestAnimationFrame(() => document.getElementById("work-team-user")?.focus()); }}>Remover da equipe</button></article>)}
     </div>}
   </div>;
 }

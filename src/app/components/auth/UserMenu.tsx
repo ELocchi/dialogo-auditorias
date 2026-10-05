@@ -34,7 +34,7 @@ export function UserMenu({ name }: { name: string }) {
       }
     }}>
     <button ref={triggerRef} type="button" className={`summary-item ${styles.trigger}`}
-      aria-expanded={open} aria-controls={panelId} onClick={() => setOpen((previous) => !previous)}>
+      aria-label={`Menu de ${name}`} data-tooltip={open ? "Fechar menu" : "Abrir menu"} aria-expanded={open} aria-controls={panelId} onClick={() => setOpen((previous) => !previous)}>
       <span>USUÁRIO</span><strong>{name}</strong><span className={styles.chevron} aria-hidden="true" />
     </button>
     <nav id={panelId} className={styles.panel} aria-label="Opções do usuário" hidden={!open}>

@@ -35,10 +35,10 @@ export function DeferredAccessSummary({ actor }: { actor: AgendaActorContext }) 
         setState({ key, status: "loading" }); setAttempt((value) => value + 1);
       }}>Tentar novamente</button>
     </div> : current.status === "loading" ? <p className="muted" role="status">Carregando resumo de acessos...</p> : <div className={styles.stats}>
-      <Link prefetch={false} className={`${styles.stat} ${styles.statLink}`} href="/administracao/usuarios/pendentes"
-        aria-label={`${current.summary.pendingCount} aprovações pendentes. Abrir aprovações.`}><strong>{current.summary.pendingCount}</strong><span>Aprovações</span></Link>
-      <Link className={`${styles.stat} ${styles.statLink}`} href="/administracao/usuarios/historico"
-        aria-label={`${current.summary.activeCount} contas ativas. Abrir Aprovações e Histórico.`}><strong>{current.summary.activeCount}</strong><span>Contas Ativas</span></Link>
+      <Link data-tooltip="Ver aprovações" prefetch={false} className={`${styles.stat} ${styles.statLink}`} href="/administracao/usuarios/pendentes"
+        aria-label={`Aprovações: ${current.summary.pendingCount} pendentes`}><strong>{current.summary.pendingCount}</strong><span>Aprovações</span></Link>
+      <Link data-tooltip="Ver contas" className={`${styles.stat} ${styles.statLink}`} href="/administracao/usuarios/historico"
+        aria-label={`Contas ativas: ${current.summary.activeCount}`}><strong>{current.summary.activeCount}</strong><span>Contas Ativas</span></Link>
     </div>}
   </div>;
 }

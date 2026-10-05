@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import { BackLink } from "@/app/components/back-control";
 import { Suspense } from "react";
 import { requireAdministrator } from "@/lib/auth/session";
 import { AccessAdministrationHeader } from "@/app/components/access/AccessAdministrationHeader";
@@ -17,7 +17,7 @@ export default async function AccessAdministrationPage({ searchParams }: { searc
     <a className="skip-link" href="#access-content">Ir para usuários e acessos</a>
     <AccessAdministrationHeader user={{ id: user.id, email: user.email }} />
     <main id="access-content" className={styles.main} tabIndex={-1}>
-      <Link className={styles.backLink} href="/app?secao=administracao">Voltar à Administração</Link>
+      <BackLink href="/app?secao=administracao" label="Voltar à Administração" />
       <Suspense key={`${parsePage(query.pendentes)}:${parsePage(query.historico)}`} fallback={<AccessAdministrationLoading />}>
         <AccessAdministration pendingPage={parsePage(query.pendentes)} historyPage={parsePage(query.historico)} />
       </Suspense>

@@ -50,7 +50,7 @@ export default async function SelectProfilePage({ searchParams }: {
               return <form action={selectProfileAction} key={`${profile}:${engineeringScope}:${administrativeScope}`}>
                 {engineeringScope && <input type="hidden" name="atuacao_engenharia" value={engineeringScope} />}
                 {administrativeScope && <input type="hidden" name="atuacao_administrativa" value={administrativeScope} />}
-                <button className={styles.profile} name="perfil" value={profile} type="submit" aria-label={`Entrar como ${label}${isCurrent ? ", perfil atual" : ""}`}>
+                <button data-tooltip={`Entrar como ${label}${isCurrent ? ", perfil atual" : ""}`} className={styles.profile} name="perfil" value={profile} type="submit" aria-label={`Entrar como ${label}${isCurrent ? ", perfil atual" : ""}`}>
                   {isCurrent && <span className={styles.currentIndicator} aria-hidden="true" />}
                   <strong>{label}</strong>
                   <span className={styles.profileDescription}>{profile === "ADMINISTRATIVO" && administrativeScope !== "GERAL"

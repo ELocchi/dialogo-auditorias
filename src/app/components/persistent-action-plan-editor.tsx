@@ -1,4 +1,7 @@
 "use client";
+
+import { BackButton, BackHeading } from "@/app/components/back-control";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActionPlanEditor } from "./action-plan-editor";
 import { publicationFetch, publicationJson, publicationQuery } from "./use-audit-publication";
@@ -36,8 +39,8 @@ export function PersistentActionPlanEditor({ auditId, actor, onPublished, ...pro
     });
     queue.current = task; return task;
   }, [auditId, query]);
-  if (!plan) return <section className="panel">{error ? <><p role="alert">{error}</p><button className="secondary" onClick={() => setRetry(v => v + 1)}>Tentar novamente</button></> : <p>Carregando plano de ação…</p>}</section>;
-  if (plan.published) return <section className="panel"><h2>Plano de ação publicado</h2><a className="primary" href={`/api/publications/${auditId}/plan-report?${query}`} target="_blank" rel="noreferrer">Abrir PDF publicado</a><button className="secondary" onClick={props.onBack}>Voltar</button></section>;
+  if (!plan) return <section className="panel">{error ? <><p role="alert">{error}</p><button className="secondary" onClick={() => setRetry(v => v + 1)}>Recarregar plano de ação</button></> : <p>Carregando plano de ação…</p>}</section>;
+  if (plan.published) return <section className="panel"><BackHeading><BackButton label={props.module === "quality" ? "Voltar à Qualidade" : "Voltar à Segurança"} onClick={props.onBack} /><h2>Plano de ação publicado</h2></BackHeading><a className="primary" href={`/api/publications/${auditId}/plan-report?${query}`} target="_blank" rel="noreferrer">Abrir PDF publicado</a></section>;
   return <ActionPlanEditor {...props} {...plan.metadata} findings={plan.rows ?? []} draft={plan.rows} example={false} autosave onSave={save}
     onPublish={async () => {
       await queue.current;

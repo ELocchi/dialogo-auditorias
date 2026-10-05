@@ -161,8 +161,8 @@ export function AdminNotifications({ items = emptyNotifications, userId, loading
         triggerRef.current?.focus();
       }
     }}>
-    <button ref={triggerRef} type="button" className={styles.trigger}
-      aria-label={unreadCount ? `Notificações, ${countLabel}` : "Notificações"}
+    <button data-tooltip={open ? "Fechar notificações" : "Abrir notificações"} ref={triggerRef} type="button" className={styles.trigger}
+      aria-label={`${open ? "Fechar" : "Abrir"} notificações${unreadCount ? `, ${countLabel}` : ""}`}
       aria-expanded={open} aria-controls={panelId} onClick={() => setOpen((previous) => !previous)}>
       <Icon name="bell" />
       {unreadCount > 0 && <span className={styles.count} aria-hidden="true">{unreadCount > 99 ? "99+" : unreadCount}</span>}
@@ -187,7 +187,7 @@ export function AdminNotifications({ items = emptyNotifications, userId, loading
                 onNavigateAgenda(item);
               }}><NotificationContent item={item} /></a>
             : <button type="button" className={`${styles.item} ${styles.itemButton}`}
-              onClick={() => dismissNotification(item)}><NotificationContent item={item} /></button>}
+              onClick={() => { dismissNotification(item); triggerRef.current?.focus(); }}><NotificationContent item={item} /><span>Dispensar notificação</span></button>}
         </li>)}
       </ul> : !loading && !error && <p className={styles.empty}>Nenhuma notificação no momento.</p>}
     </section>

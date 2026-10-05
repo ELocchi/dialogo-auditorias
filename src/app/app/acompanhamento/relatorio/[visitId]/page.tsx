@@ -1,3 +1,4 @@
+import { BackLink } from "@/app/components/back-control";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireActiveProfile } from "@/lib/auth/session";
@@ -67,14 +68,12 @@ export default async function ReportPage({ params, searchParams }: {
     <main id="main-content" className="content-wrap">
       {showingIndex ? <div className={styles.reportIndex}>
         <div className={styles.pageHeading}>
-          <Link className={styles.backButton} href="/app?secao=acompanhamento" aria-label="Voltar ao acompanhamento" title="Voltar ao acompanhamento">
-            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 12H4m7-7-7 7 7 7" /></svg>
-          </Link>
+          <BackLink href="/app?secao=acompanhamento" label="Voltar ao acompanhamento" />
           <div className={styles.headingText}><h2>Relatórios orientativos</h2></div>
           {canCreate ? <Link className={`primary ${styles.addReportButton}`} href={`/app/acompanhamento/relatorio/${visitId}?novo=1`}
-              aria-label="Criar novo relatório" title="Criar novo relatório">+</Link>
+              aria-label="Criar novo relatório" data-tooltip="Criar novo relatório">+</Link>
             : <button className={`primary ${styles.addReportButton}`} type="button" disabled aria-label="Criar novo relatório"
-              title="A criação exige visita confirmada, apontamento disponível e banco atualizado">+</button>}
+              data-tooltip="A criação exige visita confirmada, apontamento disponível e banco atualizado">+</button>}
         </div>
         <section className="panel" aria-label="Relatórios da visita">
           <ul className={styles.reportList}>{sortedReports.map((report, index) => {
@@ -88,7 +87,7 @@ export default async function ReportPage({ params, searchParams }: {
               <span className={styles.reportInfo}><strong>{report.title === "Relatório orientativo" ? `Relatório ${index + 1}` : report.title}</strong>
                 <small>{date}</small></span>
               <a className={styles.downloadButton} href={`/app/acompanhamento/relatorio/${visitId}/pdf?relatorio=${report.id}`} download
-                aria-label={`Baixar PDF: ${report.title}`} title="Baixar PDF">
+                aria-label={`Baixar PDF: ${report.title}`} data-tooltip="Baixar PDF">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" /></svg>
               </a>
             </li>;

@@ -41,7 +41,7 @@ export function AuditDetailGate({ auditId, children }: { auditId: string; childr
   return <section className="panel" aria-busy={state?.status !== "error"}>
     {state?.status === "error" ? <>
       <p role="alert">{state.message}</p>
-      <button type="button" className="secondary" onClick={() => { void loadAudit(auditId).catch(() => {}); }}>Tentar novamente</button>
+      <button type="button" className="secondary" onClick={() => { void loadAudit(auditId).catch(() => {}); }}>Recarregar auditoria</button>
     </> : <p className="muted" role="status">Carregando detalhes da auditoria...</p>}
   </section>;
 }

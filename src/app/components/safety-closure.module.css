@@ -1,6 +1,6 @@
 .dialog { box-sizing: border-box; border: 1px solid #d7deea; border-radius: 16px; padding: 22px; width: min(320px, calc(100vw - 32px)); max-height: 88vh; color: #203f70; }
 .dialog::backdrop { background: #142b4d80; }
-.dialog h2 { margin: 0 0 18px; font-size: 21px; }
+.dialog h2 { margin: 0; font-size: 21px; }
 .dialog fieldset { border: 0; padding: 0; margin: 12px 0; min-width: 0; }
 .dialog legend { font-weight: 700; margin-bottom: 10px; font-size: 13px; }
 .dialog label { display: grid; gap: 6px; font-weight: 600; font-size: 13px; margin-bottom: 10px; }

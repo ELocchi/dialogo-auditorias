@@ -15,9 +15,9 @@ const monthLabelFormatter = new Intl.DateTimeFormat("pt-BR", { month: "long", ye
 function MonthNavigation({ month, onMonthChange, label }: { month: string; onMonthChange: (value: string) => void; label: string }) {
   const monthLabel = monthLabelFormatter.format(new Date(`${month}-01T12:00:00Z`));
   return <div className={calendarStyles.monthNavigation} role="group" aria-label={label}>
-    <button type="button" className={calendarStyles.monthButton} aria-label="Mês anterior" disabled={month === "0001-01"} onClick={() => onMonthChange(shiftCalendarMonth(month, -1))}><Icon name="arrow" className={calendarStyles.previous} /></button>
+    <button data-tooltip="Mês anterior" type="button" className={calendarStyles.monthButton} aria-label={`Mês anterior: ${label}`} disabled={month === "0001-01"} onClick={() => onMonthChange(shiftCalendarMonth(month, -1))}><Icon name="arrow" className={calendarStyles.previous} /></button>
     <span className={calendarStyles.monthLabel} aria-live="polite">{monthLabel}</span>
-    <button type="button" className={calendarStyles.monthButton} aria-label="Próximo mês" disabled={month === "9999-12"} onClick={() => onMonthChange(shiftCalendarMonth(month, 1))}><Icon name="arrow" /></button>
+    <button data-tooltip="Próximo mês" type="button" className={calendarStyles.monthButton} aria-label={`Próximo mês: ${label}`} disabled={month === "9999-12"} onClick={() => onMonthChange(shiftCalendarMonth(month, 1))}><Icon name="arrow" /></button>
   </div>;
 }
 
@@ -52,7 +52,7 @@ export function usePublishedHistoryPage(audits: readonly AuditRecord[], filters:
 }
 
 export function HistoryLoadStatus({ history }: { history: { status: string; message?: string; retry: () => void } }) {
-  if (history.status === "error") return <div role="alert"><p className="muted">{history.message || "Não foi possível carregar o histórico."}</p><button type="button" className="secondary" onClick={history.retry}>Tentar novamente</button></div>;
+  if (history.status === "error") return <div role="alert"><p className="muted">{history.message || "Não foi possível carregar o histórico."}</p><button type="button" className="secondary" onClick={history.retry}>Recarregar histórico</button></div>;
   if (history.status === "loading" || history.status === "idle") return <p className="muted" role="status">Carregando histórico…</p>;
   return null;
 }

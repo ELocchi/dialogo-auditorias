@@ -83,7 +83,8 @@ test("a user without any auditor grant receives a return path and cannot enter t
   reset("ENGENHARIA"); state.active.account.perfis = ["ENGENHARIA"];
   const tree = await NewReportPage();
   assert.equal(elements(tree).some(node => node.type === "form" || node.type?.name === "StandaloneReportForm"), false);
-  assert.ok(elements(tree).some(node => node.props?.href === "/app"));
+  assert.equal(tree.props.backHref, "/app");
+  assert.equal(tree.props.backLabel, "Voltar ao painel");
   assert.equal(state.reads, 0);
 });
 

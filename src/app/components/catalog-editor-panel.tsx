@@ -1,5 +1,7 @@
 "use client";
 
+import { BackButton, BackHeading } from "@/app/components/back-control";
+
 import { useEffect, useId, useRef, useState, useTransition, type FormEvent } from "react";
 import { referenceDocuments } from "@/domain/reference-documents";
 import { fvsServices, type FvsService } from "@/domain/fvs-services";
@@ -67,11 +69,11 @@ function AuditorFormPreview({ item, security, services }: { item: Criterion; sec
       <p className="criterion-description"><strong>Descrição:</strong> {item.text}</p>
       {(security ? item.analysisCriterion : item.verificationRule) && <p className="criterion-detail"><strong>Critério de análise:</strong> {security ? item.analysisCriterion : item.verificationRule}</p>}
       <div className="answer-fieldset">
-        {security ? <div className="answer-options answer-options-security"><button type="button" className="answer" disabled><span>×</span><small>Totalmente não conforme</small></button><button type="button" className="answer" disabled><span>!</span><small>Parcialmente não conforme</small></button><button type="button" className="answer" disabled><span>✓</span><small>Conforme</small></button><button type="button" className="answer" disabled><span>—</span><small>Não aplicável</small></button><span className="inline-photo-cell"><button type="button" className="inline-photo" disabled aria-label="Adicionar foto">+</button></span></div> : quantitative ? <div className="quantity-checks"><div className={`quantity-check${weightedChecks ? " has-check-weight" : ""}`}><button type="button" className="remove-verified-item" disabled aria-label="Remover item">×</button>{weightedChecks ? <select className="check-label filter-select" disabled defaultValue=""><option value="">Selecione o serviço verificado</option>{services.map((service) => <option value={service.label} key={`${service.document}:${service.service}`}>{service.label}</option>)}</select> : <input className="check-label" disabled value="Item verificado 1" readOnly />}{weightedChecks && <input className="check-weight" disabled placeholder="Peso" />}<button type="button" className="check-option noncompliant" disabled>×</button><button type="button" className="check-option compliant" disabled>✓</button><span className="inline-photo-cell"><button type="button" className="inline-photo" disabled aria-label="Adicionar foto">+</button></span><input className="check-note" disabled placeholder="Observações" /></div><button type="button" className="add-verified-item" disabled aria-label="Adicionar item">+</button></div> : <div className={`answer-options answer-options-quality${notApplicable ? " has-not-applicable" : ""}`}>
+        {security ? <div className="answer-options answer-options-security"><button type="button" className="answer" disabled><span>×</span><small>Totalmente não conforme</small></button><button type="button" className="answer" disabled><span>!</span><small>Parcialmente não conforme</small></button><button type="button" className="answer" disabled><span>✓</span><small>Conforme</small></button><button type="button" className="answer" disabled><span>—</span><small>Não aplicável</small></button><span className="inline-photo-cell"><button data-tooltip="Adicionar foto" type="button" className="inline-photo" disabled aria-label={`Adicionar foto ao item ${item.code} (exemplo)`}>+</button></span></div> : quantitative ? <div className="quantity-checks"><div className={`quantity-check${weightedChecks ? " has-check-weight" : ""}`}><button data-tooltip="Remover item" type="button" className="remove-verified-item" disabled aria-label={`Remover verificação do item ${item.code} (exemplo)`}>×</button>{weightedChecks ? <select className="check-label filter-select" disabled defaultValue=""><option value="">Selecione o serviço verificado</option>{services.map((service) => <option value={service.label} key={`${service.document}:${service.service}`}>{service.label}</option>)}</select> : <input className="check-label" disabled value="Item verificado 1" readOnly />}{weightedChecks && <input className="check-weight" disabled placeholder="Peso" />}<button data-tooltip="Não conforme (exemplo)" type="button" className="check-option noncompliant" aria-label="Não conforme (exemplo)" disabled>×</button><button data-tooltip="Conforme (exemplo)" type="button" className="check-option compliant" aria-label="Conforme (exemplo)" disabled>✓</button><span className="inline-photo-cell"><button data-tooltip="Adicionar foto" type="button" className="inline-photo" disabled aria-label={`Adicionar foto ao item ${item.code} (exemplo)`}>+</button></span><input className="check-note" disabled placeholder="Observações" /></div><button data-tooltip="Adicionar item" type="button" className="add-verified-item" disabled aria-label={`Adicionar verificação ao item ${item.code} (exemplo)`}>+</button></div> : <div className={`answer-options answer-options-quality${notApplicable ? " has-not-applicable" : ""}`}>
           <button type="button" className="answer answer-Noconforme" disabled><span>×</span><small>Não conforme</small></button>
           <button type="button" className="answer answer-Conforme" disabled><span>✓</span><small>Conforme</small></button>
           {notApplicable && <button type="button" className="answer answer-NA" disabled><span>—</span><small>Não aplicável</small></button>}
-          <span className="inline-photo-cell"><button type="button" className="inline-photo" disabled aria-label="Adicionar foto">+</button></span>
+          <span className="inline-photo-cell"><button data-tooltip="Adicionar foto" type="button" className="inline-photo" disabled aria-label={`Adicionar foto ao item ${item.code} (exemplo)`}>+</button></span>
         </div>}
       </div>
       {!quantitative && <label className="question-note">Observações<textarea disabled placeholder="Registre a observação da verificação…" /></label>}
@@ -371,9 +373,7 @@ export function CatalogEditorPanel({ version, fvsWeights, available, setupPendin
 
   return <section id="catalog-editor" className={styles.panel} aria-labelledby={headingId}>
     <header className={styles.header}>
-      <div><h2 id={headingId} ref={headingRef} tabIndex={-1}>Editar roteiro</h2></div>
-      <button type="button" className={styles.closeButton} disabled={pending} aria-label="Fechar edição e voltar ao documento" title="Voltar ao documento"
-        onClick={() => { if (!savingRef.current) onClose(); }}><span aria-hidden="true">×</span></button>
+      <BackHeading><BackButton label="Voltar ao documento" disabled={pending} onClick={() => { if (!savingRef.current) onClose(); }} /><h2 id={headingId} ref={headingRef} tabIndex={-1}>Editar roteiro</h2></BackHeading>
     </header>
 
     <form id={formId} className={styles.form} onSubmit={submit} aria-busy={pending}>
@@ -449,8 +449,8 @@ export function CatalogEditorPanel({ version, fvsWeights, available, setupPendin
               {base.modelId !== "security-it07-r02" && /\bfvs\b/i.test(`${selected.title} ${selected.text}`) && <button type="button" className={styles.fvsWeightsShortcut}
                 onClick={() => { changed(); setMode("fvs_weights"); }}>Editar pesos das FVS</button>}
               <div className={styles.removeActions}>
-                <button type="button" onClick={removeItem} disabled={criteria.length <= 1}>Excluir item</button>
-                <button type="button" onClick={removeGroup} disabled={new Set(criteria.map((item) => item.group)).size <= 1}>Excluir grupo</button>
+                <button type="button" aria-label={`Excluir item ${selected.code}: ${selected.title}`} data-tooltip="Excluir item ao salvar" onClick={removeItem} disabled={criteria.length <= 1}>Excluir item</button>
+                <button type="button" aria-label={`Excluir grupo ${selected.group}`} data-tooltip="Excluir grupo e itens ao salvar" onClick={removeGroup} disabled={new Set(criteria.map((item) => item.group)).size <= 1}>Excluir grupo</button>
               </div>
             </div> : <p className={styles.empty}>Nenhum item corresponde à busca.</p>}
             {selected && <AuditorFormPreview item={criteriaWithWeights().find((item) => item.id === selected.id) ?? selected} security={base.modelId === "security-it07-r02"} services={currentFvsServices} />}
@@ -463,7 +463,7 @@ export function CatalogEditorPanel({ version, fvsWeights, available, setupPendin
                 return <tbody key={group}>
                 {(collapsed ? items.slice(0, 1) : items).map((item, index) => <tr key={item.id} className={collapsed ? styles.collapsedWeightRow : undefined}>
                   {index === 0 && <th scope="rowgroup" rowSpan={collapsed ? 1 : items.length}>
-                    <span className={styles.weightGroupTitle}><strong>{group}</strong><button type="button" aria-expanded={!collapsed} aria-label={collapsed ? `Expandir grupo ${group}` : `Recolher grupo ${group}`} onClick={() => setCollapsedWeightGroups((current) => {
+                    <span className={styles.weightGroupTitle}><strong>{group}</strong><button data-tooltip={collapsed ? "Expandir grupo" : "Recolher grupo"} type="button" aria-expanded={!collapsed} aria-label={collapsed ? `Expandir grupo ${group}` : `Recolher grupo ${group}`} onClick={() => setCollapsedWeightGroups((current) => {
                       const next = new Set(current);
                       if (next.has(group)) next.delete(group); else next.add(group);
                       return next;
@@ -514,7 +514,7 @@ export function CatalogEditorPanel({ version, fvsWeights, available, setupPendin
                 </label>
               </div>
             </div>
-            {pdfPreviewUrl && <div className={styles.pdfPreview}><strong>Prévia do PDF</strong><iframe src={pdfPreviewUrl} title={`Prévia do PDF ${pdf?.name ?? ""}`} /><button type="button" className={styles.removePdf} aria-label="Remover PDF" title="Remover PDF" onClick={() => {
+            {pdfPreviewUrl && <div className={styles.pdfPreview}><strong>Prévia do PDF</strong><iframe src={pdfPreviewUrl} title={`Prévia do PDF ${pdf?.name ?? ""}`} /><button type="button" className={styles.removePdf} aria-label="Remover PDF selecionado" data-tooltip="Remover PDF selecionado" onClick={() => {
               changed();
               if (pdfPreviewUrlRef.current) URL.revokeObjectURL(pdfPreviewUrlRef.current);
               pdfPreviewUrlRef.current = null;
