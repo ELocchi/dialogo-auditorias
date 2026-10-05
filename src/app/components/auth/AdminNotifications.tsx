@@ -67,11 +67,12 @@ function NotificationContent({ item }: { item: AdminNotification }) {
   </>;
 }
 
-export function AdminNotifications({ items = emptyNotifications, userId, loading = false, error, onOpenChange, onNavigateAgenda }: {
+export function AdminNotifications({ items = emptyNotifications, userId, loading = false, error, onRetry, onOpenChange, onNavigateAgenda }: {
   items?: readonly AdminNotification[];
   userId: string;
   loading?: boolean;
   error?: string;
+  onRetry?: () => void;
   onOpenChange?: (open: boolean) => void;
   onNavigateAgenda?: (item: AdminNotification) => void;
 }) {
@@ -172,7 +173,7 @@ export function AdminNotifications({ items = emptyNotifications, userId, loading
         <h2 id={headingId}>Notificações</h2>
       </div>
       {loading && <p className={styles.empty} role="status">Carregando notificações…</p>}
-      {error && <p className={styles.empty} role="alert">{error}</p>}
+      {error && <div role="alert"><p className={styles.empty}>{error}</p>{onRetry && <button type="button" className="secondary" disabled={loading} onClick={onRetry}>{loading ? "Carregando…" : "Tentar novamente"}</button>}</div>}
       {sortedItems.length ? <ul className={styles.list}>
         {sortedItems.map((item) => <li key={`${item.type}:${item.id}`}>
           {item.type !== "audit_published" || item.href

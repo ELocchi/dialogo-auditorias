@@ -1,3 +1,4 @@
+import { PendingSubmit } from "../components/pending-submit";
 import { redirect } from "next/navigation";
 import { requireUser, effectiveAccount } from "@/lib/auth/session";
 import { profileLabels, administrativeLabels, engineeringLabels, type AccessProfile } from "@/lib/access/contracts";
@@ -50,13 +51,13 @@ export default async function SelectProfilePage({ searchParams }: {
               return <form action={selectProfileAction} key={`${profile}:${engineeringScope}:${administrativeScope}`}>
                 {engineeringScope && <input type="hidden" name="atuacao_engenharia" value={engineeringScope} />}
                 {administrativeScope && <input type="hidden" name="atuacao_administrativa" value={administrativeScope} />}
-                <button data-tooltip={`Entrar como ${label}${isCurrent ? ", perfil atual" : ""}`} className={styles.profile} name="perfil" value={profile} type="submit" aria-label={`Entrar como ${label}${isCurrent ? ", perfil atual" : ""}`}>
+                <PendingSubmit data-tooltip={`Entrar como ${label}${isCurrent ? ", perfil atual" : ""}`} className={styles.profile} name="perfil" value={profile} type="submit" aria-label={`Entrar como ${label}${isCurrent ? ", perfil atual" : ""}`}>
                   {isCurrent && <span className={styles.currentIndicator} aria-hidden="true" />}
                   <strong>{label}</strong>
                   <span className={styles.profileDescription}>{profile === "ADMINISTRATIVO" && administrativeScope !== "GERAL"
                     ? `Agenda, roteiros e acompanhamento de ${administrativeScope === "SEGURANCA" ? "Segurança" : "Qualidade"}.`
                     : descriptions[profile]}</span>
-                </button>
+                </PendingSubmit>
               </form>;
             })}
           </section>)}

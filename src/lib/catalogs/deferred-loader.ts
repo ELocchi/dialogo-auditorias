@@ -1,3 +1,4 @@
+import { requestSignal } from "../request-signal.ts";
 import type { AgendaActorContext } from "../agenda/contracts.ts";
 import type { CatalogSnapshot } from "./contracts.ts";
 
@@ -23,7 +24,7 @@ export function createDeferredCatalogLoader(actor: AgendaActorContext, initial: 
     publish({ ...state, status: "loading", message: undefined });
     const promise = (async () => {
       try {
-        const response = await fetcher(`/api/catalogs?${query}`, { credentials: "same-origin", cache: "no-store", signal: controller.signal });
+        const response = await fetcher(`/api/catalogs?${query}`, { credentials: "same-origin", cache: "no-store", signal: requestSignal(controller.signal) });
         if (!response.ok) throw new Error(response.status === 401 || response.status === 403
           ? "Seu acesso aos roteiros mudou. Atualize a página."
           : "Não foi possível carregar os roteiros. Tente novamente.");

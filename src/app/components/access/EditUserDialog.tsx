@@ -1,7 +1,9 @@
 "use client";
+import { SlowOperation } from "@/app/components/slow-operation";
+import { recoverAction } from "../recover-action";
 import { containDialogFocus } from "../dialog-keyboard";
 
-import { useActionState, useEffect, useId, useRef, useState } from "react";
+import { startTransition, useActionState, useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { updateAccessAction } from "@/app/administracao/usuarios/actions";
 import {
@@ -49,7 +51,7 @@ function EditUserForm({ account, grants, works, name, email, actorId, onClose }:
   const id = useId();
   const router = useRouter();
   const dialogRef = useRef<HTMLDialogElement>(null);
-  const [state, action, pending] = useActionState(updateAccessAction, initialAccessState);
+  const [state, action, pending] = useActionState(recoverAction(updateAccessAction), initialAccessState);
   const [perfis, setPerfis] = useState<AccessProfile[]>(account.perfis);
   const [administrativeScope, setAdministrativeScope] = useState(account.atuacao_administrativa ?? "");
   const [engineeringScopes, setEngineeringScopes] = useState<EngineeringScope[]>(account.atuacoes_engenharia);
@@ -98,7 +100,7 @@ function EditUserForm({ account, grants, works, name, email, actorId, onClose }:
   }]);
 
   return <dialog onKeyDown={containDialogFocus} ref={dialogRef} className={`${styles.approvalDialog} ${styles.editUserDialog}`} aria-labelledby={`${id}-title`} onCancel={(event) => { if (pending) event.preventDefault(); }} onClose={onClose}>
-      <form action={action} aria-busy={pending}>
+      <form onSubmit={event => { event.preventDefault(); if (pending) return; const form = new FormData(event.currentTarget); startTransition(() => action(form)); }} aria-busy={pending}>
         <input type="hidden" name="authUserId" value={account.auth_user_id} />
         <input type="hidden" name="grants" value={JSON.stringify(expandedGrants)} />
         <input type="hidden" name="reason" value="Edição administrativa dos acessos do usuário." />
@@ -154,6 +156,6 @@ function EditUserForm({ account, grants, works, name, email, actorId, onClose }:
           <button type="button" className="secondary" disabled={pending} onClick={() => dialogRef.current?.close()}>Cancelar</button>
           <button type="submit" className="primary" disabled={pending || incomplete}>{pending ? "Salvando…" : "Salvar alterações"}</button>
         </div>
-      </form>
+      <SlowOperation pending={pending} /></form>
     </dialog>;
 }

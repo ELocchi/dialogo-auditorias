@@ -1,3 +1,4 @@
+import { requestSignal } from "../request-signal.ts";
 import type { DemoUser, Visit } from "../../domain/prototype-access.ts";
 
 /** Display context is compared with the verified session; it never grants access. */
@@ -18,7 +19,7 @@ export function agendaDetailKey(user: DemoUser, visit: Visit): string {
 export async function fetchAgendaVisitDetail(visit: Visit, user: DemoUser, signal: AbortSignal,
   fetcher: typeof fetch = fetch): Promise<Visit> {
   const response = await fetcher(`/api/agenda/visits/${encodeURIComponent(visit.id)}?${agendaDetailQuery(user)}`, {
-    credentials: "same-origin", cache: "no-store", signal,
+    credentials: "same-origin", cache: "no-store", signal: requestSignal(signal),
   });
   if (!response.ok) throw new Error(response.status === 401 || response.status === 403
     ? "O acesso a este agendamento mudou. Atualize a página."

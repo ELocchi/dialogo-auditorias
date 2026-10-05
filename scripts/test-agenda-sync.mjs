@@ -16,11 +16,12 @@ function fixture(fetcher, initial = snapshot) {
   return { client, calls };
 }
 
-test('unchanged poll sends the current revision, has no JSON parse and no React store notification', async () => {
+test('unchanged poll preserves the snapshot and only reports loading start/end', async () => {
   const { client, calls } = fixture(async () => ({ status: 304, headers: new Headers({ ETag: `"${revision}"` }), json() { throw new Error('304 has no body'); } }));
   let notifications = 0; client.subscribe(() => notifications++);
   await client.refresh(); await client.refresh();
-  assert.equal(client.getState().agenda, snapshot); assert.equal(notifications, 0);
+  assert.equal(client.getState().agenda, snapshot); assert.equal(notifications, 4);
+  assert.equal(client.getState().refreshPending, false);
   assert.equal(calls.length, 2);
   assert.equal(calls[0][1].headers['If-None-Match'], `"${revision}"`);
   assert.match(calls[0][0], /atuacao=COORDENACAO/);

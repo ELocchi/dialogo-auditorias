@@ -1,0 +1,14 @@
+[
+  {
+    "name": "Erro de página: retry recupera a rota sem recarregar a aplicação inteira",
+    "passed": true,
+    "elapsedMs": 1332,
+    "detail": {
+      "errorBoundaryRecovered": true
+    },
+    "browserErrors": [
+      "Switched to client rendering because the server rendering errored:\n\nFalha simulada na página de teste",
+      "Switched to client rendering because the server rendering errored:\n\nFalha simulada na página de teste"
+    ]
+  }
+]

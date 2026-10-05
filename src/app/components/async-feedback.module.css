@@ -1,0 +1,6 @@
+.skeleton { color: #63728b; padding: 12px 0; width: 100%; min-width: 0; font-size: 13px; }
+.line { height: 42px; border-radius: 8px; margin-top: 12px; background: #edf0f5; animation: pulse 1.6s ease-in-out infinite alternate; }
+.line:last-child { width: 70%; }
+.page { width: min(1360px, 100%); padding: 24px; margin: auto; box-sizing: border-box; }
+@keyframes pulse { to { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) { .line { animation: none; } }

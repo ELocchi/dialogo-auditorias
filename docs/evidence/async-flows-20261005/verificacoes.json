@@ -1,0 +1,36 @@
+{
+  "build": {
+    "command": "next build --webpack",
+    "exitCode": 0,
+    "log": "build.log",
+    "environment": "isolado, sem credenciais"
+  },
+  "eslint": {
+    "exitCode": 0,
+    "log": "eslint.log",
+    "environment": "cópia isolada com dependências completas"
+  },
+  "typescript": {
+    "command": "tsc --noEmit",
+    "exitCode": 0,
+    "log": "typescript.log",
+    "environment": "cópia isolada com dependências completas; TypeScript também verificado pelo build final"
+  },
+  "regression": {
+    "tests": 92,
+    "passed": 92,
+    "failed": 0,
+    "log": "regressao.log",
+    "targetedRecheck": {
+      "tests": 18,
+      "passed": 18,
+      "log": "regressao-ajustes-finais.log"
+    }
+  },
+  "browser": {
+    "scenarios": 13,
+    "passed": 13,
+    "results": "resultado.json"
+  },
+  "deployment": "não realizado"
+}

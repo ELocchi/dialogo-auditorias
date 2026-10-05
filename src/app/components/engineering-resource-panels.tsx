@@ -1,5 +1,8 @@
 "use client";
+import { DownloadButton } from "./download-button";
+import { readWithDeadline } from "@/lib/read-with-deadline";
 
+import { AsyncSkeleton } from "./async-feedback";
 import { EvidenceThumbnail } from "./evidence-thumbnail";
 import { useEffect, useId, useState, type ReactNode } from "react";
 import { readEngineeringWorkFindingsAction, type WorkFinding } from "@/app/follow-up/actions";
@@ -103,7 +106,7 @@ export function PublishedAuditFindingsList({ auditFindings, works, module, conte
             <div><span>Critério</span><p>{finding.verificationCriterion || "Não informado"}</p></div>
             <div><span>Status</span><strong className={finding.serious ? styles.statusNonconforming : styles.status}>{finding.serious ? "Item grave" : finding.status || "Com apontamento"}</strong></div>
             <div className={styles.findingPhotos}><span>Foto</span>{finding.evidencePhotos?.length ? <div>{finding.evidencePhotos.map((photo, photoIndex) => photo.url
-              ? <a href={photo.url} target="_blank" rel="noopener noreferrer" key={`${photo.name}:${photoIndex}`} data-tooltip="Foto em nova guia"><EvidenceThumbnail thumbnailSrc={photo.thumbnailUrl} originalSrc={photo.url} alt={`Evidência do item ${finding.item}`} width={160} height={100} /><small>{photo.name}</small></a>
+              ? <EvidenceThumbnail thumbnailSrc={photo.thumbnailUrl} originalSrc={photo.url} alt={`Evidência do item ${finding.item}`} width={160} height={100}  key={`${photo.name}:${photoIndex}`} caption={<small>{photo.name}</small>} />
               : <small key={`${photo.name}:${photoIndex}`}>{photo.name}</small>)}</div>
               : <p>Nenhuma foto anexada.</p>}</div>
           </div>}
@@ -122,23 +125,27 @@ export function EngineeringResourcePanels({ actor, works, module, catalogs, audi
   findingCount?: number;
   deferCatalogs?: (children: ReactNode) => ReactNode;
 }) {
-  const [findings, setFindings] = useState<WorkFinding[]>([]);
-  const [available, setAvailable] = useState(true);
+  const [attempt, setAttempt] = useState(0);
+  const [result, setResult] = useState<{ key: string; findings: WorkFinding[]; available: boolean } | null>(null);
   const [expandedOtherFindings, setExpandedOtherFindings] = useState<Set<string>>(() => new Set());
   const { userId, profile, engineeringScope, administrativeScope } = actor;
   const workNames = new Map(works.map((work) => [work.id, work.name]));
+  const key = JSON.stringify([module, userId, profile, engineeringScope, administrativeScope, attempt]);
+  const loading = result?.key !== key;
+  const findings = !loading ? result?.findings ?? [] : [];
+  const available = result?.available;
   useEffect(() => {
     let active = true;
-    readEngineeringWorkFindingsAction(module, { userId, profile, engineeringScope, administrativeScope })
-      .then((result) => { if (active) { setFindings(result.findings); setAvailable(result.available); } })
-      .catch(() => active && setAvailable(false));
+    readWithDeadline(readEngineeringWorkFindingsAction(module, { userId, profile, engineeringScope, administrativeScope }))
+      .then((result) => { if (active) { setResult({ key, findings: result.findings, available: result.available }); } })
+      .catch(() => active && setResult({ key, findings: [], available: false }));
     return () => { active = false; };
-  }, [module, userId, profile, engineeringScope, administrativeScope]);
+  }, [module, userId, profile, engineeringScope, administrativeScope, key]);
 
   return <div className={styles.grid}>
     <section className="panel" aria-label={`Apontamentos de ${moduleLabels[module]}`}>
       <PublishedAuditFindingsList heading="Apontamentos" auditFindings={auditFindings} works={works} module={module} contextKey={JSON.stringify([module, userId, profile, engineeringScope, administrativeScope])} />
-      {!available ? <p className="muted">Não foi possível consultar os demais apontamentos.</p>
+      {loading ? <AsyncSkeleton label="Carregando apontamentos…" /> : !available ? <div role="alert"><p className="muted">Não foi possível consultar os demais apontamentos.</p><button type="button" className="secondary" onClick={() => setAttempt(value => value + 1)}>Tentar novamente</button></div>
         : findings.length ? <><span className={styles.listLabel}>OUTROS APONTAMENTOS</span><ul className={styles.findings}>{findings.slice(0, 6).map((finding, findingIndex) => {
           const expanded = expandedOtherFindings.has(finding.id);
           const detailsId = `other-finding-${findingIndex}`;
@@ -153,9 +160,7 @@ export function EngineeringResourcePanels({ actor, works, module, catalogs, audi
               <i className={`${styles.chevron}${expanded ? ` ${styles.chevronExpanded}` : ""}`} aria-hidden="true" />
             </button>
             {expanded && <div className={styles.otherFindingDetails} id={detailsId}>
-              <a data-tooltip="Foto em nova guia" className={styles.otherFindingPhoto} href={photoUrl} target="_blank" rel="noopener noreferrer" aria-label={`Abrir foto em nova guia: ${finding.description}`}>
-                <EvidenceThumbnail thumbnailSrc={followUpPhotoThumbnailUrl(photoUrl, actor)} originalSrc={photoUrl} alt={`Foto de ${finding.description}`} width={110} height={82} />
-              </a>
+              <EvidenceThumbnail thumbnailSrc={followUpPhotoThumbnailUrl(photoUrl, actor)} originalSrc={photoUrl} alt={`Foto de ${finding.description}`} width={110} height={82}  className={styles.otherFindingPhoto} />
               <div className={styles.otherFindingText}>
                 <span>{workNames.get(finding.workId) ?? "Obra"}{finding.location ? ` · ${finding.location}` : ""}</span>
                 <p>{finding.correction}</p>
@@ -183,9 +188,9 @@ export function EngineeringRoutesPanel({ modules, catalogs, deferCatalogs = (con
         const version = catalogVersion(catalogs, modelId);
         return <li key={modelId}><div className={styles.catalogInfo}><strong>{auditModelLabels[modelId].name}</strong>
           <span>{version.criteria.length} itens · {auditModelLabels[modelId].version}</span></div>
-          <a className={styles.catalogDownload} href={`/api/reference-documents/${modelId}?download=pdf`} download aria-label={`Baixar PDF: ${auditModelLabels[modelId].name}`} data-tooltip="Baixar PDF">
+          <DownloadButton className={styles.catalogDownload} href={`/api/reference-documents/${modelId}?download=pdf`} label={`Baixar PDF: ${auditModelLabels[modelId].name}`}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" /></svg>
-          </a></li>;
+          </DownloadButton></li>;
       })}</ul>
     </section>);
 }

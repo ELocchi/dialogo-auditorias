@@ -1,4 +1,5 @@
 "use client";
+import { requestSignal } from "@/lib/request-signal";
 
 import { useEffect, useState } from "react";
 import type { AuditRecord } from "@/domain/operational-records";
@@ -31,7 +32,7 @@ export function useAuditDashboard(initial: AuditDashboardSnapshot | undefined, a
     if (!visible || completed) return;
     const controller = new AbortController();
     const parameters = new URLSearchParams({ usuario: userId, perfil: profile, atuacao: engineeringScope ?? "", administrativo: administrativeScope ?? "" });
-    fetch(`/api/audits/dashboard?${parameters}`, { credentials: "same-origin", cache: "no-store", signal: controller.signal,
+    fetch(`/api/audits/dashboard?${parameters}`, { credentials: "same-origin", cache: "no-store", signal: requestSignal(controller.signal),
       ...(hasLocal ? { method: "POST", headers: { "Content-Type": "application/json" }, body: overlay } : { method: "GET" }) })
       .then(async (response) => {
         if (!response.ok) throw new Error("Dashboard unavailable");

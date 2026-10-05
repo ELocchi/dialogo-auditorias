@@ -1,5 +1,6 @@
 "use client";
 
+import { AsyncSkeleton } from "./async-feedback";
 import { BackButton, BackHeading } from "@/app/components/back-control";
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -14,21 +15,23 @@ export function PersistentActionPlanEditor({ auditId, actor, onPublished, ...pro
   auditId: string; actor: AgendaActorContext; workName: string; auditDate: string; auditScore: number | null;
   module: AppModule; authorName: string; onBack: () => void; onPublished: () => void;
 }) {
-  const [plan, setPlan] = useState<Plan | null>(null);
-  const [error, setError] = useState("");
+  const [result, setResult] = useState<{ key: string; plan?: Plan; error?: string } | null>(null);
   const [retry, setRetry] = useState(0);
   const current = useRef({ revision: 0, saved: "" });
   const queue = useRef<Promise<unknown>>(Promise.resolve());
   const query = publicationQuery(actor);
+  const key = `${auditId}:${query}:${retry}`;
+  const plan = result?.key === key ? result.plan : null;
+  const error = result?.key === key ? result.error : null;
   useEffect(() => {
     const controller = new AbortController();
     void publicationFetch<Plan>(`/api/publications/${auditId}/plan?${query}`, { signal: controller.signal }).then(data => {
       if (controller.signal.aborted) return;
       current.current = { revision: data.revision ?? 0, saved: JSON.stringify(data.rows) };
-      setPlan(data); setError("");
-    }).catch(e => { if (!controller.signal.aborted) setError(e instanceof Error ? e.message : "Não foi possível carregar o plano."); });
+      setResult({ key, plan: data });
+    }).catch(e => { if (!controller.signal.aborted) setResult({ key, error: e instanceof Error ? e.message : "Não foi possível carregar o plano." }); });
     return () => controller.abort();
-  }, [auditId, query, retry]);
+  }, [auditId, query, key]);
   const save = useCallback((rows: readonly ActionPlanRow[]) => {
     const task = queue.current.catch(() => undefined).then(async () => {
       const key = JSON.stringify(rows);
@@ -39,12 +42,12 @@ export function PersistentActionPlanEditor({ auditId, actor, onPublished, ...pro
     });
     queue.current = task; return task;
   }, [auditId, query]);
-  if (!plan) return <section className="panel">{error ? <><p role="alert">{error}</p><button className="secondary" onClick={() => setRetry(v => v + 1)}>Recarregar plano de ação</button></> : <p>Carregando plano de ação…</p>}</section>;
+  if (!plan) return <section className="panel">{error ? <><p role="alert">{error}</p><button className="secondary" onClick={() => setRetry(v => v + 1)}>Recarregar plano de ação</button></> : <AsyncSkeleton label="Carregando plano de ação…" />}</section>;
   if (plan.published) return <section className="panel"><BackHeading><BackButton label={props.module === "quality" ? "Voltar à Qualidade" : "Voltar à Segurança"} onClick={props.onBack} /><h2>Plano de ação publicado</h2></BackHeading><a className="primary" href={`/api/publications/${auditId}/plan-report?${query}`} target="_blank" rel="noreferrer">Abrir PDF publicado</a></section>;
   return <ActionPlanEditor {...props} {...plan.metadata} findings={plan.rows ?? []} draft={plan.rows} example={false} autosave onSave={save}
     onPublish={async () => {
       await queue.current;
       await publicationFetch(`/api/publications/${auditId}/publish-plan?${query}`, publicationJson({ revision: current.current.revision }));
-      onPublished(); setPlan({ published: true });
+      onPublished(); setResult({ key, plan: { published: true } });
     }} />;
 }

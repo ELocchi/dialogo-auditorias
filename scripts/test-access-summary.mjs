@@ -169,6 +169,7 @@ test("client sends current identity and bypasses cache on every mount/retry", as
   reset();
   const controller = new AbortController();
   let calls = 0;
+  const signals = [];
   const fetcher = async (url, options) => {
     calls += 1;
     const parsed = new URL(url, "https://offline.invalid");
@@ -179,12 +180,16 @@ test("client sends current identity and bypasses cache on every mount/retry", as
     assert.equal(parsed.searchParams.get("administrativo"), "GERAL");
     assert.equal(options.cache, "no-store");
     assert.equal(options.credentials, "same-origin");
-    assert.equal(options.signal, controller.signal);
+    assert.ok(options.signal instanceof AbortSignal);
+    assert.equal(options.signal.aborted, false);
+    signals.push(options.signal);
     return Response.json({ available: true, pendingCount: calls, activeCount: 7, accounts: ["must not cross boundary"] });
   };
   assert.deepEqual(await loadAccessSummary(state.actor, controller.signal, fetcher), { available: true, pendingCount: 1, activeCount: 7 });
   assert.deepEqual(await loadAccessSummary(state.actor, controller.signal, fetcher), { available: true, pendingCount: 2, activeCount: 7 });
   assert.equal(calls, 2);
+  controller.abort();
+  signals.forEach(signal => assert.equal(signal.aborted, true));
 });
 
 test("client reports authorization/fetch/data failures and retries without keeping an old count", async () => {

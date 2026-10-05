@@ -1,3 +1,4 @@
+import { requestSignal } from "../request-signal.ts";
 import type { AuditRecord } from "../../domain/operational-records.ts";
 import type { AgendaActorContext } from "../agenda/contracts.ts";
 import { parseComparisonAuditIds, type AuditComparison } from "./comparison-contracts.ts";
@@ -47,7 +48,7 @@ export function createAuditComparisonLoader(actor: AgendaActorContext, fetcher: 
         try {
           if (controller.signal.aborted) return;
           const response = await fetcher(`/api/audits/comparison?${query}`, {
-            credentials: "same-origin", cache: "no-store", signal: controller.signal,
+            credentials: "same-origin", cache: "no-store", signal: requestSignal(controller.signal),
           });
           if (!response.ok) throw new Error(unavailable);
           const value: unknown = await response.json();

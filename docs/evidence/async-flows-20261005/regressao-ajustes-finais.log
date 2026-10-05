@@ -1,0 +1,34 @@
+(node:42734) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/teh/Desktop/GERAL.26/Dialogo%20Auditorias/dialogo-auditorias/src/lib/auth/active-profile.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/teh/Desktop/GERAL.26/Dialogo Auditorias/dialogo-auditorias/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ anonymous, pending, revoked or unselected sessions never execute aggregate queries (42.569541ms)
+✔ selected profile must be General Administration even when account owns several profiles (1.441375ms)
+✔ stale user, profile, Engineering scope or Administrative scope causes no aggregate queries (0.816417ms)
+✔ database administrator authority is required before either aggregate is read (0.878833ms)
+✔ valid request uses exactly two HEAD counts with the correct confirmation and active filters (0.425833ms)
+✔ session cookie supplies authority when optional display identity is omitted (0.342917ms)
+✔ missing or invalid counts and provider failure stay unavailable rather than becoming zero (1.289459ms)
+✔ client sends current identity and bypasses cache on every mount/retry (0.705417ms)
+✔ client reports authorization/fetch/data failures and retries without keeping an old count (0.494291ms)
+(node:42735) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/teh/Desktop/GERAL.26/Dialogo%20Auditorias/dialogo-auditorias/src/lib/agenda/sync-client.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/teh/Desktop/GERAL.26/Dialogo Auditorias/dialogo-auditorias/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ unchanged poll preserves the snapshot and only reports loading start/end (16.023625ms)
+✔ temporary failures preserve available data; recovery clears error; authorization failure clears data (2.305625ms)
+✔ one poll at a time; changing profile/disposal prevents old results from applying (0.325667ms)
+✔ late response and late JSON parsing cannot overwrite a completed mutation (1.359459ms)
+✔ publication cancels a pending read, clears its token and prevents a completed visit returning (0.885125ms)
+✔ mutation idempotency survives retry, unknown success forces a full read, and profile cancellation discards mutation (1.045041ms)
+✔ invalid or unsolicited 304 never clears existing errors or introduces a snapshot (0.331083ms)
+✔ server DAL performs one conditional RPC and validates unchanged revision before accepting it (0.254916ms)
+✔ native browser fetch is invoked without assigning the synchronizer as its receiver (0.14525ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 18
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 254.773375

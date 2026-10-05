@@ -1,0 +1,43 @@
+- main:
+  - heading "Validação de fluxos assíncronos" [level=1]
+  - paragraph: Dados fictícios. As respostas de API são controladas pelo teste.
+  - navigation "Fluxos de teste":
+    - link "auditoria":
+      - /url: /revisao-assincrona?fluxo=auditoria
+    - link "plano":
+      - /url: /revisao-assincrona?fluxo=plano
+    - link "foto":
+      - /url: /revisao-assincrona?fluxo=foto
+    - link "busca":
+      - /url: /revisao-assincrona?fluxo=busca
+    - link "formulario":
+      - /url: /revisao-assincrona?fluxo=formulario
+    - link "upload":
+      - /url: /revisao-assincrona?fluxo=upload
+    - link "download":
+      - /url: /revisao-assincrona?fluxo=download
+    - link "revisar":
+      - /url: /revisao-assincrona?fluxo=revisar
+    - link "Página lenta":
+      - /url: /revisao-assincrona/lenta
+  - heading "Formulário de acesso" [level=2]
+  - text: Nome completo
+  - textbox "Nome completo": Pessoa de teste
+  - text: E-mail corporativo
+  - textbox "E-mail corporativo": teste@example.invalid
+  - text: Crie sua senha
+  - textbox "Crie sua senha": Senha-ficticia-123
+  - text: Confirme sua senha
+  - textbox "Confirme sua senha": Senha-ficticia-123
+  - group "Informações complementares (opcionais)":
+    - text: Informações complementares (opcionais) Cargo ou área
+    - textbox "Cargo ou área"
+    - text: Obra de referência
+    - textbox "Obra de referência"
+    - paragraph: Essas informações ajudam na análise da solicitação. Os acessos serão definidos pelo Administrativo.
+  - paragraph: Após solicitar acesso, confirme seu e-mail e aguarde a liberação do Administrativo.
+  - alert: Não foi possível confirmar a operação. Seus dados foram mantidos. Confira a conexão e tente novamente.
+  - button "Solicitar acesso"
+  - text: Já possui uma conta?
+  - link "Entrar":
+    - /url: /entrar

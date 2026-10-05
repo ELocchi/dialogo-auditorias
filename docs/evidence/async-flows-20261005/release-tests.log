@@ -1,0 +1,148 @@
+(node:43500) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/dialogo-async-release-20261005/src/lib/auth/active-profile.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /private/tmp/dialogo-async-release-20261005/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ anonymous, pending, revoked or unselected sessions never execute aggregate queries (61.864958ms)
+✔ selected profile must be General Administration even when account owns several profiles (10.204083ms)
+✔ stale user, profile, Engineering scope or Administrative scope causes no aggregate queries (1.824291ms)
+✔ database administrator authority is required before either aggregate is read (0.377208ms)
+✔ valid request uses exactly two HEAD counts with the correct confirmation and active filters (4.736166ms)
+✔ session cookie supplies authority when optional display identity is omitted (2.707209ms)
+✔ missing or invalid counts and provider failure stay unavailable rather than becoming zero (5.638625ms)
+✔ client sends current identity and bypasses cache on every mount/retry (6.989917ms)
+✔ client reports authorization/fetch/data failures and retries without keeping an old count (3.25625ms)
+(node:43501) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/dialogo-async-release-20261005/src/lib/agenda/sync-client.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /private/tmp/dialogo-async-release-20261005/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ unchanged poll preserves the snapshot and only reports loading start/end (55.584833ms)
+✔ temporary failures preserve available data; recovery clears error; authorization failure clears data (5.709042ms)
+✔ one poll at a time; changing profile/disposal prevents old results from applying (0.538459ms)
+✔ late response and late JSON parsing cannot overwrite a completed mutation (1.067667ms)
+✔ publication cancels a pending read, clears its token and prevents a completed visit returning (0.696834ms)
+✔ mutation idempotency survives retry, unknown success forces a full read, and profile cancellation discards mutation (0.857208ms)
+✔ invalid or unsolicited 304 never clears existing errors or introduces a snapshot (0.849041ms)
+✔ server DAL performs one conditional RPC and validates unchanged revision before accepting it (0.647417ms)
+✔ native browser fetch is invoked without assigning the synchronizer as its receiver (0.614584ms)
+(node:43502) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/dialogo-async-release-20261005/src/lib/request-signal.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /private/tmp/dialogo-async-release-20261005/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ a network deadline expires without marking caller cancellation (41.808792ms)
+✔ leaving a page cancels its request immediately and preserves the reason (0.261917ms)
+✔ the same deadline also interrupts a stalled response body (63.784292ms)
+✔ a read timeout rejects once and never retries or accepts a late result (33.840791ms)
+✔ reads return success and propagate failures without a retry (0.58125ms)
+(node:43503) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/dialogo-async-release-20261005/src/lib/audits/comparison-loader.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /private/tmp/dialogo-async-release-20261005/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ history loads only on demand, batches three answers and reuses a profile cache (98.449583ms)
+✔ overlapping requests share in-flight IDs and fetch only missing comparisons (1.376833ms)
+✔ missing records remain errors and a retry requests only the absent audit (4.442917ms)
+✔ unavailable, invalid or out-of-context payloads cannot become comparison data (18.698459ms)
+✔ synchronous failures and HTTP denial can be retried without a stuck in-flight entry (1.9275ms)
+✔ profile disposal clears cached answers and ignores late network and JSON completions (1.219458ms)
+✔ StrictMode cancellation can restart immediately and old responses cannot overwrite it (0.896792ms)
+✔ cache stays bounded and an evicted history loads again; invalid batches never fetch (14.628083ms)
+(node:43504) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/dialogo-async-release-20261005/src/lib/audits/detail-loader.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /private/tmp/dialogo-async-release-20261005/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ opening an audit fetches once, reuses concurrent demand and sends the active profile (88.52075ms)
+✔ changing profile cancels pending details and cannot apply a late response (1.015875ms)
+✔ failed detail loading keeps an explicit error and allows a successful retry (1.314458ms)
+✔ mismatching or incomplete audit details cannot replace the selected audit (1.460209ms)
+✔ a profile owns its own cache and unavailable audit IDs cause no request (0.524167ms)
+✔ paged histories can open an authorized audit absent from the initial index (0.393042ms)
+✔ unlisted details still reject denial and a response for another audit (0.27075ms)
+(node:43505) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/dialogo-async-release-20261005/src/lib/audits/history-loader.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /private/tmp/dialogo-async-release-20261005/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ pages load only on demand, deduplicate canonical filters and bind native fetch correctly (71.731917ms)
+✔ coordination batches matching quality and safety pages behind one authenticated request (0.957875ms)
+✔ separate filters and pages cannot overwrite each other after responses arrive out of order (1.601375ms)
+✔ only the final subscriber leaving aborts pending work; StrictMode resubscription reuses it (0.485166ms)
+✔ expired pages revalidate and temporary failures preserve rows while explicit retry recovers (0.939709ms)
+✔ authorization denial clears cached pages and rejects late successful responses (1.639083ms)
+✔ cancel prevents late JSON writes and allows a new StrictMode request for the same page (0.514708ms)
+✔ cache has at most twelve inactive pages, evicted pages reload and profiles never share data (4.530542ms)
+✔ malformed pages, foreign findings and unrequested filters never become ready (10.974417ms)
+✔ projection excludes detail fields and permits valid empty pages beyond the end (0.399042ms)
+✔ invalid queries never fetch, and synchronous failures can be retried (0.416166ms)
+(node:43506) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/dialogo-async-release-20261005/src/lib/catalogs/deferred-loader.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /private/tmp/dialogo-async-release-20261005/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ does not fetch before demand; concurrent tabs share one request and reopening uses loaded data (39.875916ms)
+✔ starting a new audit explicitly refreshes the revision and never accepts a failed load as a bundled catalog (1.705708ms)
+✔ errors permit retry and only the explicit missing-migration signal allows initial catalog fallback (1.488875ms)
+✔ profile disposal discards late replies and a strict-mode restart can load again (1.245125ms)
+✔ saving a catalog replaces cached data and an older request cannot overwrite the saved revision (0.911458ms)
+✔ catalog endpoint fails closed before reading and keeps every response private (3.266625ms)
+(node:43509) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/dialogo-async-release-20261005/src/lib/follow-up/report-pdf-resource.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /private/tmp/dialogo-async-release-20261005/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ preview, open and download reuse one authenticated PDF and its server file name (74.788208ms)
+✔ leaving aborts pending transport and ignores a response that finishes after cancellation (0.461917ms)
+✔ immediate disposal cancels before making a network request (1.008541ms)
+✔ leaving during blob reading cannot retain a URL or publish a stale report (0.529791ms)
+✔ retry after server error fetches again without replacing the saved report or reusing failures (0.807625ms)
+✔ synchronous transport failure can retry and a login redirect or invalid document is never displayed (2.073208ms)
+✔ old requests cannot overwrite a new load, including Strict Mode disposal and restart (0.886833ms)
+✔ separate report/profile resources never share a Blob or pending request (1.172958ms)
+✔ subscriptions and download names remain safe across loading, failure, retry and disposal (0.548292ms)
+(node:43510) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/dialogo-async-release-20261005/src/lib/follow-up/photo-loader.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /private/tmp/dialogo-async-release-20261005/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ does not read photos until a row is visible; subscriptions alone are inert (38.01675ms)
+✔ two findings from one visit share a request; only the last departure cancels it (2.496792ms)
+✔ at most two listings run concurrently and an offscreen queued visit is skipped (22.607291ms)
+✔ StrictMode release and immediate reacquire preserve the shared request (2.355166ms)
+✔ upload replacement wins even if the old listing ignores cancellation (1.163667ms)
+✔ listing failure is distinct from empty photos and only an explicit retry refetches (2.451166ms)
+✔ 401/403 clears cached names, aborts all listings and blocks further reads for this context (4.398041ms)
+✔ switching profiles cancels and isolates data, including late responses (1.349333ms)
+✔ rejects malformed lists, duplicate filenames and photos belonging to another visit/finding (2.781375ms)
+✔ cache is bounded for inactive visits without dropping visits beyond the old 100 limit (85.589125ms)
+✔ returning to a visible visit reuses fresh metadata and refreshes it after expiration (1.47075ms)
+✔ cancel stops queued reads and a synchronous fetch failure releases concurrency slots (0.49125ms)
+(node:43511) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/dialogo-async-release-20261005/src/lib/pdf/audit-report.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /private/tmp/dialogo-async-release-20261005/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ audit renderer preserves pages, evidence, summary destinations and observations (51.385542ms)
+✔ security and quantitative reports render their response details without a DOM (18.394959ms)
+✔ action plan preserves landscape layout, corrective actions, images and summary links (9.537ms)
+(node:43511) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/dialogo-async-release-20261005/src/lib/pdf/report.worker.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /private/tmp/dialogo-async-release-20261005/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ production worker fetches assets and transfers an actual PDF with no browser globals (228.497208ms)
+✔ cancelling a preview terminates its worker and rejects the pending result (1.222375ms)
+✔ unsupported workers fall back to a real PDF and tolerate unavailable images (9.728792ms)
+(node:43512) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/dialogo-async-release-20261005/src/app/api/audits/%5BauditId%5D/photos/%5BfileName%5D/route.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /private/tmp/dialogo-async-release-20261005/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ every photo route authenticates before resource reads or downloads (16.355791ms)
+✔ actual route derivatives use private storage and reauthorize on warm cache (26.366875ms)
+✔ work photos retain finding, owner, work and filename filters; originals are byte-identical (0.6955ms)
+✔ audit photo requests cannot cross module or work scope, including a populated cache (0.4505ms)
+✔ visit photo cache cannot bypass missing visit, removed photo or a different profile (0.609042ms)
+✔ visit image uses one exact RPC, no list calls, and preserves original bytes (0.72175ms)
+✔ photo authorization errors and malformed responses cannot reuse a warm thumbnail (0.39075ms)
+✔ engineering reads a published work photo from its auditor's folder in both scopes (6.699583ms)
+✔ work photo access still rejects another work, discipline, owner and unsupported profile (0.727666ms)
+✔ work photo cache cannot mask database errors or removal of the finding (0.506375ms)
+ℹ tests 92
+ℹ suites 0
+ℹ pass 92
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1144.381625

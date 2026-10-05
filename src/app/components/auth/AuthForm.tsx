@@ -1,7 +1,10 @@
 "use client";
+import { SlowOperation } from "@/app/components/slow-operation";
+import { useHydrated } from "../use-hydrated";
+import { recoverAction } from "../recover-action";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { startTransition, useActionState } from "react";
 import { signInAction, signUpAction } from "@/app/auth/actions";
 import type { AuthActionState } from "@/lib/auth/contracts";
 import styles from "./auth.module.css";
@@ -9,24 +12,25 @@ import styles from "./auth.module.css";
 const initialState: AuthActionState = { status: "idle", message: "" };
 
 export function AuthForm({ mode }: { mode: "login" | "signup" }) {
+  const hydrated = useHydrated();
   const isSignup = mode === "signup";
   const [state, formAction, pending] = useActionState(
-    isSignup ? signUpAction : signInAction,
+    recoverAction(isSignup ? signUpAction : signInAction),
     initialState,
   );
 
   return (
     <>
-      <form action={formAction} className={styles.form} aria-busy={pending}>
+      <form method="post" onSubmit={event => { event.preventDefault(); if (pending) return; const form = new FormData(event.currentTarget); startTransition(() => formAction(form)); }} className={styles.form} aria-busy={pending}>
         {isSignup && (
           <label htmlFor="auth-name">
             Nome completo
-            <input id="auth-name" name="nome" autoComplete="name" required />
+            <input disabled={pending || !hydrated} id="auth-name" name="nome" autoComplete="name" required />
           </label>
         )}
         <label htmlFor="auth-email">
           E-mail corporativo
-          <input
+          <input disabled={pending || !hydrated}
             id="auth-email"
             name="email"
             type="email"
@@ -38,7 +42,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         </label>
         <label htmlFor="auth-password">
           {isSignup ? "Crie sua senha" : "Senha"}
-          <input
+          <input disabled={pending || !hydrated}
             id="auth-password"
             name="password"
             type="password"
@@ -50,7 +54,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           <>
             <label htmlFor="auth-password-confirmation">
               Confirme sua senha
-              <input
+              <input disabled={pending || !hydrated}
                 id="auth-password-confirmation"
                 name="passwordConfirmation"
                 type="password"
@@ -62,11 +66,11 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
               <legend>Informações complementares <span>(opcionais)</span></legend>
               <label htmlFor="auth-role-reference">
                 Cargo ou área
-                <input id="auth-role-reference" name="cargoArea" autoComplete="organization-title" />
+                <input disabled={pending || !hydrated} id="auth-role-reference" name="cargoArea" autoComplete="organization-title" />
               </label>
               <label htmlFor="auth-work-reference">
                 Obra de referência
-                <input id="auth-work-reference" name="obraReferencia" aria-describedby="reference-guidance" />
+                <input disabled={pending || !hydrated} id="auth-work-reference" name="obraReferencia" aria-describedby="reference-guidance" />
               </label>
               <p id="reference-guidance" className={styles.optionalHelp}>
                 Essas informações ajudam na análise da solicitação. Os acessos serão definidos pelo Administrativo.
@@ -87,12 +91,12 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             {state.message}
           </p>
         )}
-        <button className={styles.submit} type="submit" disabled={pending}>
+        <button className={styles.submit} type="submit" disabled={pending || !hydrated}>
           {pending
             ? isSignup ? "Enviando solicitação…" : "Entrando…"
             : isSignup ? "Solicitar acesso" : "Entrar"}
         </button>
-      </form>
+      <SlowOperation pending={pending} /></form>
       <div className={styles.alternative}>
         {isSignup && <span>Já possui uma conta?</span>}
         <Link href={isSignup ? "/entrar" : "/solicitar-acesso"}>

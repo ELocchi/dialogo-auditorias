@@ -1,0 +1,28 @@
+- main:
+  - heading "Validação de fluxos assíncronos" [level=1]
+  - paragraph: Dados fictícios. As respostas de API são controladas pelo teste.
+  - navigation "Fluxos de teste":
+    - link "auditoria":
+      - /url: /revisao-assincrona?fluxo=auditoria
+    - link "plano":
+      - /url: /revisao-assincrona?fluxo=plano
+    - link "foto":
+      - /url: /revisao-assincrona?fluxo=foto
+    - link "busca":
+      - /url: /revisao-assincrona?fluxo=busca
+    - link "formulario":
+      - /url: /revisao-assincrona?fluxo=formulario
+    - link "upload":
+      - /url: /revisao-assincrona?fluxo=upload
+    - link "download":
+      - /url: /revisao-assincrona?fluxo=download
+    - link "revisar":
+      - /url: /revisao-assincrona?fluxo=revisar
+    - link "Página lenta":
+      - /url: /revisao-assincrona/lenta
+  - heading "Busca por obra" [level=2]
+  - text: Obra
+  - combobox "Obra":
+    - option "Obra A"
+    - option "Obra B" [selected]
+  - paragraph: Nenhum relatório nesta obra.

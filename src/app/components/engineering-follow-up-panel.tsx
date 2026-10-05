@@ -1,4 +1,6 @@
 "use client";
+import { DownloadButton } from "./download-button";
+import { AsyncSkeleton } from "./async-feedback";
 
 import { memo, useMemo, useState } from "react";
 import { moduleLabels, type AppModule, type Visit } from "@/domain/prototype-access";
@@ -40,7 +42,7 @@ function EngineeringFollowUpSession({ actor, visits, works, module }: Props) {
         <option value="">Todas as obras</option>{works.map((work) => <option key={work.id} value={work.id}>{work.name}</option>)}
       </select>}
     </div>
-    {(loading || standalone.loading) && <p className="muted" role="status">Carregando relatórios orientativos...</p>}
+    {(loading || standalone.loading) && <AsyncSkeleton label="Carregando relatórios…" rows={2} />}
     {(error || standalone.error) && <p className="muted" role="alert">Não foi possível consultar todos os relatórios orientativos. <button type="button" className="secondary" onClick={() => { retry(); standalone.retry(); }}>Recarregar relatórios orientativos</button></p>}
     {visible.length ? <div className={styles.list}>{visible.map(report => <EngineeringFollowUpReportCard report={report} key={report.id} />)}</div>
       : data && standalone.data && !loading && !error && !standalone.loading && !standalone.error ? <p className="muted">Nenhum relatório orientativo publicado para esta disciplina.</p> : null}
@@ -57,6 +59,6 @@ const EngineeringFollowUpReportCard = memo(function EngineeringFollowUpReportCar
       <span>{report.workName}</span>
       <small>Responsável: {report.auditorName}</small>
     </div>
-    <a data-tooltip="Baixar PDF" className="secondary" href={report.pdfHref} download aria-label={`Baixar PDF: ${report.title}, ${report.workName}, ${formatAuditDate(report.date)}`}>Baixar PDF</a>
+    <DownloadButton className="secondary" href={report.pdfHref} label={`Baixar PDF: ${report.title}, ${report.workName}, ${formatAuditDate(report.date)}`}>Baixar PDF</DownloadButton>
   </article>;
 });

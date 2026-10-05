@@ -1,0 +1,148 @@
+(node:41038) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/teh/Desktop/GERAL.26/Dialogo%20Auditorias/dialogo-auditorias/src/lib/auth/active-profile.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/teh/Desktop/GERAL.26/Dialogo Auditorias/dialogo-auditorias/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ anonymous, pending, revoked or unselected sessions never execute aggregate queries (27.870042ms)
+✔ selected profile must be General Administration even when account owns several profiles (8.494167ms)
+✔ stale user, profile, Engineering scope or Administrative scope causes no aggregate queries (3.469542ms)
+✔ database administrator authority is required before either aggregate is read (0.223042ms)
+✔ valid request uses exactly two HEAD counts with the correct confirmation and active filters (2.110792ms)
+✔ session cookie supplies authority when optional display identity is omitted (0.958458ms)
+✔ missing or invalid counts and provider failure stay unavailable rather than becoming zero (8.724042ms)
+✔ client sends current identity and bypasses cache on every mount/retry (8.045125ms)
+✔ client reports authorization/fetch/data failures and retries without keeping an old count (1.792208ms)
+(node:41039) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/teh/Desktop/GERAL.26/Dialogo%20Auditorias/dialogo-auditorias/src/lib/agenda/sync-client.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/teh/Desktop/GERAL.26/Dialogo Auditorias/dialogo-auditorias/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ unchanged poll preserves the snapshot and only reports loading start/end (16.571875ms)
+✔ temporary failures preserve available data; recovery clears error; authorization failure clears data (2.213333ms)
+✔ one poll at a time; changing profile/disposal prevents old results from applying (0.342166ms)
+✔ late response and late JSON parsing cannot overwrite a completed mutation (1.094542ms)
+✔ publication cancels a pending read, clears its token and prevents a completed visit returning (0.281416ms)
+✔ mutation idempotency survives retry, unknown success forces a full read, and profile cancellation discards mutation (0.409708ms)
+✔ invalid or unsolicited 304 never clears existing errors or introduces a snapshot (0.243917ms)
+✔ server DAL performs one conditional RPC and validates unchanged revision before accepting it (0.221375ms)
+✔ native browser fetch is invoked without assigning the synchronizer as its receiver (0.135125ms)
+(node:41040) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/teh/Desktop/GERAL.26/Dialogo%20Auditorias/dialogo-auditorias/src/lib/request-signal.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/teh/Desktop/GERAL.26/Dialogo Auditorias/dialogo-auditorias/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ a network deadline expires without marking caller cancellation (47.08425ms)
+✔ leaving a page cancels its request immediately and preserves the reason (0.253459ms)
+✔ the same deadline also interrupts a stalled response body (74.792792ms)
+✔ a read timeout rejects once and never retries or accepts a late result (33.079458ms)
+✔ reads return success and propagate failures without a retry (0.716792ms)
+(node:41041) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/teh/Desktop/GERAL.26/Dialogo%20Auditorias/dialogo-auditorias/src/lib/audits/comparison-loader.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/teh/Desktop/GERAL.26/Dialogo Auditorias/dialogo-auditorias/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ history loads only on demand, batches three answers and reuses a profile cache (52.109541ms)
+✔ overlapping requests share in-flight IDs and fetch only missing comparisons (0.658833ms)
+✔ missing records remain errors and a retry requests only the absent audit (0.506417ms)
+✔ unavailable, invalid or out-of-context payloads cannot become comparison data (2.688291ms)
+✔ synchronous failures and HTTP denial can be retried without a stuck in-flight entry (0.668834ms)
+✔ profile disposal clears cached answers and ignores late network and JSON completions (0.708583ms)
+✔ StrictMode cancellation can restart immediately and old responses cannot overwrite it (0.405417ms)
+✔ cache stays bounded and an evicted history loads again; invalid batches never fetch (9.34425ms)
+(node:41042) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/teh/Desktop/GERAL.26/Dialogo%20Auditorias/dialogo-auditorias/src/lib/audits/detail-loader.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/teh/Desktop/GERAL.26/Dialogo Auditorias/dialogo-auditorias/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ opening an audit fetches once, reuses concurrent demand and sends the active profile (58.904458ms)
+✔ changing profile cancels pending details and cannot apply a late response (0.598625ms)
+✔ failed detail loading keeps an explicit error and allows a successful retry (1.474166ms)
+✔ mismatching or incomplete audit details cannot replace the selected audit (1.441541ms)
+✔ a profile owns its own cache and unavailable audit IDs cause no request (3.43025ms)
+✔ paged histories can open an authorized audit absent from the initial index (1.386083ms)
+✔ unlisted details still reject denial and a response for another audit (1.058708ms)
+(node:41043) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/teh/Desktop/GERAL.26/Dialogo%20Auditorias/dialogo-auditorias/src/lib/audits/history-loader.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/teh/Desktop/GERAL.26/Dialogo Auditorias/dialogo-auditorias/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ pages load only on demand, deduplicate canonical filters and bind native fetch correctly (61.039667ms)
+✔ coordination batches matching quality and safety pages behind one authenticated request (0.740708ms)
+✔ separate filters and pages cannot overwrite each other after responses arrive out of order (2.444375ms)
+✔ only the final subscriber leaving aborts pending work; StrictMode resubscription reuses it (1.174667ms)
+✔ expired pages revalidate and temporary failures preserve rows while explicit retry recovers (0.87025ms)
+✔ authorization denial clears cached pages and rejects late successful responses (0.988917ms)
+✔ cancel prevents late JSON writes and allows a new StrictMode request for the same page (0.41975ms)
+✔ cache has at most twelve inactive pages, evicted pages reload and profiles never share data (3.298709ms)
+✔ malformed pages, foreign findings and unrequested filters never become ready (3.157ms)
+✔ projection excludes detail fields and permits valid empty pages beyond the end (0.390875ms)
+✔ invalid queries never fetch, and synchronous failures can be retried (0.450958ms)
+(node:41044) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/teh/Desktop/GERAL.26/Dialogo%20Auditorias/dialogo-auditorias/src/lib/catalogs/deferred-loader.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/teh/Desktop/GERAL.26/Dialogo Auditorias/dialogo-auditorias/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ does not fetch before demand; concurrent tabs share one request and reopening uses loaded data (36.786166ms)
+✔ starting a new audit explicitly refreshes the revision and never accepts a failed load as a bundled catalog (1.566667ms)
+✔ errors permit retry and only the explicit missing-migration signal allows initial catalog fallback (1.192125ms)
+✔ profile disposal discards late replies and a strict-mode restart can load again (0.592833ms)
+✔ saving a catalog replaces cached data and an older request cannot overwrite the saved revision (0.992625ms)
+✔ catalog endpoint fails closed before reading and keeps every response private (3.803208ms)
+(node:41045) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/teh/Desktop/GERAL.26/Dialogo%20Auditorias/dialogo-auditorias/src/lib/follow-up/report-pdf-resource.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/teh/Desktop/GERAL.26/Dialogo Auditorias/dialogo-auditorias/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ preview, open and download reuse one authenticated PDF and its server file name (25.895875ms)
+✔ leaving aborts pending transport and ignores a response that finishes after cancellation (2.474ms)
+✔ immediate disposal cancels before making a network request (0.233291ms)
+✔ leaving during blob reading cannot retain a URL or publish a stale report (0.400042ms)
+✔ retry after server error fetches again without replacing the saved report or reusing failures (0.76575ms)
+✔ synchronous transport failure can retry and a login redirect or invalid document is never displayed (2.544666ms)
+✔ old requests cannot overwrite a new load, including Strict Mode disposal and restart (0.877625ms)
+✔ separate report/profile resources never share a Blob or pending request (0.726459ms)
+✔ subscriptions and download names remain safe across loading, failure, retry and disposal (0.587375ms)
+(node:41046) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/teh/Desktop/GERAL.26/Dialogo%20Auditorias/dialogo-auditorias/src/lib/follow-up/photo-loader.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/teh/Desktop/GERAL.26/Dialogo Auditorias/dialogo-auditorias/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ does not read photos until a row is visible; subscriptions alone are inert (42.203667ms)
+✔ two findings from one visit share a request; only the last departure cancels it (2.407041ms)
+✔ at most two listings run concurrently and an offscreen queued visit is skipped (2.374917ms)
+✔ StrictMode release and immediate reacquire preserve the shared request (2.101083ms)
+✔ upload replacement wins even if the old listing ignores cancellation (1.499125ms)
+✔ listing failure is distinct from empty photos and only an explicit retry refetches (2.409708ms)
+✔ 401/403 clears cached names, aborts all listings and blocks further reads for this context (5.999959ms)
+✔ switching profiles cancels and isolates data, including late responses (1.550333ms)
+✔ rejects malformed lists, duplicate filenames and photos belonging to another visit/finding (2.156917ms)
+✔ cache is bounded for inactive visits without dropping visits beyond the old 100 limit (16.260416ms)
+✔ returning to a visible visit reuses fresh metadata and refreshes it after expiration (0.569042ms)
+✔ cancel stops queued reads and a synchronous fetch failure releases concurrency slots (0.355541ms)
+(node:41047) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/teh/Desktop/GERAL.26/Dialogo%20Auditorias/dialogo-auditorias/src/lib/pdf/audit-report.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/teh/Desktop/GERAL.26/Dialogo Auditorias/dialogo-auditorias/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ audit renderer preserves pages, evidence, summary destinations and observations (58.553459ms)
+✔ security and quantitative reports render their response details without a DOM (16.80525ms)
+✔ action plan preserves landscape layout, corrective actions, images and summary links (8.691375ms)
+(node:41047) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/teh/Desktop/GERAL.26/Dialogo%20Auditorias/dialogo-auditorias/src/lib/pdf/report.worker.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/teh/Desktop/GERAL.26/Dialogo Auditorias/dialogo-auditorias/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ production worker fetches assets and transfers an actual PDF with no browser globals (262.451ms)
+✔ cancelling a preview terminates its worker and rejects the pending result (1.502125ms)
+✔ unsupported workers fall back to a real PDF and tolerate unavailable images (9.798792ms)
+(node:41048) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/teh/Desktop/GERAL.26/Dialogo%20Auditorias/dialogo-auditorias/src/app/api/audits/%5BauditId%5D/photos/%5BfileName%5D/route.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/teh/Desktop/GERAL.26/Dialogo Auditorias/dialogo-auditorias/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ every photo route authenticates before resource reads or downloads (16.514916ms)
+✔ actual route derivatives use private storage and reauthorize on warm cache (28.690958ms)
+✔ work photos retain finding, owner, work and filename filters; originals are byte-identical (0.628208ms)
+✔ audit photo requests cannot cross module or work scope, including a populated cache (0.243083ms)
+✔ visit photo cache cannot bypass missing visit, removed photo or a different profile (0.377334ms)
+✔ visit image uses one exact RPC, no list calls, and preserves original bytes (1.854625ms)
+✔ photo authorization errors and malformed responses cannot reuse a warm thumbnail (0.424ms)
+✔ engineering reads a published work photo from its auditor's folder in both scopes (6.705291ms)
+✔ work photo access still rejects another work, discipline, owner and unsupported profile (0.4735ms)
+✔ work photo cache cannot mask database errors or removal of the finding (0.230334ms)
+ℹ tests 92
+ℹ suites 0
+ℹ pass 92
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 894.26125

@@ -1,3 +1,4 @@
+import { requestSignal } from "../request-signal.ts";
 import { isAgendaRevision, isAgendaSnapshot, unavailableAgenda, withoutPublishedVisit,
   type AgendaActionResult, type AgendaActorContext, type AgendaSnapshot } from "./contracts.ts";
 
@@ -10,7 +11,7 @@ export function newRequestId() {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
-type SyncState = { agenda: AgendaSnapshot; agendaSyncError: string; mutationPending: boolean };
+type SyncState = { agenda: AgendaSnapshot; agendaSyncError: string; mutationPending: boolean; refreshPending: boolean };
 type Fetch = (input: string, init: RequestInit) => Promise<Response>;
 const retryMessage = "Não foi possível atualizar a agenda. Tentaremos novamente automaticamente.";
 
@@ -27,7 +28,7 @@ export class AgendaSyncClient {
 
   constructor(initialAgenda: AgendaSnapshot, actor: AgendaActorContext, fetcher: Fetch = fetch) {
     this.fetcher = fetcher;
-    this.state = { agenda: initialAgenda, agendaSyncError: "", mutationPending: false };
+    this.state = { agenda: initialAgenda, agendaSyncError: "", mutationPending: false, refreshPending: false };
     this.query = new URLSearchParams({ formato: "compacto", usuario: actor.userId, perfil: actor.profile,
       atuacao: actor.engineeringScope ?? "", administrativo: actor.administrativeScope ?? "" }).toString();
   }
@@ -38,7 +39,7 @@ export class AgendaSyncClient {
     this.state = { ...this.state, ...change };
     this.listeners.forEach((listener) => listener());
   }
-  cancelRefresh = () => { this.controller?.abort(); this.controller = null; };
+  cancelRefresh = () => { this.controller?.abort(); this.controller = null; if (this.state.refreshPending) this.publish({ refreshPending: false }); };
   dispose = () => { this.active = false; this.epoch += 1; this.cancelRefresh(); };
   private current(epoch: number, signal?: AbortSignal) { return this.active && epoch === this.epoch && !signal?.aborted; }
 
@@ -46,13 +47,14 @@ export class AgendaSyncClient {
     if (!this.active || this.controller || this.state.mutationPending) return;
     const request = new AbortController();
     this.controller = request;
+    this.publish({ refreshPending: true });
     const epoch = this.epoch;
     const revision = this.state.agenda.available && isAgendaRevision(this.state.agenda.revision) ? this.state.agenda.revision : null;
     try {
       // Browser fetch requires its own receiver (or no receiver), never this client.
       const fetcher = this.fetcher;
       const response = await fetcher(`/api/agenda?${this.query}`, { credentials: "same-origin", cache: "no-store",
-        signal: request.signal, ...(revision ? { headers: { "If-None-Match": `"${revision}"` } } : {}) });
+        signal: requestSignal(request.signal), ...(revision ? { headers: { "If-None-Match": `"${revision}"` } } : {}) });
       if (!this.current(epoch, request.signal)) return;
       if (response.status === 401 || response.status === 403) {
         this.epoch += 1;
@@ -73,7 +75,7 @@ export class AgendaSyncClient {
       this.publish({ agenda: snapshot, agendaSyncError: "" });
     } catch {
       if (this.current(epoch, request.signal)) this.publish({ agendaSyncError: retryMessage });
-    } finally { if (this.controller === request) this.controller = null; }
+    } finally { if (this.controller === request) { this.controller = null; this.publish({ refreshPending: false }); } }
   };
 
   runAction = async (operation: string, payload: object, action: (requestId: string) => Promise<AgendaActionResult>): Promise<AgendaActionResult> => {

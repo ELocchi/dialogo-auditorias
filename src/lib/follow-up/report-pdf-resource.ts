@@ -1,3 +1,4 @@
+import { requestSignal } from "../request-signal.ts";
 export type ReportPdfSnapshot =
   | { status: "idle" | "loading" | "error"; url: null; fileName: null }
   | { status: "ready"; url: string; fileName: string };
@@ -34,7 +35,7 @@ export function createReportPdfResource({ href, fallbackFileName, fetchPdf = fet
     pending = Promise.resolve().then(async () => {
       try {
         if (generation !== version || request.signal.aborted) return null;
-        const response = await fetchPdf(href, { credentials: "same-origin", cache: "no-store", signal: request.signal });
+        const response = await fetchPdf(href, { credentials: "same-origin", cache: "no-store", signal: requestSignal(request.signal, 90_000) });
         if (!response.ok || response.headers.get("content-type")?.split(";")[0].trim().toLowerCase() !== "application/pdf") {
           throw new Error("PDF unavailable");
         }

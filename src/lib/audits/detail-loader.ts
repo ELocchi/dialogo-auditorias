@@ -1,3 +1,4 @@
+import { requestSignal } from "../request-signal.ts";
 import type { AuditRecord } from "../../domain/operational-records.ts";
 import type { AgendaActorContext } from "../agenda/contracts.ts";
 import type { PublishedAuditSnapshot } from "./contracts.ts";
@@ -41,7 +42,7 @@ export function createAuditDetailLoader({ actor, initial, onLoaded, allowUnliste
     const promise = (async () => {
       try {
         const response = await fetcher(`/api/audits/${encodeURIComponent(id)}?${query}`, {
-          credentials: "same-origin", cache: "no-store", signal: controller.signal,
+          credentials: "same-origin", cache: "no-store", signal: requestSignal(controller.signal),
         });
         if (!response.ok) throw new Error(response.status === 401 || response.status === 403 || response.status === 404
           ? "Esta auditoria não está disponível para o perfil atual."

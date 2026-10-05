@@ -1,4 +1,5 @@
 "use client";
+import { recoverAction } from "../recover-action";
 
 import { BackButton, BackHeading } from "@/app/components/back-control";
 
@@ -15,7 +16,7 @@ const modulesFor = (profile: TechnicalProfile): AccessModule[] => profile === "A
 const firstModule = (profile: TechnicalProfile) => profile === "ENGENHARIA" ? "" : modulesFor(profile)[0];
 
 export function PendingRequests({ requests, works, actorId, previewIds = [] }: { requests: PendingRequest[]; works: AccessWork[]; actorId: string; previewIds?: readonly string[] }) {
-  const [state, action, pending] = useActionState(approveAccessAction, initialAccessState);
+  const [state, action, pending] = useActionState(recoverAction(approveAccessAction), initialAccessState);
   return <div>
     {state.message && <p className={state.status === "error" ? styles.error : styles.success} role={state.status === "error" ? "alert" : "status"} aria-live="polite">{state.message}</p>}
     {requests.length === 0 && <p className={styles.empty}>Não há solicitações com e-mail confirmado nesta página. Cadastros que ainda aguardam confirmação não podem ser aprovados.</p>}

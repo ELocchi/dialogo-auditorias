@@ -1,4 +1,6 @@
 "use client";
+import { SlowOperation } from "@/app/components/slow-operation";
+import { recoverAction } from "../recover-action";
 
 import { useActionState } from "react";
 import { confirmEmailAction } from "@/app/confirmar-email/actions";
@@ -6,7 +8,7 @@ import { initialAuthState } from "@/lib/auth/contracts";
 import styles from "./auth.module.css";
 
 export function ConfirmEmailForm() {
-  const [state, formAction, pending] = useActionState(confirmEmailAction, initialAuthState);
+  const [state, formAction, pending] = useActionState(recoverAction(confirmEmailAction), initialAuthState);
 
   return (
     <form action={formAction} className={styles.form} aria-busy={pending}>
@@ -23,6 +25,6 @@ export function ConfirmEmailForm() {
       <button className={styles.submit} type="submit" disabled={pending}>
         {pending ? "Confirmando e-mail…" : "Confirmar meu e-mail"}
       </button>
-    </form>
+    <SlowOperation pending={pending} /></form>
   );
 }

@@ -1,3 +1,4 @@
+import { requestSignal } from "../request-signal.ts";
 import { createAuditReviewPdf } from "./audit-report.ts";
 import { generateActionPlanPdf } from "./action-plan.ts";
 import type { PdfAssets, PdfJob } from "./types.ts";
@@ -6,7 +7,7 @@ import type { PdfAssets, PdfJob } from "./types.ts";
 export async function runPdfJob(job: PdfJob, signal?: AbortSignal): Promise<Uint8Array> {
   signal?.throwIfAborted();
   const assets: PdfAssets = { logo: null, photos: Object.create(null) };
-  const logoTask = fetch(new URL("/logo-relatorio-orientativo.png", job.baseUrl), { signal })
+  const logoTask = fetch(new URL("/logo-relatorio-orientativo.png", job.baseUrl), { signal: requestSignal(signal) })
     .then(async (response) => { if (response.ok) assets.logo = new Uint8Array(await response.arrayBuffer()); })
     .catch(() => { /* Preserve the report even if the optional logo is unavailable. */ });
   // Limit downloads to keep large reports from saturating the connection or memory.
@@ -17,7 +18,7 @@ export async function runPdfJob(job: PdfJob, signal?: AbortSignal): Promise<Uint
       try {
         let blob = photo.file;
         if (!blob && photo.url) {
-          const response = await fetch(new URL(photo.url, job.baseUrl), { signal });
+          const response = await fetch(new URL(photo.url, job.baseUrl), { signal: requestSignal(signal) });
           if (response.ok) blob = await response.blob();
         }
         if (!blob) return;

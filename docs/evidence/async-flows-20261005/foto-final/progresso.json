@@ -1,0 +1,15 @@
+[
+  {
+    "name": "Foto: skeleton, falha visível, retry por teclado, imagem carregada, reduced motion e mobile",
+    "passed": true,
+    "elapsedMs": 3647,
+    "detail": {
+      "requests": 2,
+      "animation": "none",
+      "viewportWidth": 390,
+      "documentWidth": 390,
+      "naturalWidth": 1
+    },
+    "browserErrors": []
+  }
+]

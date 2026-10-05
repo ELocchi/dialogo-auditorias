@@ -1,0 +1,4 @@
+- main:
+  - heading "Não foi possível abrir a página" [level=2]
+  - alert: Confira a conexão e tente novamente.
+  - button "Tentar novamente"

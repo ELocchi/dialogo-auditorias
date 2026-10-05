@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useMemo, useRef, type ChangeEvent } from "react";
+import { memo, useMemo, useRef, useState, type ChangeEvent } from "react";
 import Image from "next/image";
 import { formatAuditDate } from "@/domain/operational-records";
 import type { AgendaActorContext } from "@/lib/agenda/contracts";
@@ -36,7 +36,7 @@ export const FollowUpWorkFindingRow = memo(function FollowUpWorkFindingRow({ ite
 }) {
   const original = `/app/acompanhamento/obras/${item.workId}/fotos/${item.photoFileName}`;
   return <li>
-    <div className={styles.findingMedia}><a data-tooltip="Foto em nova guia" href={original} target="_blank" rel="noreferrer" aria-label={`Abrir foto em nova guia: ${item.description}`}><EvidenceThumbnail thumbnailSrc={followUpPhotoThumbnailUrl(original, actor)} originalSrc={original} alt={`Foto de ${item.description}`} width={90} height={90} /></a></div>
+    <div className={styles.findingMedia}><EvidenceThumbnail thumbnailSrc={followUpPhotoThumbnailUrl(original, actor)} originalSrc={original} alt={`Foto de ${item.description}`} width={90} height={90}  /></div>
     <div className={styles.findingDetails}><strong>{item.description}{item.serious && <em className={styles.seriousBadge}>Item grave</em>}</strong><span>{workName}{item.location ? ` · ${item.location}` : ""}</span><p>Orientação: {item.correction}</p></div>
     <button type="button" className={`secondary ${styles.findingComplete}`} disabled={disabled} aria-label={`Concluir apontamento: ${item.description}`} data-tooltip="Concluir apontamento" onClick={() => onComplete(item.id)}>Concluir apontamento</button>
   </li>;
@@ -45,17 +45,22 @@ export const FollowUpWorkFindingRow = memo(function FollowUpWorkFindingRow({ ite
 export const FollowUpSavedFindingRow = memo(function FollowUpSavedFindingRow({ item, actor, photoStore, disabled, onComplete, onUpload }: {
   item: SavedFollowUpFinding; actor: AgendaActorContext; photoStore: ReturnType<typeof useFollowUpPhotoStore>; disabled: boolean;
   onComplete: (visitId: string, findingId: string) => void;
-  onUpload: (file: File, visitId: string, findingId: string) => void;
+  onUpload: (file: File, visitId: string, findingId: string) => Promise<boolean>;
 }) {
+  const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
+  const upload = async (file: File) => {
+    setSelectedPhoto(file);
+    if (await onUpload(file, item.visitId, item.id)) setSelectedPhoto(null);
+  };
   const { ref, status, photos, message, retry } = useFollowUpVisitPhotos(photoStore, item.visitId);
   const itemPhotos = useMemo(() => photos.filter((photo) => photo.findingId === item.id), [photos, item.id]);
   return <li ref={ref}>
     <div className={styles.findingMedia}>{status === "ready" ? itemPhotos.length ? itemPhotos.map((photo) => {
       const original = `/app/acompanhamento/fotos/${item.visitId}/${photo.fileName}`;
-      return <a data-tooltip="Foto em nova guia" key={photo.fileName} href={original} target="_blank" rel="noreferrer" aria-label={`Abrir foto em nova guia: ${item.description}`}><EvidenceThumbnail thumbnailSrc={followUpPhotoThumbnailUrl(original, actor)} originalSrc={original} alt={`Foto de ${item.description}`} width={90} height={90} /></a>;
+      return <EvidenceThumbnail thumbnailSrc={followUpPhotoThumbnailUrl(original, actor)} originalSrc={original} alt={`Foto de ${item.description}`} width={90} height={90}  key={photo.fileName} />;
     }) : <span>Sem foto</span> : status === "error" ? <span role="status">{message ?? "Não foi possível consultar a foto."}<button type="button" className="secondary" onClick={retry}>Recarregar foto</button></span> : <span role="status">Carregando foto…</span>}</div>
     <div className={styles.findingDetails}><strong>{item.description}{item.serious && <em className={styles.seriousBadge}>Item grave</em>}</strong><span>{item.workName} · {formatAuditDate(item.date)}{item.location ? ` · ${item.location}` : ""}</span><p>Orientação: {item.correction}</p>
-      {status === "ready" && item.source === "saved" && itemPhotos.length < maxPhotosPerFinding && <div className={styles.addPhotoField}><strong>Adicionar foto</strong><FollowUpPhotoPicker disabled={disabled} onSelect={(file) => onUpload(file, item.visitId, item.id)} /></div>}
+      {status === "ready" && item.source === "saved" && itemPhotos.length < maxPhotosPerFinding && <div className={styles.addPhotoField}><strong>Adicionar foto</strong><FollowUpPhotoPicker disabled={disabled} onSelect={file => { void upload(file); }} />{selectedPhoto && <div><span>{selectedPhoto.name}</span><button type="button" className="secondary" disabled={disabled} onClick={() => { void upload(selectedPhoto); }}>{disabled ? "Enviando…" : "Tentar enviar"}</button></div>}</div>}
     </div>
     <button type="button" className={`secondary ${styles.findingComplete}`} disabled={disabled} aria-label={`Concluir apontamento: ${item.description}`} data-tooltip="Concluir apontamento" onClick={() => onComplete(item.visitId, item.id)}>Concluir apontamento</button>
   </li>;

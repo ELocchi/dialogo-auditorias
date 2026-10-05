@@ -1,4 +1,5 @@
 "use client";
+import { AsyncSkeleton } from "./async-feedback";
 
 import { useState } from "react";
 import type { AuditRecord, WorkRecord } from "@/domain/operational-records";
@@ -53,7 +54,7 @@ export function usePublishedHistoryPage(audits: readonly AuditRecord[], filters:
 
 export function HistoryLoadStatus({ history }: { history: { status: string; message?: string; retry: () => void } }) {
   if (history.status === "error") return <div role="alert"><p className="muted">{history.message || "Não foi possível carregar o histórico."}</p><button type="button" className="secondary" onClick={history.retry}>Recarregar histórico</button></div>;
-  if (history.status === "loading" || history.status === "idle") return <p className="muted" role="status">Carregando histórico…</p>;
+  if (history.status === "loading" || history.status === "idle") return <AsyncSkeleton label="Carregando histórico…" />;
   return null;
 }
 

@@ -1,3 +1,4 @@
+import { requestSignal } from "../request-signal.ts";
 import type { AgendaActorContext } from "../agenda/contracts.ts";
 import { uuidPattern } from "../access/validation.ts";
 import { parsePhotoFileName, type FindingPhoto } from "./photos.ts";
@@ -80,7 +81,7 @@ export function createFollowUpPhotoLoader(actor: AgendaActorContext, fetcher: ty
         try {
           if (!current()) return;
           const response = await fetcher(`/api/follow-up/visits/${id}/photos?${parameters}`, {
-            credentials: "same-origin", cache: "no-store", signal: controller.signal,
+            credentials: "same-origin", cache: "no-store", signal: requestSignal(controller.signal),
           });
           if (!current()) return;
           if (response.status === 401 || response.status === 403) {

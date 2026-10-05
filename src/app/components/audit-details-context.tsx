@@ -1,4 +1,5 @@
 "use client";
+import { AsyncSkeleton } from "@/app/components/async-feedback";
 
 import { createContext, useContext, useEffect, useMemo, useSyncExternalStore, type Dispatch, type SetStateAction, type ReactNode } from "react";
 import type { ProfileWorkspaceContext } from "@/lib/access/workspace-context";
@@ -42,6 +43,6 @@ export function AuditDetailGate({ auditId, children }: { auditId: string; childr
     {state?.status === "error" ? <>
       <p role="alert">{state.message}</p>
       <button type="button" className="secondary" onClick={() => { void loadAudit(auditId).catch(() => {}); }}>Recarregar auditoria</button>
-    </> : <p className="muted" role="status">Carregando detalhes da auditoria...</p>}
+    </> : <AsyncSkeleton label="Carregando detalhes da auditoria…" />}
   </section>;
 }

@@ -1,3 +1,4 @@
+import { requestSignal } from "../request-signal.ts";
 import type { AuditRecord } from "../../domain/operational-records.ts";
 import type { PublishedAuditFinding } from "./contracts.ts";
 import type { AgendaActorContext } from "../agenda/contracts.ts";
@@ -97,7 +98,7 @@ export function createAuditHistoryLoader(actor: AgendaActorContext, fetcher: typ
           const common = { ...query };
           delete common.module;
           const response = await fetcher(`/api/audits/history/coordination?${parametersFor(common)}`, {
-            credentials: "same-origin", cache: "no-store", signal: controller.signal,
+            credentials: "same-origin", cache: "no-store", signal: requestSignal(controller.signal),
           });
           if (controller.signal.aborted) return;
           if (response.status === 401 || response.status === 403) {
@@ -126,7 +127,7 @@ export function createAuditHistoryLoader(actor: AgendaActorContext, fetcher: typ
           return;
         }
         const response = await fetcher(`/api/audits/history?${parametersFor(query)}`, {
-          credentials: "same-origin", cache: "no-store", signal: controller.signal,
+          credentials: "same-origin", cache: "no-store", signal: requestSignal(controller.signal),
         });
         if (controller.signal.aborted) return;
         if (response.status === 401 || response.status === 403) {

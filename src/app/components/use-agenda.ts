@@ -15,8 +15,9 @@ export function useAgenda(initialAgenda: AgendaSnapshot, userId: string, profile
     [initialAgenda, userId, profile, engineeringScope, administrativeScope]);
   const state = useSyncExternalStore(client.subscribe, client.getState, client.getState);
   const started = useRef<AgendaSyncClient | null>(null);
-  const lastRefreshAt = useRef(Date.now());
+  const lastRefreshAt = useRef(0);
   useEffect(() => {
+    lastRefreshAt.current = Date.now();
     client.activate();
     return () => client.dispose();
   }, [client]);
@@ -53,5 +54,5 @@ export function useAgenda(initialAgenda: AgendaSnapshot, userId: string, profile
         try { resolve(await action(requestId)); } catch (cause) { reject(cause); }
       });
     }));
-  return { ...state, runAgendaAction, removePublishedVisit: client.removePublishedVisit };
+  return { ...state, retryAgenda: client.refresh, runAgendaAction, removePublishedVisit: client.removePublishedVisit };
 }

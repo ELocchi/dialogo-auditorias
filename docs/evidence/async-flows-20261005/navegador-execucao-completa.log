@@ -1,0 +1,12 @@
+PASS Plano: skeleton, API 503, retry, salvamento lento e dados preservados
+PASS Auditoria: autosave não repete falha; foto mantida no retry; publicação sem duplicação
+PASS Foto: skeleton, falha visível, retry por teclado, imagem carregada, reduced motion e mobile
+PASS Consulta: rede lenta, erro, retry, vazio e resposta antiga não substitui filtro novo
+PASS Formulário real: falha da Server Action mantém todos os campos e permite retry
+PASS Upload de acompanhamento: mantém arquivo após falha e desabilita envio
+PASS Download: feedback imediato, erro, retry e PDF real recebido
+PASS Navegação: loading.tsx visível antes da página lenta
+PASS Consulta sem resposta: prazo de 20 segundos libera retry
+PASS Plano: edição durante salvamento não deixa ação presa
+PASS Revisão da auditoria real: bloqueia controles enquanto salva e recupera de erro
+FAIL Erro de página: retry recupera a rota sem recarregar a aplicação inteira

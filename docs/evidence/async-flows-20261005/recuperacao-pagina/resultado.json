@@ -1,0 +1,20 @@
+{
+  "date": "2026-10-05T20:17:31.080Z",
+  "base": "http://127.0.0.1:3010",
+  "browser": "Chrome / Playwright",
+  "apiPolicy": "APIs intercepted; Server Actions blocked; isolated app has no credentials",
+  "results": [
+    {
+      "name": "Erro de página: retry recupera a rota sem recarregar a aplicação inteira",
+      "passed": true,
+      "elapsedMs": 1332,
+      "detail": {
+        "errorBoundaryRecovered": true
+      },
+      "browserErrors": [
+        "Switched to client rendering because the server rendering errored:\n\nFalha simulada na página de teste",
+        "Switched to client rendering because the server rendering errored:\n\nFalha simulada na página de teste"
+      ]
+    }
+  ]
+}

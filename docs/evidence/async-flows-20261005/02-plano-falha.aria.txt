@@ -1,0 +1,54 @@
+- main:
+  - heading "Validação de fluxos assíncronos" [level=1]
+  - paragraph: Dados fictícios. As respostas de API são controladas pelo teste.
+  - navigation "Fluxos de teste":
+    - link "auditoria":
+      - /url: /revisao-assincrona?fluxo=auditoria
+    - link "plano":
+      - /url: /revisao-assincrona?fluxo=plano
+    - link "foto":
+      - /url: /revisao-assincrona?fluxo=foto
+    - link "busca":
+      - /url: /revisao-assincrona?fluxo=busca
+    - link "formulario":
+      - /url: /revisao-assincrona?fluxo=formulario
+    - link "upload":
+      - /url: /revisao-assincrona?fluxo=upload
+    - link "download":
+      - /url: /revisao-assincrona?fluxo=download
+    - link "revisar":
+      - /url: /revisao-assincrona?fluxo=revisar
+    - link "Página lenta":
+      - /url: /revisao-assincrona/lenta
+  - button "Voltar à Qualidade"
+  - heading "Plano de ação" [level=2]
+  - paragraph: Obra de teste · Qualidade · auditoria de 05/10/2026
+  - paragraph: 1 não conformidade extraída do relatório publicado.
+  - text: APONTAMENTOS DA AUDITORIA
+  - heading "Ações corretivas" [level=3]
+  - article:
+    - button "Item 01 · Inspeção de teste" [expanded]
+    - text: Descrição
+    - paragraph: Inspeção de teste
+    - text: Critério
+    - paragraph: Não informado
+    - text: Não conformidade
+    - paragraph: Correção pendente
+    - text: Status
+    - strong: Com apontamento
+    - text: Foto
+    - paragraph: Nenhuma foto anexada.
+    - text: Ações corretivas
+    - textbox "Ações corretivas":
+      - /placeholder: Informe as medidas tomadas para sanar a pendência
+      - text: Correção mantida depois da falha
+    - text: Responsável(is)
+    - textbox "Responsável(is)": Engenharia
+    - text: Data de início prevista
+    - textbox "Data de início prevista": 2026-10-05
+    - text: Data final prevista
+    - textbox "Data final prevista": 2026-10-08
+  - alert: Falha ao salvar simulada
+  - status
+  - button "Tentar salvar"
+  - button "Revisar plano de ação"

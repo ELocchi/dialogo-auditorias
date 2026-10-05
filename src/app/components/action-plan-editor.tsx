@@ -39,6 +39,7 @@ export function ActionPlanEditor({ workName, auditDate, auditScore, module, auth
   const [saveStatus, setSaveStatus] = useState("");
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const generation = useRef<AbortController | null>(null);
+  const activeSaves = useRef(0);
   const [pdfUrl, setPdfUrl] = useState("");
   const [pdfYear, pdfMonth] = auditDate.split("-");
   const pdfMonthName = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"][Number(pdfMonth) - 1] ?? pdfMonth;
@@ -52,18 +53,20 @@ export function ActionPlanEditor({ workName, auditDate, auditScore, module, auth
     window.addEventListener("beforeunload", warn);
     let active = true;
     const timer = window.setTimeout(() => {
+      activeSaves.current += 1;
       setSavingDraft(true);
-      void Promise.resolve(onSave(rows)).then(() => {
+      void Promise.resolve().then(() => onSave(rows)).then(() => {
         window.removeEventListener("beforeunload", warn);
         if (active) { setSaveStatus("Rascunho salvo"); setError(""); }
       }).catch(reason => { if (active) { setSaveStatus(""); setError(reason instanceof Error ? reason.message : "Não foi possível salvar o rascunho."); } })
-        .finally(() => { if (active) setSavingDraft(false); });
+        .finally(() => { activeSaves.current -= 1; setSavingDraft(activeSaves.current > 0); });
     }, 1000);
     return () => { active = false; window.clearTimeout(timer); window.removeEventListener("beforeunload", warn); };
   }, [autosave, rows, onSave, submitted, reviewing]);
   const update = (id: string, field: keyof ActionPlanRow, value: string) => {
     setSubmitted(false);
     setError("");
+    setSaveStatus("");
     setRows((current) => current.map((row) => row.id === id ? { ...row, [field]: value } : row));
   };
   const returnToForm = () => {
@@ -148,7 +151,7 @@ export function ActionPlanEditor({ workName, auditDate, auditScore, module, auth
                 <div className={styles.sourceColumn}><div><span>Descrição</span><p>{row.itemDescription || row.description}</p></div><div><span>Critério</span><p>{row.verificationCriterion || "Não informado"}</p></div></div>
                 <div className={styles.sourceColumn}><div><span>Não conformidade</span><p>{row.nonconformity}</p></div><div><span>Status</span><strong className={row.status === "Não conforme" ? styles.statusNonconforming : styles.status}>{row.status || "Com apontamento"}</strong></div></div>
                 <div className={`${styles.sourceColumn} ${styles.photoColumn}`}><span>Foto</span>{row.evidencePhotos?.length ? <div className={styles.evidencePhotos}>{row.evidencePhotos.map((photo, photoIndex) => photo.url
-                  ? <a href={photo.url} target="_blank" rel="noopener noreferrer" key={`${photo.name}:${photoIndex}`} data-tooltip="Foto em nova guia"><EvidenceThumbnail thumbnailSrc={photo.thumbnailUrl} originalSrc={photo.url} alt={`Evidência do item ${row.item}`} width={150} height={96} /><small>{photo.name}</small></a>
+                  ? <EvidenceThumbnail thumbnailSrc={photo.thumbnailUrl} originalSrc={photo.url} alt={`Evidência do item ${row.item}`} width={150} height={96}  key={`${photo.name}:${photoIndex}`} caption={<small>{photo.name}</small>} />
                   : <span className={styles.evidenceName} key={`${photo.name}:${photoIndex}`}>{photo.name}</span>)}</div>
                   : <p className={styles.noEvidence}>Nenhuma foto anexada.</p>}</div>
               </div>
@@ -162,7 +165,7 @@ export function ActionPlanEditor({ workName, auditDate, auditScore, module, auth
           </article>;
         })}</div>
         {error && <p className={styles.error} role="alert">{error}</p>}
-        <div className={styles.actions}><span role="status">{autosave ? (savingDraft ? "Salvando rascunho…" : saveStatus) : prefillTest ? "Dados de teste preenchidos. Revise antes de continuar." : ""}</span><button type="button" className="secondary" disabled={savingDraft || generatingPdf} onClick={async () => { setSavingDraft(true); setError(""); try { await onSave(rows); setSaveStatus("Rascunho salvo"); } catch (reason) { setError(reason instanceof Error ? reason.message : "Falha ao salvar."); } finally { setSavingDraft(false); } }}>Salvar rascunho</button><button type="submit" className="primary" disabled={generatingPdf}>{generatingPdf ? "Gerando prévia..." : "Revisar plano de ação"}</button></div>
+        <div className={styles.actions}><span role="status">{autosave ? (savingDraft ? "Salvando rascunho…" : saveStatus) : prefillTest ? "Dados de teste preenchidos. Revise antes de continuar." : ""}</span><button type="button" className="secondary" disabled={savingDraft || generatingPdf} onClick={async () => { setSavingDraft(true); setError(""); try { await onSave(rows); setSaveStatus("Rascunho salvo"); } catch (reason) { setError(reason instanceof Error ? reason.message : "Falha ao salvar."); } finally { setSavingDraft(false); } }}>{savingDraft ? "Salvando…" : error ? "Tentar salvar" : "Salvar rascunho"}</button><button type="submit" className="primary" disabled={generatingPdf || savingDraft}>{generatingPdf ? "Gerando prévia..." : "Revisar plano de ação"}</button></div>
       </form> : <div className={styles.empty}>
         <strong>Nenhum apontamento publicado disponível</strong>
         <p>Quando o relatório publicado trouxer apontamentos, eles serão incluídos automaticamente aqui para o preenchimento das ações corretivas.</p>

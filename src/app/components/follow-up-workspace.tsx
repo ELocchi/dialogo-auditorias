@@ -1,4 +1,7 @@
 "use client";
+import { SlowOperation } from "./slow-operation";
+import { DownloadButton } from "./download-button";
+import { AsyncSkeleton } from "@/app/components/async-feedback";
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
@@ -73,16 +76,17 @@ function FollowUpWorkspaceSession({ user, visits, works, actor, agendaAvailable 
 
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   useEffect(() => { if (previewUrl) return () => URL.revokeObjectURL(previewUrl); }, [previewUrl]);
-  const beginMutation = useCallback(() => {
+  const beginMutation = useCallback((label: string) => {
     if (mutationPending.current) return false;
     mutationPending.current = true;
-    setPending(true); setError(""); setMessage("");
+    setPending(true); setError(""); setMessage(label);
     return true;
   }, [setPending, setError, setMessage]);
   const finishMutation = useCallback(() => {
     if (!mounted.current) return;
     mutationPending.current = false;
     setPending(false);
+    setMessage(current => current.endsWith("…") ? "" : current);
   }, []);
   const beginFinding = () => {
     setError(""); setMessage(""); setFinding(emptyFinding()); setPhotoFiles([]); setPreviewUrl(null);
@@ -94,7 +98,7 @@ function FollowUpWorkspaceSession({ user, visits, works, actor, agendaAvailable 
     if (photoFiles.length !== maxPhotosPerFinding || photoFiles.some((file) => file.size === 0 || file.size > maxPhotoBytes || !["image/jpeg", "image/png"].includes(file.type))) {
       setError("A foto é obrigatória. Escolha ou tire uma foto JPG ou PNG de até 3 MB."); return;
     }
-    if (!beginMutation()) return;
+    if (!beginMutation("Enviando foto e salvando…")) return;
     try {
       const formData = new FormData();
       formData.set("workId", targetWorkId); formData.set("location", finding.location);
@@ -111,19 +115,20 @@ function FollowUpWorkspaceSession({ user, visits, works, actor, agendaAvailable 
     finally { finishMutation(); }
   };
   const addPhotosToFinding = useCallback(async (file: File, visitId: string, findingId: string) => {
-    if (!available || !beginMutation()) return;
+    if (!available || !beginMutation("Enviando foto…")) return false;
     const formData = new FormData();
     formData.set("visitId", visitId); formData.set("findingId", findingId); formData.append("photos", file);
     try {
       const result = await uploadFindingPhotosAction(formData, actor);
-      if (!mounted.current) return;
+      if (!mounted.current) return false;
       if (result.status === "success" && result.photos) { photoStore.replace(visitId, result.photos); setMessage(result.message); }
       else setError(result.message);
-    } catch { if (mounted.current) setError("Não foi possível enviar a foto. Tente novamente."); }
+      return result.status === "success" && Boolean(result.photos);
+    } catch { if (mounted.current) setError("Não foi possível enviar a foto. Tente novamente."); return false; }
     finally { finishMutation(); }
   }, [available, beginMutation, actor, photoStore, finishMutation]);
   const completeFinding = useCallback(async (visitId: string, findingId: string) => {
-    if (!available || !beginMutation()) return;
+    if (!available || !beginMutation("Concluindo apontamento…")) return;
     try {
       const result = await completeFindingAction(visitId, findingId, actor);
       if (!mounted.current) return;
@@ -137,7 +142,7 @@ function FollowUpWorkspaceSession({ user, visits, works, actor, agendaAvailable 
     finally { finishMutation(); }
   }, [available, beginMutation, actor, update, finishMutation]);
   const completeWorkFinding = useCallback(async (id: string) => {
-    if (!available || !beginMutation()) return;
+    if (!available || !beginMutation("Concluindo apontamento…")) return;
     try {
       const completed = await completeWorkFindingAction(id, actor);
       if (!mounted.current) return;
@@ -171,10 +176,10 @@ function FollowUpWorkspaceSession({ user, visits, works, actor, agendaAvailable 
           return <li key={report.id}>
             <span className={styles.reportDate}><strong>{day}</strong><small>{month} {year}</small></span>
             <span className={styles.reportInfo}><strong>{report.title}</strong><small>{report.workName}</small></span>
-            <a className={styles.reportDownload} href={report.pdfHref} download
-              aria-label={`Baixar PDF: ${report.title}`} data-tooltip="Baixar PDF">
+            <DownloadButton className={styles.reportDownload} href={report.pdfHref}
+              label={`Baixar PDF: ${report.title}`} data-tooltip="Baixar PDF">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" /></svg>
-            </a>
+            </DownloadButton>
           </li>;
         })}</ul> : snapshot && standalone.data && !loading && !readError && !standalone.loading && !standalone.error ? <p className="muted">Nenhum relatório orientativo salvo para este perfil.</p> : null}
         {standalone.loading && <p className="muted" role="status">Carregando relatórios…</p>}
@@ -210,7 +215,8 @@ function FollowUpWorkspaceSession({ user, visits, works, actor, agendaAvailable 
             <div className={styles.findingActions}><button type="button" className="secondary" disabled={pending} onClick={() => setAdding(false)}>Cancelar</button><button type="submit" className="primary" disabled={disabled}>{pending ? "Salvando…" : "Salvar apontamento"}</button></div>
           </>}
         </form>}
-        {loading && <p className="muted" role="status">Carregando apontamentos e relatórios...</p>}
+        {loading && <AsyncSkeleton label="Carregando apontamentos e relatórios…" />}
+        <SlowOperation pending={pending} />
         {message && <p className={styles.success} role="status">{message}</p>}
         {error && <p className={styles.error} role="alert">{error}</p>}
         {visibleWorkFindings.length + visibleSavedFindings.length ? <ul className={styles.savedFindings}>

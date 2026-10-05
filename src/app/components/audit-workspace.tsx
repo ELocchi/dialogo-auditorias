@@ -1,4 +1,6 @@
 "use client";
+import { DownloadButton } from "./download-button";
+import { requestSignal } from "@/lib/request-signal";
 
 import { BackButton, BackHeading } from "@/app/components/back-control";
 
@@ -49,7 +51,7 @@ function localTestEvidenceUrl(reference: string): string | null {
 async function loadLocalTestEvidence(reference: string, signal: AbortSignal): Promise<File | null> {
   const url = localTestEvidenceUrl(reference);
   if (!url) return null;
-  const result = await fetch(url, { cache: "no-store", signal });
+  const result = await fetch(url, { cache: "no-store", signal: requestSignal(signal) });
   if (!result.ok) return null;
   const blob = await result.blob();
   return new File([blob], reference, { type: blob.type || "image/png" });
@@ -173,9 +175,9 @@ export function Catalog({ model, setModel, query, setQuery, criteria, showItemLi
           onClick={() => { setModel(item); setEditingId(null); }}
         >
           <span>{name}</span>
-        </button>{reference && model === item && !editingId && <a className={previewStyles.button} href={downloadHref} download aria-label={`Baixar PDF: ${name}`} data-tooltip="Baixar PDF">
+        </button>{reference && model === item && !editingId && <DownloadButton className={previewStyles.button} href={downloadHref} label={`Baixar PDF: ${name}`}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" /></svg>
-        </a>}{editable && <button type="button" className="model-edit" disabled={editingId !== null} aria-label={`Editar roteiro: ${name}`} data-tooltip="Editar roteiro" aria-controls="catalog-editor" onClick={(event) => { editorTrigger.current = event.currentTarget; setModel(item); setEditingId(reference.id); }}>
+        </DownloadButton>}{editable && <button type="button" className="model-edit" disabled={editingId !== null} aria-label={`Editar roteiro: ${name}`} data-tooltip="Editar roteiro" aria-controls="catalog-editor" onClick={(event) => { editorTrigger.current = event.currentTarget; setModel(item); setEditingId(reference.id); }}>
           <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m16 3 5 5M4 15 16 3a2 2 0 0 1 5 5L9 20l-6 1 1-6ZM4 15l5 5" /></svg>
         </button>}</div>;
       })}
@@ -244,7 +246,7 @@ type NewAuditProps = {
   setActiveIndex: (index: number) => void;
   drafts: AuditDrafts;
   updateDraft: (response: ItemResponse) => boolean | void;
-  onFinish?: (closure?: SafetyClosure) => void;
+  onFinish?: (closure?: SafetyClosure) => void | Promise<void>;
   safetyClosure?: SafetyClosure;
   onDraftsChange?: (drafts: AuditDrafts) => void;
   details: { date: string; auditor: string };
@@ -274,12 +276,15 @@ export function AuditReview({ model, modelId, workName, details, criteria, draft
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set(criteria.map((criterion) => criterion.group)));
   const [published, setPublished] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [publicationError, setPublicationError] = useState("");
+  const [pdfAttempt, setPdfAttempt] = useState(0);
   const [pdfResult, setPdfResult] = useState<{ key: string; url?: string; error?: string } | null>(null);
   // Agenda refreshes can recreate details, criteria and drafts with identical content.
   // Only a change to the report itself should cancel and regenerate the preview.
   const requestKey = JSON.stringify({ model, modelId, workName, details, criteria, safetyClosure, drafts: { [modelId]: drafts[modelId] ?? {} } } satisfies AuditPdfInput);
-  const pdfUrl = published && publishedReportUrl ? publishedReportUrl : pdfResult?.key === requestKey ? pdfResult.url : undefined;
-  const pdfError = pdfResult?.key === requestKey ? pdfResult.error : undefined;
+  const pdfKey = `${requestKey}:${pdfAttempt}`;
+  const pdfUrl = published && publishedReportUrl ? publishedReportUrl : pdfResult?.key === pdfKey ? pdfResult.url : undefined;
+  const pdfError = pdfResult?.key === pdfKey ? pdfResult.error : undefined;
   const scores = safetyScore(criteria, drafts, modelId, safetyClosure);
   const finalScore = modelId === "security-it07-r02" ? scores.final : calculateAuditFinalScore(criteria, drafts, modelId);
   const security = modelId === "security-it07-r02";
@@ -294,12 +299,12 @@ export function AuditReview({ model, modelId, workName, details, criteria, draft
       if (controller.signal.aborted) return;
       const url = URL.createObjectURL(new Blob([Uint8Array.from(bytes).buffer], { type: "application/pdf" }));
       objectUrls.push(url);
-      setPdfResult({ key: requestKey, url });
+      setPdfResult({ key: pdfKey, url });
     }).catch(() => {
-      if (!controller.signal.aborted) setPdfResult({ key: requestKey, error: "Não foi possível gerar a prévia do PDF." });
+      if (!controller.signal.aborted) setPdfResult({ key: pdfKey, error: "Não foi possível gerar a prévia do PDF." });
     });
     return () => { controller.abort(); objectUrls.forEach((url) => URL.revokeObjectURL(url)); };
-  }, [requestKey, photoStore, published, publishedReportUrl]);
+  }, [requestKey, photoStore, published, publishedReportUrl, pdfKey]);
   const grouped = criteria.reduce<Record<string, Criterion[]>>((groups, criterion) => {
     (groups[criterion.group] ??= []).push(criterion);
     return groups;
@@ -317,7 +322,7 @@ export function AuditReview({ model, modelId, workName, details, criteria, draft
       <div><small>AUDITOR RESPONSÁVEL</small><strong>{details.auditor}</strong></div>
     </div>
     <div className="audit-review-actions">
-      <button type="button" className="primary" disabled={!pdfUrl || published || publishing} onClick={async () => { if (publishing) return; setPublishing(true); try { if (await onPublish()) setPublished(true); } finally { setPublishing(false); } }}>{published ? "Auditoria publicada" : publishing ? "Publicando…" : pdfUrl ? "Publicar auditoria" : "Gerando prévia…"}</button>
+      <button type="button" className="primary" disabled={!pdfUrl || published || publishing} onClick={async () => { if (publishing) return; setPublishing(true); setPublicationError(""); try { if (await onPublish()) setPublished(true); } catch (reason) { setPublicationError(reason instanceof Error ? reason.message : "Não foi possível publicar. Tente novamente."); } finally { setPublishing(false); } }}>{published ? "Auditoria publicada" : publishing ? "Publicando…" : pdfUrl ? "Publicar auditoria" : "Gerando prévia…"}</button>
     </div>
     <div className="audit-review-groups">
       {Object.entries(grouped).map(([group, items]) => {
@@ -338,7 +343,8 @@ export function AuditReview({ model, modelId, workName, details, criteria, draft
         })}</div>}
       </section>})}
     </div>
-    {pdfError && <p className="audit-review-pdf-error" role="alert">{pdfError}</p>}
+    {publicationError && <p role="alert">{publicationError}</p>}
+    {pdfError && <div role="alert"><p className="audit-review-pdf-error">{pdfError}</p><button type="button" className="secondary" onClick={() => setPdfAttempt(value => value + 1)}>Gerar prévia novamente</button></div>}
     {pdfUrl && <section className="audit-review-pdf"><div><h3>Prévia do relatório em PDF</h3><span><a className="secondary" href={pdfUrl} target="_blank" rel="noreferrer">Abrir PDF em nova guia</a><a className="primary" href={pdfUrl} download={`Relatório de Auditoria - ${workName}.pdf`}>Baixar PDF</a></span></div><iframe src={pdfUrl} title="Prévia do relatório da auditoria em PDF" /></section>}
   </section>;
 }
@@ -383,9 +389,20 @@ function isRequiredPhotoMissing(criterion: Criterion, response: ItemResponse): b
 export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts, updateDraft, onFinish, onDraftsChange, safetyClosure, details, workName = "Residencial Horizonte · Guarulhos", responseKey = model, readOnly = false, previousAudits = noPreviousAudits, fvsServices = bundledFvsServices }: NewAuditProps) {
   const photoStore = useAuditPhotoStore();
   const [closing, setClosing] = useState(false);
+  const [finishing, setFinishing] = useState(false);
+  const finishingRef = useRef(false);
+  const finish = async (value?: SafetyClosure) => {
+    if (finishingRef.current) return;
+    finishingRef.current = true; setFinishing(true); setClosureError("");
+    try { await onFinish?.(value); }
+    catch (reason) { setClosureError(reason instanceof Error ? reason.message : "Não foi possível salvar. Tente novamente."); }
+    finally { finishingRef.current = false; setFinishing(false); }
+  };
   const [closureError, setClosureError] = useState("");
   const [selectedItemOpen, setSelectedItemOpen] = useState(false);
   const [, refreshPhotos] = useReducer((version: number) => version + 1, 0);
+  const [photoAttempt, setPhotoAttempt] = useState(0);
+  const [photoResult, setPhotoResult] = useState<{ key: string; failed: boolean } | null>(null);
   const [photoTarget, setPhotoTarget] = useState("item");
   const photoInput = useRef<HTMLInputElement>(null);
   const criterion = criteria[activeIndex] ?? criteria[0];
@@ -393,6 +410,8 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
   const photoReferencesKey = JSON.stringify([...new Set([
     ...(response.photos ?? []), ...(response.checks ?? []).flatMap((check) => check.photos ?? []),
   ])]);
+  const photoLoadKey = `${photoReferencesKey}:${photoAttempt}`;
+  const needsPhotos = (JSON.parse(photoReferencesKey) as string[]).some(reference => !photoStore.get(reference) && localTestEvidenceUrl(reference));
   useEffect(() => {
     const references = (JSON.parse(photoReferencesKey) as string[])
       .filter((reference) => !photoStore.get(reference) && localTestEvidenceUrl(reference));
@@ -400,10 +419,13 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
     const controller = new AbortController();
     void Promise.allSettled(references.map((reference) => photoStore.load(reference,
       (signal) => loadLocalTestEvidence(reference, signal), controller.signal))).then((files) => {
-      if (!controller.signal.aborted && files.some((result) => result.status === "fulfilled" && result.value)) refreshPhotos();
+      if (!controller.signal.aborted) {
+        setPhotoResult({ key: photoLoadKey, failed: files.some(result => result.status === "rejected" || !result.value) });
+        if (files.some(result => result.status === "fulfilled" && result.value)) refreshPhotos();
+      }
     });
     return () => controller.abort();
-  }, [photoReferencesKey, photoStore]);
+  }, [photoReferencesKey, photoStore, photoLoadKey]);
   const security = model.startsWith("Segurança");
   const displayedPreviousAudits = useMemo(() => previousAudits.length
     ? [...previousAudits].sort((left, right) => right.date.localeCompare(left.date))
@@ -450,7 +472,7 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
       <span className="badge badge-amber">Rascunho nesta sessão</span>
     </div>
 
-    <section className="audit-fill-panel" aria-label="Preenchimento da auditoria">
+    <fieldset disabled={finishing} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }} aria-busy={finishing}><section className="audit-fill-panel" aria-label="Preenchimento da auditoria">
     <div className="form-panel audit-reference-panel" aria-label="Dados de referência da auditoria">
       <div className="audit-reference"><small>OBRA</small><p>{workName}</p></div>
       <div className="audit-reference"><small>DATA DA AUDITORIA</small><p>{displayAuditDate(details.date)}</p></div>
@@ -469,12 +491,12 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
       </div>
       <div className="audit-score-actions">
         <div className="partial-score"><small>NOTA PARCIAL</small><strong>{partialScore === null ? "—" : partialScore.toFixed(2).replace(".", ",")}</strong></div>
-        {!readOnly && onFinish && <button type="button" className="primary" data-tooltip={security ? "Revisar acidentes e relatório" : "Revisar relatório"} disabled={!allItemsAnswered} onClick={() => { if (security) { const missing = criteria.find(c => isRequiredPhotoMissing(c, getItemResponse(drafts, responseKey, c))); if (missing) { setClosureError(`Adicione uma foto ao item ${missing.code}.`); return; } setClosureError(""); setClosing(true); } else onFinish(); }}>Revisar auditoria</button>}
+        {!readOnly && onFinish && <button type="button" className="primary" data-tooltip={security ? "Revisar acidentes e relatório" : "Revisar relatório"} disabled={!allItemsAnswered} onClick={() => { if (security) { const missing = criteria.find(c => isRequiredPhotoMissing(c, getItemResponse(drafts, responseKey, c))); if (missing) { setClosureError(`Adicione uma foto ao item ${missing.code}.`); return; } setClosureError(""); setClosing(true); } else void finish(); }}>{finishing ? "Salvando…" : "Revisar auditoria"}</button>}
       </div>
     </section>
 
     {closureError && <p role="alert">{closureError}</p>}
-    {closing && <SafetyClosureDialog date={details.date} initial={safetyClosure} onCancel={() => setClosing(false)} onConfirm={value => { setClosing(false); onFinish?.(value); }} />}
+    {closing && <SafetyClosureDialog date={details.date} initial={safetyClosure} onCancel={() => setClosing(false)} onConfirm={value => { setClosing(false); void finish(value); }} />}
     <section className="question-card" aria-label="Quesito da auditoria">
       <ItemPicker key={responseKey} id={pickerId} model={responseKey} criteria={criteria} drafts={drafts} previousAudits={displayedPreviousAudits} activeId={selectedItemOpen ? criterion?.id : undefined} security={security} onToggleGroup={!readOnly && onDraftsChange ? group => onDraftsChange(toggleGroupNA(drafts, responseKey, criteria, group)) : undefined} onSelect={selectItem} />
 
@@ -578,7 +600,11 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
       <span>Item <strong>{criterion ? activeIndex + 1 : 0}</strong> de {criteria.length}</span>
       {activeIndex < criteria.length - 1 ? <button type="button" className="primary" onClick={() => move(1)}>Próximo item <span aria-hidden="true">→</span></button> : <BackButton label="Voltar ao resumo" onClick={() => setSelectedItemOpen(false)} />}
     </div>}
-    </section>
+    </section></fieldset>
+    {needsPhotos && (photoResult?.key === photoLoadKey && photoResult.failed
+      ? <div role="alert"><p>Não foi possível carregar as fotos deste item.</p><button type="button" className="secondary" onClick={() => setPhotoAttempt(value => value + 1)}>Recarregar fotos</button></div>
+      : <p role="status">Carregando fotos do item…</p>)}
+    {finishing && <p role="status">Salvando auditoria…</p>}
   </>;
 }
 

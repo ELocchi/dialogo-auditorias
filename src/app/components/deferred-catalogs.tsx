@@ -1,4 +1,5 @@
 "use client";
+import { AsyncSkeleton } from "@/app/components/async-feedback";
 
 import { useEffect, useMemo, useSyncExternalStore, type ReactNode } from "react";
 import type { AgendaActorContext } from "@/lib/agenda/contracts";
@@ -23,6 +24,6 @@ export function DeferredCatalogs({ state, load, children }: {
     {state.status === "error" ? <>
       <p role="alert">{state.message ?? "Não foi possível carregar os roteiros."}</p>
       <button type="button" className="secondary" onClick={() => { void load().catch(() => {}); }}>Recarregar roteiros</button>
-    </> : <p className="muted" role="status">Carregando roteiros...</p>}
+    </> : <AsyncSkeleton label="Carregando roteiros…" />}
   </section>;
 }

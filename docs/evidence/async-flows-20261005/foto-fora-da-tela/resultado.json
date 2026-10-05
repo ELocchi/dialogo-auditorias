@@ -1,0 +1,19 @@
+{
+  "date": "2026-10-05T20:23:24.248Z",
+  "base": "http://127.0.0.1:3010",
+  "browser": "Chrome / Playwright",
+  "apiPolicy": "APIs intercepted; Server Actions blocked; isolated app has no credentials",
+  "results": [
+    {
+      "name": "Foto fora da tela: não expira antes de iniciar o carregamento",
+      "passed": true,
+      "elapsedMs": 1598,
+      "detail": {
+        "offscreenClockAdvanceMs": 21000,
+        "requestsAfterScroll": 1,
+        "noFalseTimeout": true
+      },
+      "browserErrors": []
+    }
+  ]
+}

@@ -1,8 +1,10 @@
+import { requestSignal } from "../request-signal.ts";
 import type { PdfJob, PdfWorkerResult } from "./types.ts";
 
 /** One worker per preview lets leaving the screen cancel CPU work and image requests. */
 export function generatePdf(job: PdfJob, signal: AbortSignal): Promise<Uint8Array> {
   if (signal.aborted) return Promise.reject(signal.reason);
+  signal = requestSignal(signal, 90_000);
   const fallback = async () => {
     const { runPdfJob } = await import("./run-job.ts");
     signal.throwIfAborted();

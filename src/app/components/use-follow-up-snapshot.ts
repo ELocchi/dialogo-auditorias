@@ -1,4 +1,5 @@
 "use client";
+import { requestSignal } from "@/lib/request-signal";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AgendaActorContext } from "@/lib/agenda/contracts";
@@ -23,31 +24,32 @@ export function isFollowUpReportIndexSnapshot(value: unknown): value is FollowUp
 /** Mount this hook in an actor-keyed component so a profile change also clears local form state. */
 export function useFollowUpSnapshot<T>(actor: AgendaActorContext, endpoint: string, validate: (value: unknown) => value is T) {
   const [attempt, setAttempt] = useState(0);
-  const [result, setResult] = useState<{ attempt: number; data: T | null; error: boolean } | null>(null);
+  const [result, setResult] = useState<{ key: string; attempt: number; data: T | null; error: boolean } | null>(null);
   const version = useRef(0);
   const { userId, profile, engineeringScope, administrativeScope } = actor;
+  const key = JSON.stringify([userId, profile, engineeringScope, administrativeScope, endpoint]);
   useEffect(() => {
     const controller = new AbortController();
     const generation = version.current;
     let denied = false;
     const parameters = new URLSearchParams({ usuario: userId, perfil: profile, atuacao: engineeringScope ?? "", administrativo: administrativeScope ?? "" });
-    void fetch(`${endpoint}?${parameters}`, { cache: "no-store", credentials: "same-origin", signal: controller.signal })
+    void fetch(`${endpoint}?${parameters}`, { cache: "no-store", credentials: "same-origin", signal: requestSignal(controller.signal) })
       .then(async (response) => {
         denied = response.status === 401 || response.status === 403;
         if (!response.ok) throw new Error("Follow-up unavailable");
         const data: unknown = await response.json();
         if (!validate(data)) throw new Error("Follow-up unavailable");
-        if (!controller.signal.aborted && generation === version.current) setResult({ attempt, data, error: false });
+        if (!controller.signal.aborted && generation === version.current) setResult({ key, attempt, data, error: false });
       }).catch(() => {
         if (!controller.signal.aborted && generation === version.current)
-          setResult((current) => ({ attempt, data: denied ? null : current?.data ?? null, error: true }));
+          setResult((current) => ({ key, attempt, data: denied || current?.key !== key ? null : current.data, error: true }));
       });
     return () => controller.abort();
-  }, [userId, profile, engineeringScope, administrativeScope, endpoint, validate, attempt]);
+  }, [userId, profile, engineeringScope, administrativeScope, endpoint, validate, attempt, key]);
   const update = useCallback((change: (current: T) => T) => {
     version.current += 1;
-    setResult((current) => current?.data ? { attempt, data: change(current.data), error: false } : current);
-  }, [attempt]);
-  return { data: result?.data ?? null, loading: result?.attempt !== attempt, error: result?.attempt === attempt && result.error,
+    setResult((current) => current?.key === key && current.data ? { key, attempt, data: change(current.data), error: false } : current);
+  }, [attempt, key]);
+  return { data: result?.key === key ? result.data : null, loading: result?.key !== key || result.attempt !== attempt, error: result?.key === key && result.attempt === attempt && result.error,
     retry: useCallback(() => setAttempt((current) => current + 1), []), update };
 }

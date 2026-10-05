@@ -1,0 +1,173 @@
+{
+  "date": "2026-10-05T20:14:33.153Z",
+  "base": "http://127.0.0.1:3010",
+  "browser": "Chrome / Playwright",
+  "apiPolicy": "APIs intercepted; Server Actions blocked; isolated app has no credentials",
+  "results": [
+    {
+      "name": "Plano: skeleton, API 503, retry, salvamento lento e dados preservados",
+      "passed": true,
+      "elapsedMs": 11800,
+      "detail": {
+        "loads": 3,
+        "saves": 2,
+        "requestDelayMs": 1600,
+        "valuePreserved": true
+      },
+      "browserErrors": [],
+      "evidenceSource": "execucao-completa-antes-do-ajuste.json"
+    },
+    {
+      "name": "Auditoria: autosave não repete falha; foto mantida no retry; publicação sem duplicação",
+      "passed": true,
+      "elapsedMs": 12478,
+      "detail": {
+        "saves": 2,
+        "publishes": 1,
+        "multipartBytes": [
+          748,
+          748
+        ],
+        "failureObservationMs": 3600
+      },
+      "browserErrors": [],
+      "evidenceSource": "execucao-completa-antes-do-ajuste.json"
+    },
+    {
+      "name": "Foto: skeleton, falha visível, retry por teclado, imagem carregada, reduced motion e mobile",
+      "passed": true,
+      "elapsedMs": 3647,
+      "detail": {
+        "requests": 2,
+        "animation": "none",
+        "viewportWidth": 390,
+        "documentWidth": 390,
+        "naturalWidth": 1
+      },
+      "browserErrors": [],
+      "evidenceSource": "foto-final/resultado.json"
+    },
+    {
+      "name": "Consulta: rede lenta, erro, retry, vazio e resposta antiga não substitui filtro novo",
+      "passed": true,
+      "elapsedMs": 6478,
+      "detail": {
+        "attemptsA": 3,
+        "selectedWork": "b",
+        "staleResultIgnored": true
+      },
+      "browserErrors": [],
+      "evidenceSource": "execucao-completa-antes-do-ajuste.json"
+    },
+    {
+      "name": "Formulário real: falha da Server Action mantém todos os campos e permite retry",
+      "passed": true,
+      "elapsedMs": 4794,
+      "detail": {
+        "submits": 2,
+        "valuesPreserved": true,
+        "requestDelayMs": 1500
+      },
+      "browserErrors": [],
+      "evidenceSource": "execucao-completa-antes-do-ajuste.json"
+    },
+    {
+      "name": "Upload de acompanhamento: mantém arquivo após falha e desabilita envio",
+      "passed": true,
+      "elapsedMs": 4713,
+      "detail": {
+        "uploads": 2,
+        "retainedFile": "acompanhamento.png"
+      },
+      "browserErrors": [],
+      "evidenceSource": "execucao-completa-antes-do-ajuste.json"
+    },
+    {
+      "name": "Download: feedback imediato, erro, retry e PDF real recebido",
+      "passed": true,
+      "elapsedMs": 4346,
+      "detail": {
+        "downloads": 2,
+        "downloadedFile": "teste.pdf"
+      },
+      "browserErrors": [],
+      "evidenceSource": "execucao-completa-antes-do-ajuste.json"
+    },
+    {
+      "name": "Navegação: loading.tsx visível antes da página lenta",
+      "passed": true,
+      "elapsedMs": 3466,
+      "detail": {
+        "serverDelayMs": 2000,
+        "loadingAfterMs": 137,
+        "completedAfterMs": 2481
+      },
+      "browserErrors": [],
+      "evidenceSource": "execucao-completa-antes-do-ajuste.json"
+    },
+    {
+      "name": "Consulta sem resposta: prazo de 20 segundos libera retry",
+      "passed": true,
+      "elapsedMs": 20958,
+      "detail": {
+        "elapsedMs": 20955,
+        "calls": 2,
+        "retryEnabled": true
+      },
+      "browserErrors": [],
+      "evidenceSource": "execucao-completa-antes-do-ajuste.json"
+    },
+    {
+      "name": "Plano: edição durante salvamento não deixa ação presa",
+      "passed": true,
+      "elapsedMs": 5255,
+      "detail": {
+        "saves": 2,
+        "savedValues": [
+          "Primeira edição",
+          "Edição mais recente"
+        ]
+      },
+      "browserErrors": [],
+      "evidenceSource": "execucao-completa-antes-do-ajuste.json"
+    },
+    {
+      "name": "Revisão da auditoria real: bloqueia controles enquanto salva e recupera de erro",
+      "passed": true,
+      "elapsedMs": 4754,
+      "detail": {
+        "submits": 2,
+        "failedThenRecovered": true
+      },
+      "browserErrors": [],
+      "evidenceSource": "execucao-completa-antes-do-ajuste.json"
+    },
+    {
+      "name": "Erro de página: retry recupera a rota sem recarregar a aplicação inteira",
+      "passed": true,
+      "elapsedMs": 1332,
+      "detail": {
+        "errorBoundaryRecovered": true
+      },
+      "browserErrors": [
+        "Switched to client rendering because the server rendering errored:\n\nFalha simulada na página de teste",
+        "Switched to client rendering because the server rendering errored:\n\nFalha simulada na página de teste"
+      ],
+      "evidenceSource": "recuperacao-pagina/resultado.json"
+    },
+    {
+      "name": "Foto fora da tela: não expira antes de iniciar o carregamento",
+      "passed": true,
+      "elapsedMs": 1598,
+      "detail": {
+        "offscreenClockAdvanceMs": 21000,
+        "requestsAfterScroll": 1,
+        "noFalseTimeout": true
+      },
+      "browserErrors": [],
+      "evidenceSource": "foto-fora-da-tela/resultado.json"
+    }
+  ],
+  "consolidatedAt": "2026-10-05T20:25:04.340140+00:00",
+  "note": "Cenários da execução completa e revalidações direcionadas após correções do retry de página e do carregamento sob demanda das fotos. Cada cenário indica o log bruto de origem. Nenhum resultado reprovado foi convertido em aprovação sem reexecução."
+}

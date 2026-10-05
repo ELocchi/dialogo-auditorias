@@ -1,0 +1,46 @@
+- main:
+  - heading "Validação de fluxos assíncronos" [level=1]
+  - paragraph: Dados fictícios. As respostas de API são controladas pelo teste.
+  - navigation "Fluxos de teste":
+    - link "auditoria":
+      - /url: /revisao-assincrona?fluxo=auditoria
+    - link "plano":
+      - /url: /revisao-assincrona?fluxo=plano
+    - link "foto":
+      - /url: /revisao-assincrona?fluxo=foto
+    - link "busca":
+      - /url: /revisao-assincrona?fluxo=busca
+    - link "formulario":
+      - /url: /revisao-assincrona?fluxo=formulario
+    - link "upload":
+      - /url: /revisao-assincrona?fluxo=upload
+    - link "download":
+      - /url: /revisao-assincrona?fluxo=download
+    - link "revisar":
+      - /url: /revisao-assincrona?fluxo=revisar
+    - link "Página lenta":
+      - /url: /revisao-assincrona/lenta
+  - heading "Preencher auditoria" [level=2]
+  - text: Rascunho nesta sessão
+  - group:
+    - region "Preenchimento da auditoria":
+      - text: OBRA
+      - paragraph: Obra de teste
+      - text: DATA DA AUDITORIA
+      - paragraph: 05/10/2026
+      - text: MODELO
+      - paragraph: Qualidade Simplificada
+      - text: AUDITOR RESPONSÁVEL
+      - paragraph: Auditor de teste
+      - region "Andamento do preenchimento":
+        - strong: Preenchimento da auditoria
+        - status: 1 de 1 itens preenchidos
+        - progressbar "100% dos itens preenchidos"
+        - text: 100% NOTA PARCIAL
+        - strong: 0,50
+        - button "Salvando…" [disabled]
+      - region "Quesito da auditoria":
+        - heading "1. Armazenamento de Materiais 0,50" [level=4]:
+          - button "1. Armazenamento de Materiais 0,50" [disabled]
+  - status: Salvando auditoria…
+  - status

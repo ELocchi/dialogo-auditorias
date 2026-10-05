@@ -1,0 +1,137 @@
+[
+  {
+    "name": "Plano: skeleton, API 503, retry, salvamento lento e dados preservados",
+    "passed": true,
+    "elapsedMs": 11800,
+    "detail": {
+      "loads": 3,
+      "saves": 2,
+      "requestDelayMs": 1600,
+      "valuePreserved": true
+    },
+    "browserErrors": []
+  },
+  {
+    "name": "Auditoria: autosave não repete falha; foto mantida no retry; publicação sem duplicação",
+    "passed": true,
+    "elapsedMs": 12478,
+    "detail": {
+      "saves": 2,
+      "publishes": 1,
+      "multipartBytes": [
+        748,
+        748
+      ],
+      "failureObservationMs": 3600
+    },
+    "browserErrors": []
+  },
+  {
+    "name": "Foto: skeleton, falha visível, retry por teclado, imagem carregada, reduced motion e mobile",
+    "passed": true,
+    "elapsedMs": 3453,
+    "detail": {
+      "requests": 2,
+      "animation": "none",
+      "viewportWidth": 390,
+      "documentWidth": 390,
+      "naturalWidth": 1
+    },
+    "browserErrors": []
+  },
+  {
+    "name": "Consulta: rede lenta, erro, retry, vazio e resposta antiga não substitui filtro novo",
+    "passed": true,
+    "elapsedMs": 6478,
+    "detail": {
+      "attemptsA": 3,
+      "selectedWork": "b",
+      "staleResultIgnored": true
+    },
+    "browserErrors": []
+  },
+  {
+    "name": "Formulário real: falha da Server Action mantém todos os campos e permite retry",
+    "passed": true,
+    "elapsedMs": 4794,
+    "detail": {
+      "submits": 2,
+      "valuesPreserved": true,
+      "requestDelayMs": 1500
+    },
+    "browserErrors": []
+  },
+  {
+    "name": "Upload de acompanhamento: mantém arquivo após falha e desabilita envio",
+    "passed": true,
+    "elapsedMs": 4713,
+    "detail": {
+      "uploads": 2,
+      "retainedFile": "acompanhamento.png"
+    },
+    "browserErrors": []
+  },
+  {
+    "name": "Download: feedback imediato, erro, retry e PDF real recebido",
+    "passed": true,
+    "elapsedMs": 4346,
+    "detail": {
+      "downloads": 2,
+      "downloadedFile": "teste.pdf"
+    },
+    "browserErrors": []
+  },
+  {
+    "name": "Navegação: loading.tsx visível antes da página lenta",
+    "passed": true,
+    "elapsedMs": 3466,
+    "detail": {
+      "serverDelayMs": 2000,
+      "loadingAfterMs": 137,
+      "completedAfterMs": 2481
+    },
+    "browserErrors": []
+  },
+  {
+    "name": "Consulta sem resposta: prazo de 20 segundos libera retry",
+    "passed": true,
+    "elapsedMs": 20958,
+    "detail": {
+      "elapsedMs": 20955,
+      "calls": 2,
+      "retryEnabled": true
+    },
+    "browserErrors": []
+  },
+  {
+    "name": "Plano: edição durante salvamento não deixa ação presa",
+    "passed": true,
+    "elapsedMs": 5255,
+    "detail": {
+      "saves": 2,
+      "savedValues": [
+        "Primeira edição",
+        "Edição mais recente"
+      ]
+    },
+    "browserErrors": []
+  },
+  {
+    "name": "Revisão da auditoria real: bloqueia controles enquanto salva e recupera de erro",
+    "passed": true,
+    "elapsedMs": 4754,
+    "detail": {
+      "submits": 2,
+      "failedThenRecovered": true
+    },
+    "browserErrors": []
+  },
+  {
+    "name": "Erro de página: retry recupera a rota sem recarregar a aplicação inteira",
+    "passed": false,
+    "error": "locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('heading', { name: 'Página recuperada' }) to be visible\u001b[22m\n\n    at visible (/Users/teh/Desktop/GERAL.26/Dialogo Auditorias/dialogo-auditorias/scripts/test-async-browser.mjs:20:52)\n    at /Users/teh/Desktop/GERAL.26/Dialogo Auditorias/dialogo-auditorias/scripts/test-async-browser.mjs:148:116\n    at async check (/Users/teh/Desktop/GERAL.26/Dialogo Auditorias/dialogo-auditorias/scripts/test-async-browser.mjs:30:24)\n    at async file:///Users/teh/Desktop/GERAL.26/Dialogo%20Auditorias/dialogo-auditorias/scripts/test-async-browser.mjs:144:1",
+    "url": "http://127.0.0.1:3010/revisao-assincrona/falha",
+    "calls": [],
+    "browserErrors": []
+  }
+]

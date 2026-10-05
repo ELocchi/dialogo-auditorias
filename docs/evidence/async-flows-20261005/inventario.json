@@ -1,0 +1,3209 @@
+{
+  "generatedAt": "2026-10-05T20:14:15.714Z",
+  "scannedSourceFiles": 245,
+  "filesWithAsyncEntryPoints": 129,
+  "note": "Inventory of entry points, not a claim that every path/profile combination was browser-tested.",
+  "findings": [
+    {
+      "file": "src/app/administracao/obras/[id]/actions.ts",
+      "signals": [
+        {
+          "line": 10,
+          "await": "requireAdministrator()"
+        },
+        {
+          "line": 11,
+          "await": "updateWork(form, { createClient: () => createClient({ writableCookies: true }) })"
+        }
+      ]
+    },
+    {
+      "file": "src/app/administracao/obras/[id]/page.tsx",
+      "signals": [
+        {
+          "line": 18,
+          "await": "requireAdministrator()"
+        },
+        {
+          "line": 19,
+          "await": "params"
+        },
+        {
+          "line": 20,
+          "await": "Promise.all([readWorkDetails(id), readWorkHistory(id), ownAccessRequest(user.id), readActiveTeamProfiles(), readWorkTeam"
+        }
+      ]
+    },
+    {
+      "file": "src/app/administracao/obras/nova/page.tsx",
+      "signals": [
+        {
+          "line": 11,
+          "await": "requireAdministrator()"
+        },
+        {
+          "line": 12,
+          "await": "Promise.all([\n    ownAccessRequest(user.id),\n    readActiveTeamProfiles(),\n  ])"
+        }
+      ]
+    },
+    {
+      "file": "src/app/administracao/page.tsx",
+      "signals": [
+        {
+          "line": 5,
+          "await": "requireAdministrator()"
+        }
+      ]
+    },
+    {
+      "file": "src/app/administracao/usuarios/actions.ts",
+      "signals": [
+        {
+          "line": 12,
+          "await": "requireAdministrator()"
+        },
+        {
+          "line": 13,
+          "await": "approveRequest(form, { actorId: user.id, createClient: () => createClient({ writableCookies: true }) })"
+        },
+        {
+          "line": 19,
+          "await": "requireAdministrator()"
+        },
+        {
+          "line": 20,
+          "await": "createWorkWithDetails(form, { createClient: () => createClient({ writableCookies: true }) })"
+        },
+        {
+          "line": 26,
+          "await": "requireAdministrator()"
+        },
+        {
+          "line": 27,
+          "await": "updateAccountAccess(form, { actorId: user.id, createClient: () => createClient({ writableCookies: true }) })"
+        }
+      ]
+    },
+    {
+      "file": "src/app/administracao/usuarios/historico/page.tsx",
+      "signals": [
+        {
+          "line": 15,
+          "await": "requireAdministrator()"
+        },
+        {
+          "line": 16,
+          "await": "searchParams"
+        }
+      ]
+    },
+    {
+      "file": "src/app/administracao/usuarios/page.tsx",
+      "signals": [
+        {
+          "line": 14,
+          "await": "requireAdministrator()"
+        },
+        {
+          "line": 15,
+          "await": "searchParams"
+        }
+      ]
+    },
+    {
+      "file": "src/app/administracao/usuarios/pendentes/page.tsx",
+      "signals": [
+        {
+          "line": 15,
+          "await": "requireAdministrator()"
+        },
+        {
+          "line": 16,
+          "await": "searchParams"
+        }
+      ]
+    },
+    {
+      "file": "src/app/agenda/actions.ts",
+      "signals": [
+        {
+          "line": 11,
+          "await": "requireActiveProfile()"
+        },
+        {
+          "line": 15,
+          "await": "readWorkspaceContext(active)"
+        },
+        {
+          "line": 17,
+          "await": "createClient({ writableCookies: true })"
+        }
+      ]
+    },
+    {
+      "file": "src/app/aguardando-liberacao/page.tsx",
+      "signals": [
+        {
+          "line": 12,
+          "await": "requireUser()"
+        },
+        {
+          "line": 13,
+          "await": "effectiveAccount(user)"
+        },
+        {
+          "line": 14,
+          "await": "readActiveProfile(user.id, account)"
+        },
+        {
+          "line": 15,
+          "await": "ownAccessRequest(user.id)"
+        }
+      ]
+    },
+    {
+      "file": "src/app/api/access/summary/route.ts",
+      "signals": [
+        {
+          "line": 11,
+          "await": "verifiedUser()"
+        },
+        {
+          "line": 13,
+          "await": "effectiveAccount(user)"
+        },
+        {
+          "line": 15,
+          "await": "readActiveProfileContext(user.id, account)"
+        },
+        {
+          "line": 26,
+          "await": "readAccessSummary(await createClient())"
+        },
+        {
+          "line": 26,
+          "await": "createClient()"
+        }
+      ]
+    },
+    {
+      "file": "src/app/api/agenda/route.ts",
+      "signals": [
+        {
+          "line": 12,
+          "await": "verifiedUser()"
+        },
+        {
+          "line": 14,
+          "await": "effectiveAccount(user)"
+        },
+        {
+          "line": 16,
+          "await": "readActiveProfileContext(user.id, account)"
+        },
+        {
+          "line": 25,
+          "await": "readWorkspaceContext({ user, account, ...selected })"
+        },
+        {
+          "line": 30,
+          "await": "readAgendaUpdate(await createClient(), context, isAgendaRevision(candidate) ? candidate : null,\n    query.get(\"formato\")"
+        },
+        {
+          "line": 30,
+          "await": "createClient()"
+        }
+      ]
+    },
+    {
+      "file": "src/app/api/agenda/visits/[visitId]/route.ts",
+      "signals": [
+        {
+          "line": 14,
+          "await": "verifiedUser()"
+        },
+        {
+          "line": 16,
+          "await": "effectiveAccount(user)"
+        },
+        {
+          "line": 18,
+          "await": "readActiveProfileContext(user.id, account)"
+        },
+        {
+          "line": 20,
+          "await": "params"
+        },
+        {
+          "line": 22,
+          "await": "readWorkspaceContext({ user, account, ...selected })"
+        },
+        {
+          "line": 24,
+          "await": "readAgendaVisitDetail(await createClient(), context, visitId)"
+        },
+        {
+          "line": 24,
+          "await": "createClient()"
+        }
+      ]
+    },
+    {
+      "file": "src/app/api/audits/[auditId]/photos/[fileName]/route.ts",
+      "signals": [
+        {
+          "line": 11,
+          "await": "readAuditRequestContext(request)"
+        },
+        {
+          "line": 13,
+          "await": "params"
+        },
+        {
+          "line": 16,
+          "await": "createClient()"
+        },
+        {
+          "line": 20,
+          "await": "client.rpc(\"read_published_audit_report\", { p_audit_id: auditId,\n      p_profile: context.profile, p_engineering_scope: "
+        },
+        {
+          "line": 29,
+          "await": "client.storage.from(publishedAuditBucket).download(path)"
+        }
+      ]
+    },
+    {
+      "file": "src/app/api/audits/[auditId]/report/route.ts",
+      "signals": [
+        {
+          "line": 9,
+          "await": "readAuditRequestContext(request)"
+        },
+        {
+          "line": 11,
+          "await": "params"
+        },
+        {
+          "line": 13,
+          "await": "readPublishedAuditReport(await createClient(), access.context, auditId)"
+        },
+        {
+          "line": 13,
+          "await": "createClient()"
+        }
+      ]
+    },
+    {
+      "file": "src/app/api/audits/[auditId]/route.ts",
+      "signals": [
+        {
+          "line": 10,
+          "await": "readAuditRequestContext(request)"
+        },
+        {
+          "line": 12,
+          "await": "params"
+        },
+        {
+          "line": 14,
+          "await": "readPublishedAuditDetail(await createClient(), access.context, auditId)"
+        },
+        {
+          "line": 14,
+          "await": "createClient()"
+        }
+      ]
+    },
+    {
+      "file": "src/app/api/audits/comparison/route.ts",
+      "signals": [
+        {
+          "line": 9,
+          "await": "readAuditRequestContext(request)"
+        },
+        {
+          "line": 14,
+          "await": "readPublishedAuditComparison(await createClient(), access.context, ids)"
+        },
+        {
+          "line": 14,
+          "await": "createClient()"
+        }
+      ]
+    },
+    {
+      "file": "src/app/api/audits/dashboard/route.ts",
+      "signals": [
+        {
+          "line": 11,
+          "await": "readAuditRequestContext(request)"
+        },
+        {
+          "line": 13,
+          "await": "readAuditDashboard(await createClient(), access.context)"
+        },
+        {
+          "line": 13,
+          "await": "createClient()"
+        },
+        {
+          "line": 18,
+          "await": "readAuditRequestContext(request)"
+        },
+        {
+          "line": 30,
+          "await": "reader.read()"
+        },
+        {
+          "line": 34,
+          "await": "reader.cancel()"
+        },
+        {
+          "line": 44,
+          "await": "readAuditDashboard(await createClient(), access.context, overlay)"
+        },
+        {
+          "line": 44,
+          "await": "createClient()"
+        }
+      ]
+    },
+    {
+      "file": "src/app/api/audits/history/coordination/route.ts",
+      "signals": [
+        {
+          "line": 9,
+          "await": "readAuditRequestContext(request)"
+        },
+        {
+          "line": 24,
+          "await": "createClient()"
+        },
+        {
+          "line": 25,
+          "await": "Promise.all([\n    readPublishedAuditHistory(client, access.context, { ...base, module: \"quality\" }),\n    readPublishedAu"
+        }
+      ]
+    },
+    {
+      "file": "src/app/api/audits/history/route.ts",
+      "signals": [
+        {
+          "line": 9,
+          "await": "readAuditRequestContext(request)"
+        },
+        {
+          "line": 20,
+          "await": "readPublishedAuditHistory(await createClient(), access.context, query)"
+        },
+        {
+          "line": 20,
+          "await": "createClient()"
+        }
+      ]
+    },
+    {
+      "file": "src/app/api/catalogs/route.ts",
+      "signals": [
+        {
+          "line": 9,
+          "await": "readAuditRequestContext(request)"
+        },
+        {
+          "line": 11,
+          "await": "readCatalogSnapshot(await createClient(), access.context)"
+        },
+        {
+          "line": 11,
+          "await": "createClient()"
+        }
+      ]
+    },
+    {
+      "file": "src/app/api/follow-up/reports/route.ts",
+      "signals": [
+        {
+          "line": 10,
+          "await": "readAuditRequestContext(request)"
+        },
+        {
+          "line": 13,
+          "await": "readFollowUpReportIndex(await createClient(), access.context)"
+        },
+        {
+          "line": 13,
+          "await": "createClient()"
+        }
+      ]
+    },
+    {
+      "file": "src/app/api/follow-up/standalone-reports/route.ts",
+      "signals": [
+        {
+          "line": 9,
+          "await": "readAuditRequestContext(request)"
+        },
+        {
+          "line": 13,
+          "await": "readStandaloneReports(await createClient(), context)"
+        },
+        {
+          "line": 13,
+          "await": "createClient()"
+        }
+      ]
+    },
+    {
+      "file": "src/app/api/follow-up/visits/[visitId]/photos/route.ts",
+      "signals": [
+        {
+          "line": 11,
+          "await": "readAuditRequestContext(request)"
+        },
+        {
+          "line": 15,
+          "await": "params"
+        },
+        {
+          "line": 17,
+          "await": "readFollowUpVisitPhotos(await createClient(), access.context, visitId)"
+        },
+        {
+          "line": 17,
+          "await": "createClient()"
+        }
+      ]
+    },
+    {
+      "file": "src/app/api/follow-up/workspace/route.ts",
+      "signals": [
+        {
+          "line": 10,
+          "await": "readAuditRequestContext(request)"
+        },
+        {
+          "line": 14,
+          "await": "readFollowUpWorkspace(await createClient(), access.context)"
+        },
+        {
+          "line": 14,
+          "await": "createClient()"
+        }
+      ]
+    },
+    {
+      "file": "src/app/api/publications/[id]/[operation]/route.ts",
+      "signals": [
+        {
+          "line": 9,
+          "await": "params"
+        },
+        {
+          "line": 11,
+          "await": "service.readPlan(id)"
+        },
+        {
+          "line": 13,
+          "await": "service.photo(id, new URL(request.url).searchParams.get(\"file\") ?? \"\")"
+        },
+        {
+          "line": 17,
+          "await": "service.auditReport(id)"
+        },
+        {
+          "line": 21,
+          "await": "service.planReport(id)"
+        },
+        {
+          "line": 29,
+          "await": "params"
+        },
+        {
+          "line": 32,
+          "await": "limitedBody(request, 32 * 1024 * 1024)"
+        },
+        {
+          "line": 34,
+          "await": "new Response(Uint8Array.from(bytes), { headers: { \"Content-Type\": request.headers.get(\"content-type\") ?? \"\" } }).formDat"
+        },
+        {
+          "line": 42,
+          "await": "service.saveAudit(id, revision(Number(form.get(\"revision\"))), input, files, closure)"
+        },
+        {
+          "line": 44,
+          "await": "readJson(request)"
+        },
+        {
+          "line": 46,
+          "await": "service.publishAudit(id, current)"
+        },
+        {
+          "line": 47,
+          "await": "service.savePlan(id, current, body.rows)"
+        },
+        {
+          "line": 48,
+          "await": "service.publishPlan(id, current)"
+        }
+      ]
+    },
+    {
+      "file": "src/app/api/publications/route.ts",
+      "signals": [
+        {
+          "line": 8,
+          "await": "service.index()"
+        },
+        {
+          "line": 12,
+          "await": "readJson(request)"
+        },
+        {
+          "line": 14,
+          "await": "service.start(body.visitId, await createClient(), body.modelId)"
+        },
+        {
+          "line": 14,
+          "await": "createClient()"
+        }
+      ]
+    },
+    {
+      "file": "src/app/api/reference-documents/[modelId]/route.ts",
+      "signals": [
+        {
+          "line": 21,
+          "await": "verifiedUser()"
+        },
+        {
+          "line": 23,
+          "await": "effectiveAccount(user)"
+        },
+        {
+          "line": 25,
+          "await": "readActiveProfileContext(user.id, account)"
+        },
+        {
+          "line": 29,
+          "await": "params"
+        },
+        {
+          "line": 40,
+          "await": "(await createClient()).rpc(\"is_current_access_administrator\")"
+        },
+        {
+          "line": 40,
+          "await": "createClient()"
+        },
+        {
+          "line": 46,
+          "await": "createClient()"
+        },
+        {
+          "line": 47,
+          "await": "client.from(\"access_grants\").select(\"obra_id\")\n      .eq(\"auth_user_id\", user.id).eq(\"perfil\", \"ENGENHARIA\")\n      .eq(\""
+        },
+        {
+          "line": 53,
+          "await": "client.from(\"access_works\").select(\"id\").in(\"id\", workIds).eq(\"ativo\", true).limit(1)"
+        },
+        {
+          "line": 68,
+          "await": "(await createClient()).rpc(\"read_auditor_catalog_document\", {\n        p_profile: selected.profile, p_model_id: modelId, "
+        },
+        {
+          "line": 68,
+          "await": "createClient()"
+        },
+        {
+          "line": 78,
+          "await": "createClient()"
+        },
+        {
+          "line": 79,
+          "await": "client.from(\"access_grants\").select(\"obra_id\")\n        .eq(\"auth_user_id\", user.id).eq(\"perfil\", selected.profile)\n     "
+        },
+        {
+          "line": 85,
+          "await": "client.from(\"access_works\").select(\"id\")\n        .in(\"id\", workIds).eq(\"ativo\", true).limit(1)"
+        },
+        {
+          "line": 91,
+          "await": "(await createClient()).rpc(\"read_audit_catalog_document\", {\n        p_model_id: modelId, p_original: original, p_revisio"
+        },
+        {
+          "line": 91,
+          "await": "createClient()"
+        },
+        {
+          "line": 110,
+          "await": "readFile(join(process.cwd(), \"private\", \"reference-documents\", filename))"
+        }
+      ]
+    },
+    {
+      "file": "src/app/app/[[...path]]/page.tsx",
+      "signals": [
+        {
+          "line": 23,
+          "await": "requireActiveProfile()"
+        },
+        {
+          "line": 24,
+          "await": "readWorkspaceContext(active)"
+        },
+        {
+          "line": 25,
+          "await": "searchParams"
+        },
+        {
+          "line": 31,
+          "await": "createClient()"
+        },
+        {
+          "line": 37,
+          "await": "Promise.all([\n    resources.agenda ? readAgendaSnapshot(client, context) : Promise.resolve(undefined),\n    preview || !r"
+        }
+      ]
+    },
+    {
+      "file": "src/app/app/acompanhamento/fotos/[visitId]/[fileName]/route.ts",
+      "signals": [
+        {
+          "line": 12,
+          "await": "params"
+        },
+        {
+          "line": 15,
+          "await": "readAuditRequestContext(request)"
+        },
+        {
+          "line": 19,
+          "await": "createClient()"
+        },
+        {
+          "line": 23,
+          "await": "client.rpc(\"can_read_follow_up_finding_photo\", {\n      p_visit_id: visitId.toLowerCase(), p_finding_id: parsed.findingId"
+        },
+        {
+          "line": 33,
+          "await": "client.storage.from(followUpPhotoBucket).download(path)"
+        }
+      ]
+    },
+    {
+      "file": "src/app/app/acompanhamento/obras/[workId]/fotos/[fileName]/route.ts",
+      "signals": [
+        {
+          "line": 12,
+          "await": "params"
+        },
+        {
+          "line": 15,
+          "await": "readAuditRequestContext(request)"
+        },
+        {
+          "line": 23,
+          "await": "createClient()"
+        },
+        {
+          "line": 31,
+          "await": "query.maybeSingle()"
+        },
+        {
+          "line": 42,
+          "await": "client.storage.from(followUpPhotoBucket).download(path)"
+        }
+      ]
+    },
+    {
+      "file": "src/app/app/acompanhamento/relatorio/[visitId]/page.tsx",
+      "signals": [
+        {
+          "line": 22,
+          "await": "params"
+        },
+        {
+          "line": 23,
+          "await": "searchParams"
+        },
+        {
+          "line": 26,
+          "await": "requireActiveProfile()"
+        },
+        {
+          "line": 27,
+          "await": "readWorkspaceContext(active)"
+        },
+        {
+          "line": 29,
+          "await": "createClient()"
+        },
+        {
+          "line": 30,
+          "await": "readFollowUpReportDetail(client, context, visitId, reportId)"
+        },
+        {
+          "line": 31,
+          "await": "readFollowUpVisit(client, context, visitId)"
+        },
+        {
+          "line": 49,
+          "await": "readVisitPhotos(client, context.user.id, visitId)"
+        }
+      ]
+    },
+    {
+      "file": "src/app/app/acompanhamento/relatorio/[visitId]/pdf/route.ts",
+      "signals": [
+        {
+          "line": 13,
+          "await": "params"
+        },
+        {
+          "line": 17,
+          "await": "readWorkspaceContext(await requireActiveProfile())"
+        },
+        {
+          "line": 17,
+          "await": "requireActiveProfile()"
+        },
+        {
+          "line": 21,
+          "await": "scheduledDocument(await createClient(), context, visitId, reportId, request.signal)"
+        },
+        {
+          "line": 21,
+          "await": "createClient()"
+        }
+      ]
+    },
+    {
+      "file": "src/app/app/acompanhamento/relatorio/avulso/[reportId]/page.tsx",
+      "signals": [
+        {
+          "line": 16,
+          "await": "params"
+        },
+        {
+          "line": 18,
+          "await": "readWorkspaceContext(await requireActiveProfile())"
+        },
+        {
+          "line": 18,
+          "await": "requireActiveProfile()"
+        },
+        {
+          "line": 20,
+          "await": "readStandaloneReport(await createClient(), context, reportId)"
+        },
+        {
+          "line": 20,
+          "await": "createClient()"
+        },
+        {
+          "line": 23,
+          "await": "searchParams"
+        }
+      ]
+    },
+    {
+      "file": "src/app/app/acompanhamento/relatorio/avulso/[reportId]/pdf/route.ts",
+      "signals": [
+        {
+          "line": 13,
+          "await": "params"
+        },
+        {
+          "line": 15,
+          "await": "readWorkspaceContext(await requireActiveProfile())"
+        },
+        {
+          "line": 15,
+          "await": "requireActiveProfile()"
+        },
+        {
+          "line": 19,
+          "await": "standaloneDocument(await createClient(), context, reportId, request.signal)"
+        },
+        {
+          "line": 19,
+          "await": "createClient()"
+        }
+      ]
+    },
+    {
+      "file": "src/app/app/acompanhamento/relatorio/novo/page.tsx",
+      "signals": [
+        {
+          "line": 16,
+          "await": "requireActiveProfile()"
+        },
+        {
+          "line": 29,
+          "await": "readWorkspaceContext(active)"
+        },
+        {
+          "line": 41,
+          "await": "searchParams"
+        }
+      ]
+    },
+    {
+      "file": "src/app/auth/actions.ts",
+      "signals": [
+        {
+          "line": 16,
+          "await": "requestAccess(formData, { createClient: writableClient, callbackUrl: confirmationCallbackUrl, reportFailure: reportSignu"
+        },
+        {
+          "line": 22,
+          "await": "signIn(formData, { createClient: writableClient, reportFailure: reportLoginFailure })"
+        },
+        {
+          "line": 23,
+          "await": "clearActiveProfileChoice()"
+        },
+        {
+          "line": 28,
+          "await": "signOut({ createClient: writableClient })"
+        },
+        {
+          "line": 29,
+          "await": "clearActiveProfileChoice()"
+        }
+      ]
+    },
+    {
+      "file": "src/app/auth/callback/route.ts",
+      "signals": [
+        {
+          "line": 11,
+          "await": "createClient({ writableCookies: true })"
+        },
+        {
+          "line": 12,
+          "await": "client.auth.exchangeCodeForSession(code)"
+        },
+        {
+          "line": 14,
+          "await": "client.auth.getUser()"
+        }
+      ]
+    },
+    {
+      "file": "src/app/catalogs/actions.ts",
+      "signals": [
+        {
+          "line": 11,
+          "await": "requireActiveProfile()"
+        },
+        {
+          "line": 15,
+          "await": "readWorkspaceContext(active)"
+        },
+        {
+          "line": 17,
+          "await": "createClient({ writableCookies: true })"
+        },
+        {
+          "line": 21,
+          "await": "requireActiveProfile()"
+        },
+        {
+          "line": 25,
+          "await": "readWorkspaceContext(active)"
+        },
+        {
+          "line": 27,
+          "await": "createClient({ writableCookies: true })"
+        },
+        {
+          "line": 31,
+          "await": "requireActiveProfile()"
+        },
+        {
+          "line": 33,
+          "await": "readWorkspaceContext(active)"
+        },
+        {
+          "line": 34,
+          "await": "createClient({ writableCookies: true })"
+        }
+      ]
+    },
+    {
+      "file": "src/app/components/access/AccessAdministration.tsx",
+      "signals": [
+        {
+          "line": 19,
+          "await": "readAdministration(await createClient(), view, page)"
+        },
+        {
+          "line": 19,
+          "await": "createClient()"
+        },
+        {
+          "line": 24,
+          "await": "requireAdministrator()"
+        },
+        {
+          "line": 26,
+          "await": "loadAdministration(view, view === \"history\" ? historyPage : pendingPage)"
+        }
+      ]
+    },
+    {
+      "file": "src/app/components/access/AccessAdministrationHeader.tsx",
+      "signals": [
+        {
+          "line": 10,
+          "await": "ownAccessRequest(user.id)"
+        }
+      ]
+    },
+    {
+      "file": "src/app/components/access/EditUserDialog.tsx",
+      "signals": [
+        {
+          "line": 54,
+          "call": "useActionState"
+        },
+        {
+          "line": 54,
+          "call": "recoverAction"
+        }
+      ]
+    },
+    {
+      "file": "src/app/components/access/PendingRequests.tsx",
+      "signals": [
+        {
+          "line": 19,
+          "call": "useActionState"
+        },
+        {
+          "line": 19,
+          "call": "recoverAction"
+        }
+      ]
+    },
+    {
+      "file": "src/app/components/access/WorkForm.tsx",
+      "signals": [
+        {
+          "line": 18,
+          "call": "useActionState"
+        },
+        {
+          "line": 18,
+          "call": "recoverAction"
+        }
+      ]
+    },
+    {
+      "file": "src/app/components/action-plan-editor.tsx",
+      "signals": [
+        {
+          "line": 91,
+          "await": "onPublish(pendingPublication)"
+        },
+        {
+          "line": 101,
+          "await": "onSave(rows)"
+        },
+        {
+          "line": 117,
+          "await": "generatePdf({\n            kind: \"action-plan\", input: { workName, auditDate, auditScore, module, authorName, rows },\n   "
+        },
+        {
+          "line": 127,
+          "await": "onSave(rows)"
+        },
+        {
+          "line": 168,
+          "await": "onSave(rows)"
+        }
+      ]
+    },
+    {
+      "file": "src/app/components/audit-workspace.tsx",
+      "signals": [
+        {
+          "line": 54,
+          "await": "fetch(url, { cache: \"no-store\", signal: requestSignal(signal) })"
+        },
+        {
+          "line": 54,
+          "call": "fetch"
+        },
+        {
+          "line": 56,
+          "await": "result.blob()"
+        },
+        {
+          "line": 91,
+          "call": "fetch"
+        },
+        {
+          "line": 105,
+          "await": "createTestEvidenceImage(reference)"
+        },
+        {
+          "line": 325,
+          "await": "onPublish()"
+        },
+        {
+          "line": 397,
+          "await": "onFinish?.(value)"
+        }
+      ]
+    },
+    {
+      "file": "src/app/components/auth/AuthForm.tsx",
+      "signals": [
+        {
+          "line": 17,
+          "call": "useActionState"
+        },
+        {
+          "line": 18,
+          "call": "recoverAction"
+        },
+        {
+          "line": 24,
+          "call": "formAction"
+        }
+      ]
+    },
+    {
+      "file": "src/app/components/auth/ConfirmEmailForm.tsx",
+      "signals": [
+        {
+          "line": 11,
+          "call": "useActionState"
+        },
+        {
+          "line": 11,
+          "call": "recoverAction"
+        }
+      ]
+    },
+    {
+      "file": "src/app/components/auth/LogoutButton.tsx",
+      "signals": [
+        {
+          "line": 13,
+          "call": "useActionState"
+        },
+        {
+          "line": 13,
+          "call": "recoverAction"
+        }
+      ]
+    },
+    {
+      "file": "src/app/components/catalog-editor-panel.tsx",
+      "signals": [
+        {
+          "line": 117,
+          "call": "useTransition"
+        },
+        {
+          "line": 317,
+          "await": "saveFvsWeightsRevisionAction(formData)"
+        },
+        {
+          "line": 317,
+          "call": "saveFvsWeightsRevisionAction"
+        },
+        {
+          "line": 358,
+          "await": "saveCatalogRevisionAction(formData)"
+        },
+        {
+          "line": 358,
+          "call": "saveCatalogRevisionAction"
+        }
+      ]
+    },
+    {
+      "file": "src/app/components/download-button.tsx",
+      "signals": [
+        {
+          "line": 16,
+          "await": "fetch(href, { credentials: \"same-origin\", cache: \"no-store\", signal: requestSignal(request.signal, 90_000) })"
+        },
+        {
+          "line": 16,
+          "call": "fetch"
+        },
+        {
+          "line": 18,
+          "await": "response.blob()"
+        },
+        {
+          "line": 19,
+          "await": "blob.slice(0, 5).text()"
+        }
+      ]
+    },
+    {
+      "file": "src/app/components/engineering-resource-panels.tsx",
+      "signals": [
+        {
+          "line": 139,
+          "call": "readWithDeadline"
+        },
+        {
+          "line": 139,
+          "call": "readEngineeringWorkFindingsAction"
+        }
+      ]
+    },
+    {
+      "file": "src/app/components/follow-up-report-page.tsx",
+      "signals": [
+        {
+          "line": 137,
+          "await": "saveFollowUpReportAction({ visitId: visit.id, expectedRevision: 0,\n        title: title.trim(), participants, subjects, "
+        },
+        {
+          "line": 137,
+          "call": "saveFollowUpReportAction"
+        }
+      ]
+    },
+    {
+      "file": "src/app/components/follow-up-workspace-rows.tsx",
+      "signals": [
+        {
+          "line": 53,
+          "await": "onUpload(file, item.visitId, item.id)"
+        }
+      ]
+    },
+    {
+      "file": "src/app/components/follow-up-workspace.tsx",
+      "signals": [
+        {
+          "line": 107,
+          "await": "createWorkFindingAction(formData, actor)"
+        },
+        {
+          "line": 107,
+          "call": "createWorkFindingAction"
+        },
+        {
+          "line": 122,
+          "await": "uploadFindingPhotosAction(formData, actor)"
+        },
+        {
+          "line": 122,
+          "call": "uploadFindingPhotosAction"
+        },
+        {
+          "line": 133,
+          "await": "completeFindingAction(visitId, findingId, actor)"
+        },
+        {
+          "line": 133,
+          "call": "completeFindingAction"
+        },
+        {
+          "line": 147,
+          "await": "completeWorkFindingAction(id, actor)"
+        },
+        {
+          "line": 147,
+          "call": "completeWorkFindingAction"
+        }
+      ]
+    },
+    {
+      "file": "src/app/components/persistent-action-plan-editor.tsx",
+      "signals": [
+        {
+          "line": 28,
+          "call": "publicationFetch"
+        },
+        {
+          "line": 39,
+          "await": "publicationFetch<{ revision: number }>(`/api/publications/${auditId}/save-plan?${query}`,\n        publicationJson({ revi"
+        },
+        {
+          "line": 39,
+          "call": "publicationFetch"
+        },
+        {
+          "line": 49,
+          "await": "queue.current"
+        },
+        {
+          "line": 50,
+          "await": "publicationFetch(`/api/publications/${auditId}/publish-plan?${query}`, publicationJson({ revision: current.current.revis"
+        },
+        {
+          "line": 50,
+          "call": "publicationFetch"
+        }
+      ]
+    },
+    {
+      "file": "src/app/components/prototype-app.tsx",
+      "signals": [
+        {
+          "line": 43,
+          "call": "dynamic"
+        },
+        {
+          "line": 44,
+          "call": "dynamic"
+        },
+        {
+          "line": 45,
+          "call": "dynamic"
+        },
+        {
+          "line": 46,
+          "call": "dynamic"
+        },
+        {
+          "line": 47,
+          "call": "dynamic"
+        },
+        {
+          "line": 48,
+          "call": "dynamic"
+        },
+        {
+          "line": 49,
+          "call": "dynamic"
+        },
+        {
+          "line": 50,
+          "call": "dynamic"
+        },
+        {
+          "line": 51,
+          "call": "dynamic"
+        },
+        {
+          "line": 52,
+          "call": "dynamic"
+        },
+        {
+          "line": 53,
+          "call": "dynamic"
+        },
+        {
+          "line": 54,
+          "call": "dynamic"
+        },
+        {
+          "line": 55,
+          "call": "dynamic"
+        },
+        {
+          "line": 236,
+          "call": "fetch"
+        },
+        {
+          "line": 342,
+          "call": "fetch"
+        },
+        {
+          "line": 430,
+          "call": "runAgendaAction"
+        },
+        {
+          "line": 430,
+          "call": "createAgendaVisitAction"
+        },
+        {
+          "line": 431,
+          "call": "runAgendaAction"
+        },
+        {
+          "line": 431,
+          "call": "createAgendaVisitsBatchAction"
+        },
+        {
+          "line": 432,
+          "call": "runAgendaAction"
+        },
+        {
+          "line": 432,
+          "call": "deleteAgendaVisitAction"
+        },
+        {
+          "line": 433,
+          "call": "runAgendaAction"
+        },
+        {
+          "line": 433,
+          "call": "confirmAgendaVisitAction"
+        },
+        {
+          "line": 441,
+          "await": "fetch(\"/api/agenda\", { credentials: \"same-origin\", cache: \"no-store\", signal: requestSignal() })"
+        },
+        {
+          "line": 441,
+          "call": "fetch"
+        },
+        {
+          "line": 443,
+          "await": "response.json()"
+        },
+        {
+          "line": 454,
+          "await": "publication.save(existing.id, session.responses[existing.id] ?? {})"
+        },
+        {
+          "line": 455,
+          "await": "publication.start(current)"
+        },
+        {
+          "line": 461,
+          "await": "loadCatalogs(true)"
+        },
+        {
+          "line": 576,
+          "await": "publication.save(activeAudit.id, session.responses[activeAudit.id] ?? {}, closure)"
+        },
+        {
+          "line": 580,
+          "await": "publication.publish(activeAudit.id, session.responses[activeAudit.id] ?? {}, session.safetyClosures?.[activeAudit.id])"
+        }
+      ]
+    },
+    {
+      "file": "src/app/components/recover-action.ts",
+      "signals": [
+        {
+          "line": 8,
+          "await": "action(previous, form)"
+        }
+      ]
+    },
+    {
+      "file": "src/app/components/standalone-report-form.tsx",
+      "signals": [
+        {
+          "line": 35,
+          "call": "readWithDeadline"
+        },
+        {
+          "line": 35,
+          "call": "readStandaloneFindingsAction"
+        },
+        {
+          "line": 54,
+          "await": "saveStandaloneReportAction({ ...payload, requestId: request.current.id }, actor)"
+        },
+        {
+          "line": 54,
+          "call": "saveStandaloneReportAction"
+        }
+      ]
+    },
+    {
+      "file": "src/app/components/use-agenda-visit-detail.ts",
+      "signals": [
+        {
+          "line": 28,
+          "await": "readDetail(controller.signal)"
+        }
+      ]
+    },
+    {
+      "file": "src/app/components/use-agenda.ts",
+      "signals": [
+        {
+          "line": 51,
+          "call": "client.runAction"
+        },
+        {
+          "line": 53,
+          "await": "action(requestId)"
+        }
+      ]
+    },
+    {
+      "file": "src/app/components/use-audit-dashboard.ts",
+      "signals": [
+        {
+          "line": 35,
+          "call": "fetch"
+        },
+        {
+          "line": 39,
+          "await": "response.json()"
+        }
+      ]
+    },
+    {
+      "file": "src/app/components/use-audit-publication.ts",
+      "signals": [
+        {
+          "line": 19,
+          "await": "fetch(url, { ...init, credentials: \"same-origin\", cache: \"no-store\", signal: requestSignal(init?.signal, reading ? 20_00"
+        },
+        {
+          "line": 19,
+          "call": "fetch"
+        },
+        {
+          "line": 20,
+          "await": "response.json().catch(() => null)"
+        },
+        {
+          "line": 58,
+          "call": "publicationFetch"
+        },
+        {
+          "line": 83,
+          "await": "publicationFetch<{ revision: number }>(`/api/publications/${id}/save-audit?${query}`, { method: \"POST\", body: form })"
+        },
+        {
+          "line": 83,
+          "call": "publicationFetch"
+        },
+        {
+          "line": 108,
+          "await": "publicationFetch<PersistedAudit>(`/api/publications?${query}`, publicationJson({ visitId: visit.id, modelId: visit.model"
+        },
+        {
+          "line": 108,
+          "call": "publicationFetch"
+        },
+        {
+          "line": 112,
+          "await": "save(id, responses, safetyClosure)"
+        },
+        {
+          "line": 113,
+          "await": "publicationFetch<PersistedAudit>(`/api/publications/${id}/publish-audit?${query}`, publicationJson({ revision }))"
+        },
+        {
+          "line": 113,
+          "call": "publicationFetch"
+        }
+      ]
+    },
+    {
+      "file": "src/app/components/use-follow-up-snapshot.ts",
+      "signals": [
+        {
+          "line": 36,
+          "call": "fetch"
+        },
+        {
+          "line": 40,
+          "await": "response.json()"
+        }
+      ]
+    },
+    {
+      "file": "src/app/components/visit-agenda.tsx",
+      "signals": [
+        {
+          "line": 95,
+          "await": "onCreateBatch(draftVisits.map(({ input, requestId }) => ({ ...input, requestId })))"
+        },
+        {
+          "line": 96,
+          "await": "onCreate(draftVisits[0].input)"
+        },
+        {
+          "line": 335,
+          "await": "import(\"exceljs\")"
+        },
+        {
+          "line": 337,
+          "await": "workbook.xlsx.load(await file.arrayBuffer())"
+        },
+        {
+          "line": 337,
+          "await": "file.arrayBuffer()"
+        },
+        {
+          "line": 386,
+          "await": "import(\"exceljs\")"
+        },
+        {
+          "line": 409,
+          "await": "workbook.xlsx.writeBuffer()"
+        },
+        {
+          "line": 442,
+          "await": "onCreate(prepared)"
+        },
+        {
+          "line": 581,
+          "await": "onDelete(visit.id, visit.revision)"
+        },
+        {
+          "line": 600,
+          "await": "onConfirm(visit.id, visit.revision)"
+        },
+        {
+          "line": 616,
+          "await": "onStartAudit(visit)"
+        }
+      ]
+    },
+    {
+      "file": "src/app/components/works/WorkEditForm.tsx",
+      "signals": [
+        {
+          "line": 17,
+          "call": "useActionState"
+        },
+        {
+          "line": 18,
+          "await": "recoverAction(updateWorkAction)(previous, form)"
+        },
+        {
+          "line": 18,
+          "call": "recoverAction"
+        }
+      ]
+    },
+    {
+      "file": "src/app/confirmar-email/actions.ts",
+      "signals": [
+        {
+          "line": 11,
+          "await": "confirmEmail(formData, {\n    createClient: () => createClient({ writableCookies: true }),\n  })"
+        },
+        {
+          "line": 15,
+          "await": "clearActiveProfileChoice()"
+        }
+      ]
+    },
+    {
+      "file": "src/app/confirmar-email/page.tsx",
+      "signals": [
+        {
+          "line": 18,
+          "await": "requireUser()"
+        },
+        {
+          "line": 19,
+          "await": "ownAccessRequest(user.id)"
+        }
+      ]
+    },
+    {
+      "file": "src/app/entrar/page.tsx",
+      "signals": [
+        {
+          "line": 10,
+          "await": "verifiedUser()"
+        },
+        {
+          "line": 11,
+          "await": "searchParams"
+        }
+      ]
+    },
+    {
+      "file": "src/app/error.tsx",
+      "signals": [
+        {
+          "line": 6,
+          "call": "useTransition"
+        }
+      ]
+    },
+    {
+      "file": "src/app/escolher-perfil/actions.ts",
+      "signals": [
+        {
+          "line": 10,
+          "await": "requireUser()"
+        },
+        {
+          "line": 11,
+          "await": "effectiveAccount(user)"
+        },
+        {
+          "line": 15,
+          "await": "writeActiveProfileChoice(user.id, context.profile, context.engineeringScope, context.administrativeScope)"
+        }
+      ]
+    },
+    {
+      "file": "src/app/escolher-perfil/page.tsx",
+      "signals": [
+        {
+          "line": 23,
+          "await": "requireUser()"
+        },
+        {
+          "line": 24,
+          "await": "effectiveAccount(user)"
+        },
+        {
+          "line": 28,
+          "await": "readActiveProfileContext(user.id, account)"
+        },
+        {
+          "line": 29,
+          "await": "searchParams"
+        }
+      ]
+    },
+    {
+      "file": "src/app/follow-up/actions.ts",
+      "signals": [
+        {
+          "line": 21,
+          "await": "requireActiveProfile()"
+        },
+        {
+          "line": 28,
+          "await": "activeContext(expected)"
+        },
+        {
+          "line": 30,
+          "await": "createClient()"
+        },
+        {
+          "line": 31,
+          "await": "saveStandaloneReport(client, context, value)"
+        },
+        {
+          "line": 34,
+          "await": "standaloneDocument(client, context, result.reportId)"
+        },
+        {
+          "line": 45,
+          "await": "activeContext(expected)"
+        },
+        {
+          "line": 47,
+          "await": "createClient()"
+        },
+        {
+          "line": 62,
+          "await": "activeContext(expected)"
+        },
+        {
+          "line": 65,
+          "await": "(await createClient()).from(\"follow_up_work_findings\")\n    .select(\"id,work_id,modulo,location,description,correction,se"
+        },
+        {
+          "line": 65,
+          "await": "createClient()"
+        },
+        {
+          "line": 74,
+          "await": "activeContext(expected)"
+        },
+        {
+          "line": 78,
+          "await": "(await createClient()).from(\"follow_up_work_findings\")\n    .select(\"id,work_id,modulo,location,description,correction,se"
+        },
+        {
+          "line": 78,
+          "await": "createClient()"
+        },
+        {
+          "line": 90,
+          "await": "activeContext(expected)"
+        },
+        {
+          "line": 106,
+          "await": "photo.arrayBuffer()"
+        },
+        {
+          "line": 113,
+          "await": "createClient({ writableCookies: true })"
+        },
+        {
+          "line": 114,
+          "await": "client.storage.from(followUpPhotoBucket).upload(path, bytes,\n    { contentType: kind, cacheControl: \"3600\", upsert: fals"
+        },
+        {
+          "line": 117,
+          "await": "client.from(\"follow_up_work_findings\").insert({\n    id, work_id: workId, modulo: findingDiscipline, auditor_auth_user_id"
+        },
+        {
+          "line": 122,
+          "await": "client.storage.from(followUpPhotoBucket).remove([path])"
+        },
+        {
+          "line": 129,
+          "await": "activeContext(expected)"
+        },
+        {
+          "line": 132,
+          "await": "(await createClient({ writableCookies: true })).from(\"follow_up_work_findings\")\n    .update({ completed_at: new Date().t"
+        },
+        {
+          "line": 132,
+          "await": "createClient({ writableCookies: true })"
+        },
+        {
+          "line": 139,
+          "await": "activeContext(expected)"
+        },
+        {
+          "line": 141,
+          "await": "createClient()"
+        },
+        {
+          "line": 145,
+          "await": "activeContext(expected)"
+        },
+        {
+          "line": 151,
+          "await": "createClient({ writableCookies: true })"
+        },
+        {
+          "line": 152,
+          "await": "readFollowUpVisit(client, context, value.visitId)"
+        },
+        {
+          "line": 164,
+          "await": "saveFollowUpReport(client, context, { ...value, findings })"
+        },
+        {
+          "line": 167,
+          "await": "scheduledDocument(client, context, value.visitId, result.report.id)"
+        },
+        {
+          "line": 176,
+          "await": "activeContext(expected)"
+        },
+        {
+          "line": 178,
+          "await": "createClient()"
+        },
+        {
+          "line": 182,
+          "await": "activeContext(expected)"
+        },
+        {
+          "line": 184,
+          "await": "createClient({ writableCookies: true })"
+        },
+        {
+          "line": 190,
+          "await": "activeContext(expected)"
+        },
+        {
+          "line": 193,
+          "await": "createClient({ writableCookies: true })"
+        },
+        {
+          "line": 194,
+          "await": "readFollowUpVisit(client, context, visitId)"
+        },
+        {
+          "line": 203,
+          "await": "saveFindingDrafts(client, context, { visitId, expectedRevision: draft.revision,\n      findings: draft.findings.filter((i"
+        },
+        {
+          "line": 209,
+          "await": "client.from(\"follow_up_finding_completions\").upsert({\n      visit_id: visitId, finding_id: findingId, auditor_auth_user_"
+        },
+        {
+          "line": 214,
+          "await": "readVisitPhotos(client, context.user.id, visitId)"
+        },
+        {
+          "line": 218,
+          "await": "client.storage.from(followUpPhotoBucket).remove(paths)"
+        },
+        {
+          "line": 224,
+          "await": "activeContext(expected)"
+        },
+        {
+          "line": 226,
+          "await": "(await createClient()).from(\"follow_up_finding_completions\")\n    .select(\"visit_id,finding_id\").eq(\"auditor_auth_user_id"
+        },
+        {
+          "line": 226,
+          "await": "createClient()"
+        },
+        {
+          "line": 236,
+          "await": "activeContext(expected)"
+        },
+        {
+          "line": 239,
+          "await": "readAgendaSnapshot(await createClient(), context)"
+        },
+        {
+          "line": 239,
+          "await": "createClient()"
+        },
+        {
+          "line": 244,
+          "await": "createClient()"
+        },
+        {
+          "line": 245,
+          "await": "Promise.all([...new Set(visitIds)].map((id) => readVisitPhotos(client, context.user.id, id)))"
+        },
+        {
+          "line": 251,
+          "await": "activeContext(expected)"
+        },
+        {
+          "line": 260,
+          "await": "createClient({ writableCookies: true })"
+        },
+        {
+          "line": 261,
+          "await": "readFollowUpVisit(client, context, visitId)"
+        },
+        {
+          "line": 269,
+          "await": "readVisitPhotos(client, context.user.id, visitId)"
+        },
+        {
+          "line": 278,
+          "await": "entry.arrayBuffer()"
+        },
+        {
+          "line": 284,
+          "await": "client.storage.from(followUpPhotoBucket).upload(path, bytes,\n        { contentType: kind, cacheControl: \"3600\", upsert: "
+        },
+        {
+          "line": 290,
+          "await": "client.storage.from(followUpPhotoBucket).remove(uploaded)"
+        },
+        {
+          "line": 293,
+          "await": "readVisitPhotos(client, context.user.id, visitId)"
+        },
+        {
+          "line": 300,
+          "await": "activeContext(expected)"
+        },
+        {
+          "line": 302,
+          "await": "createClient({ writableCookies: true })"
+        },
+        {
+          "line": 303,
+          "await": "readFollowUpVisit(client, context, visitId)"
+        },
+        {
+          "line": 308,
+          "await": "readVisitPhotos(client, context.user.id, visitId)"
+        },
+        {
+          "line": 313,
+          "await": "client.storage.from(followUpPhotoBucket).remove(paths)"
+        }
+      ]
+    },
+    {
+      "file": "src/app/minha-conta/page.tsx",
+      "signals": [
+        {
+          "line": 12,
+          "await": "requireUser()"
+        },
+        {
+          "line": 13,
+          "await": "effectiveAccount(user)"
+        },
+        {
+          "line": 15,
+          "await": "ownAccessRequest(user.id)"
+        },
+        {
+          "line": 16,
+          "await": "createClient()"
+        },
+        {
+          "line": 17,
+          "await": "client.from(\"access_grants\").select(\"perfil,obra_id,modulo,access_works(nome)\").eq(\"auth_user_id\", user.id).order(\"perfi"
+        }
+      ]
+    },
+    {
+      "file": "src/app/solicitar-acesso/page.tsx",
+      "signals": [
+        {
+          "line": 7,
+          "await": "verifiedUser()"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/access/account-count.ts",
+      "signals": [
+        {
+          "line": 6,
+          "await": "client.rpc(\"is_current_access_administrator\")"
+        },
+        {
+          "line": 9,
+          "await": "client.from(\"access_accounts\")\n      .select(\"auth_user_id\", { count: \"exact\", head: true }).eq(\"ativo\", true)"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/access/administration-service.ts",
+      "signals": [
+        {
+          "line": 111,
+          "await": "client.rpc(\"read_access_administration_page\", { p_view: view, p_page: page })"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/access/service.ts",
+      "signals": [
+        {
+          "line": 15,
+          "await": "deps.createClient()"
+        },
+        {
+          "line": 17,
+          "await": "client.rpc(\"approve_access_request_v3\", {\n      p_auth_user_id: authUserId,\n      p_perfis: perfis,\n      p_atuacao_enge"
+        },
+        {
+          "line": 38,
+          "await": "deps.createClient()"
+        },
+        {
+          "line": 39,
+          "await": "client.rpc(\"create_access_work\", { p_nome: validated.data.nome })"
+        },
+        {
+          "line": 51,
+          "await": "deps.createClient()"
+        },
+        {
+          "line": 53,
+          "await": "client.rpc(\"update_access_account\", {\n      p_auth_user_id: authUserId,\n      p_perfis: perfis,\n      p_atuacoes_engenha"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/access/summary-client.ts",
+      "signals": [
+        {
+          "line": 8,
+          "await": "fetcher(`/api/access/summary?${query}`, { credentials: \"same-origin\", cache: \"no-store\", signal: requestSignal(signal) }"
+        },
+        {
+          "line": 8,
+          "call": "fetcher"
+        },
+        {
+          "line": 12,
+          "await": "response.json()"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/access/summary-service.ts",
+      "signals": [
+        {
+          "line": 7,
+          "await": "client.rpc(\"is_current_access_administrator\")"
+        },
+        {
+          "line": 9,
+          "await": "Promise.all([\n      client.from(\"access_requests\").select(\"auth_user_id\", { count: \"exact\", head: true })\n        .eq(\"s"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/access/workspace-service.ts",
+      "signals": [
+        {
+          "line": 20,
+          "await": "client.rpc(\"read_current_access_workspace\", {\n      p_profile: profile, p_engineering_scope: engineeringScope, p_adminis"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/access/workspace.ts",
+      "signals": [
+        {
+          "line": 12,
+          "await": "readSelectedWorkspace(await createClient(), active)"
+        },
+        {
+          "line": 12,
+          "await": "createClient()"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/agenda/batch-service.ts",
+      "signals": [
+        {
+          "line": 35,
+          "await": "client.rpc(\"create_agenda_visits_batch\", { p_visits: values })"
+        },
+        {
+          "line": 47,
+          "await": "readAgendaSnapshot(client, context)"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/agenda/detail-client.ts",
+      "signals": [
+        {
+          "line": 21,
+          "await": "fetcher(`/api/agenda/visits/${encodeURIComponent(visit.id)}?${agendaDetailQuery(user)}`, {\n    credentials: \"same-origin"
+        },
+        {
+          "line": 21,
+          "call": "fetcher"
+        },
+        {
+          "line": 28,
+          "await": "response.json()"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/agenda/detail-service.ts",
+      "signals": [
+        {
+          "line": 12,
+          "await": "client.rpc(\"read_audit_agenda_visit_detail\", {\n      p_profile: context.profile, p_visit_id: visitId.toLowerCase(),\n    "
+        }
+      ]
+    },
+    {
+      "file": "src/lib/agenda/service.ts",
+      "signals": [
+        {
+          "line": 142,
+          "await": "client.rpc(compact ? \"read_compact_audit_agenda_if_changed\" : \"read_audit_agenda_if_changed\", {\n      p_profile: context"
+        },
+        {
+          "line": 156,
+          "await": "readAgendaUpdate(client, context)"
+        },
+        {
+          "line": 162,
+          "await": "client.rpc(rpc, params)"
+        },
+        {
+          "line": 177,
+          "await": "readAgendaSnapshot(client, context)"
+        },
+        {
+          "line": 221,
+          "await": "readAgendaSnapshot(client, context)"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/agenda/sync-client.ts",
+      "signals": [
+        {
+          "line": 56,
+          "await": "fetcher(`/api/agenda?${this.query}`, { credentials: \"same-origin\", cache: \"no-store\",\n        signal: requestSignal(requ"
+        },
+        {
+          "line": 56,
+          "call": "fetcher"
+        },
+        {
+          "line": 71,
+          "await": "response.json()"
+        },
+        {
+          "line": 94,
+          "await": "action(attempt.requestId)"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/audits/comparison-loader.ts",
+      "signals": [
+        {
+          "line": 50,
+          "await": "fetcher(`/api/audits/comparison?${query}`, {\n            credentials: \"same-origin\", cache: \"no-store\", signal: requestS"
+        },
+        {
+          "line": 50,
+          "call": "fetcher"
+        },
+        {
+          "line": 54,
+          "await": "response.json()"
+        },
+        {
+          "line": 76,
+          "await": "Promise.all(waiting)"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/audits/comparison-service.ts",
+      "signals": [
+        {
+          "line": 12,
+          "await": "client.rpc(\"read_published_audit_comparison\", {\n      p_audit_ids: ids, p_profile: context.profile, p_engineering_scope:"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/audits/dashboard-service.ts",
+      "signals": [
+        {
+          "line": 85,
+          "await": "client.rpc(\"read_published_audit_overview_if_changed\", {\n        p_profile: context.profile, p_engineering_scope: contex"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/audits/detail-loader.ts",
+      "signals": [
+        {
+          "line": 44,
+          "await": "fetcher(`/api/audits/${encodeURIComponent(id)}?${query}`, {\n          credentials: \"same-origin\", cache: \"no-store\", sig"
+        },
+        {
+          "line": 44,
+          "call": "fetcher"
+        },
+        {
+          "line": 50,
+          "await": "response.json()"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/audits/history-loader.ts",
+      "signals": [
+        {
+          "line": 87,
+          "await": "pending.get(request.handledBy)?.promise"
+        },
+        {
+          "line": 100,
+          "await": "fetcher(`/api/audits/history/coordination?${parametersFor(common)}`, {\n            credentials: \"same-origin\", cache: \"n"
+        },
+        {
+          "line": 100,
+          "call": "fetcher"
+        },
+        {
+          "line": 111,
+          "await": "response.json()"
+        },
+        {
+          "line": 129,
+          "await": "fetcher(`/api/audits/history?${parametersFor(query)}`, {\n          credentials: \"same-origin\", cache: \"no-store\", signal"
+        },
+        {
+          "line": 129,
+          "call": "fetcher"
+        },
+        {
+          "line": 137,
+          "await": "response.json()"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/audits/history-service.ts",
+      "signals": [
+        {
+          "line": 13,
+          "await": "client.rpc(\"read_published_audit_history\", {\n      p_profile: context.profile, p_engineering_scope: context.engineeringS"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/audits/photo-store.ts",
+      "signals": [
+        {
+          "line": 43,
+          "await": "loader(signal)"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/audits/request-context.ts",
+      "signals": [
+        {
+          "line": 11,
+          "await": "verifiedUser()"
+        },
+        {
+          "line": 13,
+          "await": "effectiveAccount(user)"
+        },
+        {
+          "line": 15,
+          "await": "readActiveProfileContext(user.id, account)"
+        },
+        {
+          "line": 24,
+          "await": "readWorkspaceContext({ user, account, ...selected })"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/audits/service.ts",
+      "signals": [
+        {
+          "line": 142,
+          "await": "client.rpc(\"read_published_audit_overview\", profileParameters(context))"
+        },
+        {
+          "line": 151,
+          "await": "client.rpc(\"read_published_audit_detail\", { ...profileParameters(context), p_audit_id: auditId })"
+        },
+        {
+          "line": 169,
+          "await": "client.storage.from(publishedAuditBucket).createSignedUrls(paths, 60 * 60)"
+        },
+        {
+          "line": 182,
+          "await": "client.rpc(\"read_published_audit_report\", { ...profileParameters(context), p_audit_id: auditId })"
+        },
+        {
+          "line": 190,
+          "await": "client.storage.from(publishedAuditBucket)\n      .createSignedUrl(`${data.workId}/${data.id}/${data.reportFileName}`, 60 "
+        },
+        {
+          "line": 213,
+          "await": "client.rpc(name, parameters)"
+        },
+        {
+          "line": 219,
+          "await": "Promise.all([\n      safeRpc(\"read_published_audit_index\"), safeRpc(\"read_published_audits\"),\n    ])"
+        },
+        {
+          "line": 266,
+          "await": "Promise.all(prepared.slice(offset, offset + 6).map(async (entry) => {\n        const result = await client.storage.from(p"
+        },
+        {
+          "line": 267,
+          "await": "client.storage.from(publishedAuditBucket)\n          .createSignedUrls([...entry.evidencePaths, entry.reportPath], 60 * 6"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/auth/active-profile-session.ts",
+      "signals": [
+        {
+          "line": 18,
+          "await": "readActiveProfileContext(userId, account)"
+        },
+        {
+          "line": 22,
+          "await": "cookies()"
+        },
+        {
+          "line": 29,
+          "await": "cookies()"
+        },
+        {
+          "line": 33,
+          "await": "cookies()"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/auth/effective-access.ts",
+      "signals": [
+        {
+          "line": 33,
+          "await": "client.rpc(\"read_current_access_account\")"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/auth/email-confirmation.ts",
+      "signals": [
+        {
+          "line": 15,
+          "await": "deps.createClient()"
+        },
+        {
+          "line": 18,
+          "await": "client.auth.getUser()"
+        },
+        {
+          "line": 25,
+          "await": "client.rpc(\"confirm_own_access_request_email\")"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/auth/service.ts",
+      "signals": [
+        {
+          "line": 32,
+          "await": "deps.createClient()"
+        },
+        {
+          "line": 38,
+          "await": "client.auth.signUp({\n      email,\n      password,\n      options: {\n        emailRedirectTo,\n        data: { nome, cargo_"
+        },
+        {
+          "line": 66,
+          "await": "deps.createClient()"
+        },
+        {
+          "line": 68,
+          "await": "client.auth.signInWithPassword(validated.data)"
+        },
+        {
+          "line": 89,
+          "await": "deps.createClient()"
+        },
+        {
+          "line": 90,
+          "await": "client.auth.signOut({ scope: \"local\" })"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/auth/session.ts",
+      "signals": [
+        {
+          "line": 14,
+          "await": "createClient()"
+        },
+        {
+          "line": 15,
+          "await": "client.auth.getUser()"
+        },
+        {
+          "line": 22,
+          "await": "verifiedUser()"
+        },
+        {
+          "line": 29,
+          "await": "createClient()"
+        },
+        {
+          "line": 30,
+          "await": "client.from(\"access_requests\")\n      .select(\"auth_user_id,nome,email,status_acesso,cargo_area_informado,obra_referencia"
+        },
+        {
+          "line": 41,
+          "await": "readEffectiveAccount(await createClient(), { id, email, email_confirmed_at: emailConfirmedAt })"
+        },
+        {
+          "line": 41,
+          "await": "createClient()"
+        },
+        {
+          "line": 50,
+          "await": "requireUser()"
+        },
+        {
+          "line": 51,
+          "await": "effectiveAccount(user)"
+        },
+        {
+          "line": 53,
+          "await": "readActiveProfileContext(user.id, account)"
+        },
+        {
+          "line": 59,
+          "await": "requireActiveProfile()"
+        },
+        {
+          "line": 64,
+          "await": "createClient()"
+        },
+        {
+          "line": 65,
+          "await": "client.rpc(\"is_current_access_administrator\")"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/catalogs/deferred-loader.ts",
+      "signals": [
+        {
+          "line": 27,
+          "await": "fetcher(`/api/catalogs?${query}`, { credentials: \"same-origin\", cache: \"no-store\", signal: requestSignal(controller.sign"
+        },
+        {
+          "line": 27,
+          "call": "fetcher"
+        },
+        {
+          "line": 31,
+          "await": "response.json()"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/catalogs/service.ts",
+      "signals": [
+        {
+          "line": 12,
+          "await": "client.rpc(\"read_audit_catalogs\", { p_profile: context.profile, p_engineering_scope: context.engineeringScope })"
+        },
+        {
+          "line": 40,
+          "await": "client.rpc(\"read_fvs_services\", { p_profile: context.profile })"
+        },
+        {
+          "line": 63,
+          "await": "client.rpc(\"save_fvs_services_revision\", {\n      p_request_id: value.requestId, p_expected_version: value.expectedVersio"
+        },
+        {
+          "line": 75,
+          "await": "readCatalogSnapshot(client, context)"
+        },
+        {
+          "line": 88,
+          "await": "parseUpload(form.get(\"pdf\"), \"pdf\")"
+        },
+        {
+          "line": 91,
+          "await": "client.rpc(\"save_audit_catalog_revision\", {\n      p_request_id: value.requestId, p_model_id: value.modelId, p_expected_v"
+        },
+        {
+          "line": 107,
+          "await": "readCatalogSnapshot(client, context)"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/catalogs/validation.ts",
+      "signals": [
+        {
+          "line": 100,
+          "await": "value.arrayBuffer()"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/documents/archive.ts",
+      "signals": [
+        {
+          "line": 23,
+          "await": "bucket.download(path)"
+        },
+        {
+          "line": 24,
+          "await": "existing.data.arrayBuffer()"
+        },
+        {
+          "line": 28,
+          "await": "generate()"
+        },
+        {
+          "line": 29,
+          "await": "bucket.upload(path, bytes, { contentType: \"application/pdf\", upsert: false, cacheControl: \"0\" })"
+        },
+        {
+          "line": 34,
+          "await": "bucket.download(path)"
+        },
+        {
+          "line": 36,
+          "await": "stored.data.arrayBuffer()"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/follow-up/document.ts",
+      "signals": [
+        {
+          "line": 14,
+          "await": "readStandaloneReport(client, context, reportId)"
+        },
+        {
+          "line": 17,
+          "await": "archivedReportPdf(createPublicationClient(), \"standalone\", report.id, () =>\n    processFollowUpPdfPhotos(report.photos.m"
+        },
+        {
+          "line": 22,
+          "await": "client.storage.from(followUpPhotoBucket).download(path, {}, { signal: photoSignal })"
+        },
+        {
+          "line": 31,
+          "await": "readFollowUpReportDetail(client, context, visitId, reportId)"
+        },
+        {
+          "line": 36,
+          "await": "archivedReportPdf(createPublicationClient(), \"scheduled\", report.id, async () => {\n    const allPhotos = await readVisit"
+        },
+        {
+          "line": 37,
+          "await": "readVisitPhotos(client, visit.auditorId, visitId, { missingBucketIsEmpty: false })"
+        },
+        {
+          "line": 46,
+          "await": "client.storage.from(followUpPhotoBucket).download(path, {}, { signal: photoSignal })"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/follow-up/findings.ts",
+      "signals": [
+        {
+          "line": 28,
+          "await": "client.rpc(\"read_follow_up_finding_drafts\", { p_profile: context.profile })"
+        },
+        {
+          "line": 49,
+          "await": "client.rpc(\"save_follow_up_finding_drafts\", {\n      p_profile: context.profile, p_visit_id: input.visitId.toLowerCase(),"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/follow-up/pdf-photos.ts",
+      "signals": [
+        {
+          "line": 14,
+          "await": "source.arrayBuffer()"
+        },
+        {
+          "line": 17,
+          "await": "sharp(bytes, { limitInputPixels: 40_000_000, animated: false, failOn: \"warning\" })\n    .rotate().resize({ width: 1600, h"
+        },
+        {
+          "line": 83,
+          "await": "source.download(controller.signal)"
+        },
+        {
+          "line": 86,
+          "await": "resize(original)"
+        },
+        {
+          "line": 94,
+          "await": "render(photos)"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/follow-up/photo-loader.ts",
+      "signals": [
+        {
+          "line": 83,
+          "await": "fetcher(`/api/follow-up/visits/${id}/photos?${parameters}`, {\n            credentials: \"same-origin\", cache: \"no-store\","
+        },
+        {
+          "line": 83,
+          "call": "fetcher"
+        },
+        {
+          "line": 91,
+          "await": "response.json()"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/follow-up/photos.ts",
+      "signals": [
+        {
+          "line": 32,
+          "await": "client.storage.from(followUpPhotoBucket)\n      .list(`${userId.toLowerCase()}/${visitId.toLowerCase()}`, { limit: 1000, "
+        }
+      ]
+    },
+    {
+      "file": "src/lib/follow-up/report-pdf-resource.ts",
+      "signals": [
+        {
+          "line": 38,
+          "await": "fetchPdf(href, { credentials: \"same-origin\", cache: \"no-store\", signal: requestSignal(request.signal, 90_000) })"
+        },
+        {
+          "line": 38,
+          "call": "fetchPdf"
+        },
+        {
+          "line": 42,
+          "await": "response.blob()"
+        },
+        {
+          "line": 43,
+          "await": "blob.slice(0, 5).text()"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/follow-up/report-pdf.ts",
+      "signals": [
+        {
+          "line": 48,
+          "await": "PDFDocument.create()"
+        },
+        {
+          "line": 52,
+          "await": "pdf.embedFont(StandardFonts.Helvetica)"
+        },
+        {
+          "line": 53,
+          "await": "pdf.embedFont(StandardFonts.HelveticaBold)"
+        },
+        {
+          "line": 54,
+          "await": "pdf.embedPng(await readFile(path.join(process.cwd(), \"public\", \"logo-relatorio-orientativo.png\")))"
+        },
+        {
+          "line": 54,
+          "await": "readFile(path.join(process.cwd(), \"public\", \"logo-relatorio-orientativo.png\"))"
+        },
+        {
+          "line": 125,
+          "await": "pdf.embedPng(photo.bytes)"
+        },
+        {
+          "line": 125,
+          "await": "pdf.embedJpg(photo.bytes)"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/follow-up/service.ts",
+      "signals": [
+        {
+          "line": 90,
+          "await": "client.rpc(\"read_follow_up_reports\", { p_profile: context.profile })"
+        },
+        {
+          "line": 112,
+          "await": "client.rpc(\"save_follow_up_report\", {\n      p_profile: context.profile, p_visit_id: value.visitId, p_expected_revision: "
+        }
+      ]
+    },
+    {
+      "file": "src/lib/follow-up/standalone-service.ts",
+      "signals": [
+        {
+          "line": 29,
+          "await": "client.rpc(\"read_standalone_follow_up_reports\", params(context))"
+        },
+        {
+          "line": 38,
+          "await": "client.rpc(\"read_standalone_follow_up_reports\", { ...params(context), p_report_id: id })"
+        },
+        {
+          "line": 57,
+          "await": "client.from(\"follow_up_work_findings\")\n        .select(\"id,work_id,auditor_auth_user_id,modulo,completed_at,location,des"
+        },
+        {
+          "line": 84,
+          "await": "client.rpc(\"save_standalone_follow_up_report\", {\n      p_profile: context.profile, p_work_id: input.workId, p_date: inpu"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/follow-up/visit-service.ts",
+      "signals": [
+        {
+          "line": 103,
+          "await": "client.rpc(\"read_follow_up_visit\", params(context, id))"
+        },
+        {
+          "line": 126,
+          "await": "client.rpc(\"read_follow_up_report_detail\", { ...params(context, id), p_report_id: selectedId })"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/follow-up/workspace-service.ts",
+      "signals": [
+        {
+          "line": 87,
+          "await": "client.rpc(\"read_follow_up_workspace\", profileParams(context))"
+        },
+        {
+          "line": 103,
+          "await": "client.rpc(\"read_follow_up_report_index\", profileParams(context))"
+        },
+        {
+          "line": 117,
+          "await": "client.rpc(\"can_read_follow_up_visit_photos\", {\n      p_visit_id: visitId.toLowerCase(), ...profileParams(context),\n    "
+        },
+        {
+          "line": 124,
+          "await": "readVisitPhotos(client, context.user.id, visitId)"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/pdf/action-plan.ts",
+      "signals": [
+        {
+          "line": 7,
+          "await": "PDFDocument.create()"
+        },
+        {
+          "line": 11,
+          "await": "document.embedFont(StandardFonts.Helvetica)"
+        },
+        {
+          "line": 12,
+          "await": "document.embedFont(StandardFonts.HelveticaBold)"
+        },
+        {
+          "line": 13,
+          "await": "document.embedPng(assets.logo).catch(() => null)"
+        },
+        {
+          "line": 41,
+          "await": "document.embedPng(asset.bytes)"
+        },
+        {
+          "line": 41,
+          "await": "document.embedJpg(asset.bytes)"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/pdf/audit-report.ts",
+      "signals": [
+        {
+          "line": 29,
+          "await": "PDFDocument.create()"
+        },
+        {
+          "line": 33,
+          "await": "document.embedFont(StandardFonts.Helvetica)"
+        },
+        {
+          "line": 34,
+          "await": "document.embedFont(StandardFonts.HelveticaBold)"
+        },
+        {
+          "line": 35,
+          "await": "document.embedPng(assets.logo).catch(() => null)"
+        },
+        {
+          "line": 100,
+          "await": "PDFDocument.create()"
+        },
+        {
+          "line": 106,
+          "await": "document.embedFont(StandardFonts.Helvetica)"
+        },
+        {
+          "line": 107,
+          "await": "document.embedFont(StandardFonts.HelveticaBold)"
+        },
+        {
+          "line": 108,
+          "await": "document.embedPng(assets.logo).catch(() => null)"
+        },
+        {
+          "line": 119,
+          "await": "document.embedPng(photo.bytes)"
+        },
+        {
+          "line": 119,
+          "await": "document.embedJpg(photo.bytes)"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/pdf/client.ts",
+      "signals": [
+        {
+          "line": 9,
+          "await": "import(\"./run-job.ts\")"
+        },
+        {
+          "line": 12,
+          "await": "new Promise<void>((resolve) => setTimeout(resolve, 0))"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/pdf/run-job.ts",
+      "signals": [
+        {
+          "line": 10,
+          "call": "fetch"
+        },
+        {
+          "line": 11,
+          "await": "response.arrayBuffer()"
+        },
+        {
+          "line": 17,
+          "await": "Promise.all(sources.slice(offset, offset + 4).map(async (photo) => {\n      try {\n        let blob = photo.file;\n        "
+        },
+        {
+          "line": 21,
+          "await": "fetch(new URL(photo.url, job.baseUrl), { signal: requestSignal(signal) })"
+        },
+        {
+          "line": 21,
+          "call": "fetch"
+        },
+        {
+          "line": 22,
+          "await": "response.blob()"
+        },
+        {
+          "line": 25,
+          "await": "blob.arrayBuffer()"
+        },
+        {
+          "line": 31,
+          "await": "logoTask"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/photos/thumbnails.ts",
+      "signals": [
+        {
+          "line": 15,
+          "await": "source.arrayBuffer()"
+        },
+        {
+          "line": 20,
+          "await": "sharp(bytes, { limitInputPixels: 40_000_000, animated: false })\n    .rotate().resize({ width: 320, height: 320, fit: \"in"
+        },
+        {
+          "line": 55,
+          "await": "new Promise<void>((resolve) => queue.push(resolve))"
+        },
+        {
+          "line": 58,
+          "await": "source.download()"
+        },
+        {
+          "line": 60,
+          "await": "resize(original)"
+        },
+        {
+          "line": 73,
+          "await": "job"
+        },
+        {
+          "line": 78,
+          "await": "authorize()"
+        },
+        {
+          "line": 81,
+          "await": "thumbnail(source)"
+        },
+        {
+          "line": 84,
+          "await": "source.download()"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/publications/http.ts",
+      "signals": [
+        {
+          "line": 15,
+          "await": "readAuditRequestContext(request)"
+        },
+        {
+          "line": 17,
+          "await": "handle(publicationService(access.context))"
+        },
+        {
+          "line": 30,
+          "await": "reader.read()"
+        },
+        {
+          "line": 32,
+          "await": "reader.cancel()"
+        },
+        {
+          "line": 42,
+          "await": "limitedBody(request, 2 * 1024 * 1024)"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/publications/service.ts",
+      "signals": [
+        {
+          "line": 29,
+          "await": "client.rpc(\"publication_command\", { p_actor: context.user.id, p_profile: context.profile,\n      p_scope: context.enginee"
+        },
+        {
+          "line": 44,
+          "await": "client.storage.from(bucket).upload(file, bytes, { upsert: false, contentType })"
+        },
+        {
+          "line": 48,
+          "await": "download(bucket, file)"
+        },
+        {
+          "line": 53,
+          "await": "client.storage.from(bucket).download(file)"
+        },
+        {
+          "line": 55,
+          "await": "data.arrayBuffer()"
+        },
+        {
+          "line": 75,
+          "await": "PDFDocument.create()"
+        },
+        {
+          "line": 79,
+          "await": "document.embedPng(asset.bytes)"
+        },
+        {
+          "line": 80,
+          "await": "document.embedJpg(asset.bytes)"
+        },
+        {
+          "line": 92,
+          "await": "command<{ drafts: AuditDraftRecord[]; plans: { auditId: string; workId: string; module: \"quality\" | \"safety\" }[] }>(\"lis"
+        },
+        {
+          "line": 96,
+          "await": "readCatalogSnapshot(userClient, context)"
+        },
+        {
+          "line": 99,
+          "await": "command<AuditDraftRecord>(\"start-audit\", visitId, null, {\n        modelId: model, criteria: version.criteria, label: ver"
+        },
+        {
+          "line": 103,
+          "await": "command<AuditDraftRecord>(\"read-audit\", id)"
+        },
+        {
+          "line": 119,
+          "await": "sharp(Buffer.from(await file.arrayBuffer()), { limitInputPixels: 40_000_000, animated: false })\n          .rotate().resi"
+        },
+        {
+          "line": 119,
+          "await": "file.arrayBuffer()"
+        },
+        {
+          "line": 123,
+          "await": "upload(\"audit-drafts\", `${d.auditor_auth_user_id}/${id}/${name}`, bytes, \"image/jpeg\")"
+        },
+        {
+          "line": 126,
+          "await": "command<AuditDraftRecord>(\"save-audit\", id, revision, { responses, photos: photoMap, safetyClosure })"
+        },
+        {
+          "line": 130,
+          "await": "command<AuditDraftRecord>(\"read-audit\", id)"
+        },
+        {
+          "line": 136,
+          "await": "logo()"
+        },
+        {
+          "line": 140,
+          "await": "download(\"audit-drafts\", `${d.auditor_auth_user_id}/${id}/${name}`)"
+        },
+        {
+          "line": 144,
+          "await": "upload(\"published-audits\", `${d.work_id}/${id}/${name}`, bytes, \"image/jpeg\")"
+        },
+        {
+          "line": 146,
+          "await": "verifyImages(assets)"
+        },
+        {
+          "line": 147,
+          "await": "createAuditReviewPdf({ model: modelDisplayName(d.model_id), modelId: d.model_id,\n        workName: d.work_name, details:"
+        },
+        {
+          "line": 151,
+          "await": "upload(\"published-audits\", `${d.work_id}/${id}/${reportFileName}`, pdf, \"application/pdf\")"
+        },
+        {
+          "line": 152,
+          "await": "command<AuditDraftRecord>(\"publish-audit\", id, revision,\n        { score, safetyClosure: d.safety_closure ?? null, rawSc"
+        },
+        {
+          "line": 156,
+          "await": "command<AuditDraftRecord>(\"read-audit\", id)"
+        },
+        {
+          "line": 161,
+          "await": "command<AuditDraftRecord>(\"read-audit\", id)"
+        },
+        {
+          "line": 166,
+          "await": "planSource(id)"
+        },
+        {
+          "line": 174,
+          "await": "planSource(id)"
+        },
+        {
+          "line": 180,
+          "await": "planSource(id)"
+        },
+        {
+          "line": 184,
+          "await": "logo()"
+        },
+        {
+          "line": 189,
+          "await": "download(\"published-audits\", `${source.audit.work_id}/${id}/${name}`)"
+        },
+        {
+          "line": 196,
+          "await": "verifyImages(assets)"
+        },
+        {
+          "line": 197,
+          "await": "generateActionPlanPdf({ workName: source.workName, auditDate: source.audit.audit_date,\n        auditScore: source.audit."
+        },
+        {
+          "line": 202,
+          "await": "upload(\"action-plans\", `${source.audit.work_id}/${id}/${reportFileName}`, pdf, \"application/pdf\")"
+        },
+        {
+          "line": 203,
+          "await": "command(\"publish-plan\", id, revision, { reportFileName })"
+        },
+        {
+          "line": 207,
+          "await": "planSource(id)"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/read-with-deadline.ts",
+      "signals": [
+        {
+          "line": 5,
+          "await": "Promise.race([read, new Promise<never>((_, reject) => {\n      timer = setTimeout(() => reject(new Error(\"A consulta demo"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/supabase/fetch.ts",
+      "signals": [
+        {
+          "line": 6,
+          "await": "fetch(input, { ...init, cache: \"no-store\", signal })"
+        },
+        {
+          "line": 6,
+          "call": "fetch"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/supabase/server.ts",
+      "signals": [
+        {
+          "line": 11,
+          "await": "cookies()"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/works/queries.ts",
+      "signals": [
+        {
+          "line": 11,
+          "await": "createClient()"
+        },
+        {
+          "line": 12,
+          "await": "client.from('access_works').select(workDetailsColumns).eq('id',id).maybeSingle()"
+        },
+        {
+          "line": 15,
+          "await": "client.from('access_works').select(legacyWorkDetailsColumns).eq('id',id).maybeSingle()"
+        },
+        {
+          "line": 23,
+          "await": "(await createClient()).from('access_work_changes')\n      .select('id,obra_id,before_snapshot,after_snapshot,actor_auth_u"
+        },
+        {
+          "line": 23,
+          "await": "createClient()"
+        },
+        {
+          "line": 32,
+          "await": "createClient()"
+        },
+        {
+          "line": 33,
+          "await": "Promise.all([\n      client.from('access_accounts').select('auth_user_id,perfis').eq('ativo', true).limit(1000),\n      cl"
+        },
+        {
+          "line": 52,
+          "await": "createClient()"
+        },
+        {
+          "line": 53,
+          "await": "client.from('work_team_links').select('auth_user_id,cargo').eq('obra_id', id).limit(30)"
+        },
+        {
+          "line": 56,
+          "await": "client.from('work_team_links').select('auth_user_id').eq('obra_id', id).limit(30)"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/works/service.ts",
+      "signals": [
+        {
+          "line": 13,
+          "await": "deps.createClient()"
+        },
+        {
+          "line": 16,
+          "await": "client.rpc('create_access_work_full', { p_data: fields })"
+        },
+        {
+          "line": 17,
+          "await": "client.rpc('create_access_work_with_team_v2', { p_data: fields, p_members: team.links })"
+        },
+        {
+          "line": 20,
+          "await": "client.rpc('create_access_work_with_team', { p_data: fields, p_user_ids: team.links.map((link) => link.id) })"
+        },
+        {
+          "line": 27,
+          "await": "client.rpc('create_access_work', { p_nome: fields.nome })"
+        },
+        {
+          "line": 48,
+          "await": "deps.createClient()"
+        },
+        {
+          "line": 51,
+          "await": "client.rpc('update_access_work',{p_work_id:workId,p_expected_revision:expectedRevision,p_data:fields})"
+        },
+        {
+          "line": 52,
+          "await": "client.rpc('update_access_work_with_team_v2',{p_work_id:workId,p_expected_revision:expectedRevision,p_data:fields,p_memb"
+        },
+        {
+          "line": 54,
+          "await": "client.rpc('update_access_work_with_team',{p_work_id:workId,p_expected_revision:expectedRevision,p_data:fields,p_user_id"
+        }
+      ]
+    },
+    {
+      "file": "src/proxy.ts",
+      "signals": [
+        {
+          "line": 23,
+          "await": "client.auth.getUser()"
+        }
+      ]
+    }
+  ]
+}

@@ -1,4 +1,8 @@
 "use client";
+import { SlowOperation } from "@/app/components/slow-operation";
+import { useHydrated } from "./use-hydrated";
+import { readWithDeadline } from "@/lib/read-with-deadline";
+import { AsyncSkeleton } from "./async-feedback";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -15,6 +19,7 @@ export function StandaloneReportForm({ works, actor, today, initialWorkId }: {
   works: WorkRecord[]; actor: AgendaActorContext; today: string; initialWorkId?: string;
 }) {
   const router = useRouter();
+  const hydrated = useHydrated();
   const [workId, setWorkId] = useState(() => works.find(work => work.id === initialWorkId)?.id ?? works[0]?.id ?? "");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [attempt, setAttempt] = useState(0);
@@ -27,7 +32,7 @@ export function StandaloneReportForm({ works, actor, today, initialWorkId }: {
   useEffect(() => {
     if (!workId) return;
     let current = true;
-    void readStandaloneFindingsAction(workId, { userId, profile, engineeringScope, administrativeScope })
+    void readWithDeadline(readStandaloneFindingsAction(workId, { userId, profile, engineeringScope, administrativeScope }))
       .then(result => { if (current) setFindingState({ workId, attempt, ...result }); })
       .catch(() => { if (current) setFindingState({ workId, attempt, available: false, findings: [] }); });
     return () => { current = false; };
@@ -60,37 +65,37 @@ export function StandaloneReportForm({ works, actor, today, initialWorkId }: {
     <ReportHeading title="Relatório Orientativo" backHref="/app?secao=acompanhamento" backLabel="Voltar aos relatórios" />
     <div className={styles.layout}>
       <section className="panel" aria-label="Novo relatório orientativo">
-        <form className={styles.form} onSubmit={submit}>
-          <label>Obra<select className="filter-select" name="workId" aria-label="Obra" value={workId} required disabled={pending || !works.length}
+        <form method="post" className={styles.form} onSubmit={submit} aria-busy={pending}>
+          <label>Obra<select className="filter-select" name="workId" aria-label="Obra" value={workId} required disabled={!hydrated || pending || !works.length}
             onChange={event => { setWorkId(event.target.value); setSelectedIds([]); }}>
             {!works.length && <option value="">Nenhuma obra disponível</option>}{works.map(work => <option key={work.id} value={work.id}>{work.name}</option>)}
           </select></label>
           {!works.length && <p className={styles.notice}>Nenhuma obra disponível para este perfil.</p>}
-          <label>Data do relatório<input type="date" name="date" defaultValue={today} max={today} min="0001-01-01" required disabled={pending} /></label>
-          <label>Título<input name="title" maxLength={120} required defaultValue="Relatório Orientativo" disabled={pending} /></label>
-          <label>Participantes<textarea name="participants" maxLength={5000} disabled={pending} /></label>
-          <label>Assuntos abordados e orientações<textarea name="subjects" maxLength={10000} required disabled={pending} /></label>
-          <label>Decisões e encaminhamentos<textarea name="decisions" maxLength={10000} disabled={pending} /></label>
+          <label>Data do relatório<input type="date" name="date" defaultValue={today} max={today} min="0001-01-01" required disabled={!hydrated || pending} /></label>
+          <label>Título<input name="title" maxLength={120} required defaultValue="Relatório Orientativo" disabled={!hydrated || pending} /></label>
+          <label>Participantes<textarea name="participants" maxLength={5000} disabled={!hydrated || pending} /></label>
+          <label>Assuntos abordados e orientações<textarea name="subjects" maxLength={10000} required disabled={!hydrated || pending} /></label>
+          <label>Decisões e encaminhamentos<textarea name="decisions" maxLength={10000} disabled={!hydrated || pending} /></label>
           {error && <p className={styles.error} role="alert">{error}</p>}
           <div className={styles.actions}>
-            {!pending && <Link className="secondary" href="/app?secao=acompanhamento">Cancelar</Link>}
-            <button className="primary" type="submit" disabled={pending || !workId}>{pending ? "Salvando…" : "Salvar relatório"}</button>
+            {pending ? <button type="button" className="secondary" disabled>Cancelar</button> : <Link className="secondary" href="/app?secao=acompanhamento">Cancelar</Link>}
+            <button className="primary" type="submit" disabled={!hydrated || pending || !workId}>{pending ? "Salvando…" : "Salvar relatório"}</button>
           </div>
-        </form>
+        <SlowOperation pending={pending} /></form>
       </section>
       <section className="panel" aria-label="Apontamentos opcionais">
         <div className="panel-heading"><h3>Apontamentos da obra</h3></div>
         <p className={styles.selectionHint}>Opcional. Selecione até 30 apontamentos para incluir suas fotos e orientações no relatório.</p>
         {!workId ? <p className="muted">Nenhuma obra disponível para consultar os apontamentos.</p>
-          : !loaded ? <p className="muted" role="status">Carregando apontamentos…</p>
+          : !loaded ? <AsyncSkeleton label="Carregando apontamentos…" />
           : !findingState.available ? <div className={styles.notice} role="alert">
             <p>Não foi possível consultar os apontamentos. Você pode salvar o relatório sem incluí-los.</p>
-            <button className="secondary" type="button" disabled={pending} onClick={() => setAttempt(n => n + 1)}>Recarregar apontamentos</button>
+            <button className="secondary" type="button" disabled={!hydrated || pending} onClick={() => setAttempt(n => n + 1)}>Recarregar apontamentos</button>
           </div> : !findings.length ? <p className="muted">Nenhum apontamento pendente nesta obra.</p> :
           <ul className={styles.findings}>{findings.map(finding => <li key={finding.id}>
             <label className={styles.findingChoice}>
               <input type="checkbox" checked={selectedIds.includes(finding.id)}
-                disabled={pending || (!selectedIds.includes(finding.id) && selectedIds.length >= 30)}
+                disabled={!hydrated || pending || (!selectedIds.includes(finding.id) && selectedIds.length >= 30)}
                 onChange={event => setSelectedIds(ids => event.target.checked ? [...ids, finding.id] : ids.filter(id => id !== finding.id))} />
               <div className={styles.findingText}><strong>{finding.description}{finding.serious && <em className={styles.seriousBadge}>Item grave</em>}</strong>
                 {finding.location && <span>{finding.location}</span>}<p>{finding.correction}</p></div>
