@@ -1,5 +1,7 @@
 "use client";
 
+import { BackButton, BackHeading } from "@/app/components/back-control";
+
 import { AuditPhotoThumbnail } from "./audit-photo-thumbnail";
 import { SafetyClosureDialog } from "./safety-closure-dialog";
 import { safetyScore, toggleGroupNA, type SafetyClosure } from "@/domain/safety-audit";
@@ -304,7 +306,7 @@ export function AuditReview({ model, modelId, workName, details, criteria, draft
   }, {});
   return <section className="audit-review" aria-labelledby="audit-review-title">
     <header className="audit-review-heading">
-      <div><p className="kicker">REVISÃO DO RELATÓRIO</p><h2 id="audit-review-title">Conferir antes de publicar</h2><p>Revise os resultados preenchidos antes da publicação.</p></div>
+      <div><p className="kicker">REVISÃO DO RELATÓRIO</p><BackHeading><BackButton label="Voltar ao preenchimento" disabled={published || publishing} onClick={onBack} /><h2 id="audit-review-title">Conferir antes de publicar</h2></BackHeading><p>Revise os resultados preenchidos antes da publicação.</p></div>
       <div className="audit-review-final-score"><small>NOTA FINAL</small><span className="audit-final-score-value"><strong>{finalScore?.toFixed(2).replace(".", ",") ?? "—"}</strong>{security && Boolean(safetyClosure?.accidents.length) && <svg className="audit-accident-alert" viewBox="0 0 24 24" role="img" aria-label="Acidentes registrados nesta auditoria"><title>Acidentes registrados nesta auditoria</title><path d="M12 3 2 21h20L12 3Z" /><path d="M12 9v5" /><circle cx="12" cy="17.5" r=".8" /></svg>}</span></div>
     </header>
     {security && <section className="panel" aria-label="Composição da nota"><p>Nota bruta: <strong>{scores.raw?.toFixed(2).replace(".", ",") ?? "Sem itens aplicáveis"}</strong> · Penalidades: <strong>{scores.penalty.toFixed(2).replace(".", ",")}</strong></p><p>{safetyClosure?.hadAccidents ? `${safetyClosure.accidents.length} acidente(s) registrado(s)` : "Nenhum acidente declarado"}</p>{safetyClosure?.accidents.map((a, i) => <p key={i}>{displayAuditDate(a.date)} · {a.type === "leave" ? "Com afastamento" : "Comum"}<br />{a.event}<br />Justificativa: {a.justification}</p>)}</section>}
@@ -315,7 +317,6 @@ export function AuditReview({ model, modelId, workName, details, criteria, draft
       <div><small>AUDITOR RESPONSÁVEL</small><strong>{details.auditor}</strong></div>
     </div>
     <div className="audit-review-actions">
-      <button type="button" className="secondary" disabled={published || publishing} onClick={onBack}>Voltar ao preenchimento</button>
       <button type="button" className="primary" disabled={!pdfUrl || published || publishing} onClick={async () => { if (publishing) return; setPublishing(true); try { if (await onPublish()) setPublished(true); } finally { setPublishing(false); } }}>{published ? "Auditoria publicada" : publishing ? "Publicando…" : pdfUrl ? "Publicar auditoria" : "Gerando prévia…"}</button>
     </div>
     <div className="audit-review-groups">
@@ -575,7 +576,7 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
     {selectedItemOpen && criterion && <div className="item-navigation-bottom">
       <button type="button" className="secondary" disabled={activeIndex === 0 || !criterion} onClick={() => move(-1)}><span aria-hidden="true">←</span> Anterior</button>
       <span>Item <strong>{criterion ? activeIndex + 1 : 0}</strong> de {criteria.length}</span>
-      {activeIndex < criteria.length - 1 ? <button type="button" className="primary" onClick={() => move(1)}>Próximo item <span aria-hidden="true">→</span></button> : <button type="button" className="secondary" onClick={() => setSelectedItemOpen(false)}>Voltar ao resumo</button>}
+      {activeIndex < criteria.length - 1 ? <button type="button" className="primary" onClick={() => move(1)}>Próximo item <span aria-hidden="true">→</span></button> : <BackButton label="Voltar ao resumo" onClick={() => setSelectedItemOpen(false)} />}
     </div>}
     </section>
   </>;

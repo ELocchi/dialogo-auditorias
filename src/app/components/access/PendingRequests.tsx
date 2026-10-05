@@ -1,4 +1,7 @@
 "use client";
+
+import { BackButton, BackHeading } from "@/app/components/back-control";
+
 import { containDialogFocus } from "../dialog-keyboard";
 
 import { startTransition, useActionState, useId, useRef, useState } from "react";
@@ -129,7 +132,7 @@ function RequestCard({ request, works, action, pending, isSelf, preview }: { req
         <dialog onKeyDown={containDialogFocus} ref={dialogRef} className={styles.approvalDialog} aria-labelledby={`${id}-approval-title`} onCancel={(event) => { if (pending) event.preventDefault(); }} onClose={() => approvalButtonRef.current?.focus()}>
           <div className={styles.approvalDialogHeader}>
             <span>CONFIRMAÇÃO</span>
-            <h3 id={`${id}-approval-title`}>Confirmar aprovação do cadastro</h3>
+            <BackHeading><BackButton label="Voltar e editar" disabled={pending} onClick={() => dialogRef.current?.close()} /><h3 id={`${id}-approval-title`}>Confirmar aprovação do cadastro</h3></BackHeading>
             <p>Confira as informações antes de liberar o acesso.</p>
           </div>
           <dl className={styles.approvalSummary}>
@@ -144,7 +147,6 @@ function RequestCard({ request, works, action, pending, isSelf, preview }: { req
             <ul>{selectedWorkNames.map((name) => <li key={name}>{name}</li>)}</ul>
           </div>}
           <div className={styles.approvalDialogActions}>
-            <button type="button" className="secondary" disabled={pending} onClick={() => dialogRef.current?.close()}>Voltar e editar</button>
             <button type="button" className="primary" disabled={pending || preview} onClick={() => {
               const form = formRef.current;
               if (!form || incomplete || preview) return;

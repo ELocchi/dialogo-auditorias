@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireUser, effectiveAccount, ownAccessRequest } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
@@ -22,7 +21,7 @@ export default async function MyAccountPage() {
   }).sort((a, b) => a.obra_nome!.localeCompare(b.obra_nome!, "pt-BR"));
   const authorizedWorks = [...new Map(scopedGrants.map((grant) => [grant.obra_id, grant.obra_nome ?? grant.obra_id])).entries()];
   return (
-    <AuthShell title="Meu Perfil">
+    <AuthShell title="Meu Perfil" backHref="/escolher-perfil" backLabel="Voltar aos perfis">
       <dl className={styles.accountDetails}>
         <dt>Nome</dt><dd>{platformDisplayName(user.email, request?.nome ?? "—")}</dd>
         <dt>E-mail</dt><dd>{user.email}</dd>
@@ -38,9 +37,6 @@ export default async function MyAccountPage() {
             : <p className={styles.notice}>Nenhuma obra autorizada.</p>}</div>
       </details></div>}
       <div className={styles.accountActions}>
-        <Link className={styles.accountBackButton} href="/escolher-perfil" aria-label="Voltar aos perfis" data-tooltip="Voltar aos perfis">
-          <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 12H4m7-7-7 7 7 7" /></svg>
-        </Link>
         <LogoutButton />
       </div>
     </AuthShell>

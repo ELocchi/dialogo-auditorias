@@ -96,7 +96,7 @@
 .audit-review-item-result { display: flex; flex-shrink: 0; align-items: center; gap: 10px; }
 .audit-review-item-result em { color: var(--muted); font-size: 11px; font-style: normal; }
 .audit-review-item-result strong { padding: 5px 8px; border: 1px solid #cbd5e3; border-radius: 5px; color: var(--navy); font-size: 10px; }
-.audit-review-actions { display: flex; justify-content: space-between; gap: 12px; padding: 16px 24px; border-bottom: 1px solid var(--line); }
+.audit-review-actions { display: flex; justify-content: flex-end; gap: 12px; padding: 16px 24px; border-bottom: 1px solid var(--line); }
 .audit-review-pdf { padding: 20px 24px 24px; border-top: 1px solid var(--line); }
 .audit-review-pdf > div { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
 .audit-review-pdf h3 { margin: 0; font-size: 15px; }

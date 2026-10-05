@@ -1,3 +1,4 @@
+import { BackLink } from "@/app/components/back-control";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireActiveProfile } from "@/lib/auth/session";
@@ -67,9 +68,7 @@ export default async function ReportPage({ params, searchParams }: {
     <main id="main-content" className="content-wrap">
       {showingIndex ? <div className={styles.reportIndex}>
         <div className={styles.pageHeading}>
-          <Link className={styles.backButton} href="/app?secao=acompanhamento" aria-label="Voltar ao acompanhamento" data-tooltip="Voltar ao acompanhamento">
-            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 12H4m7-7-7 7 7 7" /></svg>
-          </Link>
+          <BackLink href="/app?secao=acompanhamento" label="Voltar ao acompanhamento" />
           <div className={styles.headingText}><h2>Relatórios orientativos</h2></div>
           {canCreate ? <Link className={`primary ${styles.addReportButton}`} href={`/app/acompanhamento/relatorio/${visitId}?novo=1`}
               aria-label="Criar novo relatório" data-tooltip="Criar novo relatório">+</Link>

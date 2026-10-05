@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { BackLink } from "@/app/components/back-control";
 import { ownAccessRequest, requireAdministrator } from "@/lib/auth/session";
 import { readActiveTeamProfiles } from "@/lib/works/queries";
 import { AdministrativeHeader } from "@/app/components/administrative-header";
@@ -21,9 +21,7 @@ export default async function NewWorkPage() {
     <AdministrativeHeader name={name} email={user.email} userId={user.id} />
     <main id="work-content" tabIndex={-1} className={styles.main}>
       <div className={styles.pageHeading}>
-        <Link className={styles.backButton} href="/app?secao=obras" aria-label="Voltar às obras" data-tooltip="Voltar às obras">
-          <svg aria-hidden="true" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 12H4m7-7-7 7 7 7" /></svg>
-        </Link>
+        <BackLink href="/app?secao=obras" label="Voltar às obras" />
         <h2>Cadastrar obra</h2>
       </div>
       <WorkForm activeProfiles={activeProfiles} />

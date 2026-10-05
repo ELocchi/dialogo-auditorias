@@ -265,29 +265,11 @@
 .accountActions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 18px;
   margin-top: 24px;
 }
 
-.accountBackButton {
-  display: flex;
-  width: 46px;
-  height: 46px;
-  flex: 0 0 46px;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  background: #eef2f7;
-  color: var(--navy);
-  text-decoration: none;
-  transition: background-color .15s, border-color .15s;
-}
-
-.accountBackButton:hover { border-color: #9aaecb; background: #e2e8f1; }
-.accountBackButton:focus-visible { outline: 3px solid #547eb5; outline-offset: 3px; }
-.accountBackButton svg { display: block; }
 .accountActions .logout { margin-top: 0; }
 
 .footer {

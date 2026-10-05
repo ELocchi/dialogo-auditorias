@@ -1,4 +1,7 @@
 "use client";
+
+import { BackButton, BackHeading } from "@/app/components/back-control";
+
 import { containDialogFocus } from "./dialog-keyboard";
 import { useEffect, useRef, useState } from "react";
 import { validateSafetyClosure, type SafetyClosure, type SafetyAccident } from "@/domain/safety-audit";
@@ -20,7 +23,7 @@ export function SafetyClosureDialog({ date, initial, onCancel, onConfirm }: { da
   const change = (index: number, field: keyof SafetyAccident, value: string) => setAccidents(current => current.map((a, i) => i === index ? { ...a, [field]: value } : a));
   return <dialog onKeyDown={containDialogFocus} ref={dialog} className={styles.dialog} onCancel={e => { e.preventDefault(); onCancel(); }} aria-labelledby="accident-title">
     <form onSubmit={e => { e.preventDefault(); try { onConfirm(validateSafetyClosure({ hadAccidents: choice, accidents: choice ? accidents : [] }, date)); } catch (reason) { setError((reason as Error).message); } }}>
-      <h2 id="accident-title">Acidentes na obra</h2>
+      <BackHeading><BackButton label="Voltar à auditoria" onClick={onCancel} /><h2 id="accident-title">Acidentes na obra</h2></BackHeading>
       <fieldset><legend>Houve acidente na obra neste mês?</legend><div className={styles.choices}>
         {[false, true].map(value => <label key={String(value)} className={choice === value ? value ? styles.yes : styles.no : undefined}><input type="radio" name="hadAccidents" required checked={choice === value} onChange={() => { setChoice(value); setError(""); if (value && !accidents.length) add(); }} /><span>{value ? "Sim" : "Não"}</span></label>)}
       </div></fieldset>
@@ -32,7 +35,7 @@ export function SafetyClosureDialog({ date, initial, onCancel, onConfirm }: { da
         <label>Justificativa<textarea required maxLength={10000} value={a.justification} onChange={e => change(i, "justification", e.target.value)} /></label>
       </fieldset>)}</>}
       {error && <p role="alert">{error}</p>}
-      <div className={styles.actions}><button type="button" className="secondary" onClick={onCancel}>Voltar</button><button type="submit" className="primary">Conferir relatório</button></div>
+      <div className={styles.actions}><button type="submit" className="primary">Conferir relatório</button></div>
     </form>
   </dialog>;
 }

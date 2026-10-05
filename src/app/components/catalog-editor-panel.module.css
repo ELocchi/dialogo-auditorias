@@ -4,10 +4,6 @@
 .header h2 { margin: 0; font-size: 23px; }
 .header p { margin: 8px 0 0; font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
 .header button { flex-shrink: 0; }
-.closeButton { display: grid; width: 42px; height: 42px; place-items: center; padding: 0; border: 1px solid #d13643; border-radius: 8px; background: white; color: #c7353c; font: inherit; font-size: 28px; line-height: 1; cursor: pointer; }
-.closeButton:hover { background: #fff1f2; }
-.closeButton:focus-visible { outline: 2px solid #c7353c; outline-offset: 2px; }
-.closeButton:disabled { cursor: wait; opacity: .55; }
 .eyebrow { display: block; margin-bottom: 7px; font-size: 10px; letter-spacing: 1px; color: var(--muted); }
 .form { display: flex; flex-direction: column; }
 .body { padding: 20px 24px; }

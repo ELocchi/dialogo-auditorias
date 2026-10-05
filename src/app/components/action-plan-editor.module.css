@@ -1,4 +1,3 @@
-.backIcon { transform: rotate(180deg); }
 .extractionSummary { margin: 7px 0 0; color: var(--navy); font-size: 12px; font-weight: 700; }
 .form { margin-top: 20px; }
 .rows { display: grid; gap: 24px; padding-top: 22px; }

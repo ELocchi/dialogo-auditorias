@@ -1,7 +1,9 @@
 "use client";
+
+import { BackLink } from "@/app/components/back-control";
+
 import { containDialogFocus } from "./dialog-keyboard";
 
-import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
 import { EvidenceThumbnail } from "./evidence-thumbnail";
 import { followUpPhotoThumbnailUrl } from "@/lib/photos/urls";
@@ -27,9 +29,7 @@ export function ReportHeading({ title, subtitle, backHref, backLabel }: {
   title: string; subtitle?: string; backHref: string; backLabel: string;
 }) {
   return <div className={styles.pageHeading}>
-    <Link className={styles.backButton} href={backHref} aria-label={backLabel} data-tooltip={backLabel}>
-      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 12H4m7-7-7 7 7 7" /></svg>
-    </Link>
+    <BackLink href={backHref} label={backLabel} />
     <div className={styles.headingText}><h2>{title}</h2>{subtitle && <p>{subtitle}</p>}</div>
   </div>;
 }

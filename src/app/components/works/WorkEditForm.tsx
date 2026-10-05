@@ -1,6 +1,7 @@
 "use client";
 
-import Link from "next/link";
+import { BackLink } from "@/app/components/back-control";
+
 import { startTransition, useActionState, useState, type FormEvent } from "react";
 import { updateWorkAction } from "@/app/administracao/obras/[id]/actions";
 import { initialWorkEditState, workFieldLimits, workStages, type WorkDetails, type WorkEditState, type ActiveTeamProfile, type WorkTeamLink } from "@/lib/works/contracts";
@@ -76,6 +77,6 @@ export function WorkEditForm({ work, activeProfiles, linkedProfiles }: { work: W
       <div className={styles.field}><label htmlFor="work-observacoes">Informações adicionais da obra</label><textarea id="work-observacoes" name="observacoes" rows={5} defaultValue={work.observacoes ?? ""} maxLength={workFieldLimits.observacoes} aria-invalid={Boolean(error("observacoes"))} aria-describedby={error("observacoes") ? "error-observacoes" : undefined} />{error("observacoes") && <p id="error-observacoes" className={styles.fieldError}>{error("observacoes")}</p>}</div>
     </fieldset>
     {state.message && <div className={state.status === "success" ? styles.success : styles.error} role={state.status === "error" ? "alert" : "status"}><p>{state.message}</p>{state.conflict && <p>Suas alterações continuam nos campos. Confira os dados mais recentes antes de tentar salvar novamente. <a href={`/administracao/obras/${work.id}`}>Recarregar o cadastro</a> substitui os campos desta tela pelos dados salvos.</p>}</div>}
-    <div className={styles.formActions}><button className="primary" type="submit" disabled={pending}>{pending ? "Salvando…" : "Salvar alterações"}</button><Link href="/app?secao=obras" className="secondary">Cancelar e voltar às obras</Link></div>
+    <div className={styles.formActions}><button className="primary" type="submit" disabled={pending}>{pending ? "Salvando…" : "Salvar alterações"}</button><BackLink href="/app?secao=obras" label="Voltar às obras" tooltip="Cancelar e voltar" /></div>
   </form>;
 }

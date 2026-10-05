@@ -1,5 +1,7 @@
 "use client";
 
+import { BackButton, BackHeading } from "@/app/components/back-control";
+
 import { EvidenceThumbnail } from "./evidence-thumbnail";
 import { useEffect, useRef, useState } from "react";
 import { generatePdf } from "@/lib/pdf/client";
@@ -7,7 +9,6 @@ import type { ActionPlanFinding, ActionPlanRow } from "@/lib/pdf/types";
 export type { ActionPlanFinding, ActionPlanRow } from "@/lib/pdf/types";
 import { formatAuditDate } from "@/domain/operational-records";
 import { moduleLabels, type AppModule } from "@/domain/prototype-access";
-import { Icon } from "./ui-icon";
 import styles from "./action-plan-editor.module.css";
 
 export function ActionPlanEditor({ workName, auditDate, auditScore, module, authorName, findings, draft, example, prefillTest = false, autosave = false, onSave, onPublish, onBack }: {
@@ -75,7 +76,7 @@ export function ActionPlanEditor({ workName, auditDate, auditScore, module, auth
   };
   if (reviewing && pdfUrl && pendingPublication) return <section className="audit-review" aria-labelledby="action-plan-review-title">
     <header className="audit-review-heading">
-      <div><p className="kicker">REVISÃO DO PLANO DE AÇÃO</p><h2 id="action-plan-review-title">Conferir antes de publicar</h2><p>Revise as ações corretivas e o PDF antes da publicação.</p></div>
+      <div><p className="kicker">REVISÃO DO PLANO DE AÇÃO</p><BackHeading><BackButton label="Voltar ao preenchimento" disabled={submitted || publishing} onClick={returnToForm} /><h2 id="action-plan-review-title">Conferir antes de publicar</h2></BackHeading><p>Revise as ações corretivas e o PDF antes da publicação.</p></div>
     </header>
     <div className="audit-review-reference">
       <div><small>OBRA</small><strong>{workName}</strong></div>
@@ -84,7 +85,6 @@ export function ActionPlanEditor({ workName, auditDate, auditScore, module, auth
       <div><small>RESPONSÁVEL PELO PLANO</small><strong>{authorName}</strong></div>
     </div>
     <div className="audit-review-actions">
-      <button type="button" className="secondary" disabled={submitted || publishing} onClick={returnToForm}>Voltar ao preenchimento</button>
       <button type="button" className="primary" disabled={submitted || publishing} onClick={async () => { if (publishing) return; setPublishing(true); setError(""); try { await onPublish(pendingPublication); setSubmitted(true); } catch (reason) { setError(reason instanceof Error ? reason.message : "Não foi possível publicar o plano."); } finally { setPublishing(false); } }}>{submitted ? "Plano de ação publicado" : publishing ? "Publicando…" : "Publicar plano de ação"}</button>
     </div>
     {error && <p role="alert" className={styles.error}>{error}</p>}
@@ -95,8 +95,7 @@ export function ActionPlanEditor({ workName, auditDate, auditScore, module, auth
   </section>;
   return <>
     <div className="page-intro">
-      <div><h2>Plano de ação</h2><p className="muted">{workName} · {moduleLabels[module]} · auditoria de {formatAuditDate(auditDate)}</p><p className={styles.extractionSummary}>{findings.length} não conformidade{findings.length === 1 ? "" : "s"} extraída{findings.length === 1 ? "" : "s"} do relatório publicado.</p></div>
-      <button type="button" className="secondary" data-tooltip={autosave ? "Salvar e voltar" : "Voltar"} disabled={savingDraft || generatingPdf} onClick={async () => { if (!autosave) { onBack(); return; } setSavingDraft(true); try { await onSave(rows); onBack(); } catch (reason) { setError(reason instanceof Error ? reason.message : "Não foi possível salvar."); } finally { setSavingDraft(false); } }}><Icon name="arrow" className={styles.backIcon} />Voltar à {moduleLabels[module]}</button>
+      <div><BackHeading><BackButton label={`Voltar à ${moduleLabels[module]}`} tooltip={autosave ? "Salvar e voltar" : "Voltar"} disabled={savingDraft || generatingPdf} onClick={async () => { if (!autosave) { onBack(); return; } setSavingDraft(true); try { await onSave(rows); onBack(); } catch (reason) { setError(reason instanceof Error ? reason.message : "Não foi possível salvar."); } finally { setSavingDraft(false); } }} /><h2>Plano de ação</h2></BackHeading><p className="muted">{workName} · {moduleLabels[module]} · auditoria de {formatAuditDate(auditDate)}</p><p className={styles.extractionSummary}>{findings.length} não conformidade{findings.length === 1 ? "" : "s"} extraída{findings.length === 1 ? "" : "s"} do relatório publicado.</p></div>
     </div>
     <section className="panel">
       <div className="panel-heading"><div><span className="section-label">APONTAMENTOS DA AUDITORIA</span><h3>Ações corretivas</h3></div>{example && <span className="badge badge-amber">Prévia de teste</span>}</div>

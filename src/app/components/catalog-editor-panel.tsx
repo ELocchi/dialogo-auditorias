@@ -1,5 +1,7 @@
 "use client";
 
+import { BackButton, BackHeading } from "@/app/components/back-control";
+
 import { useEffect, useId, useRef, useState, useTransition, type FormEvent } from "react";
 import { referenceDocuments } from "@/domain/reference-documents";
 import { fvsServices, type FvsService } from "@/domain/fvs-services";
@@ -371,9 +373,7 @@ export function CatalogEditorPanel({ version, fvsWeights, available, setupPendin
 
   return <section id="catalog-editor" className={styles.panel} aria-labelledby={headingId}>
     <header className={styles.header}>
-      <div><h2 id={headingId} ref={headingRef} tabIndex={-1}>Editar roteiro</h2></div>
-      <button type="button" className={styles.closeButton} disabled={pending} aria-label="Fechar edição" data-tooltip="Voltar ao documento"
-        onClick={() => { if (!savingRef.current) onClose(); }}><span aria-hidden="true">×</span></button>
+      <BackHeading><BackButton label="Voltar ao documento" disabled={pending} onClick={() => { if (!savingRef.current) onClose(); }} /><h2 id={headingId} ref={headingRef} tabIndex={-1}>Editar roteiro</h2></BackHeading>
     </header>
 
     <form id={formId} className={styles.form} onSubmit={submit} aria-busy={pending}>

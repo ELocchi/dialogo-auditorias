@@ -16,24 +16,24 @@ export default async function NewReportPage({ searchParams }: {
   const active = await requireActiveProfile();
   if (!standaloneDiscipline(active.profile)) {
     const auditorProfiles = active.account.perfis.filter(profile => standaloneDiscipline(profile));
-    return <AuthShell title="Relatório Orientativo" description={auditorProfiles.length
+    return <AuthShell title="Relatório Orientativo" backHref="/app" backLabel="Voltar ao painel" description={auditorProfiles.length
       ? "Escolha o perfil de auditor para criar o relatório."
       : "A criação de relatórios orientativos está disponível para auditores de Qualidade e Segurança. Seu perfil atual permite consultar os documentos autorizados."}>
       {auditorProfiles.map(profile => <form action={selectProfileAction} key={profile}>
         <input type="hidden" name="destino" value="relatorio-orientativo" />
         <p><button className="primary" type="submit" name="perfil" value={profile} style={{ width: "100%" }}>Entrar como {profileLabels[profile]}</button></p>
       </form>)}
-      <p><Link href="/app">Voltar ao painel</Link></p>
+
     </AuthShell>;
   }
   const context = await readWorkspaceContext(active);
-  if (!context) return <AuthShell title="Não foi possível carregar o relatório"
+  if (!context) return <AuthShell title="Não foi possível carregar o relatório" backHref="/app" backLabel="Voltar ao painel"
     description="Não conseguimos consultar as obras deste perfil agora. Tente novamente para abrir o formulário.">
     <form action="/app/acompanhamento/relatorio/novo" method="get">
       <p><button className="primary" type="submit">Tentar novamente</button></p>
     </form>
     <p><Link href="/escolher-perfil">Trocar perfil</Link></p>
-    <p><Link href="/app">Voltar ao painel</Link></p>
+
   </AuthShell>;
   const actor = { userId: context.user.id, profile: context.profile,
     engineeringScope: context.engineeringScope, administrativeScope: context.administrativeScope };
