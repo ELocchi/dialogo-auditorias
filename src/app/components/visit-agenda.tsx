@@ -119,7 +119,7 @@ function AdministrativeAgenda({ user, works, users, visits, module, workId, avai
           <p>{!available ? "Aguardando acesso à agenda." : authorizedWorks.length ? "Nenhuma visita agendada." : "Nenhuma obra disponível para agendamento."}</p>
         </div>}
       </section>
-      <AdminVisitCalendar visits={authorizedVisits} works={authorizedWorks} auditors={users} viewerId={user.id} calendarOnly includeFollowUps={Boolean(selectedAuditorId)} selectedAuditorId={selectedAuditorId} onSelectAuditor={setSelectedAuditorId} />
+      <AdminVisitCalendar visits={authorizedVisits} works={authorizedWorks} auditors={users} viewerId={user.id} calendarOnly includeFollowUps selectedAuditorId={selectedAuditorId} onSelectAuditor={setSelectedAuditorId} />
     </div>
     <dialog ref={dialogRef} className={styles.scheduleDialog} aria-labelledby={dialogTitleId} onCancel={(event) => { if (mutationPending || exporting) event.preventDefault(); }} onClose={() => addButtonRef.current?.focus()}>
       <button type="button" className={`secondary ${styles.closeDialog}`} disabled={mutationPending || exporting} onClick={() => dialogRef.current?.close()}>Fechar</button>

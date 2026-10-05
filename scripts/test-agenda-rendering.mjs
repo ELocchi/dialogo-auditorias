@@ -11,6 +11,11 @@ import { renderToStaticMarkup } from "react-dom/server";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 registerHooks({
   resolve(specifier, context, nextResolve) {
+    if (["next/image", "next/link", "next/navigation"].includes(specifier)) return nextResolve(`${specifier}.js`, context);
+    if (specifier === "@/app/follow-up/actions") return {
+      url: `data:text/javascript,${encodeURIComponent('export async function readEngineeringWorkFindingsAction() { throw new Error("Server actions must not run during calendar rendering"); }')}`,
+      shortCircuit: true,
+    };
     const candidate = specifier.startsWith("@/") ? path.join(root, "src", specifier.slice(2))
       : specifier.startsWith(".") && context.parentURL?.startsWith("file:") ? path.resolve(path.dirname(fileURLToPath(context.parentURL)), specifier) : null;
     if (candidate && !path.extname(candidate)) {
@@ -19,6 +24,7 @@ registerHooks({
     return nextResolve(specifier, context);
   },
   load(url, context, nextLoad) {
+    if (url.endsWith("/logo-dialogo.png")) return { format: "module", source: 'export default { src: "/logo-dialogo.png", width: 400, height: 200 }', shortCircuit: true };
     if (url.endsWith(".module.css")) return { format: "module", source: "export default new Proxy({}, {get:(_,key)=>String(key)})", shortCircuit: true };
     if (url.endsWith(".tsx")) return { format: "module", source: ts.transpileModule(readFileSync(fileURLToPath(url), "utf8"), {
       compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2020 },
@@ -27,6 +33,7 @@ registerHooks({
   },
 });
 const { VisitAgenda, VisitCard } = await import("../src/app/components/visit-agenda.tsx");
+const { PrototypeDashboard } = await import("../src/app/components/prototype-workspace.tsx");
 const { getSaoPauloToday } = await import("../src/domain/visit-calendar.ts");
 const work = { id: "work", name: "Obra autorizada" };
 const admin = { id: "admin", name: "Administrativo", role: "administrative", modules: ["quality"], workIds: [work.id], agendaWorkIds: [work.id], documentWorkIds: [] };
@@ -61,6 +68,31 @@ test("authorization and invalid dates are applied before list pagination and cal
     assert.match(html, /105 visitas agendadas/);
     assert.doesNotMatch(html, /FORBIDDEN|INVALID/);
   }
+});
+
+test("admin calendar includes follow-ups from every authorized professional without selecting a filter", () => {
+  const other = { ...auditor, id: "other-auditor", name: "Outro profissional" };
+  const mixed = [visits[0], { ...visits[0], id: "follow-up", kind: "follow_up", modelId: null, auditorId: other.id },
+    { ...visits[0], id: "hidden-follow-up", kind: "follow_up", modelId: null, workId: "forbidden-work", auditorId: "hidden" }];
+  const html = render(admin, { visits: mixed, users: [admin, auditor, other] });
+  assert.match(html, /2 visitas agendadas: (?:Auditor, Outro profissional|Outro profissional, Auditor)/);
+  assert.doesNotMatch(html, /3 visitas agendadas/);
+  const own = render(auditor, { visits: mixed, users: [admin, auditor, other] });
+  assert.match(own, /1 visita agendada/);
+  assert.doesNotMatch(own, /2 visitas agendadas/);
+});
+
+test("admin overview includes all visit kinds while engineering coordination keeps only audits", () => {
+  const other = { ...auditor, id: "other-auditor", name: "Outro profissional" };
+  const mixed = [visits[0], { ...visits[0], id: "follow-up", kind: "follow_up", modelId: null, auditorId: other.id }];
+  const dashboard = (user) => renderToStaticMarkup(createElement(PrototypeDashboard, {
+    user, module: "quality", works: [work], audits: [], visits: mixed,
+    auditors: [auditor, other], activeAccountCount: null, open: () => {},
+  }));
+  assert.match(dashboard(admin), /2 visitas agendadas: (?:Auditor, Outro profissional|Outro profissional, Auditor)/);
+  const coordination = dashboard({ ...engineer, activity: "coordination" });
+  assert.match(coordination, /1 visita agendada/);
+  assert.doesNotMatch(coordination, /2 visitas agendadas/);
 });
 
 test("short and empty lists do not show unnecessary page controls", () => {
