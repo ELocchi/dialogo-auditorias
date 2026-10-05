@@ -21,7 +21,7 @@ function reset(profile = "AUDITOR_QUALIDADE") {
     context: { profile, engineeringScope: profile === "ENGENHARIA" ? "EQUIPE_OBRA" : null, administrativeScope: null,
       works: [{ id: workId }], user: { id: userId, role: "quality-auditor", modules: ["quality"], workIds: [workId],
         workModuleScopes: [{ workId, module: "quality" }] } },
-    guards: 0, resourceReads: 0, downloads: [], signed: 0, queries: [], rpcCalls: [], rpcError: null };
+    findingOwner: userId, findingModule: "QUALIDADE", findingError: null, guards: 0, resourceReads: 0, downloads: [], signed: 0, queries: [], rpcCalls: [], rpcError: null };
   state.client = {
     async rpc(name, parameters) {
       state.resourceReads++;
@@ -39,7 +39,7 @@ function reset(profile = "AUDITOR_QUALIDADE") {
     from(table) {
       const query = { table, fields: [], filters: [] }; state.queries.push(query);
       return { select(fields) { query.fields.push(fields); return this; }, eq(key, value) { query.filters.push([key, value]); return this; },
-        async maybeSingle() { state.resourceReads++; return { data: state.findingExists ? { id: findingId } : null, error: null }; } };
+        async maybeSingle() { state.resourceReads++; return { data: state.findingExists ? { id: findingId, auditor_auth_user_id: state.findingOwner, modulo: state.findingModule } : null, error: state.findingError }; } };
     },
     storage: { from(bucket) { return {
       async download(file) { state.downloads.push({ bucket, file }); return { data: image, error: null }; },
@@ -113,8 +113,8 @@ test("actual route derivatives use private storage and reauthorize on warm cache
 test("work photos retain finding, owner, work and filename filters; originals are byte-identical", async () => {
   reset();
   const response = await run(endpoints[1], false);
-  assert.deepEqual(state.queries, [{ table: "follow_up_work_findings", fields: ["id"], filters: [
-    ["id", findingId], ["work_id", workId], ["auditor_auth_user_id", userId], ["photo_file_name", fileName],
+  assert.deepEqual(state.queries, [{ table: "follow_up_work_findings", fields: ["id,auditor_auth_user_id,modulo"], filters: [
+    ["id", findingId], ["work_id", workId], ["photo_file_name", fileName], ["auditor_auth_user_id", userId],
   ] }]);
   assert.equal(response.headers.get("Content-Type"), "image/png");
   assert.deepEqual(await response.arrayBuffer(), await image.arrayBuffer());
@@ -160,4 +160,53 @@ test("photo authorization errors and malformed responses cannot reuse a warm thu
   state.client.rpc = async () => ({ data: "true", error: null });
   assert.equal((await run(endpoints[2])).status, 503);
   assert.equal(state.signed, 0);
+});
+
+
+test("engineering reads a published work photo from its auditor's folder in both scopes", async () => {
+  for (const scope of ["EQUIPE_OBRA", "COORDENACAO"]) {
+    reset("ENGENHARIA"); state.context.engineeringScope = scope;
+    state.findingOwner = "d1a70000-0000-4000-8000-000000000002";
+    const response = await run(endpoints[1], false);
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.arrayBuffer(), await image.arrayBuffer());
+    assert.deepEqual(state.downloads, [{ bucket: "follow-up-photos", file: `${state.findingOwner}/${workId}/${fileName}` }]);
+    const thumbnail = await run(endpoints[1]);
+    assert.equal(thumbnail.status, 200);
+    assert.equal((await sharp(await thumbnail.arrayBuffer()).metadata()).format, "webp");
+    assert.equal(state.queries[0].filters.some(([key]) => key === "auditor_auth_user_id"), false);
+    state.context.user.workModuleScopes = [];
+    assert.equal((await run(endpoints[1])).status, 404);
+  }
+});
+
+test("work photo access still rejects another work, discipline, owner and unsupported profile", async () => {
+  reset("ENGENHARIA"); state.context.works = [];
+  await assert.rejects(() => run(endpoints[1]), { status: 404 });
+  reset("ENGENHARIA"); state.context.engineeringScope = null;
+  await assert.rejects(() => run(endpoints[1]), { status: 404 });
+  reset("ADMINISTRATIVO");
+  await assert.rejects(() => run(endpoints[1]), { status: 404 });
+  assert.equal(state.resourceReads, 0);
+  for (const alter of [
+    () => { state.findingOwner = "d1a70000-0000-4000-8000-000000000002"; },
+    () => { state.context.profile = "AUDITOR_SEGURANCA"; },
+    () => { state.findingModule = "SEGURANCA"; },
+    () => { state.findingModule = null; },
+    () => { state.findingOwner = "../private"; },
+  ]) {
+    reset(); alter();
+    assert.equal((await run(endpoints[1], false)).status, 404);
+    assert.equal(state.downloads.length, 0);
+  }
+});
+
+test("work photo cache cannot mask database errors or removal of the finding", async () => {
+  reset("ENGENHARIA"); assert.equal((await run(endpoints[1])).status, 200);
+  const downloads = state.downloads.length;
+  state.findingError = { code: "XX000" };
+  assert.equal((await run(endpoints[1])).status, 503);
+  state.findingError = null; state.findingExists = false;
+  assert.equal((await run(endpoints[1])).status, 404);
+  assert.equal(state.downloads.length, downloads);
 });
