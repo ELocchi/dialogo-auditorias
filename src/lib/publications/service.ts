@@ -33,6 +33,9 @@ export function publicationService(context: ProfileWorkspaceContext, client: Cli
       if (["40001", "23505"].includes(error.code)) throw new PublicationError("O rascunho mudou em outra sessão. Reabra a auditoria ou o plano antes de continuar.", 409);
       if (error.code === "42501") throw new PublicationError("Seu perfil não tem mais permissão para esta operação. Confira a visita e os acessos.", 403);
       if (error.code === "55000") throw new PublicationError("Este documento já foi publicado e não pode ser alterado.", 409);
+      console.error("[publications] command_failed", { operation, code: error.code });
+      if (operation === "list") throw new PublicationError("Não foi possível carregar as auditorias e os planos. Tente novamente.", 503);
+      if (operation.startsWith("read-")) throw new PublicationError("Não foi possível carregar o documento. Tente novamente.", 503);
       throw new PublicationError("Não foi possível confirmar a gravação. Confira a configuração do banco e tente novamente.", 503);
     }
     return data as T;

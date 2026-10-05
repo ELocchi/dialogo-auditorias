@@ -394,8 +394,8 @@ if (!baselineOnly) suites.push({
 if (!baselineOnly) suites.push({
   name: "Audit and action plan persistence/publication suite",
   migrations: readdirSync(path.join(projectRoot, "supabase", "migrations"))
-    .filter(name => name.endsWith(".sql") && name <= "20261001000100_audit_action_plan_publication.sql"
-      && !["20260924000200_verify_published_audit_access.sql", "20260930000400_test_orientative_report.sql"].includes(name)).sort(),
+    .filter(name => name.endsWith(".sql") && name <= "20261005000300_publication_list_alias.sql"
+      && !["20261005000200_orientative_pdf_archive.sql", "20260924000200_verify_published_audit_access.sql", "20260930000400_test_orientative_report.sql"].includes(name)).sort(),
   test: "audit_action_plan_publication.sql", storageAdapter: true,
   omitHistoricPublicationBackfills: true,
 });

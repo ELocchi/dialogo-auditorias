@@ -45,6 +45,16 @@ function fixture(){
  return {state,service:publicationService(context,client)};
 }
 const responses={'quality-f175':{one:{answer:'Não conforme',note:'Pendência',photos:['camera.jpg']}}};
+test('read failures describe loading and log only the operation and database code',async()=>{
+ const logs=[]; const previous=console.error;
+ console.error=(...args)=>logs.push(args);
+ try {
+  const service=publicationService(context,{rpc:async()=>({data:null,error:{code:'42702',message:'private database detail',details:'private record'}})});
+  await assert.rejects(service.index(),e=>e.status===503&&e.message==='Não foi possível carregar as auditorias e os planos. Tente novamente.');
+  await assert.rejects(service.readPlan(id),e=>e.status===503&&e.message==='Não foi possível carregar o documento. Tente novamente.');
+  assert.deepEqual(logs,[['[publications] command_failed',{operation:'list',code:'42702'}],['[publications] command_failed',{operation:'read-plan',code:'42702'}]]);
+ } finally { console.error=previous; }
+});
 test('real photo decoding, persistent draft, server PDF and idempotent publication',async()=>{
  const {state,service}=fixture();
  const photo=await sharp({create:{width:10,height:10,channels:3,background:'#dd0000'}}).jpeg().toBuffer();
