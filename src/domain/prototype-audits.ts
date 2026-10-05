@@ -1,3 +1,4 @@
+import { safetyScore, validateSafetyClosure, reactivateGroupAfterAnswer, type SafetyClosure } from "./safety-audit.ts";
 import { securityCriteria, qualityModels, type Criterion } from "./catalogs.ts";
 import { calculateAuditFinalScore, getDraftCheckWeight, updateItemResponse, type AuditDrafts, type ItemResponse } from "./audit-draft.ts";
 import { canBeginScheduledAudit, canStartAudit, canEditAudit, type DemoUser, type Visit } from "./prototype-access.ts";
@@ -6,6 +7,7 @@ import type { AuditRecord, AuditModelId, WorkRecord } from "./operational-record
 export interface PrototypeAuditState {
   audits: readonly AuditRecord[];
   responses: Record<string, AuditDrafts>;
+  safetyClosures?: Record<string, SafetyClosure>;
   criteriaSnapshots?: Record<string, Criterion[]>;
 }
 
@@ -78,7 +80,12 @@ export function updatePrototypeResponse(state: PrototypeAuditState, user: DemoUs
   const allowedAnswers = audit.modelId === "security-it07-r02" ? ["0", "5", "10", "N/A"] : allowsNotApplicable ? ["Não conforme", "Conforme", "N/A"] : ["Não conforme", "Conforme"];
   if (response.answer !== undefined && !allowedAnswers.includes(response.answer)) throw new Error("Resposta incompatível com o modelo.");
   if (response.serious !== undefined && typeof response.serious !== "boolean") throw new Error("A indicação de item grave precisa ser verdadeira ou falsa.");
-  return { ...state, responses: { ...state.responses, [audit.id]: updateItemResponse(state.responses[audit.id] ?? {}, audit.modelId, pinnedCriterion, response) } };
+  const before = state.responses[audit.id] ?? {};
+  const changed = before[audit.modelId]?.[criterion.id]?.answer !== response.answer;
+  const clean = changed ? reactivateGroupAfterAnswer(before, audit.modelId, criteriaForAudit(state, audit), criterion.group) : before;
+  const next = { ...response };
+  if (changed) delete next.autoGroupNA;
+  return { ...state, responses: { ...state.responses, [audit.id]: updateItemResponse(clean, audit.modelId, pinnedCriterion, next) } };
 }
 
 export function validatePrototypeAuditCompletion(state: PrototypeAuditState, user: DemoUser, auditId: string): void {
@@ -103,8 +110,8 @@ export function validatePrototypeAuditCompletion(state: PrototypeAuditState, use
 export function completePrototypeAudit(state: PrototypeAuditState, user: DemoUser, auditId: string): PrototypeAuditState {
   validatePrototypeAuditCompletion(state, user, auditId);
   const audit = state.audits.find((entry) => entry.id === auditId)!;
-  const finalScore = calculateAuditFinalScore(criteriaForAudit(state, audit), state.responses[audit.id] ?? {}, audit.modelId);
-  if (finalScore === null) throw new Error("Não foi possível calcular a nota final desta auditoria.");
+  const closure = audit.modelId === "security-it07-r02" ? validateSafetyClosure(state.safetyClosures?.[auditId], audit.date) : undefined;
+  const finalScore = closure ? safetyScore(criteriaForAudit(state, audit), state.responses[audit.id] ?? {}, audit.modelId, closure).final : calculateAuditFinalScore(criteriaForAudit(state, audit), state.responses[audit.id] ?? {}, audit.modelId);
   return {
     ...state,
     audits: state.audits.map((entry) => entry.id === auditId ? { ...entry, status: "Publicada", collectionStatus: "Coleta concluída", calculationStatus: "Disponível", finalScore } : entry),

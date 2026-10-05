@@ -13,6 +13,8 @@ const nextConfig: NextConfig = {
     },
   },
   outputFileTracingIncludes: {
+    "/app/acompanhamento/relatorio/**/pdf": ["./public/logo-relatorio-orientativo.png"],
+    "/api/publications/**": ["./public/logo-relatorio-orientativo.png"],
     "/api/reference-documents/*": ["./private/reference-documents/*.pdf", "./private/reference-documents/*.docx"],
   },
   logging: {

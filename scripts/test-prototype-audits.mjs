@@ -69,10 +69,10 @@ test("FVS usa o peso específico do serviço na proporção do item", () => {
   ]), 5 / 6, "o peso salvo no rascunho preserva a revisão usada pela auditoria");
 });
 
-test("roteiro de Segurança usa o mesmo peso nos itens e mantém os pesos dos grupos", () => {
+test("roteiro de Segurança usa pesos por código e mantém os pesos dos grupos", () => {
   const criteria = criteriaForModel(SECURITY);
-  assert.equal(new Set(criteria.map((item) => item.configuredWeight)).size, 1);
-  assert.ok(Math.abs(criteria.reduce((total, item) => total + item.configuredWeight, 0) - 10) < 0.000001);
+  assert.equal(new Set(criteria.map((item) => item.configuredWeight)).size, 13);
+  assert.ok(criteria.every(item => item.configuredWeight > 0));
   assert.ok(criteria.every((item) => typeof item.groupWeight === "number" && item.groupWeight > 0));
   const drafts = { security: Object.fromEntries(criteria.map((item) => [item.id, { answer: "10", note: "" }])) };
   assert.equal(calculateSecurityFinalScore(criteria, drafts, "security"), 10);

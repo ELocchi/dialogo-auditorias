@@ -1,0 +1,29 @@
+.dialog { box-sizing: border-box; border: 1px solid #d7deea; border-radius: 16px; padding: 22px; width: min(320px, calc(100vw - 32px)); max-height: 88vh; color: #203f70; }
+.dialog::backdrop { background: #142b4d80; }
+.dialog h2 { margin: 0 0 18px; font-size: 21px; }
+.dialog fieldset { border: 0; padding: 0; margin: 12px 0; min-width: 0; }
+.dialog legend { font-weight: 700; margin-bottom: 10px; font-size: 13px; }
+.dialog label { display: grid; gap: 6px; font-weight: 600; font-size: 13px; margin-bottom: 10px; }
+.dialog input:not([type=radio]), .dialog textarea { width: 100%; box-sizing: border-box; border: 1px solid #c8d4e8; border-radius: 8px; padding: 10px; font: inherit; color: inherit; background: white; }
+.dialog select { box-sizing: border-box; }
+.dialog textarea { min-height: 60px; resize: vertical; }
+.choices, .row, .actions { display: flex; gap: 12px; }
+.choices label { position: relative; display: flex; justify-content: center; align-items: center; min-width: 76px; min-height: 60px; padding: 0 16px; margin: 0; border: 1px solid #c8d4e8; border-radius: 8px; cursor: pointer; }
+.choices input[type=radio] { position: absolute; opacity: 0; width: 1px; height: 1px; min-height: 0; padding: 0; margin: 0; }
+.choices label:focus-within { outline: 2px solid #6e92c9; outline-offset: 3px; }
+.choices .yes { background: #21834a; border-color: #21834a; color: white; }
+.choices .no { background: #cf303f; border-color: #cf303f; color: white; }
+.row > * { flex: 1; min-width: 0; }
+.dialog .accident { border-top: 1px solid #d7deea; padding-top: 10px; margin-top: 18px; }
+.dialog .accidentLegend { width: 100%; padding: 0; }
+.accidentHeading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.headingActions { display: flex; gap: 8px; }
+.dialog .iconButton { display: inline-flex; justify-content: center; align-items: center; width: 36px; height: 36px; min-height: 36px; padding: 0; border-radius: 8px; font-size: 23px; line-height: 1; }
+.actions { justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+
+.dialog .removeButton { color: #cf303f; border-color: #cf303f; background: white; }
+.dialog .removeButton:hover { color: #b52332; border-color: #b52332; background: #fff1f2; }
+
+.row { flex-direction: column; gap: 0; }
+
+.choices { justify-content: center; }

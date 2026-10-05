@@ -16,7 +16,7 @@ type PublishedAuditIndexRow = {
   date: string;
   auditorId: string;
   auditor: string;
-  finalScore: number;
+  finalScore: number | null;
   catalogRevisionId: string | null;
   catalogVersion: number;
   catalogRevisionLabel: string;
@@ -65,7 +65,7 @@ function parseAuditIndex(value: unknown, context: ProfileWorkspaceContext): Publ
     const id = typeof raw.id === "string" ? raw.id.toLowerCase() : "";
     const workId = typeof raw.workId === "string" ? raw.workId.toLowerCase() : "";
     const auditorId = typeof raw.auditorId === "string" ? raw.auditorId.toLowerCase() : "";
-    const finalScore = typeof raw.finalScore === "number" ? raw.finalScore
+    const finalScore = raw.finalScore === null && raw.modelId === "security-it07-r02" ? null : typeof raw.finalScore === "number" ? raw.finalScore
       : typeof raw.finalScore === "string" && /^\d+(?:\.\d+)?$/.test(raw.finalScore) ? Number(raw.finalScore) : Number.NaN;
     const catalogVersion = typeof raw.catalogVersion === "number" ? raw.catalogVersion
       : typeof raw.catalogVersion === "string" && /^\d+$/.test(raw.catalogVersion) ? Number(raw.catalogVersion) : Number.NaN;
@@ -74,7 +74,7 @@ function parseAuditIndex(value: unknown, context: ProfileWorkspaceContext): Publ
     if (!isUuid(id) || ids.has(id) || !isUuid(workId) || !authorizedWorks.has(workId)
       || !isModel(raw.modelId) || !validDate(raw.date) || !isUuid(raw.auditorId)
       || !validText(raw.auditor, 200) || !raw.auditor.trim()
-      || !Number.isFinite(finalScore) || finalScore < 0 || finalScore > 10
+      || (finalScore !== null && (!Number.isFinite(finalScore) || finalScore < 0 || finalScore > 10))
       || (catalogRevisionId !== null && !isUuid(catalogRevisionId))
       || !Number.isInteger(catalogVersion) || catalogVersion < 0
       || !validText(raw.catalogRevisionLabel, 80) || !raw.catalogRevisionLabel.trim()) continue;
@@ -155,7 +155,7 @@ export async function readPublishedAuditDetail(client: Client, context: ProfileW
     const raw = data[0];
     const row = index?.[0];
     if (!row || row.id !== auditId.toLowerCase() || !isRecord(raw) || !indexRowMatchesDetail(row, raw)
-      || !Array.isArray(raw.evidenceFiles) || raw.evidenceFiles.some((name) => typeof name !== "string" || !/^p\d{2}-\d{2}\.png$/.test(name)))
+      || !Array.isArray(raw.evidenceFiles) || raw.evidenceFiles.some((name) => typeof name !== "string" || !/^(?:p\d{2}-\d{2}\.png|[a-f0-9]{64}\.jpg)$/.test(name)))
       return unavailablePublishedAudits();
     const criteria = parseCriteria(raw.criteria);
     if (!criteria || (context.profile === "ENGENHARIA" && criteria.some((entry) => entry.documentedWeight !== null
@@ -248,7 +248,7 @@ export async function readPublishedAuditSnapshot(client: Client, context: Profil
       if (!isRecord(raw) || typeof raw.id !== "string" || detailedIds.has(raw.id)) continue;
       const indexed = indexById.get(raw.id);
       if (!indexed || !indexRowMatchesDetail(indexed, raw) || !Array.isArray(raw.evidenceFiles)
-        || raw.evidenceFiles.some((name) => typeof name !== "string" || !/^p\d{2}-\d{2}\.png$/.test(name))
+        || raw.evidenceFiles.some((name) => typeof name !== "string" || !/^(?:p\d{2}-\d{2}\.png|[a-f0-9]{64}\.jpg)$/.test(name))
         || !validText(raw.reportFileName, 180)) continue;
       detailedIds.add(raw.id);
       const criteria = parseCriteria(raw.criteria);

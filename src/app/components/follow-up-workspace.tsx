@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 import type { DemoUser, Visit } from "@/domain/prototype-access";
 import { canReadVisit } from "@/domain/prototype-access";
 import type { WorkRecord } from "@/domain/operational-records";
-import { getSaoPauloToday } from "@/domain/visit-calendar";
+import { isStandaloneReportIndex, standalonePdfHref } from "@/lib/follow-up/standalone-contracts";
 import type { AgendaActorContext } from "@/lib/agenda/contracts";
 import type { FollowUpFinding } from "@/lib/follow-up/service";
 import { indexFollowUpReports, mergeFollowUpFindings } from "@/lib/follow-up/display";
@@ -32,6 +32,8 @@ function FollowUpWorkspaceSession({ user, visits, works, actor, agendaAvailable 
     && visit.module === discipline && authorizedWorks.has(visit.workId) && canReadVisit(user, visit))
     .sort((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id)), [visits, user, discipline, authorizedWorks]);
   const { data: snapshot, loading, error: readError, retry, update } = useFollowUpSnapshot(actor, "/api/follow-up/workspace", isFollowUpWorkspaceSnapshot);
+  const standalone = useFollowUpSnapshot(actor, "/api/follow-up/standalone-reports", isStandaloneReportIndex);
+  const reportWorks = works.filter(work => !work.isDemo && user.workModuleScopes?.some(scope => scope.workId === work.id && scope.module === discipline));
   const photoStore = useFollowUpPhotoStore(actor);
   const [filterWorkId, setFilterWorkId] = useState("");
   const [adding, setAdding] = useState(false);
@@ -46,24 +48,28 @@ function FollowUpWorkspaceSession({ user, visits, works, actor, agendaAvailable 
   const mutationPending = useRef(false);
   const available = !!snapshot && !loading && !readError;
   const disabled = pending || !available;
-  const today = getSaoPauloToday();
   const draftByVisit = useMemo(() => new Map(snapshot?.drafts.map((entry) => [entry.visitId, entry]) ?? []), [snapshot?.drafts]);
   const reportsByVisit = useMemo(() => indexFollowUpReports(snapshot?.reports ?? []), [snapshot?.reports]);
   const savedFindings = useMemo(() => mergeFollowUpFindings(scheduled, draftByVisit, reportsByVisit, snapshot?.completed ?? noCompleted, authorizedWorks),
     [scheduled, draftByVisit, reportsByVisit, snapshot?.completed, authorizedWorks]);
   const workFindings = useMemo(() => (snapshot?.workFindings ?? []).filter((entry) => authorizedWorks.has(entry.workId) && entry.module === discipline), [snapshot?.workFindings, authorizedWorks, discipline]);
-  const worksWithFindings = useMemo(() => new Set(workFindings.map((entry) => entry.workId)), [workFindings]);
+  const createReportWork = reportWorks.find(work => work.id === filterWorkId)
+    ?? reportWorks.find(work => workFindings.some(finding => finding.workId === work.id)) ?? reportWorks[0];
   const visibleWorkFindings = useMemo(() => filterWorkId ? workFindings.filter((item) => item.workId === filterWorkId) : workFindings, [filterWorkId, workFindings]);
   const visibleSavedFindings = useMemo(() => filterWorkId ? savedFindings.filter((item) => item.workId === filterWorkId) : savedFindings, [filterWorkId, savedFindings]);
   const scheduledById = useMemo(() => new Map(scheduled.map((visit) => [visit.id, visit])), [scheduled]);
-  const visibleReports = useMemo(() => (snapshot?.reports ?? []).filter((report) => scheduledById.has(report.visitId))
-    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt) || right.id.localeCompare(left.id)), [snapshot?.reports, scheduledById]);
-  const createReportVisit = scheduled.find((visit) => {
-    const reportCount = reportsByVisit.get(visit.id)?.length ?? 0;
-    const hasFindings = (draftByVisit.get(visit.id)?.findings.length ?? 0) > 0;
-    return agendaAvailable && available && visit.confirmationStatus === "confirmed" && visit.date <= today
-      && (reportCount > 0 || hasFindings || worksWithFindings.has(visit.workId));
-  });
+  const visibleReports = useMemo(() => [
+    ...(snapshot?.reports ?? []).flatMap(report => {
+      const visit = scheduledById.get(report.visitId);
+      if (!visit) return [];
+      return [{ id: report.id, title: report.title, updatedAt: report.updatedAt, displayDate: report.updatedAt,
+        workName: authorizedWorks.get(visit.workId)?.name ?? "Obra",
+        pdfHref: `/app/acompanhamento/relatorio/${report.visitId}/pdf?relatorio=${report.id}` }];
+    }),
+    ...(standalone.data?.reports ?? []).filter(report => report.module === discipline && authorizedWorks.has(report.workId))
+      .map(report => ({ ...report, displayDate: `${report.date}T12:00:00-03:00`, pdfHref: standalonePdfHref(report.id) })),
+  ].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt) || right.id.localeCompare(left.id)),
+  [snapshot?.reports, standalone.data?.reports, scheduledById, authorizedWorks, discipline]);
 
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   useEffect(() => { if (previewUrl) return () => URL.revokeObjectURL(previewUrl); }, [previewUrl]);
@@ -72,7 +78,7 @@ function FollowUpWorkspaceSession({ user, visits, works, actor, agendaAvailable 
     mutationPending.current = true;
     setPending(true); setError(""); setMessage("");
     return true;
-  }, []);
+  }, [setPending, setError, setMessage]);
   const finishMutation = useCallback(() => {
     if (!mounted.current) return;
     mutationPending.current = false;
@@ -149,27 +155,26 @@ function FollowUpWorkspaceSession({ user, visits, works, actor, agendaAvailable 
     <div className={styles.layout}>
       <section className={`panel ${styles.listPanel}`} aria-label="Relatórios orientativos">
         <div className={`panel-heading ${styles.reportHeader}`}><h3>Relatórios orientativos</h3>
-          {createReportVisit ? <Link className={`primary ${styles.addReportButton}`} href={`/app/acompanhamento/relatorio/${createReportVisit.id}?novo=1`}
+          {createReportWork ? <Link className={`primary ${styles.addReportButton}`} href={`/app/acompanhamento/relatorio/novo?obra=${createReportWork.id}`}
               aria-label="Criar novo relatório" title="Criar novo relatório">+</Link>
             : <button type="button" className={`primary ${styles.addReportButton}`} disabled aria-label="Criar novo relatório"
-                title="Confirme uma visita e registre um apontamento para criar o relatório">+</button>}
+                title="Nenhuma obra disponível para este perfil">+</button>}
         </div>
         {visibleReports.length ? <ul className={styles.reportList}>{visibleReports.map((report) => {
-          const savedAt = new Date(report.updatedAt);
+          const savedAt = new Date(report.displayDate);
           const day = savedAt.toLocaleDateString("pt-BR", { day: "2-digit", timeZone: "America/Sao_Paulo" });
           const month = savedAt.toLocaleDateString("pt-BR", { month: "short", timeZone: "America/Sao_Paulo" }).replace(".", "").toUpperCase();
           const year = savedAt.toLocaleDateString("pt-BR", { year: "numeric", timeZone: "America/Sao_Paulo" });
-          const visit = scheduledById.get(report.visitId);
-          const workName = visit ? authorizedWorks.get(visit.workId)?.name ?? "Obra" : "Obra";
           return <li key={report.id}>
             <span className={styles.reportDate}><strong>{day}</strong><small>{month} {year}</small></span>
-            <span className={styles.reportInfo}><strong>{report.title}</strong><small>{workName}</small></span>
-            <a className={styles.reportDownload} href={`/app/acompanhamento/relatorio/${report.visitId}/pdf?relatorio=${report.id}`} download
+            <span className={styles.reportInfo}><strong>{report.title}</strong><small>{report.workName}</small></span>
+            <a className={styles.reportDownload} href={report.pdfHref} download
               aria-label={`Baixar PDF: ${report.title}`} title="Baixar PDF">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" /></svg>
             </a>
           </li>;
-        })}</ul> : snapshot && !loading && !readError ? <p className="muted">Nenhum relatório orientativo salvo para este perfil.</p> : null}
+        })}</ul> : snapshot && standalone.data && !loading && !readError && !standalone.loading && !standalone.error ? <p className="muted">Nenhum relatório orientativo salvo para este perfil.</p> : null}
+        {standalone.loading && <p className="muted" role="status">Carregando relatórios…</p>}
       </section>
       <section className={`panel ${styles.findingsPanel}`} aria-label="Apontamentos de acompanhamento">
         <div className={`panel-heading ${styles.findingHeader}`}><h3>Apontamentos</h3>

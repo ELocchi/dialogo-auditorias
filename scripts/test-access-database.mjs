@@ -18,6 +18,9 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const safetyOnly = process.argv.includes("--safety-only");
+const publicationOnly = process.argv.includes("--publication-only");
+const standaloneOnly = process.argv.includes("--standalone-reports-only");
 const baselineOnly = process.argv.includes("--baseline-only");
 const assignmentOnly = process.argv.includes("--assignment-only");
 const overviewOnly = process.argv.includes("--overview-only");
@@ -33,8 +36,8 @@ const administrationPageOnly = process.argv.includes("--administration-page-only
 const batchAgendaOnly = process.argv.includes("--batch-agenda-only");
 const compactAgendaOnly = process.argv.includes("--compact-agenda-only");
 const emailConfirmationOnly = process.argv.includes("--email-confirmation-only");
-if (process.argv.slice(2).some((arg) => !["--baseline-only", "--assignment-only", "--overview-only", "--sync-only", "--projection-only", "--comparison-only", "--history-only", "--dashboard-sync-only", "--follow-up-workspace-only", "--follow-up-targeted-only", "--access-context-only", "--administration-page-only", "--batch-agenda-only", "--compact-agenda-only", "--email-confirmation-only"].includes(arg))
-  || ([baselineOnly, assignmentOnly, overviewOnly, syncOnly, projectionOnly, comparisonOnly, historyOnly, dashboardSyncOnly, followUpWorkspaceOnly, followUpTargetedOnly, accessContextOnly, administrationPageOnly, batchAgendaOnly, compactAgendaOnly, emailConfirmationOnly].filter(Boolean).length > 1)) {
+if (process.argv.slice(2).some((arg) => !["--safety-only", "--standalone-reports-only", "--publication-only", "--baseline-only", "--assignment-only", "--overview-only", "--sync-only", "--projection-only", "--comparison-only", "--history-only", "--dashboard-sync-only", "--follow-up-workspace-only", "--follow-up-targeted-only", "--access-context-only", "--administration-page-only", "--batch-agenda-only", "--compact-agenda-only", "--email-confirmation-only"].includes(arg))
+  || ([safetyOnly, standaloneOnly, publicationOnly, baselineOnly, assignmentOnly, overviewOnly, syncOnly, projectionOnly, comparisonOnly, historyOnly, dashboardSyncOnly, followUpWorkspaceOnly, followUpTargetedOnly, accessContextOnly, administrationPageOnly, batchAgendaOnly, compactAgendaOnly, emailConfirmationOnly].filter(Boolean).length > 1)) {
   throw new Error("Supported arguments: --baseline-only, --assignment-only, --overview-only, --sync-only, --projection-only, --comparison-only, --history-only, --dashboard-sync-only, --follow-up-workspace-only, --follow-up-targeted-only, --access-context-only, --administration-page-only, --batch-agenda-only, --compact-agenda-only or --email-confirmation-only");
 }
 
@@ -388,8 +391,37 @@ if (!baselineOnly) suites.push({
   baselineAuthRows: 3,
 });
 
+if (!baselineOnly) suites.push({
+  name: "Audit and action plan persistence/publication suite",
+  migrations: readdirSync(path.join(projectRoot, "supabase", "migrations"))
+    .filter(name => name.endsWith(".sql") && name <= "20261001000100_audit_action_plan_publication.sql"
+      && !["20260924000200_verify_published_audit_access.sql", "20260930000400_test_orientative_report.sql"].includes(name)).sort(),
+  test: "audit_action_plan_publication.sql", storageAdapter: true,
+  omitHistoricPublicationBackfills: true,
+});
+if (!baselineOnly) suites.push({
+  name: "Standalone orientative reports without any agenda entry",
+  migrations: readdirSync(path.join(projectRoot, "supabase", "migrations"))
+    .filter(name => name.endsWith(".sql") && name <= "20261002000100_standalone_follow_up_reports.sql"
+      && !["20260924000200_verify_published_audit_access.sql", "20260930000400_test_orientative_report.sql"].includes(name)).sort(),
+  test: "standalone_follow_up_reports.sql", storageAdapter: true, omitHistoricPublicationBackfills: true,
+});
+if (!baselineOnly) suites.push({
+  name: "Safety scoring and accident snapshot",
+  migrations: readdirSync(path.join(projectRoot, "supabase", "migrations"))
+    .filter(name => name.endsWith(".sql") && name <= "20261005000100_safety_scoring_accidents.sql"
+      && !["20260924000200_verify_published_audit_access.sql", "20260930000400_test_orientative_report.sql"].includes(name)).sort(),
+  test: "safety_scoring_accidents.sql", storageAdapter: true, omitHistoricPublicationBackfills: true,
+});
+if (!baselineOnly) suites.push({
+  name: "Safety weights upgrade of an existing authorized catalog",
+  migrations: readdirSync(path.join(projectRoot, "supabase", "migrations"))
+    .filter(name => name.endsWith(".sql") && name < "20261005000100_safety_scoring_accidents.sql"
+      && !["20260924000200_verify_published_audit_access.sql", "20260930000400_test_orientative_report.sql"].includes(name)).sort(),
+  test: "safety_catalog_upgrade.sql", baselineAuthRows: 5, upgradeMigration: "20261005000100_safety_scoring_accidents.sql", storageAdapter: true, omitHistoricPublicationBackfills: true,
+});
 const { PGlite } = await loadPGlite();
-for (const suite of suites.filter((item) => (!assignmentOnly || item.test === "audit_assignment_access.sql")
+for (const suite of suites.filter((item) => (!safetyOnly || ["safety_scoring_accidents.sql", "safety_catalog_upgrade.sql"].includes(item.test)) && (!standaloneOnly || item.test === "standalone_follow_up_reports.sql") && (!publicationOnly || item.test === "audit_action_plan_publication.sql") && (!assignmentOnly || item.test === "audit_assignment_access.sql")
   && (!overviewOnly || item.test === "published_audit_overview.sql")
   && (!syncOnly || item.test === "agenda_sync.sql")
   && (!projectionOnly || item.test === "cached_audit_findings.sql")

@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState, useTransition, type FormEvent } from "react";
 import { referenceDocuments } from "@/domain/reference-documents";
 import { fvsServices, type FvsService } from "@/domain/fvs-services";
-import { getCriterionDisplayTitle, getCriterionWeight, securityGroups, securityWeightConfiguration, type Criterion } from "@/domain/catalogs";
+import { getCriterionDisplayTitle, getCriterionWeight, securityGroups, type Criterion } from "@/domain/catalogs";
 import { saveCatalogRevisionAction, saveFvsWeightsRevisionAction } from "@/app/catalogs/actions";
 import type { CatalogSnapshot, CatalogVersion, FvsWeightVersion } from "@/lib/catalogs/contracts";
 import styles from "./catalog-editor-panel.module.css";
@@ -206,7 +206,7 @@ export function CatalogEditorPanel({ version, fvsWeights, available, setupPendin
     const item: Criterion = {
       id, code: `NOVO-${number}`, title: "Novo item", text: "Descreva o item de auditoria",
       group, subgroup, source: referenceDocuments[base.modelId].catalogName,
-      locator: "Novo item", documentedWeight: null, configuredWeight: base.modelId === "security-it07-r02" ? securityWeightConfiguration.itemWeight : 0,
+      locator: "Novo item", documentedWeight: null, configuredWeight: base.modelId === "security-it07-r02" ? 10 : 0,
       groupWeight: base.modelId === "security-it07-r02" ? criteria.find((entry) => entry.group === group)?.groupWeight ?? 1 : undefined,
       verificationRule: base.modelId === "security-it07-r02" ? undefined : verificationRules[0].value,
       analysisCriterion: base.modelId === "security-it07-r02" ? "Descreva o critério de análise" : undefined, orientations: [],

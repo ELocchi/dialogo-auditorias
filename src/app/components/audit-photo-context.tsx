@@ -6,8 +6,9 @@ import { createAuditPhotoStore, type AuditPhotoStore } from "@/lib/audits/photo-
 
 const AuditPhotoContext = createContext<AuditPhotoStore | null>(null);
 
-export function AuditPhotoProvider({ responses, children }: { responses: Record<string, AuditDrafts>; children: ReactNode }) {
-  const [store] = useState(() => createAuditPhotoStore(Object.values(responses)));
+export function AuditPhotoProvider({ responses, children, store: providedStore }: { store?: AuditPhotoStore; responses: Record<string, AuditDrafts>; children: ReactNode }) {
+  const [localStore] = useState(() => createAuditPhotoStore(Object.values(responses)));
+  const store = providedStore ?? localStore;
   useEffect(() => { store.retainDrafts(Object.values(responses)); }, [responses, store]);
   useEffect(() => () => store.clear(), [store]);
   return <AuditPhotoContext value={store}>{children}</AuditPhotoContext>;

@@ -13,12 +13,26 @@ import { canReadVisit } from "@/domain/prototype-access";
 import { getSaoPauloToday } from "@/domain/visit-calendar";
 import { uuidPattern } from "@/lib/access/validation";
 import type { AgendaActorContext } from "@/lib/agenda/contracts";
+import { readStandaloneFindings, saveStandaloneReport } from "@/lib/follow-up/standalone-service";
+import type { StandaloneSaveResult } from "@/lib/follow-up/standalone-contracts";
 
 async function activeContext(expected: AgendaActorContext) {
   const active = await requireActiveProfile();
   if (!expected || expected.userId !== active.user.id || expected.profile !== active.profile
     || expected.engineeringScope !== active.engineeringScope || expected.administrativeScope !== active.administrativeScope) return null;
   return readWorkspaceContext(active);
+}
+
+export async function saveStandaloneReportAction(value: unknown, expected: AgendaActorContext): Promise<StandaloneSaveResult> {
+  const context = await activeContext(expected);
+  if (!context) return { status: "error", message: "Seu perfil mudou. Atualize a página antes de salvar." };
+  return saveStandaloneReport(await createClient(), context, value);
+}
+
+export async function readStandaloneFindingsAction(workId: string, expected: AgendaActorContext) {
+  const context = await activeContext(expected);
+  if (!context) return { available: false, findings: [] };
+  return readStandaloneFindings(await createClient(), context, workId);
 }
 
 export type WorkFinding = { id: string; workId: string; module: "safety" | "quality"; location: string; description: string;

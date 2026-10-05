@@ -1,3 +1,4 @@
+import type { SafetyClosure } from "../../domain/safety-audit.ts";
 import type { Criterion } from "../../domain/catalogs.ts";
 import type { AuditDrafts } from "../../domain/audit-draft.ts";
 import type { AppModule } from "../../domain/prototype-access.ts";
@@ -30,6 +31,7 @@ export type AuditPdfInput = {
   details: { date: string; auditor: string };
   criteria: Criterion[];
   drafts: AuditDrafts;
+  safetyClosure?: SafetyClosure;
 };
 
 export type ActionPlanPdfInput = {

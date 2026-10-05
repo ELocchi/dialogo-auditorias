@@ -10,7 +10,7 @@ import { moduleLabels, type AppModule } from "@/domain/prototype-access";
 import { Icon } from "./ui-icon";
 import styles from "./action-plan-editor.module.css";
 
-export function ActionPlanEditor({ workName, auditDate, auditScore, module, authorName, findings, draft, example, prefillTest = false, onSave, onPublish, onBack }: {
+export function ActionPlanEditor({ workName, auditDate, auditScore, module, authorName, findings, draft, example, prefillTest = false, autosave = false, onSave, onPublish, onBack }: {
   workName: string;
   auditDate: string;
   auditScore: number | null;
@@ -20,8 +20,9 @@ export function ActionPlanEditor({ workName, auditDate, auditScore, module, auth
   draft?: readonly ActionPlanRow[];
   example: boolean;
   prefillTest?: boolean;
-  onSave: (rows: readonly ActionPlanRow[]) => void;
-  onPublish: (publication: { bytes: Uint8Array; fileName: string }) => void;
+  autosave?: boolean;
+  onSave: (rows: readonly ActionPlanRow[]) => void | Promise<void>;
+  onPublish: (publication: { bytes: Uint8Array; fileName: string }) => void | Promise<void>;
   onBack: () => void;
 }) {
   const [rows, setRows] = useState<ActionPlanRow[]>(() => draft ? [...draft] : prefillTest ? createLocalTestRows(findings) : findings.map((finding) => ({
@@ -32,6 +33,9 @@ export function ActionPlanEditor({ workName, auditDate, auditScore, module, auth
   const [pendingPublication, setPendingPublication] = useState<{ bytes: Uint8Array; fileName: string } | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
+  const [publishing, setPublishing] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [saveStatus, setSaveStatus] = useState("");
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const generation = useRef<AbortController | null>(null);
   const [pdfUrl, setPdfUrl] = useState("");
@@ -41,6 +45,21 @@ export function ActionPlanEditor({ workName, auditDate, auditScore, module, auth
   const pdfName = `${pdfWorkName}-${pdfMonthName}-${pdfYear}.pdf`;
   useEffect(() => () => { if (pdfUrl) URL.revokeObjectURL(pdfUrl); }, [pdfUrl]);
   useEffect(() => () => generation.current?.abort(), []);
+  useEffect(() => {
+    if (!autosave || submitted || reviewing) return;
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
+    window.addEventListener("beforeunload", warn);
+    let active = true;
+    const timer = window.setTimeout(() => {
+      setSavingDraft(true);
+      void Promise.resolve(onSave(rows)).then(() => {
+        window.removeEventListener("beforeunload", warn);
+        if (active) { setSaveStatus("Rascunho salvo"); setError(""); }
+      }).catch(reason => { if (active) { setSaveStatus(""); setError(reason instanceof Error ? reason.message : "Não foi possível salvar o rascunho."); } })
+        .finally(() => { if (active) setSavingDraft(false); });
+    }, 1000);
+    return () => { active = false; window.clearTimeout(timer); window.removeEventListener("beforeunload", warn); };
+  }, [autosave, rows, onSave, submitted, reviewing]);
   const update = (id: string, field: keyof ActionPlanRow, value: string) => {
     setSubmitted(false);
     setError("");
@@ -65,9 +84,10 @@ export function ActionPlanEditor({ workName, auditDate, auditScore, module, auth
       <div><small>RESPONSÁVEL PELO PLANO</small><strong>{authorName}</strong></div>
     </div>
     <div className="audit-review-actions">
-      <button type="button" className="secondary" disabled={submitted} onClick={returnToForm}>Voltar ao preenchimento</button>
-      <button type="button" className="primary" disabled={submitted} onClick={() => { onPublish(pendingPublication); setSubmitted(true); }}>{submitted ? "Plano de ação publicado" : "Publicar plano de ação"}</button>
+      <button type="button" className="secondary" disabled={submitted || publishing} onClick={returnToForm}>Voltar ao preenchimento</button>
+      <button type="button" className="primary" disabled={submitted || publishing} onClick={async () => { if (publishing) return; setPublishing(true); setError(""); try { await onPublish(pendingPublication); setSubmitted(true); } catch (reason) { setError(reason instanceof Error ? reason.message : "Não foi possível publicar o plano."); } finally { setPublishing(false); } }}>{submitted ? "Plano de ação publicado" : publishing ? "Publicando…" : "Publicar plano de ação"}</button>
     </div>
+    {error && <p role="alert" className={styles.error}>{error}</p>}
     <section className="audit-review-pdf">
       <div><h3>Prévia do plano de ação em PDF</h3><span><a className="secondary" href={pdfUrl} target="_blank" rel="noreferrer">Abrir PDF</a><a className="primary" href={pdfUrl} download={pdfName}>Baixar PDF</a></span></div>
       <iframe src={pdfUrl} title="Prévia do plano de ação em PDF" />
@@ -76,7 +96,7 @@ export function ActionPlanEditor({ workName, auditDate, auditScore, module, auth
   return <>
     <div className="page-intro">
       <div><h2>Plano de ação</h2><p className="muted">{workName} · {moduleLabels[module]} · auditoria de {formatAuditDate(auditDate)}</p><p className={styles.extractionSummary}>{findings.length} não conformidade{findings.length === 1 ? "" : "s"} extraída{findings.length === 1 ? "" : "s"} do relatório publicado.</p></div>
-      <button type="button" className="secondary" onClick={onBack}><Icon name="arrow" className={styles.backIcon} />Voltar</button>
+      <button type="button" className="secondary" disabled={savingDraft || generatingPdf} onClick={async () => { if (!autosave) { onBack(); return; } setSavingDraft(true); try { await onSave(rows); onBack(); } catch (reason) { setError(reason instanceof Error ? reason.message : "Não foi possível salvar."); } finally { setSavingDraft(false); } }}><Icon name="arrow" className={styles.backIcon} />Voltar</button>
     </div>
     <section className="panel">
       <div className="panel-heading"><div><span className="section-label">APONTAMENTOS DA AUDITORIA</span><h3>Ações corretivas</h3></div>{example && <span className="badge badge-amber">Prévia de teste</span>}</div>
@@ -102,13 +122,13 @@ export function ActionPlanEditor({ workName, auditDate, auditScore, module, auth
           if (pdfUrl) URL.revokeObjectURL(pdfUrl);
           const nextUrl = URL.createObjectURL(new Blob([Uint8Array.from(bytes).buffer], { type: "application/pdf" }));
           setPdfUrl(nextUrl);
-          onSave(rows);
+          await onSave(rows);
           setPendingPublication({ bytes, fileName: pdfName });
           setReviewing(true);
           setSubmitted(false);
           setError("");
-        } catch {
-          if (!controller.signal.aborted) setError("Não foi possível gerar o PDF do plano de ação. Tente novamente.");
+        } catch (reason) {
+          if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "Não foi possível gerar o PDF do plano de ação. Tente novamente.");
         } finally {
           if (generation.current === controller) generation.current = null;
           if (!controller.signal.aborted) setGeneratingPdf(false);
@@ -143,7 +163,7 @@ export function ActionPlanEditor({ workName, auditDate, auditScore, module, auth
           </article>;
         })}</div>
         {error && <p className={styles.error} role="alert">{error}</p>}
-        <div className={styles.actions}><span role="status">{prefillTest ? "Dados de teste preenchidos. Revise antes de continuar." : ""}</span><button type="submit" className="primary" disabled={generatingPdf}>{generatingPdf ? "Gerando prévia..." : "Revisar plano de ação"}</button></div>
+        <div className={styles.actions}><span role="status">{autosave ? (savingDraft ? "Salvando rascunho…" : saveStatus) : prefillTest ? "Dados de teste preenchidos. Revise antes de continuar." : ""}</span><button type="button" className="secondary" disabled={savingDraft || generatingPdf} onClick={async () => { setSavingDraft(true); setError(""); try { await onSave(rows); setSaveStatus("Rascunho salvo"); } catch (reason) { setError(reason instanceof Error ? reason.message : "Falha ao salvar."); } finally { setSavingDraft(false); } }}>Salvar rascunho</button><button type="submit" className="primary" disabled={generatingPdf}>{generatingPdf ? "Gerando prévia..." : "Revisar plano de ação"}</button></div>
       </form> : <div className={styles.empty}>
         <strong>Nenhum apontamento publicado disponível</strong>
         <p>Quando o relatório publicado trouxer apontamentos, eles serão incluídos automaticamente aqui para o preenchimento das ações corretivas.</p>

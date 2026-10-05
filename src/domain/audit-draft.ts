@@ -13,6 +13,7 @@ export interface DraftCheck {
 }
 
 export interface ItemResponse {
+  autoGroupNA?: boolean;
   answer?: DraftAnswer;
   note: string;
   serious?: boolean;

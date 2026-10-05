@@ -273,6 +273,34 @@ test("Profile action writes only a current approved choice and always redirects 
   assert.equal(state.writes.length, 0);
 });
 
+test("The report profile choice returns to the editor only for an approved auditor", async () => {
+  for (const profile of ["AUDITOR_SEGURANCA", "AUDITOR_QUALIDADE"]) {
+    reset();
+    const submitted = form(profile);
+    submitted.set("destino", "relatorio-orientativo");
+    await assert.rejects(selectProfileAction(submitted), redirected("/app/acompanhamento/relatorio/novo"));
+    assert.equal(state.writes[0].value, choice(profile));
+  }
+  reset();
+  const engineering = form("ENGENHARIA");
+  engineering.set("atuacao_engenharia", "COORDENACAO");
+  engineering.set("destino", "relatorio-orientativo");
+  await assert.rejects(selectProfileAction(engineering), redirected("/app"));
+  reset(); state.account = { ...account, perfil: "ENGENHARIA", perfis: ["ENGENHARIA"], atuacao_administrativa: null };
+  const revoked = form("AUDITOR_QUALIDADE"); revoked.set("destino", "relatorio-orientativo");
+  await assert.rejects(selectProfileAction(revoked), redirected("/escolher-perfil?erro=perfil"));
+  assert.equal(state.writes.length, 0);
+});
+
+test("Report return targets cannot redirect to arbitrary URLs or accept duplicate values", async () => {
+  for (const destinations of [["https://external.invalid"], ["//external.invalid"], ["/administracao"], ["relatorio-orientativo", "relatorio-orientativo"]]) {
+    reset();
+    const submitted = form("AUDITOR_QUALIDADE");
+    for (const destination of destinations) submitted.append("destino", destination);
+    await assert.rejects(selectProfileAction(submitted), redirected("/app"));
+  }
+});
+
 test("Preference cookies are HttpOnly, local-preview compatible and Secure for HTTPS", async () => {
   const previous = process.env.APP_URL;
   try {

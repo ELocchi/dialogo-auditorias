@@ -14,5 +14,10 @@ export async function selectProfileAction(form: FormData): Promise<void> {
   if (!context) redirect("/escolher-perfil?erro=perfil");
   await writeActiveProfileChoice(user.id, context.profile, context.engineeringScope, context.administrativeScope);
   revalidatePath("/", "layout");
+  const destinations = form.getAll("destino");
+  if (destinations.length === 1 && destinations[0] === "relatorio-orientativo"
+    && (context.profile === "AUDITOR_SEGURANCA" || context.profile === "AUDITOR_QUALIDADE")) {
+    redirect("/app/acompanhamento/relatorio/novo");
+  }
   redirect("/app");
 }

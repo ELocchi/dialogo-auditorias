@@ -1,5 +1,7 @@
 "use client";
 
+import { SafetyClosureDialog } from "./safety-closure-dialog";
+import { safetyScore, toggleGroupNA, type SafetyClosure } from "@/domain/safety-audit";
 import Image from "next/image";
 import { generatePdf } from "@/lib/pdf/client";
 import { awardedItemScore, scoreLabel, getGroupHeading, getSubgroupHeading, displayAuditDate } from "@/lib/pdf/audit-format";
@@ -35,6 +37,7 @@ type PreviousAudit = Pick<AuditComparison, "id" | "date" | "answers">;
 const noPreviousAudits: readonly PreviousAudit[] = [];
 
 function localTestEvidenceUrl(reference: string): string | null {
+  if (/^\/api\/publications\/[a-f0-9-]{36}\/photo\?file=[a-f0-9]{64}\.jpg$/.test(reference)) return reference;
   if (/^https:\/\//.test(reference)) return reference;
   return /^p\d{2}-\d{2}\.png$/.test(reference)
     ? `/local-test-evidence/boulevard/${encodeURIComponent(reference)}`
@@ -239,7 +242,9 @@ type NewAuditProps = {
   setActiveIndex: (index: number) => void;
   drafts: AuditDrafts;
   updateDraft: (response: ItemResponse) => boolean | void;
-  onFinish?: () => void;
+  onFinish?: (closure?: SafetyClosure) => void;
+  safetyClosure?: SafetyClosure;
+  onDraftsChange?: (drafts: AuditDrafts) => void;
   details: { date: string; auditor: string };
   workName?: string;
   responseKey?: string;
@@ -257,24 +262,29 @@ type AuditReviewProps = {
   criteria: Criterion[];
   drafts: AuditDrafts;
   onBack: () => void;
-  onPublish: () => boolean;
+  onPublish: () => boolean | Promise<boolean>;
+  publishedReportUrl?: string;
+  safetyClosure?: SafetyClosure;
 };
 
-export function AuditReview({ model, modelId, workName, details, criteria, drafts, onBack, onPublish }: AuditReviewProps) {
+export function AuditReview({ model, modelId, workName, details, criteria, drafts, onBack, onPublish, publishedReportUrl, safetyClosure }: AuditReviewProps) {
   const photoStore = useAuditPhotoStore();
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set(criteria.map((criterion) => criterion.group)));
   const [published, setPublished] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const [pdfResult, setPdfResult] = useState<{ key: string; url?: string; error?: string } | null>(null);
   // Agenda refreshes can recreate details, criteria and drafts with identical content.
   // Only a change to the report itself should cancel and regenerate the preview.
-  const requestKey = JSON.stringify({ model, modelId, workName, details, criteria, drafts: { [modelId]: drafts[modelId] ?? {} } } satisfies AuditPdfInput);
-  const pdfUrl = pdfResult?.key === requestKey ? pdfResult.url : undefined;
+  const requestKey = JSON.stringify({ model, modelId, workName, details, criteria, safetyClosure, drafts: { [modelId]: drafts[modelId] ?? {} } } satisfies AuditPdfInput);
+  const pdfUrl = published && publishedReportUrl ? publishedReportUrl : pdfResult?.key === requestKey ? pdfResult.url : undefined;
   const pdfError = pdfResult?.key === requestKey ? pdfResult.error : undefined;
-  const finalScore = calculateAuditFinalScore(criteria, drafts, modelId);
+  const scores = safetyScore(criteria, drafts, modelId, safetyClosure);
+  const finalScore = modelId === "security-it07-r02" ? scores.final : calculateAuditFinalScore(criteria, drafts, modelId);
   const security = modelId === "security-it07-r02";
   useEffect(() => {
     const controller = new AbortController();
     const objectUrls: string[] = [];
+    if (published && publishedReportUrl) return;
     const input = JSON.parse(requestKey) as AuditPdfInput;
     void prepareAuditPdfPhotos(input, controller.signal, objectUrls, photoStore).then((photos) => generatePdf({
       kind: "audit", input, photos, baseUrl: window.location.href,
@@ -287,7 +297,7 @@ export function AuditReview({ model, modelId, workName, details, criteria, draft
       if (!controller.signal.aborted) setPdfResult({ key: requestKey, error: "Não foi possível gerar a prévia do PDF." });
     });
     return () => { controller.abort(); objectUrls.forEach((url) => URL.revokeObjectURL(url)); };
-  }, [requestKey, photoStore]);
+  }, [requestKey, photoStore, published, publishedReportUrl]);
   const grouped = criteria.reduce<Record<string, Criterion[]>>((groups, criterion) => {
     (groups[criterion.group] ??= []).push(criterion);
     return groups;
@@ -295,8 +305,9 @@ export function AuditReview({ model, modelId, workName, details, criteria, draft
   return <section className="audit-review" aria-labelledby="audit-review-title">
     <header className="audit-review-heading">
       <div><p className="kicker">REVISÃO DO RELATÓRIO</p><h2 id="audit-review-title">Conferir antes de publicar</h2><p>Revise os resultados preenchidos antes da publicação.</p></div>
-      <div className="audit-review-final-score"><small>NOTA FINAL</small><strong>{finalScore?.toFixed(2).replace(".", ",") ?? "—"}</strong></div>
+      <div className="audit-review-final-score"><small>NOTA FINAL</small><span className="audit-final-score-value"><strong>{finalScore?.toFixed(2).replace(".", ",") ?? "—"}</strong>{security && Boolean(safetyClosure?.accidents.length) && <svg className="audit-accident-alert" viewBox="0 0 24 24" role="img" aria-label="Acidentes registrados nesta auditoria"><title>Acidentes registrados nesta auditoria</title><path d="M12 3 2 21h20L12 3Z" /><path d="M12 9v5" /><circle cx="12" cy="17.5" r=".8" /></svg>}</span></div>
     </header>
+    {security && <section className="panel" aria-label="Composição da nota"><p>Nota bruta: <strong>{scores.raw?.toFixed(2).replace(".", ",") ?? "Sem itens aplicáveis"}</strong> · Penalidades: <strong>{scores.penalty.toFixed(2).replace(".", ",")}</strong></p><p>{safetyClosure?.hadAccidents ? `${safetyClosure.accidents.length} acidente(s) registrado(s)` : "Nenhum acidente declarado"}</p>{safetyClosure?.accidents.map((a, i) => <p key={i}>{displayAuditDate(a.date)} · {a.type === "leave" ? "Com afastamento" : "Comum"}<br />{a.event}<br />Justificativa: {a.justification}</p>)}</section>}
     <div className="audit-review-reference">
       <div><small>OBRA</small><strong>{workName}</strong></div>
       <div><small>DATA DA AUDITORIA</small><strong>{displayAuditDate(details.date)}</strong></div>
@@ -304,15 +315,15 @@ export function AuditReview({ model, modelId, workName, details, criteria, draft
       <div><small>AUDITOR RESPONSÁVEL</small><strong>{details.auditor}</strong></div>
     </div>
     <div className="audit-review-actions">
-      <button type="button" className="secondary" disabled={published} onClick={onBack}>Voltar ao preenchimento</button>
-      <button type="button" className="primary" disabled={!pdfUrl || published} onClick={() => { if (onPublish()) setPublished(true); }}>{published ? "Auditoria publicada" : pdfUrl ? "Publicar auditoria" : "Gerando prévia…"}</button>
+      <button type="button" className="secondary" disabled={published || publishing} onClick={onBack}>Voltar ao preenchimento</button>
+      <button type="button" className="primary" disabled={!pdfUrl || published || publishing} onClick={async () => { if (publishing) return; setPublishing(true); try { if (await onPublish()) setPublished(true); } finally { setPublishing(false); } }}>{published ? "Auditoria publicada" : publishing ? "Publicando…" : pdfUrl ? "Publicar auditoria" : "Gerando prévia…"}</button>
     </div>
     <div className="audit-review-groups">
       {Object.entries(grouped).map(([group, items]) => {
         const collapsed = collapsedGroups.has(group);
         const securityPerformance = security ? calculateSecurityGroupScore(items, drafts, modelId) : null;
         const groupScore = security
-          ? securityPerformance === null ? null : securityPerformance * (items[0]?.groupWeight ?? 0)
+          ? securityPerformance === null ? null : securityPerformance
           : items.reduce((total, item) => total + (awardedItemScore(item, getItemResponse(drafts, modelId, item), false) ?? 0), 0);
         return <section key={group}>
         <h3><button type="button" aria-expanded={!collapsed} onClick={() => setCollapsedGroups((current) => { const next = new Set(current); if (next.has(group)) next.delete(group); else next.add(group); return next; })}><span>{group}</span><strong>{scoreLabel(groupScore)}</strong><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg></button></h3>
@@ -368,8 +379,10 @@ function isRequiredPhotoMissing(criterion: Criterion, response: ItemResponse): b
   return (response.answer === "0" || response.answer === "5" || response.answer === "Não conforme") && !response.photos?.length;
 }
 
-export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts, updateDraft, onFinish, details, workName = "Residencial Horizonte · Guarulhos", responseKey = model, readOnly = false, previousAudits = noPreviousAudits, fvsServices = bundledFvsServices }: NewAuditProps) {
+export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts, updateDraft, onFinish, onDraftsChange, safetyClosure, details, workName = "Residencial Horizonte · Guarulhos", responseKey = model, readOnly = false, previousAudits = noPreviousAudits, fvsServices = bundledFvsServices }: NewAuditProps) {
   const photoStore = useAuditPhotoStore();
+  const [closing, setClosing] = useState(false);
+  const [closureError, setClosureError] = useState("");
   const [selectedItemOpen, setSelectedItemOpen] = useState(false);
   const [, refreshPhotos] = useReducer((version: number) => version + 1, 0);
   const [photoTarget, setPhotoTarget] = useState("item");
@@ -456,12 +469,14 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
       </div>
       <div className="audit-score-actions">
         <div className="partial-score"><small>NOTA PARCIAL</small><strong>{partialScore === null ? "—" : partialScore.toFixed(2).replace(".", ",")}</strong></div>
-        {allItemsAnswered && !readOnly && onFinish && <button type="button" className="primary" onClick={onFinish}>Fechar relatório</button>}
+        {!readOnly && onFinish && <button type="button" className="primary" disabled={!allItemsAnswered} onClick={() => { if (security) { const missing = criteria.find(c => isRequiredPhotoMissing(c, getItemResponse(drafts, responseKey, c))); if (missing) { setClosureError(`Adicione uma foto ao item ${missing.code}.`); return; } setClosureError(""); setClosing(true); } else onFinish(); }}>Fechar auditoria</button>}
       </div>
     </section>
 
+    {closureError && <p role="alert">{closureError}</p>}
+    {closing && <SafetyClosureDialog date={details.date} initial={safetyClosure} onCancel={() => setClosing(false)} onConfirm={value => { setClosing(false); onFinish?.(value); }} />}
     <section className="question-card" aria-label="Quesito da auditoria">
-      <ItemPicker key={responseKey} id={pickerId} model={responseKey} criteria={criteria} drafts={drafts} previousAudits={displayedPreviousAudits} activeId={selectedItemOpen ? criterion?.id : undefined} security={security} onSelect={selectItem} />
+      <ItemPicker key={responseKey} id={pickerId} model={responseKey} criteria={criteria} drafts={drafts} previousAudits={displayedPreviousAudits} activeId={selectedItemOpen ? criterion?.id : undefined} security={security} onToggleGroup={!readOnly && onDraftsChange ? group => onDraftsChange(toggleGroupNA(drafts, responseKey, criteria, group)) : undefined} onSelect={selectItem} />
 
       {selectedItemOpen && criterion ? <div className="question-content">
         <div className={`question-group-heading${security ? " has-verification" : ""}`}>
@@ -605,7 +620,7 @@ const ItemPickerRow = memo(function ItemPickerRow({ criterion, index, answer, an
   </button>;
 });
 
-function ItemPicker({ id, model, criteria, drafts, previousAudits, activeId, security, onSelect }: { id: string; model: string; criteria: Criterion[]; drafts: AuditDrafts; previousAudits: readonly PreviousAudit[]; activeId?: string; security: boolean; onSelect: (index: number) => void }) {
+function ItemPicker({ id, model, criteria, drafts, previousAudits, activeId, security, onSelect, onToggleGroup }: { onToggleGroup?: (group: string) => void; id: string; model: string; criteria: Criterion[]; drafts: AuditDrafts; previousAudits: readonly PreviousAudit[]; activeId?: string; security: boolean; onSelect: (index: number) => void }) {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set(criteria.map((criterion) => criterion.group)));
   const [collapsedSubgroups, setCollapsedSubgroups] = useState<Set<string>>(() => new Set(criteria.filter((criterion) => criterion.subgroup).map((criterion) => `${criterion.group}:${criterion.subgroup}`)));
   const grouped = useMemo(() => criteria.reduce<Record<string, Record<string, { criterion: Criterion; index: number }[]>>>((groups, criterion, index) => {
@@ -632,12 +647,18 @@ function ItemPicker({ id, model, criteria, drafts, previousAudits, activeId, sec
         const collapsed = collapsedGroups.has(group);
         const groupEntries = Object.values(subgroups).flat();
         const groupScore = entriesScore(groupEntries);
+        const groupNA = groupEntries.some(({ criterion }) => drafts[model]?.[criterion.id]?.autoGroupNA);
+        const groupNALabel = groupNA ? "Reativar grupo e restaurar respostas" : "Preencher não respondidos como Não se aplica";
         return <div className="item-picker-group" key={group}>
+        <div className="item-picker-group-heading">
+        {security && onToggleGroup && <button type="button" className="group-na-button" disabled={!groupNA && !groupEntries.some(({ criterion }) => !drafts[model]?.[criterion.id]?.answer)} aria-label={`${groupNALabel}: ${group}`} title={groupNALabel} aria-pressed={groupNA} onClick={() => onToggleGroup(group)}>N/A</button>}
         <h4><button type="button" aria-expanded={!collapsed} onClick={() => setCollapsedGroups((current) => {
           const next = new Set(current);
           if (next.has(group)) next.delete(group); else next.add(group);
           return next;
         })}><span>{group}</span><span className="tree-score">{scoreLabel(groupScore)}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m7 10 5 5 5-5" /></svg></button></h4>
+        </div>
+
         {!collapsed && (security ? Object.entries(subgroups).map(([subgroup, entries]) => {
           const subgroupKey = `${group}:${subgroup}`;
           const subgroupCollapsed = collapsedSubgroups.has(subgroupKey);

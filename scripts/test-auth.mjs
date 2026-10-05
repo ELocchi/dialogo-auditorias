@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test, { after, before } from "node:test";
 import { createServerClient } from "@supabase/ssr";
+import { AuthApiError, AuthRetryableFetchError } from "@supabase/supabase-js";
 import { accountDestination, corporateEmail, validateSignIn, validateSignUp } from "../src/lib/auth/validation.ts";
 import { requestAccess, signIn, signOut } from "../src/lib/auth/service.ts";
 
@@ -303,14 +304,45 @@ test("signup without an authenticated session gives a neutral confirmation notic
   safeResult(result);
 });
 
-test("duplicate and provider-rejected signup results do not reveal account existence", async () => {
+test("duplicate signup results do not reveal account existence", async () => {
   const normal = await requestAccess(form(), harness().deps);
-  for (const code of ["user_already_exists", "email_exists", "weak_password", "over_email_send_rate_limit"]) {
+  for (const code of ["user_already_exists", "email_exists"]) {
     const { deps } = harness({ signup: {
-      data: { user: null, session: null }, error: { code, message: privateMarker },
+      data: { user: null, session: null }, error: new AuthApiError(privateMarker, 422, code),
     } });
     const result = await requestAccess(form(), deps);
     assert.deepEqual(result, normal);
+    safeResult(result);
+  }
+});
+
+test("signup delivery and provider failures show an error instead of an accepted notice", async () => {
+  for (const [error, message, code] of [
+    [new AuthApiError(privateMarker, 400, "email_address_not_authorized"), /serviço de envio de e-mails/, "SIGNUP_EMAIL_UNAVAILABLE"],
+    [new AuthApiError(privateMarker, 429, "over_email_send_rate_limit"), /limite temporário/, "SIGNUP_RATE_LIMITED"],
+    [new AuthApiError(privateMarker, 429, "over_request_rate_limit"), /limite temporário/, "SIGNUP_RATE_LIMITED"],
+    [new AuthApiError(privateMarker, 500, "unexpected_failure"), /não conseguiu concluir/, "SIGNUP_PROVIDER_FAILED"],
+    [new AuthRetryableFetchError(privateMarker, 0), /conectar/, "SIGNUP_CONNECTION_FAILED"],
+    [new AuthApiError(privateMarker, 422, "weak_password"), /senha mais forte/, "SIGNUP_WEAK_PASSWORD"],
+  ]) {
+    const reported = [];
+    const { deps } = harness({ signup: { data: { user: null, session: null }, error } });
+    const result = await requestAccess(form(), { ...deps, reportFailure: (...args) => reported.push(args) });
+    assert.equal(result.state.status, "error");
+    assert.match(result.state.message, message);
+    assert.equal(result.redirectTo, undefined);
+    assert.deepEqual(reported, [[code]]);
+    safeResult(result);
+  }
+});
+
+test("unknown signup failures and broken diagnostics cannot turn a rejection into success", async () => {
+  for (const error of [new Error(privateMarker), { code: privateMarker, message: privateMarker },
+    { __isAuthError: true, get code() { throw Error(privateMarker); } }]) {
+    const { deps } = harness({ signup: { data: { user: null, session: null }, error } });
+    const result = await requestAccess(form(), { ...deps, reportFailure: () => { throw Error(privateMarker); } });
+    assert.equal(result.state.status, "error");
+    assert.equal(result.redirectTo, undefined);
     safeResult(result);
   }
 });

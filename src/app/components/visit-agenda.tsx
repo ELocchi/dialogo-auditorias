@@ -561,7 +561,7 @@ export function VisitCard({ visit, user, users, work, available, mutationPending
   const hasRevision = Number.isInteger(visit.revision) && (visit.revision ?? 0) > 0;
   const confirmAllowed = assignedAllowed && canReadVisit(user, visit) && visit.confirmationStatus === "pending_confirmation" && hasRevision;
   const startVisible = !!onStartAudit && assignedAllowed && visit.kind === "audit";
-  const startAllowed = startVisible && available && canBeginScheduledAudit(user, visit, getSaoPauloToday());
+  const startAllowed = startVisible && available && (canBeginScheduledAudit(user, visit, getSaoPauloToday()) || (auditStarted && visit.auditorId === user.id && visit.confirmationStatus === "confirmed"));
   const auditorName = visit.auditorName ?? users.find((entry) => entry.id === visit.auditorId)?.name ?? (visit.auditorId === user.id ? user.name : visit.auditorId);
   const creatorName = visit.createdByName ?? users.find((entry) => entry.id === visit.createdBy)?.name ?? (visit.createdBy === user.id ? user.name : visit.createdBy);
   const [year, month, day] = visit.date.split("-");

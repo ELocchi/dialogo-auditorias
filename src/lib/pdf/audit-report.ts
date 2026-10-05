@@ -1,3 +1,4 @@
+import { safetyScore } from "../../domain/safety-audit.ts";
 import { PDFDocument, PDFName, PDFString, StandardFonts, rgb, type PDFFont, type PDFImage, type PDFPage } from "pdf-lib";
 import { getCriterionDisplayTitle, getCriterionWeight, type Criterion } from "../../domain/catalogs.ts";
 import { calculateAuditFinalScore, calculateChecksCompliance, calculateSecurityGroupScore, getDraftCheckWeight, getItemResponse, type ItemResponse } from "../../domain/audit-draft.ts";
@@ -23,8 +24,8 @@ function wrapPdfText(text: string, font: PDFFont, size: number, maxWidth: number
   return lines.length ? lines : [""];
 }
 
-export async function createAuditReviewPdf({ model, modelId, workName, details, criteria, drafts }: AuditPdfInput, assets: PdfAssets): Promise<Uint8Array> {
-  if (["security-it07-r02", "quality-f175", "quality-f176"].includes(modelId)) return createSecurityAuditReportPdf({ model, modelId, workName, details, criteria, drafts }, assets);
+export async function createAuditReviewPdf({ model, modelId, workName, details, criteria, drafts, safetyClosure }: AuditPdfInput, assets: PdfAssets): Promise<Uint8Array> {
+  if (["security-it07-r02", "quality-f175", "quality-f176"].includes(modelId)) return createSecurityAuditReportPdf({ model, modelId, workName, details, criteria, drafts, safetyClosure }, assets);
   const document = await PDFDocument.create();
   document.setTitle(`Relatório de auditoria - ${workName}`);
   document.setAuthor("Diálogo Engenharia");
@@ -95,7 +96,7 @@ export async function createAuditReviewPdf({ model, modelId, workName, details, 
   return document.save();
 }
 
-async function createSecurityAuditReportPdf({ model, modelId, workName, details, criteria, drafts }: AuditPdfInput, assets: PdfAssets): Promise<Uint8Array> {
+async function createSecurityAuditReportPdf({ model, modelId, workName, details, criteria, drafts, safetyClosure }: AuditPdfInput, assets: PdfAssets): Promise<Uint8Array> {
   const document = await PDFDocument.create();
   const security = modelId === "security-it07-r02";
   const disciplineTitle = security ? "Segurança do Trabalho" : "Farol da Qualidade";
@@ -207,9 +208,21 @@ async function createSecurityAuditReportPdf({ model, modelId, workName, details,
   drawLabel(cover, "IDENTIFICAÇÃO", left, 247);
   cover.drawText(`Auditoria de ${disciplineTitle} · ${model}`, { x: left, y: 235, size: 6.5, font: regular, color: muted });
   cover.drawLine({ start: { x: left, y: 205 }, end: { x: right, y: 205 }, thickness: .5, color: lineColor });
-  const finalScore = calculateAuditFinalScore(criteria, drafts, modelId);
+  const scores = safetyScore(criteria, drafts, modelId, safetyClosure);
+  const finalScore = security ? scores.final : calculateAuditFinalScore(criteria, drafts, modelId);
   const coverFields = [["DATA DA AUDITORIA", displayAuditDate(details.date)], ["AUDITOR RESPONSÁVEL", details.auditor], ["NOTA FINAL", finalScore?.toFixed(2).replace(".", ",") ?? "—"]] as const;
   coverFields.forEach(([label, value], index) => { const x = left + index * 126; drawLabel(cover, label, x, 184); writeWrapped(cover, value, x, 166, 112, 8, index === 2 ? bold : regular, navy, 10); });
+  if (security && safetyClosure?.accidents.length) {
+    const value = coverFields[2][1];
+    const x = left + 252 + bold.widthOfTextAtSize(value, 8) + 8;
+    const y = 164;
+    const alertRed = rgb(.9, .12, .18);
+    cover.drawLine({ start: { x, y }, end: { x: x + 7, y: y + 13 }, thickness: 1, color: alertRed });
+    cover.drawLine({ start: { x: x + 7, y: y + 13 }, end: { x: x + 14, y }, thickness: 1, color: alertRed });
+    cover.drawLine({ start: { x: x + 14, y }, end: { x, y }, thickness: 1, color: alertRed });
+    cover.drawLine({ start: { x: x + 7, y: y + 9 }, end: { x: x + 7, y: y + 5 }, thickness: 1.2, color: alertRed });
+    cover.drawCircle({ x: x + 7, y: y + 2.5, size: .65, color: alertRed });
+  }
   cover.drawLine({ start: { x: left, y: 143 }, end: { x: right, y: 143 }, thickness: .5, color: lineColor });
 
   const groups = criteria.reduce<Record<string, Criterion[]>>((result, criterion) => { (result[criterion.group] ??= []).push(criterion); return result; }, {});
@@ -270,6 +283,61 @@ async function createSecurityAuditReportPdf({ model, modelId, workName, details,
       summaryY -= 3;
     }
     summaryY -= 5;
+  }
+
+  if (security && safetyClosure) {
+    const sectionHeading = (continued = false) => {
+      const title = continued ? "Composição da nota e acidentes · continuação" : "Composição da nota e acidentes";
+      drawRoundedCode(summary, "!", left, summaryY - 8, 24, 21, 9.5, navy, rgb(1, 1, 1));
+      summary.drawText(title, { x: left + 34, y: summaryY, size: 10.5, font: bold, color: navy });
+      summary.drawLine({ start: { x: left + 34, y: summaryY - 7 }, end: { x: left + 34 + Math.min(right - left - 34, bold.widthOfTextAtSize(title, 10.5)), y: summaryY - 7 }, thickness: 1.6, color: red });
+      summaryY -= 27;
+    };
+    const ensureSpace = (height: number) => {
+      if (summaryY - height < 52) { startSummaryPage(); sectionHeading(true); }
+    };
+    if (summaryY < 150) startSummaryPage();
+    else summaryY -= 10;
+    sectionHeading();
+    const scoreRows = [
+      ["Nota bruta", scores.raw?.toFixed(2).replace(".", ",") ?? "Sem itens aplicáveis"],
+      ["Penalidades", scores.penalty.toFixed(2).replace(".", ",")],
+      ["Nota final", finalScore?.toFixed(2).replace(".", ",") ?? "Sem nota"],
+    ];
+    for (const [label, value] of scoreRows) {
+      ensureSpace(20);
+      summary.drawText(label, { x: left + 34, y: summaryY, size: 6.8, font: bold, color: navy });
+      summary.drawText(value, { x: right - bold.widthOfTextAtSize(value, 7), y: summaryY, size: 7, font: bold, color: navy });
+      summaryY -= 20;
+      summary.drawLine({ start: { x: left + 34, y: summaryY + 10 }, end: { x: right, y: summaryY + 10 }, thickness: .35, color: lineColor });
+    }
+    const description = (text: string) => {
+      for (const value of wrapPdfText(text, regular, 6.8, right - left - 49)) {
+        ensureSpace(10);
+        summary.drawText(value, { x: left + 49, y: summaryY, size: 6.8, font: regular, color: navy });
+        summaryY -= 10;
+      }
+      summaryY -= 5;
+    };
+    summaryY -= 8;
+    if (!safetyClosure.hadAccidents) description("Nenhum acidente declarado no mês da auditoria.");
+    safetyClosure.accidents.forEach((accident, index) => {
+      ensureSpace(55);
+      drawRoundedCode(summary, String(index + 1).padStart(2, "0"), left + 8, summaryY - 6, 32, 17, 6.8, red, rgb(1, 1, 1));
+      const title = `Acidente ${index + 1} · ${displayAuditDate(accident.date)} · ${accident.type === "leave" ? "Com afastamento" : "Comum"}`;
+      const lines = wrapPdfText(title, bold, 7.4, right - left - 102);
+      lines.forEach((value, lineIndex) => summary.drawText(value, { x: left + 49, y: summaryY - lineIndex * 9, size: 7.4, font: bold, color: navy }));
+      const deduction = accident.type === "leave" ? "−2,00" : "−1,00";
+      // Use a standard hyphen supported by the embedded report font.
+      const value = deduction.replace("−", "-");
+      summary.drawText(value, { x: right - bold.widthOfTextAtSize(value, 7), y: summaryY, size: 7, font: bold, color: red });
+      summaryY -= Math.max(23, lines.length * 9 + 8);
+      description(`Acontecimento: ${accident.event}`);
+      description(`Justificativa: ${accident.justification}`);
+      ensureSpace(10);
+      summary.drawLine({ start: { x: left + 49, y: summaryY + 2 }, end: { x: right, y: summaryY + 2 }, thickness: .35, color: lineColor });
+      summaryY -= 12;
+    });
   }
 
   const detailTop = 558, detailBottom = 52, detailWidth = right - left;

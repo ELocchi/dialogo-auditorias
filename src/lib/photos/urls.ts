@@ -1,6 +1,6 @@
 import type { AgendaActorContext } from "../agenda/contracts.ts";
 
-const evidenceFile = /^p\d{2}-\d{2}\.png$/;
+const evidenceFile = /^(?:p\d{2}-\d{2}\.png|[a-f0-9]{64}\.jpg)$/;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const identityKeys = ["usuario", "perfil", "atuacao", "administrativo"] as const;
 

@@ -4,7 +4,7 @@ import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf
 import type { FollowUpReport } from "./service.ts";
 import type { PdfPhotosForFinding, ReportPhoto } from "./pdf-photos.ts";
 
-type ReportDetails = { report: FollowUpReport; workName: string; visitDate: string; auditorName: string;
+type ReportDetails = { report: Pick<FollowUpReport, "title" | "participants" | "subjects" | "decisions" | "findings">; workName: string; visitDate: string; auditorName: string;
   photos?: ReportPhoto[]; photosForFinding?: PdfPhotosForFinding };
 const pageWidth = 612;
 const pageHeight = 792;
@@ -48,7 +48,7 @@ export async function createFollowUpReportPdf({ report, workName, visitDate, aud
   const pdf = await PDFDocument.create();
   pdf.setTitle(`${report.title} - ${workName}`);
   pdf.setAuthor("Diálogo Engenharia");
-  pdf.setSubject("Visita de acompanhamento");
+  pdf.setSubject("Relatório orientativo");
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const logo = await pdf.embedPng(await readFile(path.join(process.cwd(), "public", "logo-relatorio-orientativo.png")));

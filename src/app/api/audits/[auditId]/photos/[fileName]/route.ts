@@ -11,7 +11,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ audi
   const access = await readAuditRequestContext(request);
   if (!access.context) return new Response(null, { status: access.status, headers: auditResponseHeaders });
   const { auditId, fileName } = await params;
-  if (!isUuid(auditId) || !/^p\d{2}-\d{2}\.png$/.test(fileName)) return new Response(null, { status: 400, headers: auditResponseHeaders });
+  if (!isUuid(auditId) || !/^(?:p\d{2}-\d{2}\.png|[a-f0-9]{64}\.jpg)$/.test(fileName)) return new Response(null, { status: 400, headers: auditResponseHeaders });
   const context = access.context;
   const client = await createClient();
   return privatePhotoResponse(request, async () => {
@@ -25,7 +25,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ audi
       || !context.user.workModuleScopes?.some((scope) => scope.workId === data.workId
         && scope.module === (data.modelId === "security-it07-r02" ? "safety" : "quality"))) return null;
     const path = `${data.workId}/${data.id}/${fileName}`;
-    return { key: `${publishedAuditBucket}/${path}`, mimeType: "image/png", download: async () => {
+    return { key: `${publishedAuditBucket}/${path}`, mimeType: fileName.endsWith(".jpg") ? "image/jpeg" : "image/png", download: async () => {
       const result = await client.storage.from(publishedAuditBucket).download(path);
       return result.error ? null : result.data;
     } };

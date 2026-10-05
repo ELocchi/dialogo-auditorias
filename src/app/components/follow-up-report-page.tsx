@@ -22,7 +22,7 @@ type FollowUpReportPageProps = {
   reportsAvailable: boolean; draftsAvailable: boolean;
 };
 
-function ReportHeading({ title, subtitle, backHref, backLabel }: {
+export function ReportHeading({ title, subtitle, backHref, backLabel }: {
   title: string; subtitle?: string; backHref: string; backLabel: string;
 }) {
   return <div className={styles.pageHeading}>
@@ -39,13 +39,13 @@ export function FollowUpReportPage(props: FollowUpReportPageProps) {
     props.visit.id, props.initialReport?.id, props.initialReport?.updatedAt])} {...props} />;
 }
 
-function ClosedReportPdf({ visitId, report, autoDownload, message }: {
-  visitId: string; report: FollowUpReport; autoDownload: boolean; message: string;
+export function ClosedReportPdf({ visitId, href, report, autoDownload, message }: {
+  visitId?: string; href?: string; report: Pick<FollowUpReport, "id">; autoDownload: boolean; message: string;
 }) {
   const resource = useMemo(() => createReportPdfResource({
-    href: `/app/acompanhamento/relatorio/${visitId}/pdf?relatorio=${report.id}`,
+    href: href ?? `/app/acompanhamento/relatorio/${visitId}/pdf?relatorio=${report.id}`,
     fallbackFileName: `relatorio-${report.id}.pdf`,
-  }), [visitId, report.id]);
+  }), [visitId, href, report.id]);
   const pdf = useSyncExternalStore(resource.subscribe, resource.getSnapshot, resource.getServerSnapshot);
   const downloadedUrl = useRef<string | null>(null);
   useEffect(() => {

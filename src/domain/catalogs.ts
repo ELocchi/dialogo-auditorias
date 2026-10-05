@@ -1,3 +1,4 @@
+import securityWeights from "./security-weights.json" with { type: "json" };
 export type Discipline = "Segurança" | "Qualidade simplificada" | "Qualidade completa";
 export type CollectionState = "Não respondido" | "Não verificado" | "Respondido";
 export type SecurityAnswer = 0 | 5 | 10 | "N/A";
@@ -140,14 +141,7 @@ const orientationsForItem = (item: SecuritySourceItem): CatalogOrientation[] => 
   return [...linked, ...subgroupOrientations].map(toOrientation).concat(applicableGeneral);
 };
 
-/** Decisão do responsável em 14/09/2026 para os 205 subitens da IT.07 R02.
- * Peso individual; não substitui a escala de respostas nem os pesos dos grupos.
- */
-export const securityWeightConfiguration = {
-  id: "IT07-R02-PESOS-INICIAIS-2026-09-14",
-  itemWeight: Number((10 / securityCatalog.itens.length).toFixed(8)),
-  source: "Peso total 10 distribuído igualmente entre os itens",
-} as const;
+export const securityWeightConfiguration = securityWeights;
 
 export const securityCriteria: Criterion[] = securityCatalog.itens.map((item) => {
   const subgroup = securitySubgroups.get(item.subgrupo_id);
@@ -163,7 +157,7 @@ export const securityCriteria: Criterion[] = securityCatalog.itens.map((item) =>
     source: `${securityCatalog.documento.identificacao} revisão ${securityCatalog.documento.revisao}`,
     locator: `página${item.paginas_fonte.length === 1 ? "" : "s"} ${item.paginas_fonte.join(", ")}`,
     documentedWeight: item.peso_individual,
-    configuredWeight: securityWeightConfiguration.itemWeight,
+    configuredWeight: (securityWeights.items as Record<string, number>)[item.codigo],
     groupWeight: securityGroupWeights.get(item.grupo_codigo) ?? 1,
     weightConfigurationId: securityWeightConfiguration.id,
     orientations,
