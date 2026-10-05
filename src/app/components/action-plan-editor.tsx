@@ -89,14 +89,14 @@ export function ActionPlanEditor({ workName, auditDate, auditScore, module, auth
     </div>
     {error && <p role="alert" className={styles.error}>{error}</p>}
     <section className="audit-review-pdf">
-      <div><h3>Prévia do plano de ação em PDF</h3><span><a className="secondary" href={pdfUrl} target="_blank" rel="noreferrer">Abrir PDF</a><a className="primary" href={pdfUrl} download={pdfName}>Baixar PDF</a></span></div>
+      <div><h3>Prévia do plano de ação em PDF</h3><span><a className="secondary" href={pdfUrl} target="_blank" rel="noreferrer">Abrir PDF em nova guia</a><a className="primary" href={pdfUrl} download={pdfName}>Baixar PDF</a></span></div>
       <iframe src={pdfUrl} title="Prévia do plano de ação em PDF" />
     </section>
   </section>;
   return <>
     <div className="page-intro">
       <div><h2>Plano de ação</h2><p className="muted">{workName} · {moduleLabels[module]} · auditoria de {formatAuditDate(auditDate)}</p><p className={styles.extractionSummary}>{findings.length} não conformidade{findings.length === 1 ? "" : "s"} extraída{findings.length === 1 ? "" : "s"} do relatório publicado.</p></div>
-      <button type="button" className="secondary" disabled={savingDraft || generatingPdf} onClick={async () => { if (!autosave) { onBack(); return; } setSavingDraft(true); try { await onSave(rows); onBack(); } catch (reason) { setError(reason instanceof Error ? reason.message : "Não foi possível salvar."); } finally { setSavingDraft(false); } }}><Icon name="arrow" className={styles.backIcon} />Voltar</button>
+      <button type="button" className="secondary" data-tooltip={autosave ? `Salvar o rascunho e voltar à seção de ${moduleLabels[module]}` : `Voltar à seção de ${moduleLabels[module]}`} disabled={savingDraft || generatingPdf} onClick={async () => { if (!autosave) { onBack(); return; } setSavingDraft(true); try { await onSave(rows); onBack(); } catch (reason) { setError(reason instanceof Error ? reason.message : "Não foi possível salvar."); } finally { setSavingDraft(false); } }}><Icon name="arrow" className={styles.backIcon} />Voltar à {moduleLabels[module]}</button>
     </div>
     <section className="panel">
       <div className="panel-heading"><div><span className="section-label">APONTAMENTOS DA AUDITORIA</span><h3>Ações corretivas</h3></div>{example && <span className="badge badge-amber">Prévia de teste</span>}</div>
@@ -149,7 +149,7 @@ export function ActionPlanEditor({ workName, auditDate, auditScore, module, auth
                 <div className={styles.sourceColumn}><div><span>Descrição</span><p>{row.itemDescription || row.description}</p></div><div><span>Critério</span><p>{row.verificationCriterion || "Não informado"}</p></div></div>
                 <div className={styles.sourceColumn}><div><span>Não conformidade</span><p>{row.nonconformity}</p></div><div><span>Status</span><strong className={row.status === "Não conforme" ? styles.statusNonconforming : styles.status}>{row.status || "Com apontamento"}</strong></div></div>
                 <div className={`${styles.sourceColumn} ${styles.photoColumn}`}><span>Foto</span>{row.evidencePhotos?.length ? <div className={styles.evidencePhotos}>{row.evidencePhotos.map((photo, photoIndex) => photo.url
-                  ? <a href={photo.url} target="_blank" rel="noopener noreferrer" key={`${photo.name}:${photoIndex}`} title="Abrir foto em nova guia"><EvidenceThumbnail thumbnailSrc={photo.thumbnailUrl} originalSrc={photo.url} alt={`Evidência do item ${row.item}`} width={150} height={96} /><small>{photo.name}</small></a>
+                  ? <a href={photo.url} target="_blank" rel="noopener noreferrer" key={`${photo.name}:${photoIndex}`} data-tooltip="Abrir foto em nova guia"><EvidenceThumbnail thumbnailSrc={photo.thumbnailUrl} originalSrc={photo.url} alt={`Evidência do item ${row.item}`} width={150} height={96} /><small>{photo.name}</small></a>
                   : <span className={styles.evidenceName} key={`${photo.name}:${photoIndex}`}>{photo.name}</span>)}</div>
                   : <p className={styles.noEvidence}>Nenhuma foto anexada.</p>}</div>
               </div>

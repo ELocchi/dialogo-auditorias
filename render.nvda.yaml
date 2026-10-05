@@ -1,0 +1,19 @@
+# Isolated UI fixtures. Do not copy environment groups or database credentials.
+services:
+  - type: web
+    name: dialogo-auditorias-nvda
+    runtime: node
+    plan: free
+    repo: https://github.com/ELocchi/dialogo-auditorias
+    branch: homologacao/nvda-20261005
+    autoDeployTrigger: off
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: node scripts/start-accessibility-review.mjs
+    healthCheckPath: /revisao-acessibilidade
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_TELEMETRY_DISABLED
+        value: "1"
+      - key: ACCESSIBILITY_REVIEW_ONLY
+        value: "1"

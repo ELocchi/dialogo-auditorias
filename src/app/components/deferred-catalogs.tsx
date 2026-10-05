@@ -22,7 +22,7 @@ export function DeferredCatalogs({ state, load, children }: {
   return <section className="panel" aria-busy={state.status !== "error"}>
     {state.status === "error" ? <>
       <p role="alert">{state.message ?? "Não foi possível carregar os roteiros."}</p>
-      <button type="button" className="secondary" onClick={() => { void load().catch(() => {}); }}>Tentar novamente</button>
+      <button type="button" className="secondary" onClick={() => { void load().catch(() => {}); }}>Recarregar roteiros</button>
     </> : <p className="muted" role="status">Carregando roteiros...</p>}
   </section>;
 }

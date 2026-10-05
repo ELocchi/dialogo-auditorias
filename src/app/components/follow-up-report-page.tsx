@@ -1,4 +1,5 @@
 "use client";
+import { containDialogFocus } from "./dialog-keyboard";
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
@@ -26,7 +27,7 @@ export function ReportHeading({ title, subtitle, backHref, backLabel }: {
   title: string; subtitle?: string; backHref: string; backLabel: string;
 }) {
   return <div className={styles.pageHeading}>
-    <Link className={styles.backButton} href={backHref} aria-label={backLabel} title={backLabel}>
+    <Link className={styles.backButton} href={backHref} aria-label={backLabel} data-tooltip={backLabel}>
       <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 12H4m7-7-7 7 7 7" /></svg>
     </Link>
     <div className={styles.headingText}><h2>{title}</h2>{subtitle && <p>{subtitle}</p>}</div>
@@ -68,7 +69,7 @@ export function ClosedReportPdf({ visitId, href, report, autoDownload, message }
     <div className={styles.closedToolbar}>
       <div><h3>Relatório fechado</h3><p>Disponível para visualização e download.</p></div>
       <div className={styles.closedActions}>
-        <a className="secondary" href={pdf.url ?? undefined} aria-disabled={!pdf.url} tabIndex={pdf.url ? undefined : -1} target="_blank" rel="noreferrer">Abrir PDF</a>
+        <a className="secondary" href={pdf.url ?? undefined} aria-disabled={!pdf.url} tabIndex={pdf.url ? undefined : -1} target="_blank" rel="noreferrer">Abrir PDF em nova guia</a>
         <a className="primary" href={pdf.url ?? undefined} aria-disabled={!pdf.url} tabIndex={pdf.url ? undefined : -1} download={pdf.fileName ?? undefined}>Baixar PDF</a>
       </div>
     </div>
@@ -76,7 +77,7 @@ export function ClosedReportPdf({ visitId, href, report, autoDownload, message }
       ? "Relatório salvo. O download do PDF foi iniciado." : message}</p>}
     {pdf.status === "error" ? <div className={styles.error} role="alert">
       <p>O relatório está salvo. Não foi possível carregar o PDF.</p>
-      <button type="button" className="secondary" onClick={() => { void resource.load(); }}>Tentar novamente</button>
+      <button type="button" className="secondary" onClick={() => { void resource.load(); }}>Recarregar PDF</button>
     </div> : pdf.url ? <iframe className={styles.pdfPreview} style={{ display: "block", width: "100%", height: "72vh", minHeight: 580 }} src={pdf.url} title="Visualização do relatório orientativo" />
       : <div className={styles.pdfPreview} style={{ width: "100%", height: "72vh", minHeight: 580 }} role="status" aria-busy="true"><p className="muted">Preparando PDF…</p></div>}
   </>;
@@ -91,6 +92,15 @@ function FollowUpReportSession({ visit, actor, agendaAvailable, backHref, backLa
     ?? [...(initialDraft?.findings.map((finding) => finding.id) ?? []), ...initialWorkFindings.map((finding) => finding.id)]);
   const [pending, setPending] = useState(false);
   const [nameOpen, setNameOpen] = useState(false);
+  const nameDialog = useRef<HTMLDialogElement>(null);
+  const saveTrigger = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!nameOpen) return;
+    const node = nameDialog.current;
+    const trigger = saveTrigger.current;
+    node?.showModal();
+    return () => { node?.close(); if (trigger?.isConnected) trigger.focus(); };
+  }, [nameOpen]);
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -163,7 +173,7 @@ function FollowUpReportSession({ visit, actor, agendaAvailable, backHref, backLa
             value={subjects} onChange={(event) => setSubjects(event.target.value)} placeholder="Descreva os assuntos tratados na visita." /></label>
           <label>Decisões/Deliberações<textarea required maxLength={10000} disabled={!canWrite || pending}
             value={decisions} onChange={(event) => setDecisions(event.target.value)} placeholder="Registre as decisões e deliberações da visita." /></label>
-          <div className={styles.actions}><button type="submit" className="primary" disabled={!canWrite || pending || selectedFindings.length === 0 || selectedFindings.length > 30}>{pending ? "Salvando…" : "Salvar relatório"}</button></div>
+          <div className={styles.actions}><button ref={saveTrigger} type="submit" className="primary" disabled={!canWrite || pending || selectedFindings.length === 0 || selectedFindings.length > 30}>{pending ? "Salvando…" : "Salvar relatório"}</button></div>
         </form>
         {error && <p className={styles.error} role="alert">{error}</p>}
       </section>
@@ -179,18 +189,17 @@ function FollowUpReportSession({ visit, actor, agendaAvailable, backHref, backLa
                 <span>Orientação para correção: {finding.correction}</span></span></label>
             {initialPhotos.some((photo) => photo.findingId === finding.id) && <div className={styles.photos}>
               {initialPhotos.filter((photo) => photo.findingId === finding.id).map((photo) =>
-                <a key={photo.fileName} href={`/app/acompanhamento/fotos/${visit.id}/${photo.fileName}`} target="_blank" rel="noreferrer" aria-label="Abrir foto do apontamento">
+                <a data-tooltip={`Abrir foto em nova guia: ${finding.description}`} key={photo.fileName} href={`/app/acompanhamento/fotos/${visit.id}/${photo.fileName}`} target="_blank" rel="noreferrer" aria-label={`Abrir foto em nova guia: ${finding.description}`}>
                   <EvidenceThumbnail thumbnailSrc={followUpPhotoThumbnailUrl(`/app/acompanhamento/fotos/${visit.id}/${photo.fileName}`, actor)} originalSrc={`/app/acompanhamento/fotos/${visit.id}/${photo.fileName}`} alt={`Foto de ${finding.description}`} width={110} height={82} /></a>)}</div>}
             {initialWorkFindings.some((item) => item.id === finding.id) && <div className={styles.photos}>
               {initialWorkFindings.filter((item) => item.id === finding.id).map((item) =>
-                <a key={item.id} href={`/app/acompanhamento/obras/${item.workId}/fotos/${item.photoFileName}`} target="_blank" rel="noreferrer" aria-label="Abrir foto do apontamento">
+                <a data-tooltip={`Abrir foto em nova guia: ${finding.description}`} key={item.id} href={`/app/acompanhamento/obras/${item.workId}/fotos/${item.photoFileName}`} target="_blank" rel="noreferrer" aria-label={`Abrir foto em nova guia: ${finding.description}`}>
                   <EvidenceThumbnail thumbnailSrc={followUpPhotoThumbnailUrl(`/app/acompanhamento/obras/${item.workId}/fotos/${item.photoFileName}`, actor)} originalSrc={`/app/acompanhamento/obras/${item.workId}/fotos/${item.photoFileName}`} alt={`Foto de ${finding.description}`} width={110} height={82} /></a>)}</div>}
           </li>)}</ul></> : <p className="muted">Nenhum apontamento registrado para esta visita.</p>}
       </section>
     </div>
-    {nameOpen && <div className={styles.dialogBackdrop}>
-      <div className={styles.nameDialog} role="dialog" aria-modal="true" aria-labelledby="report-name-title"
-        onKeyDown={(event) => { if (event.key === "Escape" && !pending) setNameOpen(false); }}>
+    {nameOpen && <dialog ref={nameDialog} className={styles.nameDialog} aria-labelledby="report-name-title"
+        onKeyDown={containDialogFocus} onCancel={(event) => { event.preventDefault(); if (!pending) setNameOpen(false); }}>
         <h3 id="report-name-title">Nome do relatório</h3>
         <p>Escolha um nome para identificá-lo na lista da visita.</p>
         <form onSubmit={(event) => { void saveNamedReport(event); }}>
@@ -202,7 +211,6 @@ function FollowUpReportSession({ visit, actor, agendaAvailable, backHref, backLa
             <button type="submit" className="primary" disabled={pending || !title.trim()}>{pending ? "Salvando…" : "Confirmar e salvar"}</button>
           </div>
         </form>
-      </div>
-    </div>}
+    </dialog>}
   </>;
 }

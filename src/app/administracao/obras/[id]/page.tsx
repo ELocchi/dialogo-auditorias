@@ -25,7 +25,7 @@ export default async function EditWorkPage({ params }: { params: Promise<{ id: s
     <AdministrativeHeader name={name} email={user.email} userId={user.id} />
     <main id="work-content" tabIndex={-1} className={styles.main}>
       <div className={styles.pageHeading}>
-        <Link className={styles.backButton} href="/app?secao=obras" aria-label="Voltar às obras" title="Voltar às obras">
+        <Link className={styles.backButton} href="/app?secao=obras" aria-label="Voltar às obras" data-tooltip="Voltar às obras">
           <svg aria-hidden="true" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 12H4m7-7-7 7 7 7" /></svg>
         </Link>
         <h2>Editar Obra</h2>

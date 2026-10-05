@@ -72,7 +72,7 @@ export function AuditComparisonHistory({ audits, localAudits, activeAudit, child
       {(failed.length > 0 || discoveryFailed) && <button type="button" className="secondary" onClick={() => {
         if (discoveryFailed) previous.retry();
         if (failed.length) void loader.loadAudits(failed).catch(() => {});
-      }}>Tentar novamente</button>}
+      }}>Recarregar comparação</button>}
     </div>}
     {children(history)}
   </>;

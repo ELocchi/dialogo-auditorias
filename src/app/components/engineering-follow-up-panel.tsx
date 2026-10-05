@@ -41,7 +41,7 @@ function EngineeringFollowUpSession({ actor, visits, works, module }: Props) {
       </select>}
     </div>
     {(loading || standalone.loading) && <p className="muted" role="status">Carregando relatórios orientativos...</p>}
-    {(error || standalone.error) && <p className="muted" role="alert">Não foi possível consultar todos os relatórios orientativos. <button type="button" className="secondary" onClick={() => { retry(); standalone.retry(); }}>Tentar novamente</button></p>}
+    {(error || standalone.error) && <p className="muted" role="alert">Não foi possível consultar todos os relatórios orientativos. <button type="button" className="secondary" onClick={() => { retry(); standalone.retry(); }}>Recarregar relatórios orientativos</button></p>}
     {visible.length ? <div className={styles.list}>{visible.map(report => <EngineeringFollowUpReportCard report={report} key={report.id} />)}</div>
       : data && standalone.data && !loading && !error && !standalone.loading && !standalone.error ? <p className="muted">Nenhum relatório orientativo publicado para esta disciplina.</p> : null}
   </section>;
@@ -57,6 +57,6 @@ const EngineeringFollowUpReportCard = memo(function EngineeringFollowUpReportCar
       <span>{report.workName}</span>
       <small>Responsável: {report.auditorName}</small>
     </div>
-    <a className="secondary" href={report.pdfHref} target="_blank" rel="noreferrer">Baixar PDF</a>
+    <a data-tooltip={`Baixar PDF: ${report.title}, ${report.workName}, ${formatAuditDate(report.date)}`} className="secondary" href={report.pdfHref} download aria-label={`Baixar PDF: ${report.title}, ${report.workName}, ${formatAuditDate(report.date)}`}>Baixar PDF</a>
   </article>;
 });

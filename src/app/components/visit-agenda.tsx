@@ -1,4 +1,5 @@
 "use client";
+import { containDialogFocus } from "./dialog-keyboard";
 
 import { useId, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import {
@@ -110,7 +111,7 @@ function AdministrativeAgenda({ user, works, users, visits, module, workId, avai
       <section className={`panel ${styles.scheduledPanel}`} aria-labelledby={listId}>
         <div className={styles.scheduledHeading}>
           <div><h3 id={listId}>{selectedAuditor ? `Agenda de ${selectedAuditor.name}` : "Visitas agendadas"}</h3>{selectedAuditor && <button type="button" className={styles.clearProfile} onClick={() => setSelectedAuditorId(null)}>Ver todos os perfis</button>}</div>
-          <button ref={addButtonRef} type="button" className={styles.addVisit} aria-label="Agendar visita" title="Agendar visita" aria-haspopup="dialog" disabled={mutationPending} onClick={() => dialogRef.current?.showModal()}><Icon name="plus" /></button>
+          <button ref={addButtonRef} type="button" className={styles.addVisit} aria-label="Agendar visita" data-tooltip="Agendar visita" aria-haspopup="dialog" disabled={mutationPending} onClick={() => dialogRef.current?.showModal()}><Icon name="plus" /></button>
         </div>
         {visibleVisits.length ? <PaginatedVisitList key={`${user.id}:${user.role}:${selectedAuditorId ?? "all"}`}
           visits={visibleVisits} works={authorizedWorks} user={user} users={users} available={available}
@@ -121,7 +122,7 @@ function AdministrativeAgenda({ user, works, users, visits, module, workId, avai
       </section>
       <AdminVisitCalendar visits={authorizedVisits} works={authorizedWorks} auditors={users} viewerId={user.id} calendarOnly includeFollowUps selectedAuditorId={selectedAuditorId} onSelectAuditor={setSelectedAuditorId} />
     </div>
-    <dialog ref={dialogRef} className={styles.scheduleDialog} aria-labelledby={dialogTitleId} onCancel={(event) => { if (mutationPending || exporting) event.preventDefault(); }} onClose={() => addButtonRef.current?.focus()}>
+    <dialog onKeyDown={containDialogFocus} ref={dialogRef} className={styles.scheduleDialog} aria-labelledby={dialogTitleId} onCancel={(event) => { if (mutationPending || exporting) event.preventDefault(); }} onClose={() => addButtonRef.current?.focus()}>
       <button type="button" className={`secondary ${styles.closeDialog}`} disabled={mutationPending || exporting} onClick={() => dialogRef.current?.close()}>Fechar</button>
       <CreateVisitForm user={user} works={authorizedWorks} users={users} module={module} workId={workId}
         available={available} mutationPending={mutationPending} onCreate={onCreate} headingId={dialogTitleId}
@@ -262,8 +263,8 @@ function PaginatedVisitList({ visits, works, user, users, available, mutationPen
     {page.pageCount > 1 && <nav className={paginationStyles.pagination} aria-label="Páginas de visitas agendadas">
       <p aria-live="polite">{page.first}–{page.last} de {page.total} visitas<span>Página {page.page} de {page.pageCount}</span></p>
       <div>
-        <button type="button" className="secondary" disabled={page.page === 1 || mutationPending} onClick={() => changePage(page.page - 1)}>Anterior</button>
-        <button type="button" className="secondary" disabled={page.page === page.pageCount || mutationPending} onClick={() => changePage(page.page + 1)}>Próxima</button>
+        <button type="button" className="secondary" disabled={page.page === 1 || mutationPending} onClick={() => changePage(page.page - 1)}>Página anterior</button>
+        <button type="button" className="secondary" disabled={page.page === page.pageCount || mutationPending} onClick={() => changePage(page.page + 1)}>Próxima página</button>
       </div>
     </nav>}
   </>;
@@ -476,7 +477,7 @@ function CreateVisitForm({ user, works, users, module, workId, available, mutati
         <div className={styles.formActions}>
           {onImport && <button type="button" className="secondary" disabled={downloadingTemplate || importing || exporting || mutationPending} onClick={() => { void downloadTemplate(); }}>{downloadingTemplate ? "Preparando…" : "Baixar planilha padrão"}</button>}
           {onImport && <><input ref={importInputRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" tabIndex={-1} aria-hidden="true" style={{ display: "none" }} onChange={(event) => { void importAgenda(event); }} /><button type="button" className="secondary" disabled={importing || exporting || mutationPending} onClick={() => importInputRef.current?.click()}>{importing ? "Importando…" : "Importar planilha"}</button></>}
-          {onSend && <button type="button" className="primary" disabled={draftCount === 0 || exporting || mutationPending} onClick={onSend}>{exporting ? "Enviando…" : `Enviar para confirmação (${draftCount})`}</button>}
+          {onSend && <button type="button" className="primary" disabled={draftCount === 0 || exporting || mutationPending} data-tooltip="Disponibilizar os agendamentos para confirmação dos auditores na plataforma" onClick={onSend}>{exporting ? "Enviando…" : `Enviar para confirmação (${draftCount})`}</button>}
         </div>
       </div>
       </fieldset>
@@ -528,8 +529,8 @@ function EditableAgendaRow({ input, user, works, users, disabled, newRow = false
     </select></td>
     <td data-label="Data"><input required type="date" value={input.date} aria-label="Data da visita" disabled={disabled} onChange={(event) => update({ date: event.target.value })} /></td>
     <td data-label="Observação"><textarea maxLength={2000} value={input.note} aria-label="Observação" disabled={disabled} placeholder="Opcional" onChange={(event) => update({ note: event.target.value })} /></td>
-    <td data-label="Ação">{onRemove ? <button type="button" className="secondary" disabled={disabled} onClick={onRemove}>Retirar</button>
-      : <button type="submit" className="primary" disabled={disabled || !eligibleWorks.some((work) => work.id === input.workId) || !auditors.some((auditor) => auditor.id === input.auditorId)}>Adicionar</button>}</td>
+    <td data-label="Ação">{onRemove ? <button type="button" className="secondary" disabled={disabled} onClick={onRemove}>Retirar da lista</button>
+      : <button type="submit" className="primary" disabled={disabled || !eligibleWorks.some((work) => work.id === input.workId) || !auditors.some((auditor) => auditor.id === input.auditorId)}>Adicionar agendamento</button>}</td>
   </tr>;
 }
 
@@ -639,8 +640,9 @@ export function VisitCard({ visit, user, users, work, available, mutationPending
           <dl className={styles.visitDetails}>
             <div><dt>AGENDAMENTO ADMINISTRATIVO</dt><dd>{creatorName}<small>Registrado em <time dateTime={visit.createdAt}>{formatRecordedAt(visit.createdAt)}</time></small></dd></div>
           </dl>
-          {startVisible && <button type="button" className={`primary ${styles.startAuditButton}`} disabled={!startAllowed || mutationPending || starting} title={!available ? "Agenda indisponível" : visit.confirmationStatus !== "confirmed" ? "Confirme a data da visita antes de iniciar" : visit.date !== getSaoPauloToday() ? "Disponível somente na data agendada" : undefined} onClick={() => { void startAudit(); }}>{starting ? "Abrindo…" : auditStarted ? "Retomar auditoria" : "Iniciar auditoria"}</button>}
-          {manager && <button type="button" className="secondary" disabled={!available || !hasRevision || mutationPending || deleting} aria-expanded={confirmDelete} onClick={() => { setConfirmDelete(!confirmDelete); setError(""); }}>{confirmDelete ? "Voltar" : "Excluir agendamento"}</button>}
+          {startVisible && !startAllowed && <p className="muted">{!available ? "Agenda indisponível." : visit.confirmationStatus !== "confirmed" ? "Confirme a data da visita antes de iniciar a auditoria." : "A auditoria pode ser iniciada somente na data agendada."}</p>}
+          {startVisible && <button type="button" className={`primary ${styles.startAuditButton}`} disabled={!startAllowed || mutationPending || starting} data-tooltip={!available ? "Agenda indisponível" : visit.confirmationStatus !== "confirmed" ? "Confirme a data da visita antes de iniciar" : visit.date !== getSaoPauloToday() ? "Disponível somente na data agendada" : undefined} onClick={() => { void startAudit(); }}>{starting ? "Abrindo…" : auditStarted ? "Retomar auditoria" : "Iniciar auditoria"}</button>}
+          {manager && <button data-tooltip={`${confirmDelete ? "Cancelar exclusão do" : "Excluir"} agendamento: ${work?.name ?? visit.workId}, ${formatAuditDate(visit.date)}`} type="button" className="secondary" disabled={!available || !hasRevision || mutationPending || deleting} aria-label={`${confirmDelete ? "Cancelar exclusão do" : "Excluir"} agendamento: ${work?.name ?? visit.workId}, ${formatAuditDate(visit.date)}`} aria-expanded={confirmDelete} onClick={() => { setConfirmDelete(!confirmDelete); setError(""); }}>{confirmDelete ? "Cancelar exclusão" : "Excluir agendamento"}</button>}
         </div>
         {confirmDelete && manager && <div className={styles.deleteConfirmation}>
           <p>Excluir este agendamento da agenda de todos os perfis? A visita deixará de aparecer no calendário e nas notificações.</p>

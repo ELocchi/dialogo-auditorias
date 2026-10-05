@@ -22,8 +22,8 @@
 .downloadButton { display: grid; width: 40px; min-width: 40px; height: 40px; min-height: 40px; place-items: center; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--navy); }
 .downloadButton:hover { border-color: var(--navy); background: #e8eef7; }
 .downloadButton svg { width: 20px; height: 20px; }
-.dialogBackdrop { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 20px; background: #13284499; }
-.nameDialog { width: min(100%, 460px); padding: 24px; border: 1px solid var(--line); border-radius: 12px; background: white; box-shadow: 0 18px 52px #0c20384d; }
+.nameDialog::backdrop { background: #13284499; }
+.nameDialog { width: min(calc(100vw - 32px), 460px); max-height: 88dvh; overflow: auto; padding: 24px; border: 1px solid var(--line); border-radius: 12px; background: white; box-shadow: 0 18px 52px #0c20384d; }
 .nameDialog h3 { margin: 0 0 8px; color: var(--navy); font-size: 20px; }
 .nameDialog > p { margin: 0 0 20px; color: var(--muted); font-size: 13px; }
 .nameDialog form { display: grid; gap: 18px; }

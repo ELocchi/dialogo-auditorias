@@ -71,10 +71,10 @@ export function PrototypeDashboard({ user, module, works, agendaWorks = works, a
     ? <section className="panel" aria-label="Principais apontamentos"><h3>Principais apontamentos</h3><p role="status">Não foi possível carregar os apontamentos das auditorias.</p></section>
     : <AdminFindings mostSevere={seriousItems} mostRecurring={recurringItems}
       onOpenFindings={auditor ? (source) => open(source === "follow_up" ? "follow_up" : "audits") : undefined} />;
-  const worksCard = <Metric label="Obras disponíveis" value={works.length} description={admin ? "Consultar obras" : undefined} onClick={() => open("works")} />;
-  const agendaCard = <Metric label={admin ? "Visitas Agendadas" : auditor ? "Auditorias Agendadas" : "Visitas na agenda"} value={admin && visits.length === 0 ? "--" : auditor ? scheduledAudits : visits.length} description={admin ? "Consultar agenda" : undefined} onClick={works[0] && canConsultAgenda(user, works[0].id, module) ? () => open("agenda") : undefined} />;
-  const profilesCard = <Metric label={admin ? "Perfis cadastrados" : "Relatórios publicados"} value={admin ? activeAccountCount ?? "--" : publishedCount} description={admin ? "Consultar perfis" : auditor ? "Consultar auditorias" : undefined} onClick={() => open(admin ? "settings" : auditor ? "audits" : "report")} />;
-  const catalogsCard = <Metric label={admin ? "Roteiros disponíveis" : user.role === "engineering" ? "Auditorias consultáveis" : "Rascunhos próprios"} value={admin ? user.modules.includes("safety") ? 1 + (user.modules.includes("quality") ? 2 : 0) : 2 : user.role === "engineering" ? audits.length : ownDrafts.length} description={admin ? "Consultar roteiros" : undefined} onClick={() => open(admin ? "criteria" : "audits")} />;
+  const worksCard = <Metric label="Obras disponíveis" value={works.length} description="Consultar obras" onClick={() => open("works")} />;
+  const agendaCard = <Metric label={admin ? "Visitas Agendadas" : auditor ? "Auditorias Agendadas" : "Visitas na agenda"} value={admin && visits.length === 0 ? "--" : auditor ? scheduledAudits : visits.length} description="Consultar agenda" onClick={works[0] && canConsultAgenda(user, works[0].id, module) ? () => open("agenda") : undefined} />;
+  const profilesCard = <Metric label={admin ? "Perfis cadastrados" : "Relatórios publicados"} value={admin ? activeAccountCount ?? "--" : publishedCount} description={admin ? "Consultar perfis" : auditor ? "Consultar auditorias" : "Consultar relatórios"} onClick={() => open(admin ? "settings" : auditor ? "audits" : "report")} />;
+  const catalogsCard = <Metric label={admin ? "Roteiros disponíveis" : user.role === "engineering" ? "Auditorias consultáveis" : "Rascunhos próprios"} value={admin ? user.modules.includes("safety") ? 1 + (user.modules.includes("quality") ? 2 : 0) : 2 : user.role === "engineering" ? audits.length : ownDrafts.length} description={admin ? "Consultar roteiros" : "Consultar auditorias"} onClick={() => open(admin ? "criteria" : "audits")} />;
   if (user.role === "engineering") return <EngineeringOverview user={user} works={works} audits={audits} auditFindings={visibleFindings} summary={summary} publishedActionPlanKeys={publishedActionPlanKeys} visits={visits} auditors={auditors} previewRanking={previewRanking} open={open} />;
   if (auditor) return <>
     <div className="page-intro"><div><h2>Visão geral</h2></div></div>
@@ -233,7 +233,7 @@ function EngineeringMetric({ label, value, detail, accent = false }: { label: st
 }
 
 function Metric({ label, value, description, onClick }: { label: string; value: number | string; description?: string; onClick?: () => void }) {
-  return <button type="button" className="stat-card" onClick={onClick} disabled={!onClick}><span className="stat-top">{label}<Icon name="arrow" /></span><strong className="stat-value">{String(value).padStart(2, "0")}</strong><span className="stat-bottom">{onClick ? description ?? "Consultar contexto selecionado" : "Consulta não concedida neste perfil"}</span></button>;
+  return <button type="button" className="stat-card" onClick={onClick} disabled={!onClick}><span className="stat-top">{label}<Icon name="arrow" /></span><strong className="stat-value">{String(value).padStart(2, "0")}</strong><span className="stat-bottom">{onClick ? description ?? `Consultar ${label.toLocaleLowerCase("pt-BR")}` : "Consulta não concedida neste perfil"}</span></button>;
 }
 
 function historyContextKey(user: DemoUser, works: readonly WorkRecord[], filter = "") {
@@ -249,7 +249,7 @@ export function AuditList({ user, audits, works, onOpen, module, workId, context
   return <><div className="page-intro"><div><h2>Auditorias e histórico</h2><p className="muted">Rascunhos próprios e consultas permitidas no módulo e na obra selecionados.</p></div></div>
     <HistoryFilters dateFrom={dateFrom} dateTo={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} label="Filtrar histórico" />
     <HistoryLoadStatus history={history} />
-    <div className="table-panel"><table><caption>Auditorias do contexto</caption><thead><tr><th>Obra / registro</th><th>Modelo / versão</th><th>Data / responsável</th><th>Situação</th><th>Acesso</th></tr></thead><tbody>{rows.map((audit) => <tr key={audit.id}><td><strong>{works.find((work) => work.id === audit.workId)?.name}</strong><small>{audit.id}</small></td><td>{auditModelLabels[audit.modelId].name}<small>{auditVersionLabel(audit)}</small></td><td>{formatAuditDate(audit.date)}<small>{audit.auditor}</small></td><td><span className="badge">{audit.status}</span></td><td><button type="button" className="secondary" onClick={() => onOpen(audit)}>{canEditAudit(user, audit) ? "Retomar rascunho" : "Consultar"}</button></td></tr>)}{rows.length === 0 && history.status === "ready" && <tr><td colSpan={5}>Nenhuma auditoria disponível para este perfil e contexto.</td></tr>}</tbody></table></div>
+    <div className="table-panel"><table><caption>Auditorias do contexto</caption><thead><tr><th>Obra / registro</th><th>Modelo / versão</th><th>Data / responsável</th><th>Situação</th><th>Acesso</th></tr></thead><tbody>{rows.map((audit) => <tr key={audit.id}><td><strong>{works.find((work) => work.id === audit.workId)?.name}</strong><small>{audit.id}</small></td><td>{auditModelLabels[audit.modelId].name}<small>{auditVersionLabel(audit)}</small></td><td>{formatAuditDate(audit.date)}<small>{audit.auditor}</small></td><td><span className="badge">{audit.status}</span></td><td><button type="button" className="secondary" onClick={() => onOpen(audit)}>{canEditAudit(user, audit) ? "Retomar rascunho" : "Consultar auditoria"}</button></td></tr>)}{rows.length === 0 && history.status === "ready" && <tr><td colSpan={5}>Nenhuma auditoria disponível para este perfil e contexto.</td></tr>}</tbody></table></div>
     <HistoryPagination {...history} label="Páginas do histórico de auditorias" />
   </>;
 }
@@ -425,8 +425,8 @@ function PublishedDocumentCard({ date, workName, responsible, example = false, a
     </button>
     {expanded && <div className={styles.publicationDetails}>
       <span>{example ? "Exemplo visual, sem publicação" : `Referência: ${monthLabel}`}</span>
-      {onAction && actionLabel ? <button type="button" className="primary" onClick={onAction}>{actionLabel}</button>
-        : <button type="button" className="secondary" disabled title="PDF ainda não disponível">Baixar PDF</button>}
+      {onAction && actionLabel ? <button type="button" className="primary" aria-label={`${actionLabel}: ${workName}, ${formatAuditDate(date)}`} onClick={onAction}>{actionLabel}</button>
+        : <button type="button" className="secondary" disabled aria-label={`PDF ainda não disponível: ${workName}`} data-tooltip="PDF ainda não disponível">PDF indisponível</button>}
     </div>}
   </article>;
 }

@@ -20,7 +20,7 @@ export default async function ApprovalHistoryPage({ searchParams }: { searchPara
     <AccessAdministrationHeader user={{ id: user.id, email: user.email }} />
     <main id="history-content" className={styles.main} tabIndex={-1}>
       <div className={workStyles.pageHeading}>
-        <Link className={workStyles.backButton} href="/app?secao=administracao" aria-label="Voltar à Administração" title="Voltar à Administração">
+        <Link className={workStyles.backButton} href="/app?secao=administracao" aria-label="Voltar à Administração" data-tooltip="Voltar à Administração">
           <svg aria-hidden="true" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 12H4m7-7-7 7 7 7" /></svg>
         </Link>
         <h2>Aprovações e Histórico</h2>

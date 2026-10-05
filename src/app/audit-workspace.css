@@ -351,3 +351,29 @@
 .audit-accident-alert { width: 23px; height: 23px; color: #e61f2e; flex-shrink: 0; }
 .audit-accident-alert path { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .audit-accident-alert circle { fill: currentColor; }
+
+.audit-photo-dialog { width: min(920px, calc(100vw - 24px)); max-height: 90dvh; overflow: auto; border: 1px solid var(--line); border-radius: 12px; padding: 16px; color: var(--navy); }
+.audit-photo-dialog::backdrop { background: rgb(7 21 44 / 74%); }
+.audit-photo-dialog-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.audit-photo-dialog-heading h2 { font-size: 16px; }
+.audit-photo-dialog-heading button { min-width: 44px; min-height: 44px; }
+.audit-photo-dialog > img { display: block; max-width: 100%; width: auto; height: auto; max-height: 58dvh; object-fit: contain; margin: auto; }
+.audit-photo-dialog-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 16px; }
+.audit-photo-dialog-actions p { flex-basis: 100%; text-align: center; }
+.audit-photo-dialog .photo-delete { color: #b52332; border-color: #b52332; }
+
+.check-option-text { display: block; font-size: 9px; line-height: 1.15; font-weight: 600; }
+@media (max-width: 640px) {
+  .quantity-check, .quantity-check.has-photo-action, .quantity-check.has-check-weight { min-width: 0; grid-template-columns: 44px repeat(3, minmax(44px, 1fr)); }
+  .quantity-check > .check-label { grid-column: 2 / -1; }
+  .quantity-check > .check-note { grid-column: 1 / -1; }
+  .quantity-check > .check-option { width: 100%; min-height: 48px; }
+  .quantity-check > .check-weight { width: 44px; }
+}
+
+.mobile-action-label { display: none; }
+@media (max-width: 640px) {
+  .mobile-action-label { display: block; font-size: 10px; line-height: 1.1; font-weight: 600; }
+  .remove-verified-item { min-width: 44px; }
+  .quantity-checks .add-verified-item { display: inline-flex; align-items: center; gap: 8px; width: max-content; padding: 8px 12px; }
+}

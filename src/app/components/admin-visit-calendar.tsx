@@ -84,9 +84,9 @@ export function AdminVisitCalendar({ visits, works, auditors = [], onViewAgenda,
       <h3 id={headingId}>{calendarOnly ? "Calendário" : "Agenda de visitas"}</h3>
       <div className={styles.toolbar}>
         <div className={styles.monthNavigation} role="group" aria-label="Navegar pelo calendário">
-          <button type="button" className={styles.monthButton} aria-label="Mês anterior" disabled={month === "0001-01"} onClick={() => changeMonth(-1)}><Icon name="arrow" className={styles.previous} /></button>
+          <button data-tooltip="Mês anterior do calendário" type="button" className={styles.monthButton} aria-label="Mês anterior do calendário" disabled={month === "0001-01"} onClick={() => changeMonth(-1)}><Icon name="arrow" className={styles.previous} /></button>
           <span id={monthId} className={styles.monthLabel} aria-live="polite">{monthLabel}</span>
-          <button type="button" className={styles.monthButton} aria-label="Próximo mês" disabled={month === "9999-12"} onClick={() => changeMonth(1)}><Icon name="arrow" /></button>
+          <button data-tooltip="Próximo mês do calendário" type="button" className={styles.monthButton} aria-label="Próximo mês do calendário" disabled={month === "9999-12"} onClick={() => changeMonth(1)}><Icon name="arrow" /></button>
         </div>
       </div>
     </div>
@@ -112,7 +112,7 @@ export function AdminVisitCalendar({ visits, works, auditors = [], onViewAgenda,
           return <td key={date} aria-label={calendarOnly ? label : undefined}>
             {calendarOnly ? <span className={`${styles.day}${hasAudit ? ` ${styles.auditDay}` : ""}`} title={label} aria-current={date === today ? "date" : undefined}>
               {content}
-            </span> : <button type="button" className={`${styles.day}${hasAudit ? ` ${styles.auditDay}` : ""}`} aria-label={label}
+            </span> : <button data-tooltip={`${selectedDate === date ? "Retirar filtro de" : "Filtrar visitas de"} ${label}`} type="button" className={`${styles.day}${hasAudit ? ` ${styles.auditDay}` : ""}`} aria-label={`${selectedDate === date ? "Retirar filtro de" : "Filtrar visitas de"} ${label}`}
               aria-current={date === today ? "date" : undefined} aria-pressed={selectedDate === date} aria-controls={appointmentsId}
               onClick={() => setSelectedDate((previous) => previous === date ? null : date)}>
               {content}
@@ -121,12 +121,12 @@ export function AdminVisitCalendar({ visits, works, auditors = [], onViewAgenda,
         })}
       </tr>)}</tbody>
     </table>
-    {showLegend && <div className={styles.legend} aria-label={effectiveColorBy === "work" ? "Cores das obras" : "Cores dos auditores"}>
+    {showLegend && <div className={styles.legend} role="group" aria-label={effectiveColorBy === "work" ? "Cores das obras" : "Cores dos auditores"}>
       {legendProfiles.length ? legendProfiles.map((profile) => <div className={styles.legendProfile} key={profile.id}>
         <span className={styles.legendIdentity}>{effectiveColorBy === "auditor" && onSelectAuditor && profileHasVisits.has(profile.id)
-          ? <button type="button" className={styles.profileButton} aria-pressed={selectedAuditorId === profile.id} onClick={() => onSelectAuditor(selectedAuditorId === profile.id ? null : profile.id)}>{profile.name}</button>
+          ? <button type="button" className={styles.profileButton} aria-label={`${profile.name}: ${selectedAuditorId === profile.id ? "retirar filtro de auditor" : "filtrar agenda deste auditor"}`} data-tooltip="Filtrar a agenda por auditor; clique novamente para retirar o filtro" aria-pressed={selectedAuditorId === profile.id} onClick={() => onSelectAuditor(selectedAuditorId === profile.id ? null : profile.id)}>{profile.name}</button>
           : effectiveColorBy === "work" && onSelectWork && workHasVisits.has(profile.id)
-            ? <button type="button" className={styles.profileButton} aria-pressed={selectedWorkId === profile.id} onClick={() => onSelectWork(selectedWorkId === profile.id ? null : profile.id)}>{profile.name}</button>
+            ? <button type="button" className={styles.profileButton} aria-label={`${profile.name}: ${selectedWorkId === profile.id ? "retirar filtro de obra" : "filtrar agenda desta obra"}`} data-tooltip="Filtrar a agenda por obra; clique novamente para retirar o filtro" aria-pressed={selectedWorkId === profile.id} onClick={() => onSelectWork(selectedWorkId === profile.id ? null : profile.id)}>{profile.name}</button>
           : <strong>{profile.name}</strong>}</span>
         <span className={styles.colorSwatch} style={{ backgroundColor: colors[profile.id] }} role="img" aria-label={`Cor de ${profile.name}`} />
       </div>) : <span className={styles.legendEmpty}>{effectiveColorBy === "work" ? "Nenhuma obra com visitas agendadas." : "Nenhum auditor autorizado nesta disciplina."}</span>}

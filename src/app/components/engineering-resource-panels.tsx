@@ -83,7 +83,7 @@ export function PublishedAuditFindingsList({ auditFindings, works, module, conte
         <span className={`${styles.chevron}${expanded ? ` ${styles.chevronExpanded}` : ""}`} aria-hidden="true" />
       </button>
       {expanded && <div className={styles.auditDetails}><span className={styles.listLabel}>DA AUDITORIA PUBLICADA · {formatAuditDate(group.auditDate)}</span>
-        {!loaded ? detailState?.status === "error" ? <div role="alert"><p className="muted">{detailState.message || "Não foi possível carregar os detalhes da auditoria."}</p><button type="button" className="secondary" onClick={() => { void loadAudit(group.auditId).catch(() => {}); }}>Tentar novamente</button></div>
+        {!loaded ? detailState?.status === "error" ? <div role="alert"><p className="muted">{detailState.message || "Não foi possível carregar os detalhes da auditoria."}</p><button type="button" className="secondary" onClick={() => { void loadAudit(group.auditId).catch(() => {}); }}>Recarregar auditoria</button></div>
           : <p className="muted" role="status">Carregando apontamentos da auditoria…</p>
           : <ul className={styles.findings}>{group.findings.map((finding, findingIndex) => {
         const findingKey = `${finding.auditId}:${finding.id}`;
@@ -103,7 +103,7 @@ export function PublishedAuditFindingsList({ auditFindings, works, module, conte
             <div><span>Critério</span><p>{finding.verificationCriterion || "Não informado"}</p></div>
             <div><span>Status</span><strong className={finding.serious ? styles.statusNonconforming : styles.status}>{finding.serious ? "Item grave" : finding.status || "Com apontamento"}</strong></div>
             <div className={styles.findingPhotos}><span>Foto</span>{finding.evidencePhotos?.length ? <div>{finding.evidencePhotos.map((photo, photoIndex) => photo.url
-              ? <a href={photo.url} target="_blank" rel="noopener noreferrer" key={`${photo.name}:${photoIndex}`} title="Abrir foto em nova guia"><EvidenceThumbnail thumbnailSrc={photo.thumbnailUrl} originalSrc={photo.url} alt={`Evidência do item ${finding.item}`} width={160} height={100} /><small>{photo.name}</small></a>
+              ? <a href={photo.url} target="_blank" rel="noopener noreferrer" key={`${photo.name}:${photoIndex}`} data-tooltip="Abrir foto em nova guia"><EvidenceThumbnail thumbnailSrc={photo.thumbnailUrl} originalSrc={photo.url} alt={`Evidência do item ${finding.item}`} width={160} height={100} /><small>{photo.name}</small></a>
               : <small key={`${photo.name}:${photoIndex}`}>{photo.name}</small>)}</div>
               : <p>Nenhuma foto anexada.</p>}</div>
           </div>}
@@ -153,7 +153,7 @@ export function EngineeringResourcePanels({ actor, works, module, catalogs, audi
               <i className={`${styles.chevron}${expanded ? ` ${styles.chevronExpanded}` : ""}`} aria-hidden="true" />
             </button>
             {expanded && <div className={styles.otherFindingDetails} id={detailsId}>
-              <a className={styles.otherFindingPhoto} href={photoUrl} target="_blank" rel="noopener noreferrer" aria-label="Abrir foto do apontamento">
+              <a data-tooltip={`Abrir foto em nova guia: ${finding.description}`} className={styles.otherFindingPhoto} href={photoUrl} target="_blank" rel="noopener noreferrer" aria-label={`Abrir foto em nova guia: ${finding.description}`}>
                 <EvidenceThumbnail thumbnailSrc={followUpPhotoThumbnailUrl(photoUrl, actor)} originalSrc={photoUrl} alt={`Foto de ${finding.description}`} width={110} height={82} />
               </a>
               <div className={styles.otherFindingText}>
@@ -183,7 +183,7 @@ export function EngineeringRoutesPanel({ modules, catalogs, deferCatalogs = (con
         const version = catalogVersion(catalogs, modelId);
         return <li key={modelId}><div className={styles.catalogInfo}><strong>{auditModelLabels[modelId].name}</strong>
           <span>{version.criteria.length} itens · {auditModelLabels[modelId].version}</span></div>
-          <a className={styles.catalogDownload} href={`/api/reference-documents/${modelId}?download=pdf`} download aria-label={`Baixar PDF: ${auditModelLabels[modelId].name}`} title="Baixar PDF">
+          <a className={styles.catalogDownload} href={`/api/reference-documents/${modelId}?download=pdf`} download aria-label={`Baixar PDF: ${auditModelLabels[modelId].name}`} data-tooltip="Baixar PDF">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" /></svg>
           </a></li>;
       })}</ul>

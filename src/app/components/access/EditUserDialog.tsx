@@ -1,4 +1,5 @@
 "use client";
+import { containDialogFocus } from "../dialog-keyboard";
 
 import { useActionState, useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -34,7 +35,7 @@ export function EditUserDialog(props: EditUserDialogProps) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
   return <>
-    <button ref={triggerRef} type="button" className={`${styles.editUserButton} secondary`} aria-label={`Editar usuário ${props.name}`} title="Editar usuário" onClick={() => setOpen(true)}>
+    <button ref={triggerRef} type="button" className={`${styles.editUserButton} secondary`} aria-label={`Editar usuário ${props.name}`} data-tooltip="Editar usuário" onClick={() => setOpen(true)}>
       <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
     </button>
     {open && <EditUserForm {...props} onClose={() => {
@@ -96,7 +97,7 @@ function EditUserForm({ account, grants, works, name, email, actorId, onClose }:
     key: Math.max(-1, ...current.map((row) => row.key)) + 1, perfil: profile, obra_id: "", modulo: firstModule(profile),
   }]);
 
-  return <dialog ref={dialogRef} className={`${styles.approvalDialog} ${styles.editUserDialog}`} aria-labelledby={`${id}-title`} onCancel={(event) => { if (pending) event.preventDefault(); }} onClose={onClose}>
+  return <dialog onKeyDown={containDialogFocus} ref={dialogRef} className={`${styles.approvalDialog} ${styles.editUserDialog}`} aria-labelledby={`${id}-title`} onCancel={(event) => { if (pending) event.preventDefault(); }} onClose={onClose}>
       <form action={action} aria-busy={pending}>
         <input type="hidden" name="authUserId" value={account.auth_user_id} />
         <input type="hidden" name="grants" value={JSON.stringify(expandedGrants)} />
@@ -143,9 +144,9 @@ function EditUserForm({ account, grants, works, name, email, actorId, onClose }:
                   {works.map((work) => <option value={work.id} key={work.id}>{work.nome}</option>)}
                 </select>
               </label>
-              <button type="button" className="secondary" aria-label={`Remover obra ${index + 1} de ${profileLabels[profile]}`} onClick={() => setRows((current) => current.filter((item) => item.key !== row.key))}>Remover</button>
+              <button data-tooltip={`Remover obra ${index + 1} de ${profileLabels[profile]}`} type="button" className="secondary" aria-label={`Remover obra ${index + 1} de ${profileLabels[profile]}`} onClick={() => setRows((current) => current.filter((item) => item.key !== row.key))}>Remover</button>
             </div>)}
-            <button type="button" className={`primary ${styles.addGrantButton}`} aria-label={`Adicionar obra para ${profileLabels[profile]}`} title="Adicionar obra" onClick={() => addRow(profile)}>+</button>
+            <button type="button" className={`primary ${styles.addGrantButton}`} aria-label={`Adicionar obra para ${profileLabels[profile]}`} data-tooltip="Adicionar obra" onClick={() => addRow(profile)}>+</button>
           </fieldset>)}
           {account.auth_user_id === actorId && <p className={styles.editSelfNotice}>Ao alterar seu próprio perfil, a nova autorização será aplicada na próxima navegação.</p>}
         </fieldset>

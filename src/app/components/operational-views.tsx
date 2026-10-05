@@ -33,19 +33,19 @@ export function Works({ works, canManage = false }: { works: readonly WorkRecord
         {searchOpen && <div id={searchId} className="work-inline-search" role="search" aria-label="Filtrar obras">
           <div className="work-search-field">
             <input type="search" aria-label="Buscar obra" autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nome da obra ou cidade" />
-            {query && <button type="button" className="work-search-clear" onClick={resetFilters} aria-label="Limpar busca" title="Limpar busca">×</button>}
+            {query && <button type="button" className="work-search-clear" onClick={(event) => { event.currentTarget.parentElement?.querySelector<HTMLInputElement>("input")?.focus(); resetFilters(); }} aria-label="Limpar busca" data-tooltip="Limpar busca">×</button>}
           </div>
         </div>}
-        <button type="button" className="secondary work-search-button" aria-label={searchOpen ? "Fechar busca de obras" : "Buscar obras"} title="Buscar obras" aria-expanded={searchOpen} aria-controls={searchId}
+        <button type="button" className="secondary work-search-button" aria-label={searchOpen ? "Fechar busca de obras" : "Buscar obras"} data-tooltip={searchOpen ? "Fechar busca de obras" : "Buscar obras"} aria-expanded={searchOpen} aria-controls={searchId}
           onClick={() => { if (searchOpen) setQuery(""); setSearchOpen((open) => !open); }}><Icon name="search" /></button>
-        {canManage && <Link className="primary work-create-plus" href="/administracao/obras/nova" aria-label="Cadastrar obra" title="Cadastrar obra">+</Link>}
+        {canManage && <Link className="primary work-create-plus" href="/administracao/obras/nova" aria-label="Cadastrar obra" data-tooltip="Cadastrar obra">+</Link>}
       </div>
     </div>
     <div className="work-grid">
       {filteredWorks.map((work) => <article className="work-project-card" key={work.id}>
         <div className="work-project-heading">
           <span className="work-building-icon"><BuildingIcon /></span>
-          {canManage && !work.isDemo && <a className="secondary work-edit-icon" href={`/administracao/obras/${work.id}`} aria-label={`Editar obra ${work.name}`} title="Editar obra"><Icon name="edit" /></a>}
+          {canManage && !work.isDemo && <a className="secondary work-edit-icon" href={`/administracao/obras/${work.id}`} aria-label={`Editar obra ${work.name}`} data-tooltip="Editar obra"><Icon name="edit" /></a>}
         </div>
         <h3>{work.name}</h3><p className="work-location">{work.address && <>{work.address}<br /></>}{work.city}</p>
         <dl className="work-project-data"><div><dt>Responsável técnico</dt><dd>{work.engineer}</dd></div><div><dt>Coordenação</dt><dd>{work.coordinator}</dd></div></dl>
