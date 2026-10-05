@@ -28,6 +28,14 @@ function reset(profile = "AUDITOR_QUALIDADE", scope = null) {
 }
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const stubs = {
+  "server-only": "export {};",
+  "@/lib/publications/admin": `export function createPublicationClient() {
+    const s = globalThis.__standalonePdf; s.archive ??= new Map();
+    return { storage: { from() { return {
+      async download(path) { const bytes=s.archive.get(path); return bytes ? {data:new Blob([bytes])} : {error:{statusCode:'404'}}; },
+      async upload(path,bytes) { if(s.archive.has(path)) return {error:{statusCode:'409'}}; s.archive.set(path,bytes); return {}; }
+    }; } } };
+  }`,
   "next/navigation": "export function notFound(){throw Object.assign(new Error('Not found'),{status:404})}",
   "@/lib/auth/session": "export async function requireActiveProfile(){return globalThis.__standalonePdf.context}",
   "@/lib/access/workspace": "export async function readWorkspaceContext(){return globalThis.__standalonePdf.context}",
@@ -66,6 +74,8 @@ test("PDF uses frozen photo references and refuses incomplete downloads", async 
   assert.equal((await get()).status, 200);
   assert.deepEqual(state.downloads, [`${id(1)}/${id(2)}/${id(4)}_${id(5)}.jpg`]);
   state.photoError = true;
+  assert.equal((await get()).status, 200, "Preserved PDF does not depend on source photos");
+  state.archive.clear();
   const failed = await get();
   assert.equal(failed.status, 503);
   assert.notEqual(failed.headers.get("Content-Type"), "application/pdf");

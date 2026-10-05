@@ -1,0 +1,12 @@
+{
+  "bucket": {
+    "allowed_mime_types": [
+      "application/pdf"
+    ],
+    "file_size_limit": 41943040,
+    "id": "orientative-report-pdfs",
+    "public": false
+  },
+  "migration_applied": true,
+  "storage_rls": true
+}

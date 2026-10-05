@@ -53,7 +53,7 @@ export function StandaloneReportForm({ works, actor, today, initialWorkId }: {
     try {
       const result = await saveStandaloneReportAction({ ...payload, requestId: request.current.id }, actor);
       if (result.status === "success") {
-        router.replace(`/app/acompanhamento/relatorio/avulso/${result.reportId}?salvo=1`);
+        router.replace(`/app/acompanhamento/relatorio/avulso/${result.reportId}?salvo=1${result.archivePending ? "&pdf=pendente" : ""}`);
         return;
       }
       setError(result.message);

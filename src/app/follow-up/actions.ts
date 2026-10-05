@@ -1,5 +1,6 @@
 "use server";
 
+import { scheduledDocument, standaloneDocument } from "@/lib/follow-up/document";
 import { requireActiveProfile } from "@/lib/auth/session";
 import { readWorkspaceContext } from "@/lib/access/workspace";
 import { createClient } from "@/lib/supabase/server";
@@ -26,7 +27,18 @@ async function activeContext(expected: AgendaActorContext) {
 export async function saveStandaloneReportAction(value: unknown, expected: AgendaActorContext): Promise<StandaloneSaveResult> {
   const context = await activeContext(expected);
   if (!context) return { status: "error", message: "Seu perfil mudou. Atualize a página antes de salvar." };
-  return saveStandaloneReport(await createClient(), context, value);
+  const client = await createClient();
+  const result = await saveStandaloneReport(client, context, value);
+  if (result.status === "success") {
+    try {
+      if (!await standaloneDocument(client, context, result.reportId)) throw new Error("Report missing");
+    } catch {
+      // The immutable report record already exists. Keep its ID and retry PDF
+      // preservation on download instead of encouraging a duplicate publication.
+      return { ...result, archivePending: true };
+    }
+  }
+  return result;
 }
 
 export async function readStandaloneFindingsAction(workId: string, expected: AgendaActorContext) {
@@ -149,7 +161,15 @@ export async function saveFollowUpReportAction(input: unknown, expected: AgendaA
   if (!findings) return { status: "error", message: value.findings.length
     ? "Os apontamentos mudaram. Atualize a página e selecione novamente."
     : "Selecione pelo menos um apontamento para incluir no relatório." };
-  return saveFollowUpReport(client, context, { ...value, findings });
+  const result = await saveFollowUpReport(client, context, { ...value, findings });
+  if (result.status === "success" && result.report) {
+    try {
+      if (!await scheduledDocument(client, context, value.visitId, result.report.id)) throw new Error("Report missing");
+    } catch {
+      return { ...result, message: "Relatório salvo. O PDF ainda não pôde ser preservado; tente abrir o documento novamente." };
+    }
+  }
+  return result;
 }
 
 export async function readFindingDraftsAction(expected: AgendaActorContext): Promise<FindingDraftSnapshot> {

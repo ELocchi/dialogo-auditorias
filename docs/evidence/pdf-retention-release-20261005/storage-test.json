@@ -1,0 +1,13 @@
+{
+  "checkedAt": "2026-10-05T21:09:03.627Z",
+  "results": [
+    "PDF fictício criado e lido pelo arquivo privado",
+    "PDF preservado byte a byte sem regeneração",
+    "Download anônimo negado",
+    "URL pública não expõe o PDF"
+  ],
+  "sha256": "6f969307e7c48d04651c700e60d3713fe0c651dd9e140d9f14e028f68d32da08",
+  "byteLength": 897,
+  "testObjectId": "50512331-c5dd-47f5-aef8-d022e93b3f55",
+  "fictionalDocument": true
+}

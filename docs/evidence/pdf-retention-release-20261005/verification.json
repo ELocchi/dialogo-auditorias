@@ -1,0 +1,80 @@
+{
+  "baseCommit": "75f720e796b60e577f50ed330e29afe79efad37e",
+  "scope": "Preservação dos PDFs orientativos e regras de elegibilidade de fotos",
+  "buildExitCode": 0,
+  "eslintExitCode": 0,
+  "tests": {
+    "passed": 37,
+    "failed": 0
+  },
+  "storageChecks": 4,
+  "automaticPhotoDeletion": false,
+  "microsoft365Implemented": false,
+  "backupJobImplemented": false,
+  "files": [
+    {
+      "file": "scripts/test-follow-up-pdf-routes.mjs",
+      "sha256": "3267badfa575e3d2688f91e1635b7256276de946232ec3584adf281a5e5995ff"
+    },
+    {
+      "file": "scripts/test-standalone-report-pdf.mjs",
+      "sha256": "ba133264af5cfe99802e6ed80e7758f3c90847885ba50c9850fd3ec55ba0308a"
+    },
+    {
+      "file": "src/app/app/acompanhamento/relatorio/[visitId]/pdf/route.ts",
+      "sha256": "d2af14e960a6fcd75ac31e9fa3d252d126170931bef6ccc052f9fe38a1f67215"
+    },
+    {
+      "file": "src/app/app/acompanhamento/relatorio/avulso/[reportId]/page.tsx",
+      "sha256": "085c6db4572f4f2d249ef99685a07732e238fbc0243004488f8ebe6b9184ace6"
+    },
+    {
+      "file": "src/app/app/acompanhamento/relatorio/avulso/[reportId]/pdf/route.ts",
+      "sha256": "ad63fc874da6566751f54fbc4f6210c55ca0d6ef616835bdbf62dd023bac3919"
+    },
+    {
+      "file": "src/app/components/follow-up-report-page.tsx",
+      "sha256": "44df257e93653d6bec8c54fc671a73b2f3027bb5330e336fadab57ab508a8ce8"
+    },
+    {
+      "file": "src/app/components/standalone-report-form.tsx",
+      "sha256": "6f2aae24c6f71d5cb531c5674e1238264a5c79434ab27c3e025768928bcb44ea"
+    },
+    {
+      "file": "src/app/follow-up/actions.ts",
+      "sha256": "5cfe70b7c871fdae313d45fe8e2c728d2df20224475d72885bef84e4214ee73a"
+    },
+    {
+      "file": "src/lib/follow-up/standalone-contracts.ts",
+      "sha256": "6c833fdcfe8612bd48d017fb995326cae9e40bfd88efe73690210a8c3325ab71"
+    },
+    {
+      "file": "scripts/test-document-archive.mjs",
+      "sha256": "423c6cfd2f1cb353c5d84284fde44707210bcbd512ebbbdf10676946d42e9271"
+    },
+    {
+      "file": "scripts/test-photo-retention.mjs",
+      "sha256": "7f303e0d8200da3b58e13be98dff0246c14bef074c040b8afe76c97b1ac9949c"
+    },
+    {
+      "file": "src/domain/photo-retention.ts",
+      "sha256": "c836c24df21ab077412163401c836f93cc3b0695437ee7adfdd2d690d20d176e"
+    },
+    {
+      "file": "src/lib/documents/archive.ts",
+      "sha256": "bf91f4e501aa7c6f29b2510c6b7f0a0054c373e3994f1cdd30d11c133f77cfb6"
+    },
+    {
+      "file": "src/lib/follow-up/document.ts",
+      "sha256": "b71bfec9fd12fb32f165e8167194cbcae6cf6e2abf73e010e4990105e07e1931"
+    },
+    {
+      "file": "supabase/migrations/20261005000200_orientative_pdf_archive.sql",
+      "sha256": "c23032cf477b76a41b82c6bd7c619e7c8e9c7c5050e3221692cab31d9893a4bf"
+    },
+    {
+      "file": "docs/PILOTO-EMAILS-E-RETENCAO.md",
+      "sha256": "0ec5ecbcd25361588b6654d9a7ba33fe82ae787a5e4b5b9ac5bcbad1064fb29d"
+    }
+  ]
+}

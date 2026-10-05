@@ -1,0 +1,78 @@
+(node:45105) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/dialogo-pdf-retention-release-20261005/src/lib/documents/archive.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /private/tmp/dialogo-pdf-retention-release-20261005/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ preserved PDF remains byte-identical when originals disappear (8.620917ms)
+✔ concurrent creation returns the winner without overwriting (0.524458ms)
+✔ storage failure never regenerates or claims preservation (0.740375ms)
+✔ invalid PDFs and paths are rejected (0.586209ms)
+(node:45106) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/dialogo-pdf-retention-release-20261005/src/app/app/acompanhamento/relatorio/%5BvisitId%5D/pdf/route.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /private/tmp/dialogo-pdf-retention-release-20261005/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ auditor and both engineering scopes load only the exact report, with all visit and historical work photos (126.519666ms)
+✔ a unique report works without reportId and visualization remains inline (9.012375ms)
+✔ unavailable, unauthorized, ambiguous or mismatched report reads never touch Storage (0.90575ms)
+✔ list, download and image corruption failures produce 503 instead of partial PDFs (13.36725ms)
+✔ archived PDF survives source loss, but revoked report access still denies download (8.060125ms)
+(node:45107) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/dialogo-pdf-retention-release-20261005/src/lib/follow-up/pdf-photos.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /private/tmp/dialogo-pdf-retention-release-20261005/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ real PDF derivatives preserve orientation, aspect ratio, alpha and original bytes (134.130833ms)
+✔ real images reduce PDF bytes while retaining every text section, image and ordering (249.038542ms)
+ℹ PDF fixture: 3915322 → 971025 bytes; 9 pages; 4 ordered photos.
+✔ global admission bounds concurrent downloads, resize, complete documents and queue (1.202959ms)
+✔ timeouts/cancellation reject promptly while retaining occupied slots until real work settles (21.606583ms)
+✔ a cancelled queued request starts no download and frees its queue position (0.5055ms)
+✔ bad images, missing downloads and exhausted byte budgets fail the complete PDF (78.587792ms)
+(node:45108) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/dialogo-pdf-retention-release-20261005/src/lib/follow-up/photos.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /private/tmp/dialogo-pdf-retention-release-20261005/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ report index reads one visit and never lists Storage or sends report bodies to the editor (7.367208ms)
+✔ new editor loads only the target snapshot and its photo folder, retaining source findings and revision (0.690917ms)
+✔ editor with only work findings needs no visit Storage listing (0.269875ms)
+✔ closed report uses only exact detail and leaves all photo reads to its PDF (0.294083ms)
+✔ invalid, denied and unavailable visits never reach Storage or masquerade as an empty editor (0.48425ms)
+✔ legacy closed report still prevents creating another report from its index (0.639958ms)
+(node:45109) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/dialogo-pdf-retention-release-20261005/src/lib/follow-up/service.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /private/tmp/dialogo-pdf-retention-release-20261005/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ report input requires and trims the three independent sections (2.663125ms)
+✔ read reports accepts three sections and flags an old database response (1.17575ms)
+✔ only checked findings enter the report, using current saved content (0.614083ms)
+(node:45110) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/dialogo-pdf-retention-release-20261005/src/domain/photo-retention.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /private/tmp/dialogo-pdf-retention-release-20261005/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ three calendar months from finding publication, including month-end and São Paulo midnight (21.944375ms)
+✔ completion or expiration, never before publication (0.161333ms)
+✔ only a later published audit of the same work and discipline supersedes photos (0.243ms)
+✔ daily backup retained seven days and every cleanup gate is required (0.103625ms)
+(node:45111) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/dialogo-pdf-retention-release-20261005/src/lib/follow-up/standalone-service.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /private/tmp/dialogo-pdf-retention-release-20261005/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ both auditors open the real page with only their granted works and no agenda reads (6.184916ms)
+✔ an unavailable workspace offers a real retry instead of a 404 or a false empty form (0.602167ms)
+✔ another active profile offers only approved auditor choices, without reading technical data (0.472625ms)
+✔ a user without any auditor grant receives a return path and cannot enter the editor (0.12825ms)
+✔ an auditor without works can open the page without a 404, but gets no invented grant (0.146041ms)
+✔ the selected work follows the create link and never grants an unauthorized work (0.284708ms)
+(node:45113) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/dialogo-pdf-retention-release-20261005/src/app/app/acompanhamento/relatorio/avulso/%5BreportId%5D/pdf/route.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /private/tmp/dialogo-pdf-retention-release-20261005/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ standalone PDF works without a visit, findings or Storage listing for auditors and engineering (95.142166ms)
+✔ PDF uses frozen photo references and refuses incomplete downloads (16.061167ms)
+✔ unauthorized, missing and unavailable standalone documents never download evidence (0.848667ms)
+ℹ tests 37
+ℹ suites 0
+ℹ pass 37
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1029.089291

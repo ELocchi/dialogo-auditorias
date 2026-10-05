@@ -41,6 +41,14 @@ function reset(profile = "AUDITOR_QUALIDADE", scope = null) {
 }
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const stubs = {
+  "server-only": "export {};",
+  "@/lib/publications/admin": `export function createPublicationClient() {
+    const s = globalThis.__followUpPdfFixture; s.archive ??= new Map();
+    return { storage: { from() { return {
+      async download(path) { const bytes=s.archive.get(path); return bytes ? {data:new Blob([bytes])} : {error:{statusCode:'404'}}; },
+      async upload(path,bytes) { if(s.archive.has(path)) return {error:{statusCode:'409'}}; s.archive.set(path,bytes); return {}; }
+    }; } } };
+  }`,
   "next/navigation": "export function notFound() { throw Object.assign(new Error('Not found'), { status:404 }); }",
   "auth/session": "export async function requireActiveProfile() { const s=globalThis.__followUpPdfFixture; s.guards++; return s.context; }",
   "access/workspace": "export async function readWorkspaceContext() { const s=globalThis.__followUpPdfFixture; s.contexts++; return s.context; }",
@@ -113,4 +121,18 @@ test("list, download and image corruption failures produce 503 instead of partia
     assert.ok(!(await response.text()).startsWith("%PDF"));
   }
   reset(); assert.equal((await get()).status, 200, "Failed generation can be retried cleanly");
+});
+
+
+test("archived PDF survives source loss, but revoked report access still denies download", async () => {
+  reset();
+  const original = new Uint8Array(await (await get()).arrayBuffer());
+  state.listError = { message: "Photos removed" };
+  state.invalidImage = true;
+  const archived = await get();
+  assert.equal(archived.status, 200);
+  assert.deepEqual(new Uint8Array(await archived.arrayBuffer()), original);
+  assert.equal(state.lists.length, 1);
+  state.detail.report = null;
+  await assert.rejects(get(), { status: 404 });
 });

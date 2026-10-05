@@ -141,7 +141,7 @@ function FollowUpReportSession({ visit, actor, agendaAvailable, backHref, backLa
         setNameOpen(false);
         setReport(result.report);
         setSelectedIds(result.report.findings.map((finding) => finding.id));
-        setMessage("Relatório salvo.");
+        setMessage(result.message);
         window.history.replaceState(null, "", `/app/acompanhamento/relatorio/${visit.id}?relatorio=${result.report.id}`);
       } else setError(result.message);
     } catch { if (mounted.current) setError("Não foi possível salvar o relatório. Tente novamente."); }

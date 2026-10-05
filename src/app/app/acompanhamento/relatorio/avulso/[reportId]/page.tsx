@@ -11,7 +11,7 @@ import styles from "@/app/components/follow-up-report-page.module.css";
 
 export const dynamic = "force-dynamic";
 export default async function SavedReportPage({ params, searchParams }: {
-  params: Promise<{ reportId: string }>; searchParams: Promise<{ salvo?: string }>;
+  params: Promise<{ reportId: string }>; searchParams: Promise<{ salvo?: string; pdf?: string }>;
 }) {
   const { reportId } = await params;
   if (!uuidPattern.test(reportId)) notFound();
@@ -20,11 +20,12 @@ export default async function SavedReportPage({ params, searchParams }: {
   const { available, report } = await readStandaloneReport(await createClient(), context, reportId);
   if (!available) throw new Error("Não foi possível consultar o relatório salvo. Atualize a página para tentar novamente.");
   if (!report) notFound();
-  const saved = (await searchParams).salvo === "1";
+  const query = await searchParams;
+  const saved = query.salvo === "1";
   return <StandaloneReportShell context={context}>
     <ReportHeading title={report.title} subtitle={report.workName} backHref="/app?secao=acompanhamento" backLabel="Voltar aos relatórios" />
     <div className={styles.closedLayout}><section className={`panel ${styles.closedPanel}`}>
-      <ClosedReportPdf report={report} href={standalonePdfHref(report.id)} autoDownload={saved} message={saved ? "Relatório salvo." : ""} />
+      <ClosedReportPdf report={report} href={standalonePdfHref(report.id)} autoDownload={saved} message={saved ? (query.pdf === "pendente" ? "Relatório salvo. O PDF ainda não pôde ser preservado; tente abrir o documento novamente." : "Relatório salvo.") : ""} />
     </section></div>
   </StandaloneReportShell>;
 }
