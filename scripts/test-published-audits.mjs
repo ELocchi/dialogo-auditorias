@@ -110,7 +110,7 @@ test("uses the authorized detailed reader when the index RPC is temporarily unav
   assert.equal(snapshot.audits[0].id, auditId);
 });
 
-test("signs published audit files in bounded parallel batches", async () => {
+test("signs legacy audit files together rather than per audit", async () => {
   const indexes = Array.from({ length: 7 }, (_, position) => ({
     ...indexRow,
     id: `b1760000-2026-4923-8000-${String(position + 1).padStart(12, "0")}`,
@@ -122,10 +122,11 @@ test("signs published audit files in bounded parallel batches", async () => {
   }));
   let active = 0;
   let maximumActive = 0;
+  let signingCalls = 0;
   const batchedClient = {
     rpc: async (name) => ({ data: name === "read_published_audit_index" ? indexes : details, error: null }),
     storage: { from: () => ({ createSignedUrls: async (paths) => {
-      active += 1;
+      active += 1; signingCalls++;
       maximumActive = Math.max(maximumActive, active);
       await new Promise((resolve) => setTimeout(resolve, 1));
       active -= 1;
@@ -135,7 +136,8 @@ test("signs published audit files in bounded parallel batches", async () => {
   const snapshot = await readPublishedAuditSnapshot(batchedClient, context);
   assert.equal(snapshot.audits.length, 7);
   assert.equal(Object.keys(snapshot.responses).length, 7);
-  assert.equal(maximumActive, 6);
+  assert.equal(maximumActive, 1);
+  assert.equal(signingCalls, 1);
 });
 
 const compactFinding = {

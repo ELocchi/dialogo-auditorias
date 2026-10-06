@@ -1,3 +1,4 @@
+import { parsePhotoBatch, photoBatchSize } from "./photo-batch.ts";
 import { requestSignal } from "../request-signal.ts";
 import type { AgendaActorContext } from "../agenda/contracts.ts";
 import { uuidPattern } from "../access/validation.ts";
@@ -31,14 +32,16 @@ function parsePhotos(value: unknown, visitId: string): FindingPhoto[] | null {
 }
 
 /** A mounted workspace owns this cache. Visibility leases share one request per
- * visit; at most two Storage listings run at once, even when many rows appear. */
+ * visit; visible visits from one turn share a bounded batch. At most two batches run. */
 export function createFollowUpPhotoLoader(actor: AgendaActorContext, fetcher: typeof fetch = fetch, now = Date.now) {
   const states = new Map<string, FollowUpPhotoState>();
   const listeners = new Map<string, Set<() => void>>();
   const demand = new Map<string, Set<symbol>>();
   const loadedAt = new Map<string, number>();
   const queue = new Set<string>();
-  const pending = new Map<string, AbortController>();
+  type Batch = { controller: AbortController; ids: Set<string> };
+  const pending = new Map<string, Batch>();
+  let scheduled = false;
   let running = 0;
   let accessDenied = false;
   const notify = (id: string) => listeners.get(id)?.forEach((listener) => listener());
@@ -55,51 +58,61 @@ export function createFollowUpPhotoLoader(actor: AgendaActorContext, fetcher: ty
   };
   const cancelVisit = (id: string) => {
     queue.delete(id);
-    const controller = pending.get(id);
-    pending.delete(id); controller?.abort();
+    const batch = pending.get(id);
+    pending.delete(id);
+    batch?.ids.delete(id);
+    if (batch && !batch.ids.size) batch.controller.abort();
     if (states.get(id)?.status === "loading") { states.delete(id); notify(id); }
   };
   const clear = () => {
     queue.clear();
-    const controllers = [...pending.values()];
-    pending.clear(); controllers.forEach((controller) => controller.abort());
+    const batches = new Set(pending.values());
+    pending.clear(); batches.forEach(({controller}) => controller.abort());
     states.clear(); loadedAt.clear();
     listeners.forEach((_, id) => notify(id));
   };
   const pump = () => {
-    while (!accessDenied && running < 2 && queue.size) {
-      const id = queue.values().next().value!;
-      queue.delete(id);
-      if (!demand.get(id)?.size) continue;
-      const controller = new AbortController();
-      pending.set(id, controller); running++;
-      const current = () => pending.get(id) === controller && !controller.signal.aborted;
-      const parameters = new URLSearchParams({ usuario: actor.userId, perfil: actor.profile,
-        atuacao: actor.engineeringScope ?? "", administrativo: actor.administrativeScope ?? "" });
-      // Register first: a synchronous mock/fetch failure must not strand a slot.
-      void Promise.resolve().then(async () => {
-        try {
-          if (!current()) return;
-          const response = await fetcher(`/api/follow-up/visits/${id}/photos?${parameters}`, {
-            credentials: "same-origin", cache: "no-store", signal: requestSignal(controller.signal),
-          });
-          if (!current()) return;
-          if (response.status === 401 || response.status === 403) {
-            accessDenied = true; clear(); return;
+    if (scheduled) return;
+    scheduled = true;
+    // A task boundary also coalesces separate IntersectionObserver callbacks.
+    // A microtask can flush between those callbacks and recreate one read per row.
+    setTimeout(() => {
+      scheduled = false;
+      while (!accessDenied && running < 2 && queue.size) {
+        const ids = [...queue].filter(id => demand.get(id)?.size).slice(0, photoBatchSize);
+        for (const id of [...queue]) if (!demand.get(id)?.size || ids.includes(id)) queue.delete(id);
+        if (!ids.length) break;
+        const batch: Batch = { controller: new AbortController(), ids: new Set(ids) };
+        for (const id of ids) pending.set(id, batch);
+        running++;
+        const current = (id: string) => pending.get(id) === batch && !batch.controller.signal.aborted;
+        const parameters = new URLSearchParams({ usuario: actor.userId, perfil: actor.profile,
+          atuacao: actor.engineeringScope ?? "", administrativo: actor.administrativeScope ?? "" });
+        ids.forEach(id => parameters.append("visitId", id));
+        void Promise.resolve().then(async () => {
+          try {
+            if (batch.controller.signal.aborted) return;
+            const response = await fetcher(`/api/follow-up/photos?${parameters}`, {
+              credentials: "same-origin", cache: "no-store", signal: requestSignal(batch.controller.signal),
+            });
+            if (batch.controller.signal.aborted) return;
+            if (response.status === 401 || response.status === 403) { accessDenied = true; clear(); return; }
+            if (!response.ok) throw new Error(unavailable);
+            const data = parsePhotoBatch(await response.json(), ids);
+            if (!data) throw new Error(unavailable);
+            for (const id of ids) if (current(id)) {
+              loadedAt.set(id, now());
+              publish(id, { status: "ready", photos: data.photos.filter(p => p.visitId === id) });
+            }
+          } catch {
+            for (const id of ids) if (current(id)) publish(id, { status: "error", photos: [], message: unavailable });
+          } finally {
+            for (const id of ids) if (pending.get(id) === batch) pending.delete(id);
+            running--; trim(); pump();
           }
-          if (!response.ok) throw new Error(unavailable);
-          const photos = parsePhotos(await response.json(), id);
-          if (!current()) return;
-          if (!photos) throw new Error(unavailable);
-          loadedAt.set(id, now()); publish(id, { status: "ready", photos });
-        } catch {
-          if (current()) publish(id, { status: "error", photos: [], message: unavailable });
-        } finally {
-          if (pending.get(id) === controller) pending.delete(id);
-          running--; trim(); pump();
-        }
-      });
-    }
+        });
+      }
+    });
   };
   const request = (id: string, retry = false) => {
     if (accessDenied || !demand.get(id)?.size || pending.has(id) || queue.has(id)) return;

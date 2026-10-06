@@ -1,0 +1,11 @@
+{
+  "passed": true,
+  "visibleVisits": 42,
+  "metadataRequests": 1,
+  "batchSizes": [
+    42
+  ],
+  "apiDelayMs": 500,
+  "errors": [],
+  "scope": "Real Chrome + IntersectionObserver + production-built hooks, mocked metadata API"
+}

@@ -25,8 +25,9 @@ function reset() {
   state.client = {
     async rpc(name, args) {
       state.calls.push({ name, args });
-      assert.ok(["save_follow_up_report", "save_follow_up_finding_drafts"].includes(name), "Mutations must not scan agenda, report history or other visit drafts");
+      assert.ok(["save_follow_up_report", "save_follow_up_finding_drafts", "read_follow_up_photo_batch"].includes(name), "Mutations must not scan agenda, report history or other visit drafts");
       if (state.rpcError) return { error: state.rpcError, data: null };
+      if(name==="read_follow_up_photo_batch")return {error:null,data:{available:true,visitIds:args.p_visit_ids,photos:[]}};
       return { error: null, data: name === "save_follow_up_report" ? { ...report, findings: args.p_findings }
         : { visitId: args.p_visit_id, revision: args.p_expected_revision + 1, findings: args.p_findings, updatedAt: timestamp } };
     },
@@ -156,4 +157,12 @@ test("stale actor and invalid identifiers are rejected before target data or sto
   assert.equal((await actions.completeFindingAction("bad", findingId, actor)).status, "error");
   assert.equal(await actions.deleteFindingPhotosAction(visitId, "bad", actor), false);
   assert.deepEqual(state.targeted, []); assert.deepEqual(state.calls, []); assert.deepEqual(state.storage, []);
+});
+
+test("legacy photo action batches up to 100 visits without per-visit queries",async()=>{
+ for(const count of [1,42,50,100]){
+  reset();const {readFindingPhotosAction}=await import("../src/app/follow-up/actions.ts");
+  const result=await readFindingPhotosAction(Array.from({length:count},(_,n)=>id(n+100)),actor);
+  assert.equal(result.available,true);assert.equal(state.calls.length,Math.ceil(count/50));assert.equal(state.storage.length,0);
+ }
 });

@@ -32,7 +32,9 @@
     "test:standalone-reports-database": "node scripts/test-access-database.mjs --standalone-reports-only",
     "test:lists": "node --experimental-strip-types --test scripts/test-follow-up-workspace.mjs scripts/test-list-administration.mjs scripts/test-agenda.mjs scripts/test-agenda-sync.mjs scripts/test-agenda-rendering.mjs scripts/test-follow-up-report-page.mjs scripts/test-follow-up-mutations.mjs scripts/test-workspace-sections.mjs scripts/test-administration-render.mjs",
     "test:lists-database": "node scripts/test-access-database.mjs --lists-only",
-    "test:lists-browser": "node scripts/test-lists-browser.mjs"
+    "test:lists-browser": "node scripts/test-lists-browser.mjs",
+    "test:nplus1": "node --experimental-strip-types --test scripts/test-nplus1.mjs scripts/test-follow-up-photo-loader.mjs scripts/test-follow-up-workspace.mjs scripts/test-follow-up-mutations.mjs scripts/test-published-audits.mjs",
+    "benchmark:nplus1": "node --experimental-strip-types scripts/benchmark-nplus1.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

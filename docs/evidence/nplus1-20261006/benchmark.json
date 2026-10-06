@@ -1,0 +1,608 @@
+{
+  "baselineCommit": "46a464c1665f8ea16bde79930ec88ac87168cd3a",
+  "environment": "PostgreSQL/PGlite local; synthetic fixtures; no hosted database",
+  "photos": [
+    {
+      "visits": 1,
+      "transportDelayPerCallMs": 15,
+      "before": {
+        "callsByType": {
+          "read_current_access_account": 1,
+          "read_current_access_workspace": 1,
+          "can_read_follow_up_visit_photos": 1,
+          "storage.list": 1
+        },
+        "requests": 1,
+        "queries": 4,
+        "metadataQueries": 2,
+        "medianMs": 67.461,
+        "minMs": 63.578,
+        "maxMs": 69.291,
+        "samples": 5,
+        "rawMs": [
+          64.584,
+          63.578,
+          67.461,
+          69.291,
+          68.641
+        ]
+      },
+      "after": {
+        "callsByType": {
+          "read_current_access_account": 1,
+          "read_current_access_workspace": 1,
+          "read_follow_up_photo_batch": 1
+        },
+        "requests": 1,
+        "queries": 3,
+        "metadataQueries": 1,
+        "medianMs": 51.997,
+        "minMs": 51.304,
+        "maxMs": 58.047,
+        "samples": 5,
+        "rawMs": [
+          51.304,
+          51.997,
+          56.652,
+          51.671,
+          58.047
+        ]
+      }
+    },
+    {
+      "visits": 10,
+      "transportDelayPerCallMs": 15,
+      "before": {
+        "callsByType": {
+          "read_current_access_account": 10,
+          "read_current_access_workspace": 10,
+          "can_read_follow_up_visit_photos": 10,
+          "storage.list": 10
+        },
+        "requests": 10,
+        "queries": 40,
+        "metadataQueries": 20,
+        "medianMs": 333.66,
+        "minMs": 326.756,
+        "maxMs": 344.813,
+        "samples": 5,
+        "rawMs": [
+          333.66,
+          327.297,
+          344.813,
+          338.019,
+          326.756
+        ]
+      },
+      "after": {
+        "callsByType": {
+          "read_current_access_account": 1,
+          "read_current_access_workspace": 1,
+          "read_follow_up_photo_batch": 1
+        },
+        "requests": 1,
+        "queries": 3,
+        "metadataQueries": 1,
+        "medianMs": 55.062,
+        "minMs": 50.241,
+        "maxMs": 56.021,
+        "samples": 5,
+        "rawMs": [
+          56.021,
+          53.626,
+          55.235,
+          50.241,
+          55.062
+        ]
+      }
+    },
+    {
+      "visits": 42,
+      "transportDelayPerCallMs": 15,
+      "before": {
+        "callsByType": {
+          "read_current_access_account": 42,
+          "read_current_access_workspace": 42,
+          "can_read_follow_up_visit_photos": 42,
+          "storage.list": 42
+        },
+        "requests": 42,
+        "queries": 168,
+        "metadataQueries": 84,
+        "medianMs": 1438.488,
+        "minMs": 1413.506,
+        "maxMs": 1464.155,
+        "samples": 5,
+        "rawMs": [
+          1436.674,
+          1464.155,
+          1413.506,
+          1456.633,
+          1438.488
+        ]
+      },
+      "after": {
+        "callsByType": {
+          "read_current_access_account": 1,
+          "read_current_access_workspace": 1,
+          "read_follow_up_photo_batch": 1
+        },
+        "requests": 1,
+        "queries": 3,
+        "metadataQueries": 1,
+        "medianMs": 62.377,
+        "minMs": 61.217,
+        "maxMs": 64.518,
+        "samples": 5,
+        "rawMs": [
+          61.661,
+          62.377,
+          64.088,
+          64.518,
+          61.217
+        ]
+      }
+    }
+  ],
+  "standalone": [
+    {
+      "findings": 1,
+      "countScope": "Executed finding/photo SQL statements; shared authorization and INSERT excluded",
+      "latencyScope": "Full save_standalone_follow_up_report, local PostgreSQL; rollback outside timer",
+      "before": {
+        "queries": 2,
+        "medianMs": 0.999,
+        "minMs": 0.587,
+        "maxMs": 1.653,
+        "samples": 9,
+        "rawMs": [
+          1.653,
+          1.139,
+          1.217,
+          1.254,
+          0.999,
+          0.652,
+          0.648,
+          0.587,
+          0.608
+        ]
+      },
+      "after": {
+        "queries": 2,
+        "medianMs": 1.127,
+        "minMs": 0.629,
+        "maxMs": 1.591,
+        "samples": 9,
+        "rawMs": [
+          1.542,
+          1.202,
+          1.591,
+          1.134,
+          1.127,
+          0.714,
+          0.638,
+          0.629,
+          0.641
+        ]
+      }
+    },
+    {
+      "findings": 10,
+      "countScope": "Executed finding/photo SQL statements; shared authorization and INSERT excluded",
+      "latencyScope": "Full save_standalone_follow_up_report, local PostgreSQL; rollback outside timer",
+      "before": {
+        "queries": 20,
+        "medianMs": 0.998,
+        "minMs": 0.925,
+        "maxMs": 1.083,
+        "samples": 9,
+        "rawMs": [
+          1.083,
+          1.05,
+          1.039,
+          0.988,
+          1.07,
+          0.998,
+          0.943,
+          0.95,
+          0.925
+        ]
+      },
+      "after": {
+        "queries": 2,
+        "medianMs": 0.772,
+        "minMs": 0.699,
+        "maxMs": 0.889,
+        "samples": 9,
+        "rawMs": [
+          0.838,
+          0.799,
+          0.766,
+          0.781,
+          0.889,
+          0.772,
+          0.707,
+          0.706,
+          0.699
+        ]
+      }
+    },
+    {
+      "findings": 30,
+      "countScope": "Executed finding/photo SQL statements; shared authorization and INSERT excluded",
+      "latencyScope": "Full save_standalone_follow_up_report, local PostgreSQL; rollback outside timer",
+      "before": {
+        "queries": 60,
+        "medianMs": 2.03,
+        "minMs": 1.97,
+        "maxMs": 2.273,
+        "samples": 9,
+        "rawMs": [
+          2.03,
+          2.008,
+          1.97,
+          2.223,
+          2.032,
+          2.011,
+          1.97,
+          2.273,
+          2.095
+        ]
+      },
+      "after": {
+        "queries": 2,
+        "medianMs": 1.647,
+        "minMs": 1.082,
+        "maxMs": 2.111,
+        "samples": 9,
+        "rawMs": [
+          1.678,
+          1.666,
+          1.621,
+          1.752,
+          1.618,
+          1.647,
+          1.635,
+          2.111,
+          1.082
+        ]
+      }
+    }
+  ],
+  "publicationEvidence": [
+    {
+      "photos": 1,
+      "countScope": "File-existence SQL statements including PDF",
+      "latencyScope": "Exact validation block only, local PostgreSQL",
+      "before": {
+        "queries": 2,
+        "medianMs": 0.189,
+        "minMs": 0.164,
+        "maxMs": 0.246,
+        "samples": 9,
+        "rawMs": [
+          0.241,
+          0.246,
+          0.185,
+          0.189,
+          0.202,
+          0.233,
+          0.173,
+          0.164,
+          0.169
+        ]
+      },
+      "after": {
+        "queries": 1,
+        "medianMs": 0.277,
+        "minMs": 0.198,
+        "maxMs": 0.408,
+        "samples": 9,
+        "rawMs": [
+          0.282,
+          0.277,
+          0.299,
+          0.286,
+          0.408,
+          0.22,
+          0.198,
+          0.206,
+          0.198
+        ]
+      }
+    },
+    {
+      "photos": 42,
+      "countScope": "File-existence SQL statements including PDF",
+      "latencyScope": "Exact validation block only, local PostgreSQL",
+      "before": {
+        "queries": 43,
+        "medianMs": 0.453,
+        "minMs": 0.45,
+        "maxMs": 0.464,
+        "samples": 9,
+        "rawMs": [
+          0.459,
+          0.451,
+          0.453,
+          0.451,
+          0.464,
+          0.463,
+          0.457,
+          0.451,
+          0.45
+        ]
+      },
+      "after": {
+        "queries": 1,
+        "medianMs": 0.241,
+        "minMs": 0.239,
+        "maxMs": 0.246,
+        "samples": 9,
+        "rawMs": [
+          0.246,
+          0.242,
+          0.242,
+          0.241,
+          0.24,
+          0.245,
+          0.24,
+          0.239,
+          0.24
+        ]
+      }
+    },
+    {
+      "photos": 200,
+      "countScope": "File-existence SQL statements including PDF",
+      "latencyScope": "Exact validation block only, local PostgreSQL",
+      "before": {
+        "queries": 201,
+        "medianMs": 1.59,
+        "minMs": 1.556,
+        "maxMs": 1.789,
+        "samples": 9,
+        "rawMs": [
+          1.576,
+          1.789,
+          1.59,
+          1.601,
+          1.622,
+          1.556,
+          1.596,
+          1.579,
+          1.568
+        ]
+      },
+      "after": {
+        "queries": 1,
+        "medianMs": 0.456,
+        "minMs": 0.432,
+        "maxMs": 0.547,
+        "samples": 9,
+        "rawMs": [
+          0.46,
+          0.547,
+          0.495,
+          0.475,
+          0.452,
+          0.447,
+          0.45,
+          0.456,
+          0.432
+        ]
+      }
+    }
+  ],
+  "database": "PostgreSQL 18.3 (PGlite 0.5.8) on wasm32-unknown-emscripten, compiled by emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 3.1.74 (1092ec30a3fb1d46b1782ff1b4db5094d3d06ae5), 32-bit",
+  "photoBatchPlan": {
+    "storageScanNodes": 1,
+    "loops": [
+      1
+    ],
+    "executionMs": 5.57
+  },
+  "photoAction": [
+    {
+      "visits": 1,
+      "transportDelayPerCallMs": 15,
+      "before": {
+        "queries": 4,
+        "medianMs": 79.849,
+        "minMs": 76.487,
+        "maxMs": 80.652,
+        "samples": 5,
+        "rawMs": [
+          76.487,
+          80.652,
+          77.376,
+          80.32,
+          79.849
+        ]
+      },
+      "after": {
+        "queries": 3,
+        "medianMs": 59.114,
+        "minMs": 58.843,
+        "maxMs": 60.599,
+        "samples": 5,
+        "rawMs": [
+          59.137,
+          60.599,
+          58.843,
+          59.114,
+          58.98
+        ]
+      }
+    },
+    {
+      "visits": 10,
+      "transportDelayPerCallMs": 15,
+      "before": {
+        "queries": 22,
+        "medianMs": 263.907,
+        "minMs": 261.463,
+        "maxMs": 265.666,
+        "samples": 5,
+        "rawMs": [
+          265.522,
+          261.463,
+          265.666,
+          262.131,
+          263.907
+        ]
+      },
+      "after": {
+        "queries": 3,
+        "medianMs": 61.863,
+        "minMs": 60.523,
+        "maxMs": 62.796,
+        "samples": 5,
+        "rawMs": [
+          61.944,
+          61.236,
+          62.796,
+          61.863,
+          60.523
+        ]
+      }
+    },
+    {
+      "visits": 42,
+      "transportDelayPerCallMs": 15,
+      "before": {
+        "queries": 86,
+        "medianMs": 908.366,
+        "minMs": 900.806,
+        "maxMs": 912.101,
+        "samples": 5,
+        "rawMs": [
+          908.366,
+          912.101,
+          901.489,
+          909.979,
+          900.806
+        ]
+      },
+      "after": {
+        "queries": 3,
+        "medianMs": 63.528,
+        "minMs": 62.678,
+        "maxMs": 63.926,
+        "samples": 5,
+        "rawMs": [
+          63.926,
+          63.453,
+          63.833,
+          63.528,
+          62.678
+        ]
+      }
+    }
+  ],
+  "legacySigning": [
+    {
+      "audits": 1,
+      "scope": "Legacy export, no current UI caller; SDK responses simulated with 15 ms per call",
+      "before": {
+        "rpcQueries": 2,
+        "signRequests": 1,
+        "medianMs": 34.381,
+        "minMs": 33.35,
+        "maxMs": 34.953,
+        "samples": 5,
+        "rawMs": [
+          34.268,
+          34.381,
+          34.815,
+          33.35,
+          34.953
+        ]
+      },
+      "after": {
+        "rpcQueries": 2,
+        "signRequests": 1,
+        "medianMs": 34.291,
+        "minMs": 33.289,
+        "maxMs": 34.802,
+        "samples": 5,
+        "rawMs": [
+          34.291,
+          34.802,
+          34.632,
+          33.99,
+          33.289
+        ]
+      }
+    },
+    {
+      "audits": 42,
+      "scope": "Legacy export, no current UI caller; SDK responses simulated with 15 ms per call",
+      "before": {
+        "rpcQueries": 2,
+        "signRequests": 42,
+        "medianMs": 133.94,
+        "minMs": 131.726,
+        "maxMs": 139.681,
+        "samples": 5,
+        "rawMs": [
+          139.681,
+          133.563,
+          131.726,
+          133.94,
+          136.097
+        ]
+      },
+      "after": {
+        "rpcQueries": 2,
+        "signRequests": 1,
+        "medianMs": 35.244,
+        "minMs": 32.296,
+        "maxMs": 36.67,
+        "samples": 5,
+        "rawMs": [
+          35.87,
+          32.296,
+          34.799,
+          35.244,
+          36.67
+        ]
+      }
+    },
+    {
+      "audits": 150,
+      "scope": "Legacy export, no current UI caller; SDK responses simulated with 15 ms per call",
+      "before": {
+        "rpcQueries": 2,
+        "signRequests": 150,
+        "medianMs": 440.718,
+        "minMs": 438.395,
+        "maxMs": 444.399,
+        "samples": 5,
+        "rawMs": [
+          444.399,
+          440.718,
+          441.236,
+          438.454,
+          438.395
+        ]
+      },
+      "after": {
+        "rpcQueries": 2,
+        "signRequests": 2,
+        "medianMs": 56.155,
+        "minMs": 53.565,
+        "maxMs": 57.045,
+        "samples": 5,
+        "rawMs": [
+          56.155,
+          53.565,
+          56.271,
+          55.944,
+          57.045
+        ]
+      }
+    }
+  ],
+  "assertions": "passed"
+}

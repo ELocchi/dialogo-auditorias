@@ -262,24 +262,26 @@ export async function readPublishedAuditSnapshot(client: Client, context: Profil
       const reportPath = `${raw.workId}/${raw.id}/${raw.reportFileName}`;
       prepared.push({ auditId: raw.id, indexed, criteria, parsedResponses, evidenceFiles, evidencePaths, reportPath });
     }
-    for (let offset = 0; offset < prepared.length; offset += 6) {
-      const batch = await Promise.all(prepared.slice(offset, offset + 6).map(async (entry) => {
-        const result = await client.storage.from(publishedAuditBucket)
-          .createSignedUrls([...entry.evidencePaths, entry.reportPath], 60 * 60);
-        return { entry, ...result };
-      }));
-      for (const { entry, data: signed, error: signedError } of batch) {
-        if (signedError || !signed || signed.length !== entry.evidencePaths.length + 1 || signed.some((item) => !item.signedUrl))
-          continue;
-        const signedUrls = signed.map((item) => item.signedUrl);
-        if (signedUrls.some((url): url is null => url === null)) continue;
-        const confirmedUrls = signedUrls as string[];
-        const evidenceUrls = new Map<string, string>(entry.evidenceFiles.map((name, index) => [name, confirmedUrls[index]!]));
-        const auditPosition = auditPositions.get(entry.auditId)!;
-        audits[auditPosition] = { ...audits[auditPosition]!, reportUrl: confirmedUrls[confirmedUrls.length - 1] };
-        responses[entry.auditId] = { [entry.indexed.modelId]: replaceEvidenceReferences(entry.parsedResponses, evidenceUrls) };
-        criteriaSnapshots[entry.auditId] = entry.criteria;
-      }
+    // Legacy snapshot reader: sign across audits, not one request per audit.
+    // Current screens use paged headers and exact detail readers instead.
+    const paths = [...new Set(prepared.flatMap(entry => [...entry.evidencePaths, entry.reportPath]))];
+    const signedByPath = new Map<string, string>();
+    for (let offset = 0; offset < paths.length; offset += 100) {
+      const selected = paths.slice(offset, offset + 100);
+      const result = await client.storage.from(publishedAuditBucket).createSignedUrls(selected, 60 * 60);
+      if (result.error || !result.data || result.data.length !== selected.length) continue;
+      result.data.forEach((item, position) => {
+        if (item.signedUrl && (!item.path || item.path === selected[position])) signedByPath.set(selected[position], item.signedUrl);
+      });
+    }
+    for (const entry of prepared) {
+      const reportUrl = signedByPath.get(entry.reportPath);
+      if (!reportUrl || entry.evidencePaths.some(path => !signedByPath.has(path))) continue;
+      const evidenceUrls = new Map(entry.evidenceFiles.map((name, index) => [name, signedByPath.get(entry.evidencePaths[index])!]));
+      const auditPosition = auditPositions.get(entry.auditId)!;
+      audits[auditPosition] = { ...audits[auditPosition]!, reportUrl };
+      responses[entry.auditId] = { [entry.indexed.modelId]: replaceEvidenceReferences(entry.parsedResponses, evidenceUrls) };
+      criteriaSnapshots[entry.auditId] = entry.criteria;
     }
     return { available: true, audits, responses, criteriaSnapshots };
   } catch {

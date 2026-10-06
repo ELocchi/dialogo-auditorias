@@ -9,9 +9,9 @@ import { saveFindingDrafts, type FindingDraftSnapshot, type SaveFindingDraftResu
 import { detectPhotoType, followUpPhotoBucket, maxPhotoBytes, maxPhotosPerFinding,
   photoPath, readVisitPhotos, type FindingPhoto } from "@/lib/follow-up/photos";
 import { readListPage } from "@/lib/lists/service";
-import { parseAgendaVisit } from "@/lib/agenda/service";
+import { readFollowUpPhotoBatch } from "@/lib/follow-up/photo-batch-service";
+import { photoBatchSize } from "@/lib/follow-up/photo-batch";
 import { readFollowUpVisit } from "@/lib/follow-up/visit-service";
-import { canReadVisit } from "@/domain/prototype-access";
 import { getSaoPauloToday } from "@/domain/visit-calendar";
 import { uuidPattern } from "@/lib/access/validation";
 import type { AgendaActorContext } from "@/lib/agenda/contracts";
@@ -215,14 +215,14 @@ export async function readFindingPhotosAction(visitIds: string[], expected: Agen
   if (!context || !Array.isArray(visitIds) || visitIds.length > 100
     || visitIds.some((id) => !uuidPattern.test(id))) return { available: false, photos: [], message: "Não foi possível consultar as fotos." };
   const client = await createClient();
-  for (const id of new Set(visitIds)) {
-    const { data, error } = await client.rpc("read_audit_agenda_visit_detail", { p_profile: context.profile, p_engineering_scope: context.engineeringScope, p_administrative_scope: context.administrativeScope, p_visit_id: id });
-    const visit = error ? null : parseAgendaVisit(data, context, true);
-    if (!visit || visit.kind !== "follow_up" || visit.auditorId !== context.user.id || !canReadVisit(context.user, visit)) return { available: false, photos: [], message: "Não foi possível consultar as fotos." };
+  const ids = [...new Set(visitIds)];
+  const photos: FindingPhoto[] = [];
+  for (let offset = 0; offset < ids.length; offset += photoBatchSize) {
+    const result = await readFollowUpPhotoBatch(client, context, ids.slice(offset, offset + photoBatchSize));
+    if (!result.snapshot.available) return { available: false, photos: [], message: "Não foi possível consultar as fotos." };
+    photos.push(...result.snapshot.photos);
   }
-  const lists = await Promise.all([...new Set(visitIds)].map((id) => readVisitPhotos(client, context.user.id, id)));
-  if (lists.some((list) => !list)) return { available: false, photos: [], message: "As fotos estarão disponíveis após a atualização do armazenamento." };
-  return { available: true, photos: lists.flatMap((list) => list ?? []) };
+  return { available: true, photos };
 }
 
 export async function uploadFindingPhotosAction(formData: FormData, expected: AgendaActorContext): Promise<PhotoResult> {

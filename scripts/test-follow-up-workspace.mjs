@@ -28,9 +28,11 @@ function reset(profile = "AUDITOR_QUALIDADE", scope = null) {
   state.client = {
     async rpc(name, parameters) {
       state.calls.push({ name, parameters });
-      assert.ok(["read_follow_up_list_page", "can_read_follow_up_visit_photos"].includes(name),
+      assert.ok(["read_follow_up_list_page", "read_follow_up_photo_batch"].includes(name),
         "No broad agenda, report body or duplicate auth RPCs in the service");
-      return { data: name === "read_follow_up_list_page" ? state.raw : state.canReadPhotos, error: state.rpcError };
+      return { data: name === "read_follow_up_list_page" ? state.raw : state.canReadPhotos === true
+        ? {available:true,visitIds:parameters.p_visit_ids,photos:state.files.map(file=>({visitId:parameters.p_visit_ids[0],findingId,fileName:file.name}))}
+        : state.canReadPhotos === false ? {available:false,photos:[]} : state.canReadPhotos, error: state.rpcError ?? state.storageError };
     },
     storage: { from(bucket) {
       assert.equal(bucket, "follow-up-photos");
@@ -120,12 +122,12 @@ test("both engineering scopes retain the selected grants in the paged RPC", asyn
 test("photo lists authorize one exact visit before Storage; rejected and invalid visits list nothing", async () => {
   reset();
   const body = await check(await runPhotos(), 200);
-  assert.deepEqual(body, { available: true, photos: [{ visitId, findingId, fileName }] });
+  assert.deepEqual(body, { available: true, visitIds: [visitId], photos: [{ visitId, findingId, fileName }] });
   assert.equal(state.guards, 1);
-  assert.deepEqual(state.calls, [{ name: "can_read_follow_up_visit_photos", parameters: {
-    p_visit_id: visitId, p_profile: "AUDITOR_QUALIDADE", p_engineering_scope: null, p_administrative_scope: null,
+  assert.deepEqual(state.calls, [{ name: "read_follow_up_photo_batch", parameters: {
+    p_visit_ids: [visitId], p_profile: "AUDITOR_QUALIDADE", p_engineering_scope: null, p_administrative_scope: null,
   } }]);
-  assert.equal(state.lists.length, 1); assert.equal(state.lists[0].folder, `${userId}/${visitId}`);
+  assert.equal(state.lists.length, 0);
   reset(); state.canReadPhotos = false;
   await check(await runPhotos(), 404); assert.equal(state.lists.length, 0);
   reset();

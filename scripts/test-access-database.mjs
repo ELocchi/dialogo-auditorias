@@ -395,7 +395,7 @@ if (!baselineOnly) suites.push({
 if (!baselineOnly) suites.push({
   name: "Audit and action plan persistence/publication suite",
   migrations: readdirSync(path.join(projectRoot, "supabase", "migrations"))
-    .filter(name => name.endsWith(".sql") && name <= "20261006000500_publication_month.sql"
+    .filter(name => name.endsWith(".sql") && name <= "20261006000800_publication_evidence_batch.sql"
       && !["20261005000200_orientative_pdf_archive.sql", "20260924000200_verify_published_audit_access.sql", "20260930000400_test_orientative_report.sql"].includes(name)).sort(),
   test: "audit_action_plan_publication.sql", storageAdapter: true,
   omitHistoricPublicationBackfills: true,
@@ -403,7 +403,7 @@ if (!baselineOnly) suites.push({
 if (!baselineOnly) suites.push({
   name: "Standalone orientative reports without any agenda entry",
   migrations: readdirSync(path.join(projectRoot, "supabase", "migrations"))
-    .filter(name => name.endsWith(".sql") && name <= "20261002000100_standalone_follow_up_reports.sql"
+    .filter(name => name.endsWith(".sql") && name <= "20261006000800_publication_evidence_batch.sql"
       && !["20260924000200_verify_published_audit_access.sql", "20260930000400_test_orientative_report.sql"].includes(name)).sort(),
   test: "standalone_follow_up_reports.sql", storageAdapter: true, omitHistoricPublicationBackfills: true,
 });

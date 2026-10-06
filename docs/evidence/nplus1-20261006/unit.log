@@ -1,0 +1,90 @@
+
+> auditoria-obra@0.1.0 test:nplus1
+> node --experimental-strip-types --test scripts/test-nplus1.mjs scripts/test-follow-up-photo-loader.mjs scripts/test-follow-up-workspace.mjs scripts/test-follow-up-mutations.mjs scripts/test-published-audits.mjs
+
+(node:51991) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/app/follow-up/actions.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ save resolves server findings from one target snapshot and performs only the authoritative save RPC (3.97425ms)
+✔ save fails closed on missing snapshot, unauthorized visit, changed source, future or unconfirmed visit (0.705709ms)
+✔ save service preserves closed revision and SQL concurrency/current-access errors without rereading agenda (0.443833ms)
+✔ completing a draft uses its exact revision and deletes only that finding's private photos (2.265042ms)
+✔ completing a reported finding records completion and never lists or removes its closed-report photos (0.271208ms)
+✔ a draft revision conflict cannot mark completion or remove photos (0.344708ms)
+✔ photo upload loads just the target visit and returns the freshly confirmed photo list (26.600167ms)
+✔ closed, missing, future and unconfirmed visit findings cannot receive photos or reach Storage (0.822625ms)
+✔ deletion keeps still-used photos and removes only an unused finding from the authorized visit (0.29275ms)
+✔ stale actor and invalid identifiers are rejected before target data or storage reads (1.039083ms)
+✔ legacy photo action batches up to 100 visits without per-visit queries (3.360125ms)
+(node:51992) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/follow-up/photo-loader.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ does not read photos until a row is visible; subscriptions alone are inert (72.059584ms)
+✔ two findings from one visit share a request; only the last departure cancels it (23.619166ms)
+✔ 50 visits share each batch, at most two batches run, and an offscreen queued visit is skipped (30.475ms)
+✔ StrictMode release and immediate reacquire preserve the shared request (10.981ms)
+✔ upload replacement wins even if the old listing ignores cancellation (13.005041ms)
+✔ listing failure is distinct from empty photos and only an explicit retry refetches (29.859375ms)
+✔ 401/403 clears cached names, aborts all listings and blocks further reads for this context (57.285292ms)
+✔ switching profiles cancels and isolates data, including late responses (21.7605ms)
+✔ rejects malformed lists, duplicate filenames and photos belonging to another visit/finding (45.016208ms)
+✔ cache is bounded for inactive visits without dropping visits beyond the old 100 limit (1288.450042ms)
+✔ returning to a visible visit reuses fresh metadata and refreshes it after expiration (44.632791ms)
+✔ cancel stops queued reads and a synchronous fetch failure releases concurrency slots (4.629708ms)
+✔ releasing or replacing one member does not cancel the other members of a batch (30.152917ms)
+(node:51993) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/app/api/follow-up/list/route.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ all follow-up endpoints verify context once and reject unauthenticated/denied requests before data (113.216625ms)
+✔ paged HTTP reads only one authorized projection and never accesses Storage (1.373875ms)
+✔ all three obsolete bulk endpoints require reload without fetching a partial history (1.432834ms)
+✔ query rejects unbounded sizes, malformed cursors, work IDs and oversized searches (0.854959ms)
+✔ cursor, page size, search, work and visit scope pass to SQL unchanged (2.549542ms)
+✔ malformed, duplicate, oversized or out-of-scope pages fail closed (4.430667ms)
+✔ profile, auth and database failure do not masquerade as an empty success (0.6ms)
+✔ both engineering scopes retain the selected grants in the paged RPC (0.296125ms)
+✔ photo lists authorize one exact visit before Storage; rejected and invalid visits list nothing (0.640833ms)
+✔ SQL, transport and Storage failures never masquerade as empty successful lists (1.047959ms)
+(node:51994) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/follow-up/photo-batch-service.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 1, 10, 42 or 50 visits execute one metadata RPC and no Storage lists (132.973125ms)
+✔ empty/invalid/oversized API batches perform no metadata query (4.512041ms)
+✔ unauthorized and non-auditor profiles execute no metadata query (1.033292ms)
+✔ deduplicates canonical UUIDs and preserves the selected profile in SQL (0.648334ms)
+✔ mixed/foreign IDs, malformed filenames and incomplete batch coverage fail closed (1.245708ms)
+✔ empty, denied and failed reads remain distinct and never disclose provider diagnostics (0.560458ms)
+✔ empty internal service batch returns immediately without touching the database (0.066958ms)
+(node:51995) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/audits/service.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ loads a published audit and replaces private evidence names with signed URLs (3.797375ms)
+✔ preserves the auditor's binary serious-item decision (1.572292ms)
+✔ rejects a non-binary serious-item value (1.255875ms)
+✔ keeps ranking metadata when detailed responses do not match the criterion snapshot (0.517917ms)
+✔ keeps ranking metadata when private evidence signing is temporarily unavailable (0.556417ms)
+✔ rejects malformed ranking metadata before loading any audit (0.18125ms)
+✔ normalizes numeric strings returned by PostgREST for ranking metadata (0.172583ms)
+✔ uses the authorized detailed reader when the index RPC is temporarily unavailable (0.191416ms)
+✔ signs legacy audit files together rather than per audit (2.640834ms)
+✔ overview uses one compact read and never loads detail or signs files (0.518667ms)
+✔ compact read fails closed for a mismatched finding and has no eager fallback (0.111ms)
+✔ compact read refuses an unauthorized discipline even on an authorized work (0.078667ms)
+✔ single detail requests only the selected publication and signs only its evidence (0.35775ms)
+✔ single detail without evidence never calls Storage (0.124709ms)
+✔ inaccessible single audit remains absent and does not sign files (0.057916ms)
+✔ report click authorizes the exact profile then signs only the selected PDF (0.301417ms)
+✔ report click refuses paths outside the immutable audit directory (0.097334ms)
+ℹ tests 58
+ℹ suites 0
+ℹ pass 58
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2005.074

@@ -1,9 +1,10 @@
+import { readFollowUpPhotoBatch } from "./photo-batch-service.ts";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { WorkFinding } from "../../app/follow-up/actions.ts";
 import { uuidPattern } from "../access/validation.ts";
 import type { ProfileWorkspaceContext } from "../access/workspace-context.ts";
 import type { FindingDraft } from "./findings.ts";
-import { parsePhotoFileName, readVisitPhotos } from "./photos.ts";
+import { parsePhotoFileName } from "./photos.ts";
 import { parseFindings } from "./service.ts";
 import {
   unavailableFollowUpReportIndex, unavailableFollowUpVisitPhotos, unavailableFollowUpWorkspace,
@@ -22,7 +23,6 @@ const profileParams = (context: ProfileWorkspaceContext) => ({ p_profile: contex
   p_engineering_scope: context.engineeringScope, p_administrative_scope: context.administrativeScope });
 const workspaceMessage = "Não foi possível consultar os apontamentos. Tente novamente.";
 const reportMessage = "Não foi possível consultar os relatórios orientativos. Tente novamente.";
-const photoMessage = "Não foi possível consultar as fotos desta visita. Tente novamente.";
 
 function parseIndexEntry(value: unknown): FollowUpReportIndexEntry | null {
   if (!object(value) || !uuid(value.id) || !uuid(value.visitId)
@@ -113,16 +113,6 @@ export async function readFollowUpVisitPhotos(client: Pick<SupabaseClient, "rpc"
   context: ProfileWorkspaceContext, visitId: string): Promise<FollowUpVisitPhotosResult> {
   if (!auditor(context)) return { status: 403, snapshot: unavailableFollowUpVisitPhotos() };
   if (!uuid(visitId)) return { status: 404, snapshot: unavailableFollowUpVisitPhotos() };
-  try {
-    const { data, error } = await client.rpc("can_read_follow_up_visit_photos", {
-      p_visit_id: visitId.toLowerCase(), ...profileParams(context),
-    });
-    if (error) return { status: error.code === "42501" ? 403 : 503, snapshot: unavailableFollowUpVisitPhotos(photoMessage) };
-    if (data === false) return { status: 404, snapshot: unavailableFollowUpVisitPhotos() };
-    if (data !== true) return { status: 503, snapshot: unavailableFollowUpVisitPhotos(photoMessage) };
-    // No agenda/reports/drafts hydration, signing, download or cross-visit listing.
-    const photos = await readVisitPhotos(client, context.user.id, visitId);
-    return photos ? { status: 200, snapshot: { available: true, photos } }
-      : { status: 503, snapshot: unavailableFollowUpVisitPhotos(photoMessage) };
-  } catch { return { status: 503, snapshot: unavailableFollowUpVisitPhotos(photoMessage) }; }
+  const result = await readFollowUpPhotoBatch(client, context, [visitId]);
+  return { status: result.status === 400 ? 404 : result.status, snapshot: result.snapshot };
 }
