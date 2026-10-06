@@ -1,0 +1,313 @@
+{
+  "generatedAt": "2026-10-06T14:41:37.687905+00:00",
+  "baseCommit": "6c2cc6f7b06fd4812aab3420647d4c7cb20d646d",
+  "scope": "Only files for the background jobs task; preexisting unrelated changes excluded. Hosted services were not changed.",
+  "files": [
+    {
+      "path": "docs/AUDITORIA-JOBS.md",
+      "bytes": 12824,
+      "sha256": "649192ecc788a2be74186f851400fefc46ac2a20a425c5c42f0fb1533972eddd"
+    },
+    {
+      "path": "docs/evidence/jobs-20261006/accessibility.aria.txt",
+      "bytes": 1072,
+      "sha256": "bb2db9039e6f04d9a584bb1f04caa758708d7e0512f1abfa4224a9aa92f768c0"
+    },
+    {
+      "path": "docs/evidence/jobs-20261006/api-failure.png",
+      "bytes": 103680,
+      "sha256": "b0f48f4f50859c1efe68718a89817358ec674a6f30263f1841850f61c51682b2"
+    },
+    {
+      "path": "docs/evidence/jobs-20261006/browser.json",
+      "bytes": 588,
+      "sha256": "385e37e8ed1dbe07f47bd188a8402754390b8a9547b06aa66c6663e3e1403801"
+    },
+    {
+      "path": "docs/evidence/jobs-20261006/browser.log",
+      "bytes": 447,
+      "sha256": "14283b03a0e98ec3e618e0cd431fdb2ed448fdd27bdb6c0b6ffbfb080c02655e"
+    },
+    {
+      "path": "docs/evidence/jobs-20261006/build.log",
+      "bytes": 2657,
+      "sha256": "77496080b598fa3c31a17bb3f52cc926bba3e97d284a620284fa8acfb3c58908"
+    },
+    {
+      "path": "docs/evidence/jobs-20261006/completed.png",
+      "bytes": 96059,
+      "sha256": "defcef89a9f4398298875e99d4f6311cef54630f68e0806259f6f7acf421c26b"
+    },
+    {
+      "path": "docs/evidence/jobs-20261006/integration.json",
+      "bytes": 2426,
+      "sha256": "53bb241f5b096dcdf804e62edab80c4061949d3830c293abde9ddcc7c9272c9b"
+    },
+    {
+      "path": "docs/evidence/jobs-20261006/jobs-tests.log",
+      "bytes": 1788,
+      "sha256": "69fde30760d54e3c67f070a199f04cea54975b7512f6030e9d77b1bbdf4ee3d3"
+    },
+    {
+      "path": "docs/evidence/jobs-20261006/lint.log",
+      "bytes": 459,
+      "sha256": "fcaaa98d0f252b3ac249cff18424603f8c9fcaaf1e145f9f4d1c1898e9d7298d"
+    },
+    {
+      "path": "docs/evidence/jobs-20261006/loading.png",
+      "bytes": 85195,
+      "sha256": "ad052226e3d5ede7b13fe0748640f473a8281bcfb336e0d5fa90dbccaa3741e9"
+    },
+    {
+      "path": "docs/evidence/jobs-20261006/mobile.png",
+      "bytes": 89071,
+      "sha256": "1683cd17df427ae26a86e07990a207bb43ee06f17ec770037b1c662a9d467d59"
+    },
+    {
+      "path": "docs/evidence/jobs-20261006/performance-regression.log",
+      "bytes": 62192,
+      "sha256": "d287592c64949a560135c8128b0c5a1afb632e21a64e4b1364a89071c9e825f8"
+    },
+    {
+      "path": "docs/evidence/jobs-20261006/publication-regression.log",
+      "bytes": 2652,
+      "sha256": "a5418194eaf056431de8b563a524afc276131cf6ad210be7041c72989bf0c451"
+    },
+    {
+      "path": "docs/evidence/jobs-20261006/routes-mutations.log",
+      "bytes": 3765,
+      "sha256": "8ee80576dc2601d6ebcb3c902b0ffc8e5493893994e9aa4ecfa3a56b7e38be0f"
+    },
+    {
+      "path": "package.json",
+      "bytes": 6336,
+      "sha256": "5ce7eb465505882b2e4c0199f0ca6606754a674607383dd24fb327986b80a5c7"
+    },
+    {
+      "path": "scripts/build-jobs.mjs",
+      "bytes": 1949,
+      "sha256": "b39d00022e277c84f9360789fb3a86665b38f29a816de00d9df5c82431b6f4e1"
+    },
+    {
+      "path": "scripts/fixtures/job-hang.mjs",
+      "bytes": 149,
+      "sha256": "3c31996aa74e70a33d5c27de34b36698edb49ddb3fd1d92d6e4d4c20326ef6f3"
+    },
+    {
+      "path": "scripts/jobs-worker.mjs",
+      "bytes": 1912,
+      "sha256": "1508a6e6732327af218ee19eea4bbca8d9ad0b279340cb807ac1892d19b68b90"
+    },
+    {
+      "path": "scripts/lib/job-process.mjs",
+      "bytes": 1217,
+      "sha256": "e660a7e984e3da3bfbb71e3d11b20c6d28802c6ebcfe86f3cadafed81578e9e5"
+    },
+    {
+      "path": "scripts/start-with-jobs.mjs",
+      "bytes": 832,
+      "sha256": "c903820b7bae0ba51ce8b529547c390e87dc6df6854161352362adcbddffb973"
+    },
+    {
+      "path": "scripts/test-follow-up-mutations.mjs",
+      "bytes": 13295,
+      "sha256": "e2268b61fcddf043030830a67e6157ee2ce5fd86e1f9190681b94eca6c354c13"
+    },
+    {
+      "path": "scripts/test-follow-up-pdf-routes.mjs",
+      "bytes": 9280,
+      "sha256": "1d225b787683bc4c91d77bd96e1d8af5fc0d1c593a3e0249f6029be765d54323"
+    },
+    {
+      "path": "scripts/test-jobs-browser.mjs",
+      "bytes": 5185,
+      "sha256": "76b3a9e4ef7654e92af28e8dfff8e5de9e7d1e730446bfed9e0bd6f52b56a375"
+    },
+    {
+      "path": "scripts/test-jobs.mjs",
+      "bytes": 23538,
+      "sha256": "43ff95f30d995950fdc5d7b56d5b4f5c9c91a4a71b97e5aec95b162ae3eb7cd6"
+    },
+    {
+      "path": "scripts/test-pdf-worker.mjs",
+      "bytes": 8396,
+      "sha256": "5109be64d709f44755c51fa28a69a15c0975119fa3f6506b4b7b11f90d5e78cf"
+    },
+    {
+      "path": "scripts/test-standalone-report-pdf.mjs",
+      "bytes": 6046,
+      "sha256": "8f4293a92a128f8720f979e068ccaae206fb1b09842f2b17cb3acf2f5958858c"
+    },
+    {
+      "path": "src/app/api/jobs/[id]/route.ts",
+      "bytes": 982,
+      "sha256": "a9efe75fca2f4e9e9dda05f30ba10c76f89dd47fe71c2fda836d4f11a329990c"
+    },
+    {
+      "path": "src/app/api/jobs/route.ts",
+      "bytes": 331,
+      "sha256": "1fd3344d1c310cf7495643fc80cf1d5db62f23ac8b184948d2a554bdad5abb91"
+    },
+    {
+      "path": "src/app/api/publications/[id]/[operation]/route.ts",
+      "bytes": 4124,
+      "sha256": "4516f2085f5f05af1861035e36496e6c60494c524677eaefd06b3e0d8e0ef4a4"
+    },
+    {
+      "path": "src/app/app/acompanhamento/relatorio/[visitId]/pdf/route.ts",
+      "bytes": 2014,
+      "sha256": "c5f50a7c3ca5729c1f9b53a160c14c44cefb72957cd000dc13f667398ad7c2e7"
+    },
+    {
+      "path": "src/app/app/acompanhamento/relatorio/avulso/[reportId]/pdf/route.ts",
+      "bytes": 1871,
+      "sha256": "a74b16ada1469e9ea4f2684424328f0f89abd1e650c6a1c5f5c3782b3f478b9d"
+    },
+    {
+      "path": "src/app/app/processamentos/page.tsx",
+      "bytes": 457,
+      "sha256": "adfe8fa978c2ff2be5a50973c6b09eef9e2b1432f4289caecce96c9d57a706aa"
+    },
+    {
+      "path": "src/app/components/auth/UserMenu.tsx",
+      "bytes": 2042,
+      "sha256": "30a8e1a510a0ed4262b419c6aeda9e615a33d29232506ec6f268b7038ba93307"
+    },
+    {
+      "path": "src/app/components/follow-up-report-page.tsx",
+      "bytes": 17121,
+      "sha256": "94eda6d5b4f8d633105bfd639bf9296f5d902bd5f3c9d83cbf8a24d3f2aa0b7b"
+    },
+    {
+      "path": "src/app/components/jobs-panel.tsx",
+      "bytes": 3835,
+      "sha256": "8b3430e2251affceeb4f0d154f8f4e3c20068fe6c565d76f5152e9398e3ddd9f"
+    },
+    {
+      "path": "src/app/components/persistent-action-plan-editor.tsx",
+      "bytes": 3895,
+      "sha256": "a4f059e5ce8edafd47744d2b6add5b9bf55be8397d1580ecc7cfa0dbf59352aa"
+    },
+    {
+      "path": "src/app/components/publication-feedback.tsx",
+      "bytes": 995,
+      "sha256": "74a6d03ffed788022a5135f1655ed69ba53a8382424f51128d8d2381ee4a87c0"
+    },
+    {
+      "path": "src/app/components/use-audit-publication.ts",
+      "bytes": 9105,
+      "sha256": "e0db2704a828c930f6dd61b4b629b7354712f21071bf01afed4b3009eff6ab28"
+    },
+    {
+      "path": "src/app/components/visit-agenda.tsx",
+      "bytes": 46117,
+      "sha256": "1159e86050b058b0d0696f75734fed2d749d7f246aaa1c93df53a1cbfb115785"
+    },
+    {
+      "path": "src/app/follow-up/actions.ts",
+      "bytes": 18959,
+      "sha256": "fd8cfaa53fc5c6604dfddf2b1f92455c8dac3da18bc6db022c4b1ec7e06e7319"
+    },
+    {
+      "path": "src/app/revisao-jobs/page.tsx",
+      "bytes": 297,
+      "sha256": "670f4c787835396f5ac88d7acbb080d13ed08fd504fc79873e12c9c211e2306a"
+    },
+    {
+      "path": "src/app/revisao-jobs/review.tsx",
+      "bytes": 1267,
+      "sha256": "698b79d514049ccf38be3c0b45536808f670cdad26f89533a86d432c589a1845"
+    },
+    {
+      "path": "src/jobs/execute.ts",
+      "bytes": 6534,
+      "sha256": "2d42839434cccd7ee4e8e093189787a9c1b0de58b2ddb89ced04ec11493a1827"
+    },
+    {
+      "path": "src/lib/agenda/spreadsheet-client.ts",
+      "bytes": 1134,
+      "sha256": "c93c45e24b904262572e68390a6e9901c1b119954591118bfbb1414a461c8f4f"
+    },
+    {
+      "path": "src/lib/agenda/spreadsheet.ts",
+      "bytes": 1044,
+      "sha256": "cdcc30fbad6c5c3a980910503389551d3b437854c8686b33040d8aed832b2bbf"
+    },
+    {
+      "path": "src/lib/agenda/spreadsheet.worker.ts",
+      "bytes": 317,
+      "sha256": "9146b70d5144434a13d4028706aff3f8d9c4d4ba2acafa682447f1f615100dc9"
+    },
+    {
+      "path": "src/lib/documents/archive.ts",
+      "bytes": 2934,
+      "sha256": "5f9ab3559ecec4750c792da3b70434b076135de236c0e3929214b53e0cb9e1d2"
+    },
+    {
+      "path": "src/lib/follow-up/document.ts",
+      "bytes": 2458,
+      "sha256": "3a9b63fd37fa322f9b729100d59425425140ecbbd3554d3c15906d805b426563"
+    },
+    {
+      "path": "src/lib/follow-up/report-pdf-resource.ts",
+      "bytes": 3918,
+      "sha256": "3159a49844ad69fea349d9adadb6fc748e9b75aa0ce7563b1ad771828b64ecbb"
+    },
+    {
+      "path": "src/lib/follow-up/service.ts",
+      "bytes": 8629,
+      "sha256": "4434bd54f09c1bff2c241d1f9fafb1db95e3a62efabac2e8d89db9bba35d714c"
+    },
+    {
+      "path": "src/lib/follow-up/standalone-contracts.ts",
+      "bytes": 4763,
+      "sha256": "64cf0bb8724dec3f7ad0fbae5d1b88b12464a0fa9d583ef06f713a3a2286aded"
+    },
+    {
+      "path": "src/lib/jobs/client.ts",
+      "bytes": 2540,
+      "sha256": "af971cae3118e26d3c2321015417aaed35539dc3f1b64b9cd4b549b0fff000e1"
+    },
+    {
+      "path": "src/lib/jobs/contracts.ts",
+      "bytes": 1289,
+      "sha256": "86ba719b9b393ad501cdc3f9353d7491471354c67181d1ec3ab05e5aaf3b9a87"
+    },
+    {
+      "path": "src/lib/jobs/service.ts",
+      "bytes": 1954,
+      "sha256": "9e300b02def56b9cd12b2660e0341323fc930912c2087d77aeeae73d20bc3bda"
+    },
+    {
+      "path": "src/lib/jobs/staging.ts",
+      "bytes": 2741,
+      "sha256": "dc6abb990e0eebe2788748260db39a4ed26458cd6a31c8fe17773105a98dce23"
+    },
+    {
+      "path": "src/lib/pdf/client.ts",
+      "bytes": 2045,
+      "sha256": "667a544a8a6558cf2276f8c10a0649967f4ed9d52ff83d7a2add3a4f90a1eaf8"
+    },
+    {
+      "path": "src/lib/publications/admin.ts",
+      "bytes": 914,
+      "sha256": "7eb08fccc506e2f6a182817c575aa72a8363b42f1680ea1707f366ba8a9fb42b"
+    },
+    {
+      "path": "src/lib/publications/http.ts",
+      "bytes": 2964,
+      "sha256": "01fe2ed740210ed399e7a344e8b5169d52ab90741636108494aa19e975ed1190"
+    },
+    {
+      "path": "src/lib/publications/service.ts",
+      "bytes": 16772,
+      "sha256": "c9e38fe903220da4924b3fbe3792e3dc219ecf2bc6e0a0ba61fe7f297d407b55"
+    },
+    {
+      "path": "supabase/migrations/20261006000900_background_jobs.sql",
+      "bytes": 14863,
+      "sha256": "53974817e4b6b396686c47321a06a2f7397433fcda5935457b5ab1dfa6104c5c"
+    }
+  ],
+  "logFormatting": "Log line endings and trailing whitespace normalized; test output and results preserved."
+}

@@ -10,9 +10,11 @@ const id = (n) => `d1fa0000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 const userId = id(1), workId = id(2), visitId = id(3), reportId = id(4);
 const file = (finding, n) => `${id(finding)}_${id(n)}.jpg`;
 const jpeg = await sharp({ create: { width: 32, height: 20, channels: 3, background: "red" } }).jpeg().toBuffer();
+const prepared = await PDFDocument.create(); prepared.addPage();prepared.addPage();
+const preparedBytes = await prepared.save();
 let state;
 function reset(profile = "AUDITOR_QUALIDADE", scope = null) {
-  state = { guards: 0, contexts: 0, detailReads: [], lists: [], downloads: [],
+  state = { archive: new Map([[`scheduled/${reportId}.pdf`, preparedBytes]]), guards: 0, contexts: 0, detailReads: [], lists: [], downloads: [],
     listError: null, failedPath: null, invalidImage: false,
     context: { profile, engineeringScope: scope, administrativeScope: null,
       user: { id: userId }, works: [{ id: workId, name: "Obra teste" }] },
@@ -42,10 +44,11 @@ function reset(profile = "AUDITOR_QUALIDADE", scope = null) {
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const stubs = {
   "server-only": "export {};",
+  "@/lib/jobs/service": `export function jobService(){return {async enqueue(kind,target){const s=globalThis.__followUpPdfFixture;if(s.jobError)throw Error('Queue offline');return {job:{id:target,status:'queued',kind,target},statusUrl:'/api/jobs/'+target}}}}`,
   "@/lib/publications/admin": `export function createPublicationClient() {
     const s = globalThis.__followUpPdfFixture; s.archive ??= new Map();
     return { storage: { from() { return {
-      async download(path) { const bytes=s.archive.get(path); return bytes ? {data:new Blob([bytes])} : {error:{statusCode:'404'}}; },
+      async download(path) { if(s.archiveError)return {error:{statusCode:'503'}};const bytes=s.archive.get(path); return bytes ? {data:new Blob([bytes])} : {error:{statusCode:'404'}}; },
       async upload(path,bytes) { if(s.archive.has(path)) return {error:{statusCode:'409'}}; s.archive.set(path,bytes); return {}; }
     }; } } };
   }`,
@@ -72,7 +75,7 @@ function privateResponse(response) {
   assert.equal(response.headers.get("X-Content-Type-Options"), "nosniff");
 }
 
-test("auditor and both engineering scopes load only the exact report, with all visit and historical work photos", async () => {
+test("auditor and both engineering scopes load the authorized immutable archive without source processing", async () => {
   for (const [profile, scope] of [["AUDITOR_QUALIDADE", null], ["AUDITOR_SEGURANCA", null], ["ENGENHARIA", "COORDENACAO"], ["ENGENHARIA", "EQUIPE_OBRA"]]) {
     reset(profile, scope);
     const response = await get(); assert.equal(response.status, 200); privateResponse(response);
@@ -81,9 +84,7 @@ test("auditor and both engineering scopes load only the exact report, with all v
     assert.ok((await PDFDocument.load(await response.arrayBuffer())).getPageCount() >= 2);
     assert.equal(state.guards, 1); assert.equal(state.contexts, 1);
     assert.deepEqual(state.detailReads, [{ profile, scope, visitId, reportId }]);
-    assert.equal(state.lists.length, 1); assert.equal(state.lists[0].folder, `${userId}/${visitId}`);
-    assert.deepEqual(state.downloads, [`${userId}/${visitId}/${file(10, 30)}`, `${userId}/${workId}/${file(10, 31)}`,
-      `${userId}/${visitId}/${file(20, 40)}`]);
+    assert.equal(state.lists.length, 0);assert.deepEqual(state.downloads, []);
   }
 });
 
@@ -108,21 +109,25 @@ test("unavailable, unauthorized, ambiguous or mismatched report reads never touc
   await assert.rejects(get(undefined, "wrong"), { status: 404 }); assert.equal(state.guards, 0);
 });
 
-test("list, download and image corruption failures produce 503 instead of partial PDFs", async () => {
-  for (const mutation of [
-    () => { state.listError = { message: "Offline" }; },
-    () => { state.listError = { message: "Bucket not found" }; },
-    () => { state.failedPath = `${userId}/${workId}/${file(10, 31)}`; },
-    () => { state.invalidImage = true; },
-  ]) {
-    reset(); mutation();
-    const response = await get(); assert.equal(response.status, 503); privateResponse(response);
-    assert.notEqual(response.headers.get("Content-Type"), "application/pdf");
-    assert.ok(!(await response.text()).startsWith("%PDF"));
-  }
-  reset(); assert.equal((await get()).status, 200, "Failed generation can be retried cleanly");
+test("cache miss returns a trackable job without listing or decoding photos", async () => {
+  reset();state.archive.clear();
+  const response=await get();assert.equal(response.status,202);privateResponse(response);
+  const receipt=await response.json();assert.equal(receipt.job.target,reportId);assert.equal(response.headers.get('Location'),receipt.statusUrl);
+  assert.deepEqual(state.downloads,[]);assert.equal(state.lists.length,0);
+});
+test("archive and queue outages fail explicitly without generating partial PDFs", async()=>{
+  reset();state.archiveError=true;assert.equal((await get()).status,503);
+  reset();state.archive.clear();state.jobError=true;assert.equal((await get()).status,503);
 });
 
+test("direct browser download redirects to its tracked processing instead of exposing JSON", async()=>{
+  reset();state.archive.clear();
+  const direct=new Request(request().url,{headers:{accept:'text/html'}});
+  const response=await route.GET(direct,{params:Promise.resolve({visitId})});
+  assert.equal(response.status,303);privateResponse(response);
+  assert.match(response.headers.get('Location'),/^\/app\/processamentos#job-/);
+  assert.deepEqual(state.downloads,[]);
+});
 
 test("archived PDF survives source loss, but revoked report access still denies download", async () => {
   reset();
@@ -132,7 +137,7 @@ test("archived PDF survives source loss, but revoked report access still denies 
   const archived = await get();
   assert.equal(archived.status, 200);
   assert.deepEqual(new Uint8Array(await archived.arrayBuffer()), original);
-  assert.equal(state.lists.length, 1);
+  assert.equal(state.lists.length, 0);
   state.detail.report = null;
   await assert.rejects(get(), { status: 404 });
 });

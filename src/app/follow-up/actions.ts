@@ -1,6 +1,6 @@
 "use server";
 
-import { scheduledDocument, standaloneDocument } from "@/lib/follow-up/document";
+import { jobService } from "@/lib/jobs/service";
 import { requireActiveProfile } from "@/lib/auth/session";
 import { readWorkspaceContext } from "@/lib/access/workspace";
 import { createClient } from "@/lib/supabase/server";
@@ -32,7 +32,7 @@ export async function saveStandaloneReportAction(value: unknown, expected: Agend
   const result = await saveStandaloneReport(client, context, value);
   if (result.status === "success") {
     try {
-      if (!await standaloneDocument(client, context, result.reportId)) throw new Error("Report missing");
+      return { ...result, processing: await jobService(context).enqueue("standalone-pdf", result.reportId) };
     } catch {
       // The immutable report record already exists. Keep its ID and retry PDF
       // preservation on download instead of encouraging a duplicate publication.
@@ -147,7 +147,7 @@ export async function saveFollowUpReportAction(input: unknown, expected: AgendaA
   const result = await saveFollowUpReport(client, context, { ...value, findings });
   if (result.status === "success" && result.report) {
     try {
-      if (!await scheduledDocument(client, context, value.visitId, result.report.id)) throw new Error("Report missing");
+      return { ...result, processing: await jobService(context).enqueue("scheduled-pdf", result.report.id) };
     } catch {
       return { ...result, message: "Relatório salvo. O PDF ainda não pôde ser preservado; tente abrir o documento novamente." };
     }

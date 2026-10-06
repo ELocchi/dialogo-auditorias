@@ -1,3 +1,5 @@
+import { shouldQueuePhotos, stageAuditSave } from "@/lib/jobs/staging";
+import { jobService } from "@/lib/jobs/service";
 import { headers, publicationRequest, readJson, limitedBody, revision } from "@/lib/publications/http";
 import { PublicationError } from "@/lib/publications/validation";
 import { isUuid } from "@/lib/catalogs/validation";
@@ -8,6 +10,7 @@ export function GET(request: Request, { params }: Params) {
   return publicationRequest(request, async service => {
     const { id, operation } = await params;
     if (!isUuid(id)) throw new PublicationError("Documento inválido.");
+    if (operation === "audit") return Response.json(await service.readAudit(id), { headers });
     if (operation === "plan") return Response.json(await service.readPlan(id), { headers });
     if (operation === "photo") {
       const bytes = await service.photo(id, new URL(request.url).searchParams.get("file") ?? "");
@@ -25,7 +28,7 @@ export function GET(request: Request, { params }: Params) {
   });
 }
 export function POST(request: Request, { params }: Params) {
-  return publicationRequest(request, async service => {
+  return publicationRequest(request, async (service, context) => {
     const { id, operation } = await params;
     if (!isUuid(id)) throw new PublicationError("Documento inválido.");
     if (operation === "save-audit") {
@@ -39,13 +42,20 @@ export function POST(request: Request, { params }: Params) {
       if (!Array.isArray(refs) || refs.length > 100 || refs.some(r => typeof r !== "string") || new Set(refs).size !== refs.length) throw new PublicationError("Fotos inválidas.");
       const files = new Map<string, File>();
       refs.forEach((ref, i) => { const file = form.get(`photo${i}`); if (!(file instanceof File)) throw new PublicationError("Foto ausente."); files.set(ref, file); });
+      if (shouldQueuePhotos(files)) {
+        const receipt = await stageAuditSave(context, id, revision(Number(form.get("revision"))), input, files, closure);
+        return Response.json(receipt, { status: 202, headers: { ...headers, Location: receipt.statusUrl, "Retry-After": "2" } });
+      }
       return Response.json(await service.saveAudit(id, revision(Number(form.get("revision"))), input, files, closure), { headers });
     }
     const body = await readJson(request);
     const current = revision(body.revision);
-    if (operation === "publish-audit") return Response.json(await service.publishAudit(id, current), { headers });
+    if (operation === "publish-audit" || operation === "publish-plan") {
+      const receipt = await jobService(context).enqueue(operation, id, current);
+      return Response.json(receipt, { status: 202, headers: { ...headers, Location: receipt.statusUrl, "Retry-After": "2" } });
+    }
     if (operation === "save-plan") return Response.json(await service.savePlan(id, current, body.rows), { headers });
-    if (operation === "publish-plan") return Response.json(await service.publishPlan(id, current), { headers });
+
     throw new PublicationError("Operação não encontrada.", 404);
   });
 }

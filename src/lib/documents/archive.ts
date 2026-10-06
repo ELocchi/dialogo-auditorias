@@ -5,10 +5,18 @@ export type ReportArchiveKind = "scheduled" | "standalone";
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const maximumBytes = 40 * 1024 * 1024;
 
-function checkPdf(bytes: Uint8Array) {
+export function checkPdf(bytes: Uint8Array) {
   if (!bytes.length || bytes.length > maximumBytes || new TextDecoder().decode(bytes.slice(0, 5)) !== "%PDF-")
     throw new Error("Invalid archived PDF");
   return bytes;
+}
+
+export async function readArchivedReportPdf(client: Pick<SupabaseClient, "storage">, kind: ReportArchiveKind, reportId: string) {
+  if (!["scheduled", "standalone"].includes(kind) || !uuid.test(reportId)) throw new Error("Invalid report identity");
+  const { data, error } = await client.storage.from(reportArchiveBucket).download(`${kind}/${reportId.toLowerCase()}.pdf`);
+  if (!error && data) return checkPdf(new Uint8Array(await data.arrayBuffer()));
+  if (String(error?.statusCode) === "404" && !error?.message?.toLowerCase().includes("bucket")) return null;
+  throw new Error("Report archive unavailable");
 }
 
 /** Server callers MUST authorize the report using the user's session before

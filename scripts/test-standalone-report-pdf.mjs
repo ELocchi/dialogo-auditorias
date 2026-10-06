@@ -8,9 +8,11 @@ import { PDFDocument } from "pdf-lib";
 
 const id = n => `ddcc0000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 const jpeg = await sharp({ create: { width: 32, height: 20, channels: 3, background: "red" } }).jpeg().toBuffer();
+const prepared = await PDFDocument.create();prepared.setTitle("Relatório independente - Obra");prepared.addPage();
+const preparedBytes=await prepared.save();
 let state;
 function reset(profile = "AUDITOR_QUALIDADE", scope = null) {
-  state = { calls: [], downloads: [], error: null, photoError: false,
+  state = { archive: new Map([[`standalone/${id(3)}.pdf`,preparedBytes]]), calls: [], downloads: [], error: null, photoError: false,
     context: { profile, engineeringScope: scope, administrativeScope: null,
       user: { id: id(1), workModuleScopes: [{ workId: id(2), module: "quality" }] }, works: [{ id: id(2) }] },
     report: { id: id(3), workId: id(2), auditorId: id(1), auditorName: "Auditor", workName: "Obra",
@@ -29,6 +31,7 @@ function reset(profile = "AUDITOR_QUALIDADE", scope = null) {
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const stubs = {
   "server-only": "export {};",
+  "@/lib/jobs/service": `export function jobService(){return {async enqueue(kind,target){return {job:{id:target,status:'queued',kind,target},statusUrl:'/api/jobs/'+target}}}}`,
   "@/lib/publications/admin": `export function createPublicationClient() {
     const s = globalThis.__standalonePdf; s.archive ??= new Map();
     return { storage: { from() { return {
@@ -67,17 +70,17 @@ test("standalone PDF works without a visit, findings or Storage listing for audi
   }
 });
 
-test("PDF uses frozen photo references and refuses incomplete downloads", async () => {
+test("PDF uses the immutable archive; cache miss queues generation without downloading photos", async () => {
   reset();
   state.report.findings = [{ id: id(4), location: "", description: "Correção necessária", correction: "Orientação completa", serious: true }];
   state.report.photos = [{ findingId: id(4), fileName: `${id(4)}_${id(5)}.jpg` }];
   assert.equal((await get()).status, 200);
-  assert.deepEqual(state.downloads, [`${id(1)}/${id(2)}/${id(4)}_${id(5)}.jpg`]);
+  assert.deepEqual(state.downloads, []);
   state.photoError = true;
   assert.equal((await get()).status, 200, "Preserved PDF does not depend on source photos");
   state.archive.clear();
   const failed = await get();
-  assert.equal(failed.status, 503);
+  assert.equal(failed.status, 202);
   assert.notEqual(failed.headers.get("Content-Type"), "application/pdf");
 });
 

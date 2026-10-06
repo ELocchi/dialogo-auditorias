@@ -1,4 +1,6 @@
 "use client";
+import { isJobReceipt, waitForJob } from "@/lib/jobs/client";
+import { jobMessage } from "@/lib/jobs/contracts";
 import { requestSignal } from "@/lib/request-signal";
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import type { SafetyClosure } from "@/domain/safety-audit";
@@ -13,12 +15,16 @@ export function publicationQuery(actor: AgendaActorContext) {
   return new URLSearchParams({ usuario: actor.userId, perfil: actor.profile,
     atuacao: actor.engineeringScope ?? "", administrativo: actor.administrativeScope ?? "" }).toString();
 }
-export async function publicationFetch<T>(url: string, init?: RequestInit): Promise<T> {
+export async function publicationFetch<T>(url: string, init?: RequestInit, onProgress?: (message: string) => void): Promise<T> {
   const reading = !init?.method || init.method === "GET";
   try {
     const response = await fetch(url, { ...init, credentials: "same-origin", cache: "no-store", signal: requestSignal(init?.signal, reading ? 20_000 : 90_000) });
     const data = await response.json().catch(() => null);
     if (!response.ok || !data) throw new Error(data?.message || (reading ? "Não foi possível carregar os dados. Tente novamente." : "Não foi possível confirmar o salvamento. Seus dados continuam nesta tela."));
+    if (response.status === 202 && isJobReceipt(data)) {
+      const completed = await waitForJob(data, { signal: init?.signal ?? undefined, onProgress: job => onProgress?.(jobMessage(job)) });
+      return completed.result as T;
+    }
     return data as T;
   } catch (reason) {
     if (init?.signal?.aborted) throw reason;
@@ -82,7 +88,7 @@ export function useAuditPublication(actor: AgendaActorContext, session: Prototyp
       files.forEach(({ file }, i) => form.set(`photo${i}`, file));
       if (files.length) setStatus("Enviando fotos e salvando…");
       try {
-        const result = await publicationFetch<{ revision: number }>(`/api/publications/${id}/save-audit?${query}`, { method: "POST", body: form });
+        const result = await publicationFetch<{ revision: number }>(`/api/publications/${id}/save-audit?${query}`, { method: "POST", body: form }, setStatus);
         current.revision = result.revision; current.saved = key; failed.current.delete(id);
         files.forEach(({ ref, file }) => current.files.set(ref, file));
         setStatus("Rascunho salvo"); return result.revision;
@@ -112,7 +118,9 @@ export function useAuditPublication(actor: AgendaActorContext, session: Prototyp
     },
     async publish(id: string, responses: AuditDrafts, safetyClosure?: SafetyClosure) {
       const revision = await save(id, responses, safetyClosure);
-      const data = await publicationFetch<PersistedAudit>(`/api/publications/${id}/publish-audit?${query}`, publicationJson({ revision }));
+      setStatus("Solicitando publicação…");
+      await publicationFetch(`/api/publications/${id}/publish-audit?${query}`, publicationJson({ revision }), setStatus);
+      const data = await publicationFetch<PersistedAudit>(`/api/publications/${id}/audit?${query}`);
       accept(data); setStatus("Auditoria publicada"); setError(""); return data.audit;
     },
     planPublished(auditId: string, workId: string, module: "quality" | "safety") {

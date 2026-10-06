@@ -48,7 +48,7 @@ function reset() {
 }
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const stubs = {
- "follow-up/document": "export async function scheduledDocument(){return {}};export async function standaloneDocument(){return {}}",
+ "jobs/service": "export function jobService(){return {async enqueue(kind,id){const s=globalThis.__followUpMutations; s.jobs??=[];s.jobs.push({kind,id});return {}}}}",
  "lists/service": `export async function readListPage(client,context,query,ids){const s=globalThis.__followUpMutations;
   const all=[...s.snapshot.reports.flatMap(r=>r.findings),...(s.snapshot.draft?.findings??[]),...s.snapshot.workFindings];
   return {available:true,items:all.filter(f=>ids.includes(f.id)),hasMore:false,nextCursor:null};}`,

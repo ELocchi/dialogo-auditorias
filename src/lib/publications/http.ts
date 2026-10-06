@@ -2,8 +2,9 @@ import "server-only";
 import { readAuditRequestContext, auditResponseHeaders } from "@/lib/audits/request-context";
 import { publicationService } from "./service";
 import { PublicationError } from "./validation";
+import type { ProfileWorkspaceContext } from "@/lib/access/workspace-context";
 export const headers = auditResponseHeaders;
-export async function publicationRequest(request: Request, handle: (service: ReturnType<typeof publicationService>) => Promise<Response>) {
+export async function publicationRequest(request: Request, handle: (service: ReturnType<typeof publicationService>, context: ProfileWorkspaceContext) => Promise<Response>) {
   try {
     if (request.method !== "GET") {
       const origin = request.headers.get("origin");
@@ -14,7 +15,7 @@ export async function publicationRequest(request: Request, handle: (service: Ret
     }
     const access = await readAuditRequestContext(request);
     if (!access.context) throw new PublicationError("Entre novamente para continuar.", access.status);
-    return await handle(publicationService(access.context));
+    return await handle(publicationService(access.context), access.context);
   } catch (error) {
     return Response.json({ message: error instanceof PublicationError ? error.message : "A publicação está indisponível. Confira a configuração do servidor e do banco." },
       { status: error instanceof PublicationError ? error.status : 503, headers });

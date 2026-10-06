@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { SlowOperation } from "./slow-operation";
 
 import { BackLink } from "@/app/components/back-control";
@@ -80,10 +81,10 @@ export function ClosedReportPdf({ visitId, href, report, autoDownload, message }
     {message && <p className={styles.success} role="status">{autoDownload && pdf.status === "ready"
       ? "Relatório salvo. O download do PDF foi iniciado." : message}</p>}
     {pdf.status === "error" ? <div className={styles.error} role="alert">
-      <p>O relatório está salvo. Não foi possível carregar o PDF.</p>
+      <p>O relatório está salvo. Não foi possível carregar o PDF. <Link href="/app/processamentos">Ver processamento</Link></p>
       <button type="button" className="secondary" onClick={() => { void resource.load(); }}>Recarregar PDF</button>
     </div> : pdf.url ? <iframe className={styles.pdfPreview} style={{ display: "block", width: "100%", height: "72vh", minHeight: 580 }} src={pdf.url} title="Visualização do relatório orientativo" />
-      : <div className={styles.pdfPreview} style={{ width: "100%", height: "72vh", minHeight: 580 }} role="status" aria-busy="true"><p className="muted">Preparando PDF…</p></div>}
+      : <div className={styles.pdfPreview} style={{ width: "100%", height: "72vh", minHeight: 580 }} role="status" aria-busy="true"><p className="muted">{pdf.status === "loading" && pdf.message || "Preparando PDF…"}</p><Link href="/app/processamentos">Processamentos</Link></div>}
   </>;
 }
 

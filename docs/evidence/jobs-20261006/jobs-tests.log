@@ -1,0 +1,27 @@
+
+> auditoria-obra@0.1.0 test:jobs
+> node scripts/build-jobs.mjs && node --experimental-strip-types --test scripts/test-jobs.mjs
+
+Worker compiled: 37 modules
+(node:55947) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/dialogo-jobs-validation/src/lib/agenda/spreadsheet.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /private/tmp/dialogo-jobs-validation/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+{"event":"job_dispatched","jobId":"8279c475-bbee-4448-a0e8-0cf2a4664c31","kind":"save-audit","status":"queued"}
+{"event":"job_dispatched","jobId":"8279c475-bbee-4448-a0e8-0cf2a4664c31","kind":"save-audit","status":"queued"}
+{"event":"job_dispatched","jobId":"8279c475-bbee-4448-a0e8-0cf2a4664c31","kind":"save-audit","status":"succeeded"}
+{"event":"job_dispatched","jobId":"05cfc798-eaed-4388-986a-35f5571dcbda","kind":"publish-audit","status":"queued"}
+{"event":"job_dispatched","jobId":"e1ad9633-6b21-4600-926f-313dbf70948a","kind":"publish-plan","status":"queued"}
+✔ durable queue: real SQL, child worker, HTTP Storage, PDF, retries and access control (9316.548875ms)
+✔ client follows 202, reports stages, survives a transient status failure (0.774292ms)
+✔ client cancellation and permission loss stop polling without cancelling persistent work (0.23075ms)
+✔ parent watchdog terminates a CPU-blocked process and shutdown interrupts work (153.708209ms)
+✔ spreadsheet decoding bounds file, rows and columns and preserves dates (232.478542ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 9871.280833

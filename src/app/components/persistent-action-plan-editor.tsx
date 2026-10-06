@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 
 import { AsyncSkeleton } from "./async-feedback";
 import { BackButton, BackHeading } from "@/app/components/back-control";
@@ -16,6 +17,7 @@ export function PersistentActionPlanEditor({ auditId, actor, onPublished, ...pro
   module: AppModule; authorName: string; onBack: () => void; onPublished: () => void;
 }) {
   const [result, setResult] = useState<{ key: string; plan?: Plan; error?: string } | null>(null);
+  const [jobStatus, setJobStatus] = useState("");
   const [retry, setRetry] = useState(0);
   const current = useRef({ revision: 0, saved: "" });
   const queue = useRef<Promise<unknown>>(Promise.resolve());
@@ -44,10 +46,10 @@ export function PersistentActionPlanEditor({ auditId, actor, onPublished, ...pro
   }, [auditId, query]);
   if (!plan) return <section className="panel">{error ? <><p role="alert">{error}</p><button className="secondary" onClick={() => setRetry(v => v + 1)}>Recarregar plano de ação</button></> : <AsyncSkeleton label="Carregando plano de ação…" />}</section>;
   if (plan.published) return <section className="panel"><BackHeading><BackButton label={props.module === "quality" ? "Voltar à Qualidade" : "Voltar à Segurança"} onClick={props.onBack} /><h2>Plano de ação publicado</h2></BackHeading><a className="primary" href={`/api/publications/${auditId}/plan-report?${query}`} target="_blank" rel="noreferrer">Abrir PDF publicado</a></section>;
-  return <ActionPlanEditor {...props} {...plan.metadata} findings={plan.rows ?? []} draft={plan.rows} example={false} autosave onSave={save}
+  return <>{jobStatus && <p role="status">{jobStatus} <Link href="/app/processamentos">Processamentos</Link></p>}<ActionPlanEditor {...props} {...plan.metadata} findings={plan.rows ?? []} draft={plan.rows} example={false} autosave onSave={save}
     onPublish={async () => {
       await queue.current;
-      await publicationFetch(`/api/publications/${auditId}/publish-plan?${query}`, publicationJson({ revision: current.current.revision }));
+      await publicationFetch(`/api/publications/${auditId}/publish-plan?${query}`, publicationJson({ revision: current.current.revision }), setJobStatus);
       onPublished(); setResult({ key, plan: { published: true } });
-    }} />;
+    }} /></>;
 }

@@ -1,0 +1,41 @@
+(node:55848) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/dialogo-jobs-validation/src/app/follow-up/actions.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /private/tmp/dialogo-jobs-validation/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ save resolves server findings from one target snapshot and performs only the authoritative save RPC (3.022917ms)
+✔ save fails closed on missing snapshot, unauthorized visit, changed source, future or unconfirmed visit (0.762292ms)
+✔ save service preserves closed revision and SQL concurrency/current-access errors without rereading agenda (0.50575ms)
+✔ completing a draft uses its exact revision and deletes only that finding's private photos (0.701083ms)
+✔ completing a reported finding records completion and never lists or removes its closed-report photos (0.207959ms)
+✔ a draft revision conflict cannot mark completion or remove photos (0.128917ms)
+✔ photo upload loads just the target visit and returns the freshly confirmed photo list (21.05325ms)
+✔ closed, missing, future and unconfirmed visit findings cannot receive photos or reach Storage (1.635583ms)
+✔ deletion keeps still-used photos and removes only an unused finding from the authorized visit (0.697375ms)
+✔ stale actor and invalid identifiers are rejected before target data or storage reads (0.241084ms)
+✔ legacy photo action batches up to 100 visits without per-visit queries (2.050375ms)
+(node:55849) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/dialogo-jobs-validation/src/app/app/acompanhamento/relatorio/%5BvisitId%5D/pdf/route.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /private/tmp/dialogo-jobs-validation/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ auditor and both engineering scopes load the authorized immutable archive without source processing (18.849667ms)
+✔ a unique report works without reportId and visualization remains inline (0.392917ms)
+✔ unavailable, unauthorized, ambiguous or mismatched report reads never touch Storage (0.841208ms)
+✔ cache miss returns a trackable job without listing or decoding photos (0.445709ms)
+✔ archive and queue outages fail explicitly without generating partial PDFs (0.32025ms)
+✔ direct browser download redirects to its tracked processing instead of exposing JSON (0.200875ms)
+✔ archived PDF survives source loss, but revoked report access still denies download (0.456291ms)
+(node:55850) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/dialogo-jobs-validation/src/app/app/acompanhamento/relatorio/avulso/%5BreportId%5D/pdf/route.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /private/tmp/dialogo-jobs-validation/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ standalone PDF works without a visit, findings or Storage listing for auditors and engineering (37.315416ms)
+✔ PDF uses the immutable archive; cache miss queues generation without downloading photos (1.169834ms)
+✔ unauthorized, missing and unavailable standalone documents never download evidence (0.599166ms)
+ℹ tests 21
+ℹ suites 0
+ℹ pass 21
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 447.474875

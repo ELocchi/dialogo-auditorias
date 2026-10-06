@@ -1,4 +1,5 @@
 "use client";
+import { readAgendaSpreadsheet } from "@/lib/agenda/spreadsheet-client";
 import { useListSelection } from "./list-state";
 import { containDialogFocus } from "./dialog-keyboard";
 
@@ -325,18 +326,14 @@ function CreateVisitForm({ user, works, users, module, workId, available, mutati
     };
     try {
       if (!file.name.toLocaleLowerCase("pt-BR").endsWith(".xlsx")) throw new Error("Selecione uma planilha Excel no formato .xlsx.");
-      const { Workbook } = await import("exceljs");
-      const workbook = new Workbook();
-      await workbook.xlsx.load(await file.arrayBuffer());
-      const sheet = workbook.worksheets[0];
-      if (!sheet) throw new Error("A planilha não possui uma aba com dados.");
+      const sheet = await readAgendaSpreadsheet(file);
       const columns = new Map<string, number>();
-      sheet.getRow(1).eachCell((cell, column) => columns.set(normalize(cell.text), column));
+      sheet[0]?.forEach((cell, column) => columns.set(normalize(cell.text), column));
       const required = ["obra", "disciplina", "finalidade", "tipo de auditoria", "profissional", "data", "observacao"];
       if (required.some((header) => !columns.has(header))) throw new Error("A primeira linha deve conter: Obra, Disciplina, Finalidade, Tipo de auditoria, Profissional, Data e Observação.");
-      const cell = (row: number, header: string) => sheet.getRow(row).getCell(columns.get(header) ?? 0);
+      const cell = (row: number, header: string) => sheet[row - 1]?.[columns.get(header) ?? 0] ?? { text: "", value: null };
       const imported: VisitInput[] = [];
-      for (let rowNumber = 2; rowNumber <= sheet.rowCount; rowNumber += 1) {
+      for (let rowNumber = 2; rowNumber <= sheet.length; rowNumber += 1) {
         if (!required.some((header) => cell(rowNumber, header).text.trim())) continue;
         const workText = cell(rowNumber, "obra").text.trim();
         const work = works.find((entry) => normalize(entry.name) === normalize(workText) || entry.id === workText);

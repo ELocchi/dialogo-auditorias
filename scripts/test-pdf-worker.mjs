@@ -128,11 +128,9 @@ test("cancelling a preview terminates its worker and rejects the pending result"
   assert.equal(terminated, true);
 });
 
-test("unsupported workers fall back to a real PDF and tolerate unavailable images", async (t) => {
+test("unsupported workers use a small text-only fallback and reject heavy previews", async (t) => {
   t.mock.property(globalThis, "Worker", undefined);
-  t.mock.method(globalThis, "fetch", async () => new Response("unavailable", { status: 404 }));
-  const bytes = await generatePdf({ kind: "action-plan", input: plan, baseUrl: "https://example.test", photos: [{ reference: photoUrl, name: "foto.png", url: photoUrl }] }, new AbortController().signal);
-  const document = await PDFDocument.load(bytes);
-  assert.equal(document.getTitle(), "Plano de Ação - Obra Teste");
-  assert.match(document.getPages().map((page) => pageText(document, page)).join(" "), /foto\.png/);
+  const bytes = await generatePdf({ kind: "action-plan", input: plan, baseUrl: "https://example.test", photos: [] }, new AbortController().signal);
+  assert.equal((await PDFDocument.load(bytes)).getTitle(), "Plano de Ação - Obra Teste");
+  await assert.rejects(generatePdf({kind:"action-plan",input:plan,baseUrl:"https://example.test",photos:[{reference:photoUrl,name:"foto.png",url:photoUrl}]},new AbortController().signal),/processamento em segundo plano/);
 });

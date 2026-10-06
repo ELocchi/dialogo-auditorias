@@ -1,0 +1,15 @@
+{
+  "passed": true,
+  "checks": [
+    "Skeleton during delayed list response",
+    "Keyboard retry with retained focus and queued state",
+    "202 -> queued -> running -> PDF ready",
+    "API failure retains rows and reload recovers",
+    "Real Excel worker decodes 200 rows; page remains interactive",
+    "Mobile without horizontal overflow; reduced motion; accessibility tree"
+  ],
+  "apiCalls": 9,
+  "pdfStatusPolls": 2,
+  "errors": [],
+  "scope": "Real Chrome and Excel Web Worker, controlled API delay/failure. Durable SQL + PDF process validated separately in integration.json."
+}

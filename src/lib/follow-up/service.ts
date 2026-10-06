@@ -1,3 +1,4 @@
+import type { JobReceipt } from "../jobs/contracts.ts";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { uuidPattern } from "../access/validation.ts";
 import type { ProfileWorkspaceContext } from "../access/workspace-context.ts";
@@ -17,7 +18,7 @@ export type FollowUpReport = {
 };
 export type FollowUpSnapshot = { available: boolean; reports: FollowUpReport[]; message?: string };
 export type SaveFollowUpInput = Pick<FollowUpReport, "visitId" | "title" | "participants" | "subjects" | "decisions" | "findings"> & { expectedRevision: number };
-export type SaveFollowUpResult = { status: "success" | "error"; message: string; report?: FollowUpReport };
+export type SaveFollowUpResult = { status: "success" | "error"; message: string; report?: FollowUpReport; processing?: JobReceipt };
 
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
 const uuid = (value: unknown): value is string => typeof value === "string" && uuidPattern.test(value);

@@ -6,6 +6,8 @@ export function generatePdf(job: PdfJob, signal: AbortSignal): Promise<Uint8Arra
   if (signal.aborted) return Promise.reject(signal.reason);
   signal = requestSignal(signal, 90_000);
   const fallback = async () => {
+    if (job.photos.length > 0 || (job.kind === "audit" ? job.input.criteria.length : job.input.rows.length) > 10)
+      throw new Error("Esta prévia precisa de um navegador com processamento em segundo plano. Atualize o navegador e tente novamente.");
     const { runPdfJob } = await import("./run-job.ts");
     signal.throwIfAborted();
     // Let the browser paint the progress state in browsers without worker support.

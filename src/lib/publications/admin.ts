@@ -11,5 +11,7 @@ export function createPublicationClient() {
   }
   return createClient(getSupabaseConfig().url, key, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    global: { fetch: (input, init) => fetch(input, { ...init, cache: "no-store",
+      signal: init?.signal ? AbortSignal.any([init.signal, AbortSignal.timeout(30_000)]) : AbortSignal.timeout(30_000) }) },
   });
 }

@@ -1,0 +1,5 @@
+
+> auditoria-obra@0.1.0 test:jobs-browser
+> node scripts/test-jobs-browser.mjs
+
+{"passed":true,"checks":["Skeleton during delayed list response","Keyboard retry with retained focus and queued state","202 -> queued -> running -> PDF ready","API failure retains rows and reload recovers","Real Excel worker decodes 200 rows; page remains interactive","Mobile without horizontal overflow; reduced motion; accessibility tree"],"apiCalls":9,"polls":2}

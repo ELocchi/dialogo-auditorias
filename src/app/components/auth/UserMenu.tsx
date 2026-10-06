@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 
 import { useEffect, useId, useRef, useState } from "react";
 import { LogoutButton } from "./LogoutButton";
@@ -40,6 +41,7 @@ export function UserMenu({ name }: { name: string }) {
     <nav id={panelId} className={styles.panel} aria-label="Opções do usuário" hidden={!open}>
       <a href="/escolher-perfil">Trocar perfil</a>
       <a href="/minha-conta">Meus acessos</a>
+      <Link href="/app/processamentos">Processamentos</Link>
       <LogoutButton />
     </nav>
   </div>;

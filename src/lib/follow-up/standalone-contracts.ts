@@ -1,3 +1,4 @@
+import type { JobReceipt } from "../jobs/contracts.ts";
 import { uuidPattern } from "../access/validation.ts";
 import { parseFindings, type FollowUpFinding } from "./service.ts";
 import { parsePhotoFileName } from "./photos.ts";
@@ -15,7 +16,7 @@ export type StandaloneReport = StandaloneReportHeader & {
   photos: { findingId: string; fileName: string }[];
 };
 export type StandaloneReportIndex = { available: boolean; reports: StandaloneReportHeader[] };
-export type StandaloneSaveResult = { status: "success"; reportId: string; archivePending?: boolean } | { status: "error"; message: string };
+export type StandaloneSaveResult = { status: "success"; reportId: string; archivePending?: boolean; processing?: JobReceipt } | { status: "error"; message: string };
 const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
 const text = (v: unknown, max: number, min = 0): v is string => typeof v === "string" && v.length <= max && v.trim().length >= min && !v.includes("\0");
 const uuid = (v: unknown): v is string => typeof v === "string" && uuidPattern.test(v);

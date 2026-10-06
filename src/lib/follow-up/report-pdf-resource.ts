@@ -1,6 +1,8 @@
+import { isJobReceipt, waitForJob } from "../jobs/client.ts";
+import { jobMessage } from "../jobs/contracts.ts";
 import { requestSignal } from "../request-signal.ts";
 export type ReportPdfSnapshot =
-  | { status: "idle" | "loading" | "error"; url: null; fileName: null }
+  | { status: "idle" | "loading" | "error"; url: null; fileName: null; message?: string }
   | { status: "ready"; url: string; fileName: string };
 
 type PdfResourceOptions = {
@@ -35,7 +37,14 @@ export function createReportPdfResource({ href, fallbackFileName, fetchPdf = fet
     pending = Promise.resolve().then(async () => {
       try {
         if (generation !== version || request.signal.aborted) return null;
-        const response = await fetchPdf(href, { credentials: "same-origin", cache: "no-store", signal: requestSignal(request.signal, 90_000) });
+        let response = await fetchPdf(href, { credentials: "same-origin", cache: "no-store", signal: requestSignal(request.signal, 90_000) });
+        if (response.status === 202) {
+          const receipt = await response.json();
+          if (!isJobReceipt(receipt)) throw new Error("Invalid processing receipt");
+          await waitForJob(receipt, { fetcher: fetchPdf, signal: request.signal,
+            onProgress: job => { if (generation === version) publish({ status: "loading", url: null, fileName: null, message: jobMessage(job) }); } });
+          response = await fetchPdf(href, { credentials: "same-origin", cache: "no-store", signal: requestSignal(request.signal, 30_000) });
+        }
         if (!response.ok || response.headers.get("content-type")?.split(";")[0].trim().toLowerCase() !== "application/pdf") {
           throw new Error("PDF unavailable");
         }

@@ -1,0 +1,76 @@
+[
+  {
+    "scenario": "30-photo standalone PDF",
+    "dispatchMs": 1.9453340000000026,
+    "workerMs": 1824.378208,
+    "pages": 31,
+    "pdfBytes": 21935900,
+    "sourcePhotoBytes": 774404,
+    "downloadDelayMs": 20,
+    "peakRssKb": 299168,
+    "httpRequests": 39,
+    "jobId": "71b408b9-f1b2-4272-84e0-201fd8cf53a8",
+    "logs": [
+      "{\"event\":\"job_progress\",\"jobId\":\"71b408b9-f1b2-4272-84e0-201fd8cf53a8\",\"kind\":\"standalone-pdf\",\"stage\":\"evidence\",\"attempt\":1}\n",
+      "{\"event\":\"job_progress\",\"jobId\":\"71b408b9-f1b2-4272-84e0-201fd8cf53a8\",\"kind\":\"standalone-pdf\",\"stage\":\"pdf\",\"attempt\":1}\n",
+      "{\"event\":\"job_progress\",\"jobId\":\"71b408b9-f1b2-4272-84e0-201fd8cf53a8\",\"kind\":\"standalone-pdf\",\"stage\":\"storage\",\"attempt\":1}\n"
+    ]
+  },
+  {
+    "scenario": "scheduled PDF transient failure, backoff, recovery and stale lease fencing",
+    "passed": true
+  },
+  {
+    "scenario": "actual POST routes, batched photo input, save checkpoint, audit and action plan PDFs, publication replay without duplicates",
+    "passed": true,
+    "requests": 52
+  },
+  {
+    "scenario": "three automatic attempts; bounded manual retries stop at nine; metrics",
+    "passed": true
+  },
+  {
+    "scenario": "revoked account blocks queued work and status; permanent failure cannot retry",
+    "passed": true
+  },
+  {
+    "scenario": "production scheduler claims persisted job, forks processor and completes; cleanup protects failed/recent/queued inputs and published files",
+    "passed": true,
+    "logs": [
+      {
+        "event": "worker_started",
+        "concurrency": 1,
+        "timeoutMs": 180000
+      },
+      {
+        "event": "queue_metrics",
+        "queued": 1,
+        "running": 0,
+        "failed24h": 0,
+        "oldestQueuedSeconds": 2.796
+      },
+      {
+        "event": "job_started",
+        "jobId": "6ebdc07a-6ad1-4f4a-9b31-3c1e2293c8b5",
+        "kind": "scheduled-pdf",
+        "attempt": 1,
+        "queueAgeMs": 2802
+      },
+      {
+        "event": "job_progress",
+        "jobId": "6ebdc07a-6ad1-4f4a-9b31-3c1e2293c8b5",
+        "kind": "scheduled-pdf",
+        "stage": "evidence",
+        "attempt": 1
+      },
+      {
+        "event": "job_completed",
+        "jobId": "6ebdc07a-6ad1-4f4a-9b31-3c1e2293c8b5",
+        "kind": "scheduled-pdf",
+        "attempt": 1,
+        "peakRssKb": 141216,
+        "durationMs": 213
+      }
+    ]
+  }
+]

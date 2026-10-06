@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build --webpack",
-    "start": "next start",
+    "build": "next build --webpack && node scripts/build-jobs.mjs",
+    "start": "node scripts/start-with-jobs.mjs",
     "lint": "eslint",
     "verify:supabase": "node --experimental-strip-types scripts/check-supabase.mjs",
     "test:supabase": "node --experimental-strip-types --test scripts/test-supabase.mjs",
@@ -34,7 +34,12 @@
     "test:lists-database": "node scripts/test-access-database.mjs --lists-only",
     "test:lists-browser": "node scripts/test-lists-browser.mjs",
     "test:nplus1": "node --experimental-strip-types --test scripts/test-nplus1.mjs scripts/test-follow-up-photo-loader.mjs scripts/test-follow-up-workspace.mjs scripts/test-follow-up-mutations.mjs scripts/test-published-audits.mjs",
-    "benchmark:nplus1": "node --experimental-strip-types scripts/benchmark-nplus1.mjs"
+    "benchmark:nplus1": "node --experimental-strip-types scripts/benchmark-nplus1.mjs",
+    "worker": "node scripts/jobs-worker.mjs",
+    "build:worker": "node scripts/build-jobs.mjs",
+    "test:jobs": "node scripts/build-jobs.mjs && node --experimental-strip-types --test scripts/test-jobs.mjs",
+    "test:jobs-browser": "node scripts/test-jobs-browser.mjs",
+    "start:web": "next start"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

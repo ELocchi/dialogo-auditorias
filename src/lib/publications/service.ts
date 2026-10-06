@@ -25,7 +25,7 @@ import { extractPublicationFindings, mapPhotos, normalizePlanRows, normalizeResp
 type Client = Pick<SupabaseClient, "rpc" | "storage">;
 const hash = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
 const filePattern = /^[a-f0-9]{64}\.jpg$/;
-export function publicationService(context: ProfileWorkspaceContext, client: Client = createPublicationClient()) {
+export function publicationService(context: ProfileWorkspaceContext, client: Client = createPublicationClient(), progress: (stage: string) => Promise<void> = async () => {}) {
   async function command<T>(operation: string, id: string | null = null, revision: number | null = null, payload: unknown = {}): Promise<T> {
     const { data, error } = await client.rpc("publication_command", { p_actor: context.user.id, p_profile: context.profile,
       p_scope: context.engineeringScope, p_admin: context.administrativeScope, p_operation: operation,
@@ -93,6 +93,7 @@ export function publicationService(context: ProfileWorkspaceContext, client: Cli
       const data = await command<{ drafts: AuditDraftRecord[]; plans: { auditId: string; workId: string; module: "quality" | "safety" }[] }>("list", null, null, { month, ...(ids ? { ids } : {}) });
       return { drafts: data.drafts.map(toClient), plans: data.plans };
     },
+    async readAudit(id: string) { return toClient(await command<AuditDraftRecord>("read-audit", id)); },
     async start(visitId: string, userClient: SupabaseClient, model: AuditModelId) {
       const snapshot = await readCatalogSnapshot(userClient, context);
       if (!snapshot.available) throw new PublicationError("Não foi possível conferir o roteiro vigente. Tente novamente.", 503);
@@ -118,7 +119,7 @@ export function publicationService(context: ProfileWorkspaceContext, client: Cli
         if (!file.size || file.size > 8 * 1024 * 1024 || !["image/jpeg", "image/png", "image/webp"].includes(file.type)) throw new PublicationError("Use fotos JPG, PNG ou WebP de até 8 MB.");
         let bytes: Buffer;
         try { bytes = await sharp(Buffer.from(await file.arrayBuffer()), { limitInputPixels: 40_000_000, animated: false })
-          .rotate().resize({ width: 1600, height: 1600, fit: "inside", withoutEnlargement: true }).jpeg({ quality: 82 }).toBuffer(); }
+          .timeout({ seconds: 10 }).rotate().resize({ width: 1600, height: 1600, fit: "inside", withoutEnlargement: true }).jpeg({ quality: 82 }).toBuffer(); }
         catch { throw new PublicationError("Uma foto não pôde ser processada. Confira o arquivo."); }
         const name = `${hash(bytes)}.jpg`;
         await upload("audit-drafts", `${d.auditor_auth_user_id}/${id}/${name}`, bytes, "image/jpeg");
@@ -136,6 +137,7 @@ export function publicationService(context: ProfileWorkspaceContext, client: Cli
       const responses = mapPhotos(d.responses, ref => resolvePhoto(d, ref));
       const assets: PdfAssets = { logo: await logo(), photos: {} };
       const evidenceFiles = [...auditPhotoReferences([responses])];
+      await progress("evidence");
       let total = 0;
       for (const name of evidenceFiles) {
         const bytes = await download("audit-drafts", `${d.auditor_auth_user_id}/${id}/${name}`);
@@ -144,12 +146,15 @@ export function publicationService(context: ProfileWorkspaceContext, client: Cli
         assets.photos[name] = { bytes, mimeType: "image/jpeg" };
         await upload("published-audits", `${d.work_id}/${id}/${name}`, bytes, "image/jpeg");
       }
+      await progress("pdf");
       await verifyImages(assets);
       const pdf = await createAuditReviewPdf({ model: modelDisplayName(d.model_id), modelId: d.model_id,
         workName: d.work_name, details: { date: d.audit_date, auditor: d.auditor_name }, criteria: d.criteria, drafts: responses, safetyClosure: d.safety_closure ?? undefined }, assets);
       if (pdf.length > 40 * 1024 * 1024) throw new PublicationError("O PDF excede o limite de 40 MB.");
+      await progress("storage");
       const reportFileName = `${hash(pdf)}.pdf`;
       await upload("published-audits", `${d.work_id}/${id}/${reportFileName}`, pdf, "application/pdf");
+      await progress("finalizing");
       return toClient(await command<AuditDraftRecord>("publish-audit", id, revision,
         { score, safetyClosure: d.safety_closure ?? null, rawScore: d.model_id === "security-it07-r02" ? safetyScore(d.criteria, d.responses, d.model_id, d.safety_closure).raw : score, penalty: d.model_id === "security-it07-r02" ? safetyScore(d.criteria, d.responses, d.model_id, d.safety_closure).penalty : 0, responses: responses[d.model_id], evidenceFiles, reportFileName }));
     },
@@ -184,6 +189,7 @@ export function publicationService(context: ProfileWorkspaceContext, client: Cli
       const rows: ActionPlanRow[] = normalizePlanRows(source.draft.rows, findings(source), true);
       const assets: PdfAssets = { logo: await logo(), photos: {} };
       const photos = new Set(rows.flatMap(r => (r.evidencePhotos ?? []).map(p => p.name)));
+      await progress("evidence");
       let total = 0;
       for (const name of photos) {
         if (!source.audit.evidence_files.includes(name) || !/^(?:p\d{2}-\d{2}\.png|[a-f0-9]{64}\.jpg)$/.test(name)) throw new PublicationError("Referência de evidência inválida.");
@@ -194,13 +200,16 @@ export function publicationService(context: ProfileWorkspaceContext, client: Cli
       }
       // PDF engine resolves images by URL; use immutable storage filenames as asset keys.
       const pdfRows = rows.map(r => ({ ...r, evidencePhotos: r.evidencePhotos?.map(p => ({ ...p, url: p.name })) }));
+      await progress("pdf");
       await verifyImages(assets);
       const pdf = await generateActionPlanPdf({ workName: source.workName, auditDate: source.audit.audit_date,
         auditScore: source.audit.final_score, module: source.audit.model_id === "security-it07-r02" ? "safety" : "quality",
         authorName: source.authorName, rows: pdfRows }, assets);
       if (pdf.length > 40 * 1024 * 1024) throw new PublicationError("O PDF excede o limite de 40 MB.");
+      await progress("storage");
       const reportFileName = `${hash(pdf)}.pdf`;
       await upload("action-plans", `${source.audit.work_id}/${id}/${reportFileName}`, pdf, "application/pdf");
+      await progress("finalizing");
       await command("publish-plan", id, revision, { reportFileName });
       return { published: true };
     },

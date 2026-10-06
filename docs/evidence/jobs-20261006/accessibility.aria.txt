@@ -1,0 +1,28 @@
+- main:
+  - heading "Processamentos — dados fictícios" [level=1]
+  - region "Processamentos recentes":
+    - heading "Processamentos" [level=2]
+    - paragraph: Últimos 40 trabalhos deste perfil. Você pode sair e voltar depois.
+    - list:
+      - listitem:
+        - strong: Publicar auditoria
+        - paragraph: 06/10/2026, 09:00:00 · aa000000
+        - status: Aguardando nova tentativa…
+      - listitem:
+        - strong: Preparar relatório
+        - paragraph: 06/10/2026, 09:00:00 · aa000000
+        - status: Concluído
+        - button "Ver resultado"
+  - heading "Relatório fechado" [level=3]
+  - paragraph: Disponível para visualização e download.
+  - link "Abrir PDF em nova guia":
+    - /url: blob:http://127.0.0.1:3017/27375ee9-7f7f-40d8-96c8-d2235ec56ec4
+  - link "Baixar PDF":
+    - /url: blob:http://127.0.0.1:3017/27375ee9-7f7f-40d8-96c8-d2235ec56ec4
+  - status: Relatório salvo.
+  - iframe
+  - heading "Importação local" [level=2]
+  - text: Planilha
+  - button "Planilha"
+  - status: 200 agendamentos lidos
+  - 'button "Interagir: 1"'
