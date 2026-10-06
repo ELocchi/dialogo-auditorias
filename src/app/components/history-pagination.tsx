@@ -1,6 +1,7 @@
 "use client";
 
 import { useListState } from "./list-state";
+import { Icon } from "./ui-icon";
 import styles from "./history-pagination.module.css";
 
 export function useHistoryPage<T>(items: readonly T[], contextKey: string) {
@@ -33,13 +34,13 @@ export function HistoryPagination({ page, pageCount, total, first, last, onPageC
   unit?: string;
 }) {
   const loading = status === "loading" || status === "idle";
-  if (pageCount <= 1 && !onSizeChange && page <= 1) return null;
+  if (pageCount <= 1) return null;
   return <nav className={styles.pagination} aria-label={label} aria-busy={loading}>
-    <p role="status">{loading ? "Carregando…" : `${first}–${last} de ${total} ${unit}`}<span>Página {page} de {pageCount}</span></p>
-    {onSizeChange && <label>Por página <select disabled={loading} className="filter-select" aria-label={`Itens por página: ${label}`} value={pageSize} onChange={e => onSizeChange(Number(e.target.value))}>{[10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}</select></label>}
-    <div>
-      <button data-tooltip="Página anterior" type="button" className="secondary" aria-label={`Página anterior: ${label}`} disabled={loading || page === 1} onClick={() => onPageChange(page - 1)}>Anterior</button>
-      <button data-tooltip="Próxima página" type="button" className="secondary" aria-label={`Próxima página: ${label}`} disabled={loading || page >= pageCount} onClick={() => onPageChange(page + 1)}>Próxima</button>
+    <div className={styles.navigation}>
+      <button data-tooltip="Página anterior" type="button" className={styles.arrow} aria-label={`Página anterior: ${label}`} disabled={loading || page === 1} onClick={() => onPageChange(page - 1)}><Icon name="arrow" className={styles.previous} /></button>
+      <button data-tooltip="Próxima página" type="button" className={styles.arrow} aria-label={`Próxima página: ${label}`} disabled={loading || page >= pageCount} onClick={() => onPageChange(page + 1)}><Icon name="arrow" /></button>
     </div>
+    <p className={styles.summary} role="status">{loading ? "Carregando…" : `${first}–${last} de ${total} ${unit}`}<span>Página {page} de {pageCount}</span></p>
+    {onSizeChange && <label className={styles.pageSize}>Por página <select disabled={loading} className="filter-select" aria-label={`Itens por página: ${label}`} value={pageSize} onChange={e => onSizeChange(Number(e.target.value))}>{[10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}</select></label>}
   </nav>;
 }

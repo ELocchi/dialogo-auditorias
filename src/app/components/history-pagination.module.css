@@ -1,9 +1,17 @@
-.pagination { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
-.pagination p { display: grid; gap: 4px; margin: 0; color: var(--muted); font-size: 12px; }
-.pagination p span { font-size: 11px; }
-.pagination > div { display: flex; flex-wrap: wrap; gap: 8px; }
-.pagination button { min-height: 36px; padding: 8px 12px; font-size: 12px; }
-.pagination button:disabled { opacity: .5; cursor: default; }
+.pagination { container-type: inline-size; display: grid; grid-template-columns: minmax(96px, 1fr) minmax(0, 2fr) minmax(96px, 1fr); align-items: center; gap: 12px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+.pagination .navigation { grid-column: 1; display: flex; gap: 8px; }
+.pagination .summary { grid-column: 2; display: grid; gap: 4px; min-width: 0; margin: 0; color: var(--muted); font-size: 12px; text-align: center; overflow-wrap: anywhere; }
+.summary span { font-size: 11px; }
+.pagination .pageSize { grid-column: 3; justify-self: end; display: grid; gap: 4px; width: auto; min-width: 0; margin: 0; color: var(--muted); font-size: 11px; font-weight: 600; }
+.pageSize select { width: 68px; min-height: 44px; }
+.pagination .arrow { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 44px; width: 44px; min-width: 44px; height: 44px; min-height: 44px; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: white; color: var(--navy); text-decoration: none; }
+.pagination .arrow:hover:not(:disabled):not([aria-disabled="true"]) { background: #f2f5fa; border-color: #9aaecb; }
+.pagination .arrow:disabled, .pagination .arrow[aria-disabled="true"] { opacity: .5; cursor: default; }
+.arrow .previous { transform: rotate(180deg); }
+@container (max-width: 360px) {
+  .pagination .summary { grid-column: 1 / -1; grid-row: 1; }
+  .pagination .navigation, .pagination .pageSize { grid-row: 2; }
+}
 @media print { .pagination { display: none; } }
 .filters {
   display: flex;

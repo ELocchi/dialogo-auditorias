@@ -3,6 +3,7 @@ import { useId } from "react";
 import type { WorkRecord } from "@/domain/operational-records";
 import type { CursorList } from "./use-cursor-list";
 import { AsyncSkeleton } from "./async-feedback";
+import { Icon } from "./ui-icon";
 import styles from "./history-pagination.module.css";
 
 export function ListFilters({ list, works, label, disabled = false }: { disabled?: boolean; list: CursorList; works?: readonly WorkRecord[]; label: string }) {
@@ -23,12 +24,17 @@ export function ListStatus({ list, empty = "Nenhum registro encontrado." }: { li
 export function ListPagination({ list, label, disabled = false }: { list: CursorList; label: string; disabled?: boolean }) {
   const id = useId();
   const pending = list.loading || disabled;
+  // Keep navigation while returning from another page; cursor lists do not fetch a total.
+  const multiplePages = list.state.page > 0 || (list.data?.hasMore ?? list.state.cursors.length > 1);
+  if (!multiplePages) return null;
   return <nav className={styles.pagination} aria-label={`Páginas: ${label}`} aria-busy={list.loading}>
-    <p role="status">Página {list.state.page + 1}{!list.loading && list.data && <span>{list.data.items.length} registros{list.data.hasMore ? " · há mais" : " · fim da lista"}</span>}</p>
-    <label htmlFor={id}>Por página <select id={id} className="filter-select" aria-label={`Itens por página: ${label}`} value={list.state.size} disabled={disabled} onChange={e => list.setSize(Number(e.target.value))}>
+    <div className={styles.navigation}>
+      <button data-tooltip="Página anterior" type="button" className={styles.arrow} disabled={pending || list.state.page === 0} aria-label={`Anterior: ${label}`} onClick={list.previous}><Icon name="arrow" className={styles.previous} /></button>
+      <button data-tooltip="Próxima página" type="button" className={styles.arrow} disabled={pending || !list.data?.hasMore} aria-label={`Próxima: ${label}`} onClick={list.next}><Icon name="arrow" /></button>
+    </div>
+    <p className={styles.summary} role="status">{list.loading ? "Carregando…" : `Página ${list.state.page + 1}`}{!list.loading && list.data && <span>{list.data.items.length} registros{list.data.hasMore ? " · há mais" : " · fim da lista"}</span>}</p>
+    <label className={styles.pageSize} htmlFor={id}>Por página <select id={id} className="filter-select" aria-label={`Itens por página: ${label}`} value={list.state.size} disabled={pending} onChange={e => list.setSize(Number(e.target.value))}>
       {[10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
     </select></label>
-    <div><button type="button" className="secondary" disabled={pending || list.state.page === 0} aria-label={`Anterior: ${label}`} onClick={list.previous}>Anterior</button>
-      <button type="button" className="secondary" disabled={pending || !list.data?.hasMore} aria-label={`Próxima: ${label}`} onClick={list.next}>Próxima</button></div>
   </nav>;
 }

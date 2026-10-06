@@ -13,6 +13,7 @@ const rows = Array.from({ length: 1502 }, (_, i) => ({ id: id(10000-i), key: `wo
 const json = (route, body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 async function shot(page, name) { await page.screenshot({ path: path.join(out,`${name}.png`), fullPage: true }); await writeFile(path.join(out,`${name}.aria.txt`), await page.locator('main').ariaSnapshot()); }
 async function check(name, run, options = {}) {
+ if (process.env.LIST_TEST_FILTER && !new RegExp(process.env.LIST_TEST_FILTER).test(name)) return;
  const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, ...options });
  const page = await context.newPage(), errors = [], calls = [], control = { lag: 600, fail: false };
  page.on('pageerror', e => errors.push(e.message));
@@ -37,7 +38,7 @@ const go = async (p, flow='lista') => { await p.goto(`${base}/revisao-listas?flu
 const ready = async p => p.locator('[data-testid="rows"] li').first().waitFor();
 await check('Rede lenta, skeleton, limite e teclado', async (p,c,calls) => {
  c.lag=1800; await go(p); await p.getByRole('status',{name:'Carregando lista…'}).waitFor();
- assert.equal(await p.getByRole('button',{name:'Próxima: Apontamentos',exact:true}).isDisabled(),true); await shot(p,'01-loading');
+ assert.equal(await p.getByRole('navigation',{name:'Páginas: Apontamentos',exact:true}).count(),0); await shot(p,'01-loading');
  await ready(p); assert.equal(await p.locator('[data-testid="rows"] li').count(),20); assert.equal(calls.length,1);
  const button=p.getByRole('button',{name:'Próxima: Apontamentos',exact:true}); await button.focus(); await p.keyboard.press('Enter');
  await p.getByRole('status',{name:'Carregando lista…'}).waitFor(); assert.equal(await button.isDisabled(),true);
@@ -48,7 +49,7 @@ await check('Erro de API, retry e vazio', async (p,c,calls) => {
  c.fail=true; await go(p); await p.getByText('Não foi possível carregar a lista.',{exact:true}).waitFor(); await shot(p,'03-error'); c.fail=false;
  await p.getByRole('button',{name:'Tentar novamente',exact:true}).click(); await ready(p);
  await p.getByLabel('Buscar: Apontamentos',{exact:true}).fill('inexistente'); await p.getByText('Nenhum registro encontrado.',{exact:true}).waitFor();
- assert.equal(await p.getByRole('button',{name:'Próxima: Apontamentos',exact:true}).isDisabled(),true); await shot(p,'04-empty'); return { statuses:[503,200],requests:calls.length,empty:true };
+ assert.equal(await p.getByRole('navigation',{name:'Páginas: Apontamentos',exact:true}).count(),0); await shot(p,'04-empty'); return { statuses:[503,200],requests:calls.length,empty:true };
 });
 await check('Tamanho, filtros e respostas fora de ordem', async (p,c,calls) => {
  await go(p); await ready(p); await p.getByLabel('Itens por página: Apontamentos',{exact:true}).selectOption('50'); await p.getByRole('link',{name:'Apontamento 0050',exact:true}).waitFor();
@@ -63,7 +64,8 @@ await check('Voltar preserva página, busca, tamanho e posição', async (p,c) =
  c.lag=100; await go(p); await ready(p); await p.getByLabel('Itens por página: Apontamentos',{exact:true}).selectOption('10'); await delay(250);
  await p.getByLabel('Buscar: Apontamentos',{exact:true}).fill('Apontamento'); await delay(550); await p.getByRole('button',{name:'Próxima: Apontamentos',exact:true}).click(); await p.getByRole('link',{name:'Apontamento 0011',exact:true}).waitFor();
  await p.getByRole('link',{name:'Apontamento 0020',exact:true}).scrollIntoViewIfNeeded(); const before=await p.evaluate(()=>scrollY);
- await p.getByRole('link',{name:'Apontamento 0020',exact:true}).click(); await p.getByText('Documento fictício').waitFor(); await p.goBack(); await p.getByRole('link',{name:'Apontamento 0011',exact:true}).waitFor(); await delay(300);
+ await p.getByRole('link',{name:'Apontamento 0020',exact:true}).click(); await p.getByText('Documento fictício').waitFor(); await p.goBack(); await p.getByRole('link',{name:'Apontamento 0011',exact:true}).waitFor();
+ await p.waitForFunction(y => Math.abs(scrollY-y)<100,before,{timeout:3000});
  assert.equal(await p.getByLabel('Itens por página: Apontamentos',{exact:true}).inputValue(),'10'); assert.equal(await p.getByLabel('Buscar: Apontamentos',{exact:true}).inputValue(),'Apontamento');
  const after=await p.evaluate(()=>scrollY); assert.ok(Math.abs(before-after)<100,`scroll before ${before}, after ${after}`); return { beforeScroll:before,afterScroll:after,page:2,searchPreserved:true };
 });
@@ -105,6 +107,44 @@ await check('Relatório da visita seleciona apontamentos em páginas distintas',
  await p.getByRole('button',{name:'Próxima: Apontamentos do relatório',exact:true}).click();await delay(350);await p.getByRole('checkbox').first().check();await p.getByText('2 de 30 selecionados',{exact:true}).waitFor();
  await p.getByRole('button',{name:'Anterior: Apontamentos do relatório',exact:true}).click();await delay(350);assert.equal(await p.getByRole('checkbox').first().isChecked(),true);assert.ok(calls.every(q=>q.visitId===id(4)&&q.workId===id(2)));await shot(p,'10-scheduled-selection');return {selected:2,visitScoped:true};
 });
+
+await check('Paginação: ocultar página única, setas, teclado, tamanho e posição', async p => {
+ await go(p,'paginacao');
+ const nav=p.getByRole('navigation',{name:'Auditorias de teste',exact:true});
+ const total=p.getByLabel('Total de auditorias (teste)',{exact:true});
+ await nav.waitFor();
+ for(const count of ['0','1','10']) { await total.selectOption(count); assert.equal(await nav.count(),0); }
+ await total.selectOption('24'); await nav.waitFor();
+ const next=nav.getByRole('button',{name:'Próxima página: Auditorias de teste',exact:true});
+ const previous=nav.getByRole('button',{name:'Página anterior: Auditorias de teste',exact:true});
+ assert.equal(await previous.isDisabled(),true);
+ assert.equal(await next.innerText(),''); assert.equal(await next.locator('svg[aria-hidden="true"]').count(),1);
+ await next.focus(); await p.keyboard.press('Enter'); await nav.getByText('11–20 de 24 auditorias',{exact:false}).waitFor();
+ await next.click(); await nav.getByText('21–24 de 24 auditorias',{exact:false}).waitFor(); assert.equal(await next.isDisabled(),true);
+ await previous.focus(); await p.keyboard.press('Space'); await nav.getByText('11–20 de 24 auditorias',{exact:false}).waitFor();
+ const size=nav.getByRole('combobox');
+ await size.selectOption('20'); await nav.getByText('1–20 de 24 auditorias',{exact:false}).waitFor();
+ await p.getByRole('button',{name:'Simular carregamento'}).click();
+ assert.equal(await size.isDisabled(),true); assert.equal(await next.isDisabled(),true); assert.equal(await previous.isDisabled(),true);
+ await p.getByRole('button',{name:'Simular carregamento'}).click();
+ await size.selectOption('50'); assert.equal(await nav.count(),0);
+ await total.selectOption('54'); await nav.waitFor(); await size.selectOption('10');
+ const geometry=await nav.evaluate(el=>{const nav=el.getBoundingClientRect(),summary=el.querySelector('[role="status"]').getBoundingClientRect(),size=el.querySelector('label').getBoundingClientRect();return {centerDelta:Math.abs(summary.x+summary.width/2-nav.x-nav.width/2),rightDelta:Math.abs(size.right-nav.right),color:getComputedStyle(el.querySelector('button')).color};});
+ assert.ok(geometry.centerDelta<2); assert.ok(geometry.rightDelta<2); assert.equal(geometry.color,'rgb(33, 62, 107)');
+ await shot(p,'11-pagination-desktop');
+ return { hiddenTotals:[0,1,10],sizeToSinglePageHides:true,keyboard:['Enter','Space'],geometry,loadingDisablesAllControls:true };
+});
+await check('Paginação compacta: 320 px, foco, área de toque e acessibilidade', async p => {
+ await go(p,'paginacao');const nav=p.getByRole('navigation',{name:'Auditorias de teste',exact:true});await nav.waitFor();
+ const next=nav.getByRole('button',{name:'Próxima página: Auditorias de teste'});await next.focus();
+ const metrics=await nav.evaluate(el=>{const nav=el.getBoundingClientRect(),status=el.querySelector('[role="status"]').getBoundingClientRect(),select=el.querySelector('label').getBoundingClientRect();return {centerDelta:Math.abs(status.x+status.width/2-nav.x-nav.width/2),rightDelta:Math.abs(select.right-nav.right),buttons:[...el.querySelectorAll('button')].map(b=>({width:b.getBoundingClientRect().width,height:b.getBoundingClientRect().height})),overflow:document.documentElement.scrollWidth>innerWidth};});
+ assert.ok(metrics.centerDelta<2);assert.ok(metrics.rightDelta<2);assert.equal(metrics.overflow,false);assert.ok(metrics.buttons.every(b=>b.width>=44&&b.height>=44));
+ const focus=await next.evaluate(el=>getComputedStyle(el).outlineStyle);assert.notEqual(focus,'none');
+ await p.addScriptTag({content:await readFile('/private/tmp/dialogo-safety-browser/node_modules/axe-core/axe.min.js','utf8')});
+ const violations=await p.evaluate(async()=>{const r=await window.axe.run(document.querySelector('main'),{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21aa']}});return r.violations.map(v=>v.id);});assert.deepEqual(violations,[]);
+ await shot(p,'12-pagination-mobile');return {viewport:320,metrics,focus,violations};
+},{viewport:{width:320,height:800},reducedMotion:'reduce'});
+
 await browser.close();
 console.log(`${results.filter(r=>r.passed).length}/${results.length} browser scenarios passed`);
 if(results.some(r=>!r.passed))process.exitCode=1;

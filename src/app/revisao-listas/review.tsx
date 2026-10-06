@@ -1,4 +1,6 @@
 "use client";
+import { useState } from "react";
+import { HistoryPagination, useHistoryPage } from "@/app/components/history-pagination";
 import { WorkHistory } from "@/app/components/works/WorkHistory";
 import { FollowUpReportPage } from "@/app/components/follow-up-report-page";
 import Link from "next/link";
@@ -18,8 +20,21 @@ const works = [{ id: "a1000000-0000-4000-8000-000000000002", name: "Obra de test
 export default function Review({ flow }: { flow: string }) {
  const hydrated = useHydrated();
  return <main className="content-wrap" data-hydrated={hydrated}><h1>Validação de listas — dados fictícios</h1>
-  {flow === "historico" ? <><label>Nome em edição<input defaultValue="Obra em edição" /></label><WorkHistory actorId={userId} workId={works[0].id} initial={{page:1,error:false,total:41,rows:Array.from({length:20},(_,n)=>({id:String(n),obra_id:works[0].id,changed_at:"2026-10-06T12:00:00Z",actor_auth_user_id:userId,actor_snapshot:{nome:"Pessoa de teste"},before_snapshot:{nome:"Nome anterior"},after_snapshot:{nome:`Nome ${n}`}}))}} /></> : flow === "visita" ? <FollowUpReportPage actor={actor} visit={{id:"a1000000-0000-4000-8000-000000000004",workId:works[0].id,auditorId:userId,module:"quality",kind:"follow_up",modelId:null,date:"2026-09-20",confirmationStatus:"confirmed",createdBy:userId,createdAt:"2026-09-20T12:00:00Z",note:"",history:[]}} agendaAvailable reportsAvailable draftsAvailable backHref="/revisao-listas" backLabel="Voltar à lista" initialReportedFindings={[]} initialPhotos={[]} initialWorkFindings={[]} /> : flow === "selecao" ? <StandaloneReportForm works={works} actor={actor} today="2026-10-06" /> : flow === "usuarios" ? <section className="panel"><h2>Equipe</h2><ActiveTeamProfiles profiles={[]} /></section> : flow === "agenda" ? <Calendar /> : flow === "detalhe" ? <><p>Documento fictício</p><Link href="/revisao-listas">Voltar à lista</Link></> : <Listing />}
+  {flow === "paginacao" ? <PaginationReview /> : null}
+  {flow === "paginacao" ? null : flow === "historico" ? <><label>Nome em edição<input defaultValue="Obra em edição" /></label><WorkHistory actorId={userId} workId={works[0].id} initial={{page:1,error:false,total:41,rows:Array.from({length:20},(_,n)=>({id:String(n),obra_id:works[0].id,changed_at:"2026-10-06T12:00:00Z",actor_auth_user_id:userId,actor_snapshot:{nome:"Pessoa de teste"},before_snapshot:{nome:"Nome anterior"},after_snapshot:{nome:`Nome ${n}`}}))}} /></> : flow === "visita" ? <FollowUpReportPage actor={actor} visit={{id:"a1000000-0000-4000-8000-000000000004",workId:works[0].id,auditorId:userId,module:"quality",kind:"follow_up",modelId:null,date:"2026-09-20",confirmationStatus:"confirmed",createdBy:userId,createdAt:"2026-09-20T12:00:00Z",note:"",history:[]}} agendaAvailable reportsAvailable draftsAvailable backHref="/revisao-listas" backLabel="Voltar à lista" initialReportedFindings={[]} initialPhotos={[]} initialWorkFindings={[]} /> : flow === "selecao" ? <StandaloneReportForm works={works} actor={actor} today="2026-10-06" /> : flow === "usuarios" ? <section className="panel"><h2>Equipe</h2><ActiveTeamProfiles profiles={[]} /></section> : flow === "agenda" ? <Calendar /> : flow === "detalhe" ? <><p>Documento fictício</p><Link href="/revisao-listas">Voltar à lista</Link></> : <Listing />}
  </main>;
+}
+function PaginationReview() {
+ const [total, setTotal] = useState(24);
+ const [loading, setLoading] = useState(false);
+ const page = useHistoryPage(Array.from({ length: total }, (_, n) => n + 1), "pagination-review");
+ return <section className="panel" aria-label="Auditorias de teste">
+  <h2>Histórico de auditorias</h2>
+  <label>Total de auditorias (teste)<select className="filter-select" aria-label="Total de auditorias (teste)" value={total} onChange={e => setTotal(Number(e.target.value))}>{[0, 1, 10, 11, 24, 54].map(n => <option key={n} value={n}>{n}</option>)}</select></label>
+  <button type="button" className="secondary" onClick={() => setLoading(!loading)}>Simular carregamento</button>
+  <p>{page.items.length} auditorias nesta página</p>
+  <HistoryPagination {...page} status={loading ? "loading" : "ready"} label="Auditorias de teste" />
+ </section>;
 }
 function Listing() {
  const { anchor: listAnchor, ...list } = useCursorList(actor, "work-findings", "browser-evidence", "quality");

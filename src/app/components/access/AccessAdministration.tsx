@@ -9,6 +9,8 @@ import { administrativeLabels, profileLabels, type AccessDecision, type AccessGr
 import { PendingRequests } from "@/app/components/access/PendingRequests";
 import { EditUserDialog } from "@/app/components/access/EditUserDialog";
 import styles from "@/app/administracao/usuarios/access.module.css";
+import paginationStyles from "../history-pagination.module.css";
+import { Icon } from "../ui-icon";
 
 const pageSize = 20;
 
@@ -101,14 +103,19 @@ function UserProfileCard({ account, decisions, grants, works: availableWorks, wo
 
 function Pagination({ current, total, kind, other, embedded, base: explicitBase }: { current: number; total: number; kind: "pendentes" | "historico"; other: number; embedded: boolean; base?: string }) {
   const pages = Math.max(1, Math.ceil(total / pageSize));
-  if (pages <= 1 && current === 1) return null;
+  if (pages <= 1) return null;
   const base = explicitBase ?? (embedded ? "/app?secao=administracao&" : "/administracao/usuarios?");
   const href = (page: number) => explicitBase
     ? `${base}${kind}=${page}#${kind === "pendentes" ? "pending-heading" : "history-heading"}`
     : kind === "pendentes" ? `${base}pendentes=${page}&historico=${other}#pending-heading` : `${base}pendentes=${other}&historico=${page}#history-heading`;
-  return <nav className={styles.pagination} aria-label={kind === "pendentes" ? "Páginas de solicitações" : "Páginas do histórico"}>
-    {current > 1 && <Link href={href(Math.min(current - 1, pages))}>Anterior</Link>}
-    <span>Página {current} de {pages} · {total} registros</span>
-    {current < pages && <Link href={href(current + 1)}>Próxima</Link>}
+  const label = kind === "pendentes" ? "solicitações" : "histórico de usuários";
+  return <nav className={paginationStyles.pagination} aria-label={kind === "pendentes" ? "Páginas de solicitações" : "Páginas do histórico"}>
+    <div className={paginationStyles.navigation}>
+      {current > 1 ? <Link className={paginationStyles.arrow} data-tooltip="Página anterior" aria-label={`Página anterior: ${label}`} href={href(Math.min(current - 1, pages))}><Icon name="arrow" className={paginationStyles.previous} /></Link>
+        : <span className={paginationStyles.arrow} aria-hidden="true" aria-disabled="true"><Icon name="arrow" className={paginationStyles.previous} /></span>}
+      {current < pages ? <Link className={paginationStyles.arrow} data-tooltip="Próxima página" aria-label={`Próxima página: ${label}`} href={href(current + 1)}><Icon name="arrow" /></Link>
+        : <span className={paginationStyles.arrow} aria-hidden="true" aria-disabled="true"><Icon name="arrow" /></span>}
+    </div>
+    <p className={paginationStyles.summary} role="status">{Math.min((current - 1) * pageSize + 1, total)}–{Math.min(current * pageSize, total)} de {total} registros<span>Página {current} de {pages}</span></p>
   </nav>;
 }

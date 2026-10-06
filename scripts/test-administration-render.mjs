@@ -68,8 +68,10 @@ test("pending page uses its server page and complete work choices without readin
   assert.equal(state.pending.works, works);
   assert.equal(state.pending.actorId, "actor");
   assert.deepEqual(state.pending.previewIds, []);
-  assert.match(html, /Página 2 de 2 · 21 registros/);
+  assert.match(html, /21–21 de 21 registros<span>Página 2 de 2<\/span>/);
   assert.match(html, /pendentes=1#pending-heading/);
+  assert.match(html, /aria-label="Página anterior: solicitações"/);
+  assert.doesNotMatch(html, />Anterior<|>Próxima</);
   assert.deepEqual(state.editors, []);
 });
 
@@ -86,7 +88,7 @@ test("history page is not sliced a second time and preserves account, scope and 
   assert.match(html, /Inativo/);
   assert.match(html, /Administrativo de Qualidade/);
   assert.equal(state.decisionHistory.userId,"user-21");
-  assert.match(html, /Página 2 de 2 · 21 registros/);
+  assert.match(html, /21–21 de 21 registros<span>Página 2 de 2<\/span>/);
   assert.equal(state.editors.length, 1);
   assert.equal(state.editors[0].account, account);
   assert.equal(state.editors[0].grants, grants);
@@ -111,4 +113,13 @@ test("unauthorized rendering does not load any administrative page", async () =>
   reset(null); state.denied = true;
   await assert.rejects(render({ historyOnly: true }), /DENIED/);
   assert.deepEqual(state.reads, []);
+});
+
+test("single-page administration lists hide all pagination controls", async () => {
+  for (const total of [0, 1, 20]) {
+    reset({ view: "pending", page: 1, pageSize: 20, total, requests: [], works: [] });
+    assert.doesNotMatch(await render({ pendingOnly: true }), /<nav/);
+    reset({ view: "history", page: 1, pageSize: 20, total, users: [], works: [] });
+    assert.doesNotMatch(await render({ historyOnly: true }), /<nav/);
+  }
 });
