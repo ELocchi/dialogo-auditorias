@@ -1,12 +1,13 @@
 "use client";
 
-import { memo, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { memo, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import Image from "next/image";
 import { formatAuditDate } from "@/domain/operational-records";
 import type { AgendaActorContext } from "@/lib/agenda/contracts";
 import { followUpPhotoThumbnailUrl } from "@/lib/photos/urls";
 import type { SavedFollowUpFinding } from "@/lib/follow-up/display";
-import { maxPhotosPerFinding } from "@/lib/follow-up/photos";
+import { maxPhotoBytes, maxPhotosPerFinding } from "@/lib/follow-up/photos";
+import { preparePhotoUpload } from "@/lib/photos/prepare-upload";
 import type { WorkFinding } from "@/app/follow-up/actions";
 import { EvidenceThumbnail } from "./evidence-thumbnail";
 import { useFollowUpVisitPhotos, type useFollowUpPhotoStore } from "./use-follow-up-photos";
@@ -15,18 +16,36 @@ import styles from "./follow-up-workspace.module.css";
 export function FollowUpPhotoPicker({ onSelect, disabled, previewUrl }: { onSelect: (file: File) => void; disabled: boolean; previewUrl?: string | null }) {
   const galleryInput = useRef<HTMLInputElement>(null);
   const cameraInput = useRef<HTMLInputElement>(null);
-  const select = (event: ChangeEvent<HTMLInputElement>) => {
+  const operation = useRef<AbortController | null>(null);
+  const [preparing, setPreparing] = useState(false);
+  const [error, setError] = useState("");
+  useEffect(() => () => operation.current?.abort(), []);
+  const select = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) onSelect(file);
     event.target.value = "";
+    if (!file || disabled || operation.current) return;
+    const controller = new AbortController(); operation.current = controller;
+    setPreparing(true); setError("");
+    try {
+      const prepared = await preparePhotoUpload(file, maxPhotoBytes, controller.signal);
+      if (!controller.signal.aborted) onSelect(prepared);
+    } catch (reason) {
+      if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "Não foi possível preparar a foto.");
+    } finally {
+      if (!controller.signal.aborted) setPreparing(false);
+      if (operation.current === controller) operation.current = null;
+    }
   };
-  return <div className={styles.photoPicker}>
+  const blocked = disabled || preparing;
+  return <div className={styles.photoPicker} aria-busy={preparing}>
     {!previewUrl && <div className={styles.photoControls}>
-      <button type="button" className="secondary" disabled={disabled} onClick={() => galleryInput.current?.click()}>Escolher foto</button>
-      <button type="button" className="secondary" disabled={disabled} onClick={() => cameraInput.current?.click()}>Tirar foto</button>
+      <button type="button" className="secondary" disabled={blocked} onClick={() => galleryInput.current?.click()}>Escolher foto</button>
+      <button type="button" className="secondary" disabled={blocked} onClick={() => cameraInput.current?.click()}>Tirar foto</button>
     </div>}
-    <input ref={galleryInput} type="file" accept="image/jpeg,image/png" disabled={disabled} onChange={select} aria-label="Escolher foto" tabIndex={-1} style={{ display: "none" }} />
-    <input ref={cameraInput} type="file" accept="image/jpeg,image/png" capture="environment" disabled={disabled} onChange={select} aria-label="Tirar foto" tabIndex={-1} style={{ display: "none" }} />
+    <input ref={galleryInput} type="file" accept="image/jpeg,image/png" disabled={blocked} onChange={select} aria-label="Escolher foto" tabIndex={-1} style={{ display: "none" }} />
+    <input ref={cameraInput} type="file" accept="image/jpeg,image/png" capture="environment" disabled={blocked} onChange={select} aria-label="Tirar foto" tabIndex={-1} style={{ display: "none" }} />
+    {preparing && <p role="status">Preparando foto…</p>}
+    {error && <p role="alert" className={styles.error}>{error}</p>}
     {previewUrl && <Image className={styles.photoPreview} src={previewUrl} alt="Foto selecionada para o apontamento" width={640} height={480} unoptimized />}
   </div>;
 }

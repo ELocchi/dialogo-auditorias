@@ -1,6 +1,7 @@
 "use client";
 import { DownloadButton } from "./download-button";
 import { requestSignal } from "@/lib/request-signal";
+import { preparePhotoUpload } from "@/lib/photos/prepare-upload";
 
 import { BackButton, BackHeading } from "@/app/components/back-control";
 
@@ -405,6 +406,10 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
   const [photoResult, setPhotoResult] = useState<{ key: string; failed: boolean } | null>(null);
   const [photoTarget, setPhotoTarget] = useState("item");
   const photoInput = useRef<HTMLInputElement>(null);
+  const photoPreparation = useRef<AbortController | null>(null);
+  const [preparingPhotos, setPreparingPhotos] = useState(false);
+  const [photoError, setPhotoError] = useState("");
+  useEffect(() => () => photoPreparation.current?.abort(), []);
   const criterion = criteria[activeIndex] ?? criteria[0];
   const response = criterion ? getItemResponse(drafts, responseKey, criterion) : { note: "" };
   const photoReferencesKey = JSON.stringify([...new Set([
@@ -472,7 +477,7 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
       <span className="badge badge-amber">Rascunho nesta sessão</span>
     </div>
 
-    <fieldset disabled={finishing} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }} aria-busy={finishing}><section className="audit-fill-panel" aria-label="Preenchimento da auditoria">
+    <fieldset disabled={finishing || preparingPhotos} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }} aria-busy={finishing || preparingPhotos}><section className="audit-fill-panel" aria-label="Preenchimento da auditoria">
     <div className="form-panel audit-reference-panel" aria-label="Dados de referência da auditoria">
       <div className="audit-reference"><small>OBRA</small><p>{workName}</p></div>
       <div className="audit-reference"><small>DATA DA AUDITORIA</small><p>{displayAuditDate(details.date)}</p></div>
@@ -576,19 +581,38 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
         {criterion.verificationRule !== "Dividido pela quantidade verificada" && response.answer !== "N/A" && <label className="question-note">Observações{requiresEvidence ? " *" : ""}
           <textarea value={response.note} readOnly={readOnly} onChange={(event) => updateDraft({ ...response, note: event.target.value })} placeholder="Registre a observação da verificação…" required={requiresEvidence} />
         </label>}
-        <input ref={photoInput} className="audit-photo-input" type="file" accept="image/jpeg,image/png" multiple hidden disabled={readOnly} onChange={(event) => {
-            if (!criterion) return;
+        {preparingPhotos && <p role="status">Preparando fotos…</p>}
+        {photoError && <p role="alert">{photoError}</p>}
+        <input ref={photoInput} className="audit-photo-input" type="file" accept="image/jpeg,image/png" multiple hidden disabled={readOnly || preparingPhotos} onChange={async (event) => {
             const selected = Array.from(event.target.files ?? []);
-            if (!selected.length) return;
-            const references = selected.map((file) => photoStore.add(file));
+            event.target.value = "";
+            if (!criterion || readOnly || !selected.length || photoPreparation.current) return;
+            if (selected.length > 100) { setPhotoError("Selecione até 100 fotos por vez."); return; }
+            const controller = new AbortController(); photoPreparation.current = controller;
+            setPreparingPhotos(true); setPhotoError("");
+            const references: string[] = [];
             let accepted = false;
             try {
+              const prepared: File[] = [];
+              let bytes = 0;
+              // Decode one image at a time; never allocate canvases for the whole batch.
+              for (const file of selected) {
+                const copy = await preparePhotoUpload(file, 3 * 1024 * 1024, controller.signal);
+                bytes += copy.size;
+                if (bytes > 30 * 1024 * 1024) throw new Error("Selecione menos fotos por vez.");
+                prepared.push(copy);
+              }
+              if (controller.signal.aborted) return;
+              references.push(...prepared.map(file => photoStore.add(file)));
               accepted = updateDraft(photoTarget === "item"
                 ? { ...response, photos: [...(response.photos ?? []), ...references] }
                 : { ...response, checks: quantityChecks.map((entry) => entry.id === photoTarget ? { ...entry, photos: [...(entry.photos ?? []), ...references] } : entry) }) !== false;
+            } catch (reason) {
+              if (!controller.signal.aborted) setPhotoError(reason instanceof Error ? reason.message : "Não foi possível preparar as fotos.");
             } finally {
               if (!accepted) photoStore.discardUnreferenced(references);
-              event.target.value = "";
+              if (!controller.signal.aborted) setPreparingPhotos(false);
+              if (photoPreparation.current === controller) photoPreparation.current = null;
             }
           }} />
 
