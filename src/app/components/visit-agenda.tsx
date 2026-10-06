@@ -125,7 +125,7 @@ function AdministrativeAgenda({ user, works, users, visits, module, workId, avai
       <AdminVisitCalendar visits={authorizedVisits} works={authorizedWorks} auditors={users} viewerId={user.id} calendarOnly includeFollowUps selectedAuditorId={selectedAuditorId} onSelectAuditor={setSelectedAuditorId} />
     </div>
     <dialog onKeyDown={containDialogFocus} ref={dialogRef} className={styles.scheduleDialog} aria-labelledby={dialogTitleId} onCancel={(event) => { if (mutationPending || exporting) event.preventDefault(); }} onClose={() => addButtonRef.current?.focus()}>
-      <button type="button" className={`secondary ${styles.closeDialog}`} disabled={mutationPending || exporting} onClick={() => dialogRef.current?.close()}>Fechar</button>
+      <button type="button" className={styles.closeDialog} aria-label="Fechar agendamento" data-tooltip="Fechar" disabled={mutationPending || exporting} onClick={() => dialogRef.current?.close()}><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg></button>
       <CreateVisitForm user={user} works={authorizedWorks} users={users} module={module} workId={workId}
         available={available} mutationPending={mutationPending} onCreate={onCreate} headingId={dialogTitleId}
         draftCount={draftVisits.length} onStage={(input) => setDraftVisits((current) => [...current, { id: `draft-${newRequestId()}`, requestId: newRequestId(), input }])}
@@ -520,7 +520,7 @@ function EditableAgendaRow({ input, user, works, users, disabled, newRow = false
     <td data-label="Data"><input required type="date" value={input.date} aria-label="Data da visita" disabled={disabled} onChange={(event) => update({ date: event.target.value })} /></td>
     <td data-label="Observação"><textarea maxLength={2000} value={input.note} aria-label="Observação" disabled={disabled} placeholder="Opcional" onChange={(event) => update({ note: event.target.value })} /></td>
     <td data-label="Ação">{onRemove ? <button type="button" className="secondary" disabled={disabled} onClick={onRemove}>Retirar da lista</button>
-      : <button type="submit" className="primary" disabled={disabled || !eligibleWorks.some((work) => work.id === input.workId) || !auditors.some((auditor) => auditor.id === input.auditorId)}>Adicionar agendamento</button>}</td>
+      : <button type="submit" className={styles.addVisit} aria-label="Adicionar agendamento" data-tooltip="Adicionar agendamento" disabled={disabled || !eligibleWorks.some((work) => work.id === input.workId) || !auditors.some((auditor) => auditor.id === input.auditorId)}><Icon name="plus" /></button>}</td>
   </tr>;
 }
 

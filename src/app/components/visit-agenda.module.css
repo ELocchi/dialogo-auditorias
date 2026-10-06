@@ -22,7 +22,7 @@
 .scheduledPanel .visitCard { padding: 18px; }
 .scheduleDialog { width: min(1100px, calc(100% - 32px)); max-width: none; max-height: calc(100dvh - 32px); margin: auto; padding: 28px; overflow-y: auto; overscroll-behavior: contain; border: 1px solid var(--line); border-radius: 14px; color: var(--ink); background: var(--surface); box-shadow: 0 20px 80px #14233c40; }
 .scheduleDialog::backdrop { background: #14233c80; }
-.closeDialog { display: flex; margin-left: auto; margin-bottom: 12px; }
+.closeDialog { composes: control from "./back-control.module.css"; display: flex; margin-left: auto; margin-bottom: 12px; }
 .scheduleDialog .createPanel { padding: 0; margin: 0; border: 0; box-shadow: none; }
 .createPanel { margin-bottom: 28px; }
 .formFields { min-width: 0; margin: 0; padding: 0; border: 0; }
@@ -41,7 +41,7 @@
 .fieldHelp { display: block; margin-top: 7px; color: var(--muted); font-size: 11px; font-weight: 400; line-height: 1.5; }
 .fixedField { display: flex; align-items: center; min-height: 40px; margin-top: 7px; padding: 9px 11px; border: 1px solid #cbd5e1; border-radius: 6px; background: #f5f7fa; color: var(--navy); font-weight: 600; }
 .followUpNotice { margin: 0; padding: 11px 13px; border: 1px solid #d8e0eb; border-radius: 7px; background: #f3f6fa; color: var(--navy); font-size: 12px; line-height: 1.5; }
-.draftTableWrap { width: 100%; margin-top: 20px; padding-bottom: 4px; overflow-x: auto; }
+.draftTableWrap { position: relative; width: 100%; max-width: 100%; min-width: 0; margin-top: 20px; padding-bottom: 4px; overflow-x: auto; }
 .draftTable { width: 100%; min-width: 1250px; table-layout: fixed; border-collapse: collapse; color: var(--ink); font-size: 12px; }
 .draftTable th { padding: 11px 8px; border-bottom: 2px solid var(--navy); color: var(--navy); font-size: 10px; letter-spacing: .4px; text-align: left; text-transform: uppercase; overflow-wrap: anywhere; }
 .draftTable td { padding: 12px 8px; border-bottom: 1px solid var(--line); line-height: 1.45; vertical-align: middle; overflow-wrap: anywhere; }
@@ -49,6 +49,7 @@
 .draftTable th:last-child, .draftTable td:last-child { width: 128px; padding-right: 0; text-align: right; }
 .draftTable td:first-child { color: var(--navy); font-weight: 700; }
 .draftTable button { min-height: 43px; padding: 10px 14px; border-radius: 9px; font-size: 12px; }
+.draftTable td:last-child .addVisit { width: 44px; height: 44px; padding: 8px; margin-left: auto; }
 .editableTable input, .editableTable select, .editableTable textarea { width: 100%; min-height: 43px; margin: 0; padding: 10px 12px; border: 1px solid #ccd4e0; border-radius: 9px; background-color: white; color: var(--navy); font-size: 13px; line-height: 1.35; }
 .editableTable select { padding: 0 30px 0 14px; }
 .editableTable textarea { height: 43px; resize: vertical; }
