@@ -10,6 +10,8 @@ import { AdminFindings } from "./admin-findings";
 import type { AdminFindingSummary } from "./admin-findings";
 import { PublishedAuditFindingsList, type PublishedAuditFinding } from "./engineering-resource-panels";
 import { usePublishedPlans } from "./use-published-plans";
+import { useHistoryActor } from "./audit-history-context";
+import { publicationQuery } from "./use-audit-publication";
 import { useAgendaWindow } from "./agenda-window";
 import { MonthNavigation } from "./published-history-page";
 import { AdminMonthlyRanking } from "./admin-monthly-ranking";
@@ -364,7 +366,9 @@ export function PublishedAuditsPanel({ user, works, audits, module, onCreateActi
   onDownloadActionPlan?: (source: ActionPlanSource) => void;
 }) {
   const [publicationWorkId, setPublicationWorkId] = useListFilter(`PublishedAuditsPanel:publicationWorkId:${user.id}:${user.role}:${user.activity}:${module}`);
-  const [month, setMonth] = useListFilter(`publications:month:${user.id}:${module}`, getSaoPauloToday().slice(0, 7));
+  const administrative = user.role === "administrative";
+  const actor = useHistoryActor();
+  const [month, setMonth] = useListFilter(`publications:month:${user.id}:${user.role}:${module}`, administrative ? "" : getSaoPauloToday().slice(0, 7));
   const [year, monthNumber] = month.split("-").map(Number);
   const dateFrom = month ? `${month}-01` : "";
   const dateTo = month && Number.isInteger(year) && Number.isInteger(monthNumber)
@@ -376,6 +380,8 @@ export function PublishedAuditsPanel({ user, works, audits, module, onCreateActi
   const publicationPage = usePublishedHistoryPage(visiblePublished, { module, workId: publicationWorkId || undefined, dateFrom: dateFrom || undefined, dateTo: dateTo || undefined, includeFindings: false }, historyContextKey(user, works, module));
   const publicationItems = publicationPage.remote ? [...visiblePublished.filter((audit) => audit.isDemo), ...publicationPage.items] : publicationPage.items;
   const planPage = usePublishedPlans(publicationItems.map(a => a.id));
+  const publishedPlanIds = new Set(planPage.data?.plans.map(plan => plan.auditId) ?? []);
+  const planItems = publicationItems.filter(audit => !administrative || publishedPlanIds.has(audit.id));
   const exampleWork = works[0];
   const exampleDate = "2026-09-18";
   const showExample = !publicationPage.remote && process.env.NODE_ENV !== "production" && published.length === 0 && !!exampleWork;
@@ -383,7 +389,7 @@ export function PublishedAuditsPanel({ user, works, audits, module, onCreateActi
 
   return <section className="panel" aria-label={`Auditorias publicadas de ${moduleLabels[module]}`}>
     <div className={`panel-heading ${styles.publicationHeading}`}><h3>{moduleLabels[module]}</h3>
-      <HistoryMonthFilter className={styles.publicationFilters} works={works} workId={publicationWorkId} onWorkChange={setPublicationWorkId} month={month} onMonthChange={setMonth} label="Filtrar auditorias publicadas" />
+      <HistoryMonthFilter className={styles.publicationFilters} works={works} workId={publicationWorkId} onWorkChange={setPublicationWorkId} month={month} onMonthChange={setMonth} allowAllPeriods={administrative} label={`Filtrar ${moduleLabels[module]}`} />
     </div>
     <HistoryLoadStatus history={publicationPage} />
     <div className={styles.publicationColumns}>
@@ -400,13 +406,16 @@ export function PublishedAuditsPanel({ user, works, audits, module, onCreateActi
         <h4>Plano de ação</h4>
         {planPage.loading && <p role="status">Carregando planos…</p>}
         {planPage.error && <p role="alert">Não foi possível carregar os planos. <button className="secondary" type="button" onClick={planPage.retry}>Tentar novamente</button></p>}
-        {publicationItems.length ? publicationItems.map((audit) => {
+        {planItems.length ? planItems.map((audit) => {
           const workName = workById.get(audit.workId)?.name ?? "Obra";
           const source: ActionPlanSource = { auditId: audit.id, workId: audit.workId, workName, date: audit.date, module, example: false };
           const publishedPlan = !!planPage.data?.plans.some(plan => plan.auditId === audit.id) || (hasPublishedActionPlan?.(source) ?? false);
-          return <PublishedDocumentCard key={audit.id} example={audit.isDemo} date={audit.date} workName={workName} responsible={user.name}
+          const download = publishedPlanIds.has(audit.id) && actor
+            ? () => window.open(`/api/publications/${audit.id}/plan-report?${publicationQuery(actor)}`, "_blank", "noopener,noreferrer")
+            : publishedPlan && onDownloadActionPlan ? () => onDownloadActionPlan(source) : undefined;
+          return <PublishedDocumentCard key={audit.id} example={audit.isDemo} date={audit.date} workName={workName} responsible={publishedPlan ? undefined : user.name}
             actionLabel={publishedPlan ? "Baixar PDF do plano publicado" : onCreateActionPlan ? "Criar plano de ação" : undefined}
-            onAction={planPage.loading || planPage.error ? undefined : publishedPlan && onDownloadActionPlan ? () => onDownloadActionPlan(source) : onCreateActionPlan ? () => onCreateActionPlan(source) : undefined} />;
+            onAction={planPage.loading || planPage.error ? undefined : download ?? (onCreateActionPlan ? () => onCreateActionPlan(source) : undefined)} />;
         }) : showFilteredExample ? (() => {
           const source: ActionPlanSource = { auditId: null, workId: exampleWork.id, workName: exampleWork.name, date: exampleDate, module, example: true };
           const publishedPlan = hasPublishedActionPlan?.(source) ?? false;
@@ -414,7 +423,7 @@ export function PublishedAuditsPanel({ user, works, audits, module, onCreateActi
             actionLabel={publishedPlan ? "Baixar PDF do plano publicado" : onCreateActionPlan ? "Criar plano de ação" : undefined}
             onAction={publishedPlan && onDownloadActionPlan ? () => onDownloadActionPlan(source) : onCreateActionPlan ? () => onCreateActionPlan(source) : undefined} />;
         })()
-          : <p className="muted">Nenhum plano de ação publicado.</p>}
+          : publicationPage.status === "ready" && !planPage.loading && !planPage.error ? <p className="muted">Nenhum plano de ação publicado.</p> : null}
       </div>
     </div>
     <HistoryPagination {...publicationPage} label={`Páginas das auditorias publicadas de ${moduleLabels[module]}`} />
@@ -422,7 +431,7 @@ export function PublishedAuditsPanel({ user, works, audits, module, onCreateActi
 }
 
 function PublishedDocumentCard({ date, workName, responsible, example = false, actionLabel, onAction }: {
-  date: string; workName: string; responsible: string; example?: boolean; actionLabel?: string; onAction?: () => void;
+  date: string; workName: string; responsible?: string; example?: boolean; actionLabel?: string; onAction?: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [year, month] = date.split("-");
@@ -431,7 +440,7 @@ function PublishedDocumentCard({ date, workName, responsible, example = false, a
   return <article className={styles.publicationCard}>
     <button type="button" className={styles.publicationSummary} aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
       <span className={styles.publicationDate}><strong>{monthAbbreviation}</strong><small>{year}</small></span>
-      <span className={styles.publicationInfo}><strong>{workName}</strong><small>Responsável</small><span>{responsible}</span></span>
+      <span className={styles.publicationInfo}><strong>{workName}</strong>{responsible && <><small>Responsável</small><span>{responsible}</span></>}</span>
       <span className={styles.publicationChevron} aria-hidden="true" />
     </button>
     {expanded && <div className={styles.publicationDetails}>

@@ -73,12 +73,13 @@ export function HistoryFilters({ works, workId, onWorkChange, dateFrom, dateTo, 
   </div>;
 }
 
-export function HistoryMonthFilter({ works, workId, onWorkChange, month, onMonthChange, label, className }: {
+export function HistoryMonthFilter({ works, workId, onWorkChange, month, onMonthChange, label, className, allowAllPeriods = false }: {
   works?: readonly WorkRecord[]; workId?: string; onWorkChange?: (value: string) => void;
-  month: string; onMonthChange: (value: string) => void; label: string; className?: string;
+  month: string; onMonthChange: (value: string) => void; label: string; className?: string; allowAllPeriods?: boolean;
 }) {
   return <div className={`${styles.filters}${className ? ` ${className}` : ""}`} role="group" aria-label={label}>
     {works && onWorkChange && <label><select className="filter-select" aria-label={`${label}: obra`} value={workId ?? ""} onChange={(event) => onWorkChange(event.target.value)}><option value="">Todas as obras</option>{works.map((work) => <option key={work.id} value={work.id}>{work.name}</option>)}</select></label>}
-    <MonthNavigation month={month} onMonthChange={onMonthChange} label={`${label}: navegar por mês`} />
+    {allowAllPeriods && <label><select className="filter-select" aria-label={`${label}: período`} value={month ? "month" : "all"} onChange={event => onMonthChange(event.target.value === "all" ? "" : getSaoPauloToday().slice(0, 7))}><option value="all">Todos os períodos</option><option value="month">Por mês</option></select></label>}
+    {month && <MonthNavigation month={month} onMonthChange={onMonthChange} label={`${label}: navegar por mês`} />}
   </div>;
 }

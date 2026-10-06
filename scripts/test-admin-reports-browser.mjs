@@ -1,0 +1,40 @@
+import path from 'node:path';
+const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || '/private/tmp/dialogo-safety-browser/node_modules/playwright/index.mjs');
+import assert from 'node:assert/strict';
+import {mkdir,writeFile} from 'node:fs/promises';
+const out=path.resolve(process.env.ADMIN_REPORT_EVIDENCE || 'docs/evidence/admin-reports-20261006');
+const base=process.env.ADMIN_REPORT_TEST_URL || 'http://127.0.0.1:3018';
+await mkdir(out,{recursive:true});
+const browser=await chromium.launch({channel:'chrome',headless:true});
+const context=await browser.newContext({viewport:{width:1440,height:950},reducedMotion:'reduce'});
+const page=await context.newPage();const checks=[];const requests=[];let failPlans=false;
+const id='a1000000-0000-4000-8000-000000000004', workId='a1000000-0000-4000-8000-000000000002';
+await context.addInitScript(()=>{window.open=(url)=>{window.__opened=url;return null;};});
+await page.route('**/api/audits/history?*',async route=>{
+ const q=new URL(route.request().url()).searchParams;requests.push(Object.fromEntries(q));
+ const matches=q.get('module')==='quality' && (!q.has('dateFrom')||q.get('dateFrom')<='2026-09-20') && (!q.has('dateTo')||q.get('dateTo')>='2026-09-20') && (!q.has('workId')||q.get('workId')===workId);
+ await route.fulfill({json:{available:true,total:matches?1:0,page:Number(q.get('page')),pageSize:Number(q.get('pageSize')),audits:matches?[{id,workId,modelId:'quality-f175',date:'2026-09-20',auditor:'Auditor de teste',auditorId:'a1000000-0000-4000-8000-000000000001',status:'Publicada',collectionStatus:'Coleta concluída',calculationStatus:'Disponível',finalScore:9,reportUrl:'/api/audits/'+id+'/report',isDemo:false}]:[],findings:[]}});
+});
+await page.route('**/api/publications?*',async route=>{await route.fulfill(failPlans?{status:503,json:{error:'Falha simulada'}}:{json:{drafts:[],plans:[{auditId:id,workId,module:'quality'}]}});});
+try {
+ await page.goto(`${base}/revisao-listas?fluxo=relatorios-admin`);
+ const panel=page.getByRole('region',{name:'Auditorias publicadas de Qualidade'});
+ await panel.locator('button[aria-expanded]').first().waitFor();
+ await panel.locator('button[aria-expanded]').nth(1).waitFor();
+ assert.equal(requests[0].perfil,'ADMINISTRATIVO');assert.equal(requests[0].administrativo,'GERAL');assert.equal(requests.some(q=>q.dateFrom),false);
+ checks.push('Auditoria de setembro visível sem filtro de mês; requisição limitada a 10 registros');assert.equal(requests[0].pageSize,'10');
+ const geometry=await panel.evaluate(el=>{let a=el.querySelector('h3').getBoundingClientRect(),b=el.querySelector('select').getBoundingClientRect();return {title:a.y+a.height/2,filter:b.y+b.height/2};});
+ assert.ok(Math.abs(geometry.title-geometry.filter)<2,JSON.stringify(geometry));checks.push('Título e filtros centralizados na mesma linha: '+JSON.stringify(geometry));
+ await panel.locator('button[aria-expanded]').first().focus();await page.keyboard.press('Enter');await panel.getByRole('button',{name:/Abrir PDF da auditoria/}).click();assert.match(await page.evaluate(()=>window.__opened),/\/api\/audits\/.+\/report/);
+ await panel.locator('button[aria-expanded]').nth(1).click();await panel.getByRole('button',{name:/Baixar PDF do plano/}).click();const link=await page.evaluate(()=>window.__opened);assert.match(link,/plan-report\?/);assert.match(link,/perfil=ADMINISTRATIVO/);checks.push('Teclado expande auditoria; links de auditoria e plano publicados funcionam sem callback externo');
+ await page.screenshot({path:out+'/desktop.png',fullPage:true});
+ await panel.getByRole('combobox',{name:'Filtrar Qualidade: período'}).selectOption('month');
+ await panel.getByText('Nenhuma auditoria publicada para este perfil neste período.').waitFor();checks.push('Mês atual vazio não mostra documentos de setembro');
+ await panel.getByRole('button',{name:/Mês anterior:/}).click();await panel.locator('button[aria-expanded]').first().waitFor();checks.push('Seta para setembro recupera relatório');
+ await panel.getByRole('combobox',{name:'Filtrar Qualidade: período'}).selectOption('all');
+ await panel.getByRole('combobox',{name:'Filtrar Qualidade: obra'}).selectOption('a1000000-0000-4000-8000-000000000003');await panel.getByText('Nenhuma auditoria publicada para este perfil neste período.').waitFor();
+ await page.reload();await panel.getByText('Nenhuma auditoria publicada para este perfil neste período.').waitFor();assert.equal(await panel.getByRole('combobox',{name:'Filtrar Qualidade: obra'}).inputValue(),'a1000000-0000-4000-8000-000000000003');checks.push('Filtro de obra persiste ao recarregar');
+ failPlans=true;await panel.getByRole('combobox',{name:'Filtrar Qualidade: obra'}).selectOption('');await panel.getByRole('alert').waitFor();failPlans=false;await panel.getByRole('button',{name:'Tentar novamente'}).click();await panel.locator('button[aria-expanded]').nth(1).waitFor();checks.push('Falha de planos informa erro e permite retry');
+ await page.setViewportSize({width:390,height:844});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await page.screenshot({path:out+'/mobile.png',fullPage:true});checks.push('Mobile 390 px sem overflow');
+ await writeFile(out+'/accessibility.txt',await panel.ariaSnapshot());await writeFile(out+'/results.json',JSON.stringify({checks,requests,geometry,note:'Dados fictícios e APIs simuladas. Nenhuma publicação ou alteração no banco.'},null,2));console.log(checks);
+} catch(error) {console.log(requests);console.log(await page.locator('body').innerText());await page.screenshot({path:out+'/failure.png'});throw error;} finally {await browser.close();}

@@ -1,4 +1,8 @@
 "use client";
+import { PublishedAuditsPanel } from "@/app/components/prototype-workspace";
+import { AuditHistoryProvider } from "@/app/components/audit-history-context";
+import type { DemoUser } from "@/domain/prototype-access";
+import appStyles from "@/app/components/prototype-app.module.css";
 import { useState } from "react";
 import { HistoryPagination, useHistoryPage } from "@/app/components/history-pagination";
 import { WorkHistory } from "@/app/components/works/WorkHistory";
@@ -20,8 +24,8 @@ const works = [{ id: "a1000000-0000-4000-8000-000000000002", name: "Obra de test
 export default function Review({ flow }: { flow: string }) {
  const hydrated = useHydrated();
  return <main className="content-wrap" data-hydrated={hydrated}><h1>Validação de listas — dados fictícios</h1>
-  {flow === "paginacao" ? <PaginationReview /> : null}
-  {flow === "paginacao" ? null : flow === "historico" ? <><label>Nome em edição<input defaultValue="Obra em edição" /></label><WorkHistory actorId={userId} workId={works[0].id} initial={{page:1,error:false,total:41,rows:Array.from({length:20},(_,n)=>({id:String(n),obra_id:works[0].id,changed_at:"2026-10-06T12:00:00Z",actor_auth_user_id:userId,actor_snapshot:{nome:"Pessoa de teste"},before_snapshot:{nome:"Nome anterior"},after_snapshot:{nome:`Nome ${n}`}}))}} /></> : flow === "visita" ? <FollowUpReportPage actor={actor} visit={{id:"a1000000-0000-4000-8000-000000000004",workId:works[0].id,auditorId:userId,module:"quality",kind:"follow_up",modelId:null,date:"2026-09-20",confirmationStatus:"confirmed",createdBy:userId,createdAt:"2026-09-20T12:00:00Z",note:"",history:[]}} agendaAvailable reportsAvailable draftsAvailable backHref="/revisao-listas" backLabel="Voltar à lista" initialReportedFindings={[]} initialPhotos={[]} initialWorkFindings={[]} /> : flow === "selecao" ? <StandaloneReportForm works={works} actor={actor} today="2026-10-06" /> : flow === "usuarios" ? <section className="panel"><h2>Equipe</h2><ActiveTeamProfiles profiles={[]} /></section> : flow === "agenda" ? <Calendar /> : flow === "detalhe" ? <><p>Documento fictício</p><Link href="/revisao-listas">Voltar à lista</Link></> : <Listing />}
+  {flow === "relatorios-admin" ? <AdministrativeReports /> : flow === "paginacao" ? <PaginationReview /> : null}
+  {["paginacao", "relatorios-admin"].includes(flow) ? null : flow === "historico" ? <><label>Nome em edição<input defaultValue="Obra em edição" /></label><WorkHistory actorId={userId} workId={works[0].id} initial={{page:1,error:false,total:41,rows:Array.from({length:20},(_,n)=>({id:String(n),obra_id:works[0].id,changed_at:"2026-10-06T12:00:00Z",actor_auth_user_id:userId,actor_snapshot:{nome:"Pessoa de teste"},before_snapshot:{nome:"Nome anterior"},after_snapshot:{nome:`Nome ${n}`}}))}} /></> : flow === "visita" ? <FollowUpReportPage actor={actor} visit={{id:"a1000000-0000-4000-8000-000000000004",workId:works[0].id,auditorId:userId,module:"quality",kind:"follow_up",modelId:null,date:"2026-09-20",confirmationStatus:"confirmed",createdBy:userId,createdAt:"2026-09-20T12:00:00Z",note:"",history:[]}} agendaAvailable reportsAvailable draftsAvailable backHref="/revisao-listas" backLabel="Voltar à lista" initialReportedFindings={[]} initialPhotos={[]} initialWorkFindings={[]} /> : flow === "selecao" ? <StandaloneReportForm works={works} actor={actor} today="2026-10-06" /> : flow === "usuarios" ? <section className="panel"><h2>Equipe</h2><ActiveTeamProfiles profiles={[]} /></section> : flow === "agenda" ? <Calendar /> : flow === "detalhe" ? <><p>Documento fictício</p><Link href="/revisao-listas">Voltar à lista</Link></> : <Listing />}
  </main>;
 }
 function PaginationReview() {
@@ -50,4 +54,9 @@ function Calendar() {
  return <AgendaWindow.Provider value={{ month: agenda.month, setMonth: agenda.setMonth, loading: agenda.refreshPending || !agenda.agenda.available, blocked: false, error: agenda.agendaSyncError, retry: () => { void agenda.retryAgenda(); } }}>
   <AdminVisitCalendar visits={agenda.agenda.visits} works={works} viewerId={userId} />
  </AgendaWindow.Provider>;
+}
+
+function AdministrativeReports() {
+ const admin: DemoUser = { id: userId, name: "Administrativo de teste", role: "administrative", modules: ["quality", "safety"], workIds: works.map(w => w.id), agendaWorkIds: works.map(w => w.id), documentWorkIds: [], workModuleScopes: works.flatMap(w => (["quality", "safety"] as const).map(module => ({workId:w.id,module}))) };
+ return <AuditHistoryProvider actor={{userId, profile:"ADMINISTRATIVO", engineeringScope:null, administrativeScope:"GERAL"}}><div className={appStyles.reportModulesGrid}>{(["quality", "safety"] as const).map(module => <PublishedAuditsPanel key={module} user={admin} works={works} audits={[]} module={module}/>)}</div></AuditHistoryProvider>;
 }
