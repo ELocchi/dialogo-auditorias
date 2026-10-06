@@ -1,0 +1,36 @@
+
+> auditoria-obra@0.1.0 test:publication
+> node --experimental-strip-types --test scripts/test-publication-validation.mjs scripts/test-publication-service.mjs
+
+(node:49936) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/publications/service.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ read failures describe loading and log only the operation and database code (1.387333ms)
+✔ real photo decoding, persistent draft, server PDF and idempotent publication (111.678625ms)
+✔ invalid or missing evidence never saves or publishes (6.190708ms)
+✔ storage failure cannot publish and stale revision cannot overwrite (16.30225ms)
+✔ transaction conflict after staging PDF stays unpublished and artifacts are not deleted on uncertain commit (17.427667ms)
+✔ photo route service rejects files outside the exact authorized draft (0.239375ms)
+✔ HTTP guard rejects cross-origin and unauthenticated requests before privileged access (24.017542ms)
+✔ streaming request limit rejects oversized bodies with no content-length (1.561708ms)
+✔ action plan persists authoritative findings and publishes a real server PDF (28.615958ms)
+(node:49938) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/publications/validation.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ server requires every response and evidence for nonconformities (1.022041ms)
+✔ pinned FVS weights override submitted weights and prohibit unknown services (0.754542ms)
+✔ incomplete quantitative checks and duplicate IDs cannot be published (0.138917ms)
+✔ safety group weights and all-NA audits use authoritative rules (0.229ms)
+✔ action plan keeps findings and photos from published audit and validates complete dates (26.750084ms)
+✔ all item and check evidence references are transformed (0.221625ms)
+✔ stored score uses the same rounding as the PDF at decimal boundaries (0.106125ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 16
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 940.431541

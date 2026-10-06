@@ -13,7 +13,7 @@ function fixture(options = {}) {
     calls.push({ name, params: structuredClone(params) });
     if (options.throws) throw new Error('private provider diagnostic');
     if (name === 'create_agenda_visits_batch') return { data: Object.hasOwn(options, 'data') ? options.data : params.p_visits.map((_, index) => id(100 + index)), error: options.error ?? null };
-    assert.equal(name, 'read_compact_audit_agenda_if_changed');
+    assert.equal(name, 'read_audit_agenda_month');
     return { data: { unchanged: false, revision: 'a'.repeat(32), snapshot: { visits: [], auditors: [] } }, error: options.readError ?? null };
   } } };
 }

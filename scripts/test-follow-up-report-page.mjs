@@ -23,6 +23,7 @@ function reset() {
 }
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const stubs = {
+  "@/app/components/follow-up-visit-index": "export function FollowUpVisitIndex(){return null}",
   "next/link": "export default function Link(props){return props.children}",
   "next/navigation": "export function notFound(){throw Error('NOT_FOUND')}",
   "@/lib/auth/session": "export async function requireActiveProfile(){return {}}",
@@ -41,6 +42,10 @@ registerHooks({
     if (specifier.startsWith("@/")) {
       const base = path.join(root, "src", specifier.slice(2));
       return nextResolve(pathToFileURL(existsSync(`${base}.tsx`) ? `${base}.tsx` : `${base}.ts`).href, context);
+    }
+    if (specifier.startsWith(".") && context.parentURL?.startsWith("file:") && !path.extname(specifier)) {
+      const candidate=path.resolve(path.dirname(fileURLToPath(context.parentURL)),specifier);
+      for(const ext of [".ts",".tsx"]) if(existsSync(candidate+ext)) return nextResolve(pathToFileURL(candidate+ext).href,context);
     }
     return nextResolve(specifier, context);
   },
@@ -62,8 +67,9 @@ const editor = (tree) => elements(tree).find((element) => element.type?.name ===
 
 test("report index reads one visit and never lists Storage or sends report bodies to the editor", async () => {
   reset(); const tree = await page(); assert.deepEqual(state.reads, [{ kind: "visit", visitId }]); assert.deepEqual(state.lists, []); assert.equal(editor(tree), undefined);
-  const download = elements(tree).find((element) => element.props?.href === `/app/acompanhamento/relatorio/${visitId}/pdf?relatorio=${reportId}`);
-  assert.ok(download); assert.equal(download.props.download, true); assert.equal(download.props["data-tooltip"], "Baixar PDF");
+  const index = elements(tree).find(element=>element.type?.name === "FollowUpVisitIndex");
+  assert.equal(index.props.visitId,visitId); assert.equal(index.props.actor.userId,userId);
+  assert.equal(index.props.reports,undefined,"No report bodies embedded in index");
   assert.ok(!elements(tree).some((element) => element.props?.href === `/app/acompanhamento/relatorio/${visitId}?relatorio=${reportId}`));
   assert.ok(elements(tree).some((element) => element.props?.href === `/app/acompanhamento/relatorio/${visitId}?novo=1`));
 });

@@ -68,7 +68,7 @@ test("overview hydrates its complete calendar and aggregate, without fetching hi
 test("agenda, auditor history and follow-up hydrate only agenda and preserve deep links", async () => {
   for (const [secao, screen] of [["agenda", "agenda"], ["auditorias", "audits"], ["acompanhamento", "follow_up"], ["relatorios", "audits"]]) {
     reset(); const { props } = await page({ secao, visita: "target-visit" });
-    assert.deepEqual(state.calls, ["agenda"]); assert.equal(props.initialScreen, screen);
+    assert.deepEqual(state.calls, secao === "acompanhamento" ? [] : ["agenda"]); assert.equal(props.initialScreen, screen);
     assert.equal(props.initialVisitId, "target-visit"); assert.equal(props.remoteAudits, true);
   }
 });
@@ -112,8 +112,8 @@ test("missing workspace never loads operational data", async () => {
 
 test("section resources preserve calendar-dependent engineering flows and skip unrelated sections", () => {
   for (const screen of ["overview", "engineering_quality", "engineering_safety"]) assert.deepEqual(workspaceResources(screen), { agenda: true, dashboard: true });
-  for (const screen of ["agenda", "audits", "follow_up", "fill", "audit_review"]) assert.deepEqual(workspaceResources(screen), { agenda: true, dashboard: false });
-  for (const screen of ["works", "settings", "criteria", "report", "engineering_coordination"]) assert.deepEqual(workspaceResources(screen), { agenda: false, dashboard: false });
+  for (const screen of ["agenda", "audits", "fill", "audit_review"]) assert.deepEqual(workspaceResources(screen), { agenda: true, dashboard: false });
+  for (const screen of ["follow_up", "works", "settings", "criteria", "report", "engineering_coordination"]) assert.deepEqual(workspaceResources(screen), { agenda: false, dashboard: false });
   assert.equal(workspaceEntryScreen("agenda", "ENGENHARIA", "EQUIPE_OBRA", null), "agenda");
   assert.equal(workspaceEntryScreen("administracao", "AUDITOR_QUALIDADE", null, null), "overview");
 });

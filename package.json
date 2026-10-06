@@ -29,7 +29,10 @@
     "test:publication": "node --experimental-strip-types --test scripts/test-publication-validation.mjs scripts/test-publication-service.mjs",
     "test:publication-database": "node scripts/test-access-database.mjs --publication-only",
     "test:standalone-reports": "node --experimental-strip-types --test scripts/test-standalone-reports.mjs scripts/test-standalone-report-pdf.mjs scripts/test-standalone-report-page.mjs",
-    "test:standalone-reports-database": "node scripts/test-access-database.mjs --standalone-reports-only"
+    "test:standalone-reports-database": "node scripts/test-access-database.mjs --standalone-reports-only",
+    "test:lists": "node --experimental-strip-types --test scripts/test-follow-up-workspace.mjs scripts/test-list-administration.mjs scripts/test-agenda.mjs scripts/test-agenda-sync.mjs scripts/test-agenda-rendering.mjs scripts/test-follow-up-report-page.mjs scripts/test-follow-up-mutations.mjs scripts/test-workspace-sections.mjs scripts/test-administration-render.mjs",
+    "test:lists-database": "node scripts/test-access-database.mjs --lists-only",
+    "test:lists-browser": "node scripts/test-lists-browser.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

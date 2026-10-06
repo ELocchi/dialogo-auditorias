@@ -1,0 +1,127 @@
+
+> auditoria-obra@0.1.0 test:lists
+> node --experimental-strip-types --test scripts/test-follow-up-workspace.mjs scripts/test-list-administration.mjs scripts/test-agenda.mjs scripts/test-agenda-sync.mjs scripts/test-agenda-rendering.mjs scripts/test-follow-up-report-page.mjs scripts/test-follow-up-mutations.mjs scripts/test-workspace-sections.mjs scripts/test-administration-render.mjs
+
+(node:49937) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/auth/display-name.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ administration landing requests counts only and retains links (14.358333ms)
+✔ pending page uses its server page and complete work choices without reading history (0.679416ms)
+✔ history page is not sliced a second time and preserves account, scope and legacy history display (3.510125ms)
+✔ unavailable views retain their retry page and never render mutation forms (0.986292ms)
+✔ unauthorized rendering does not load any administrative page (0.32025ms)
+(node:49939) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/app/components/list-state.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ administrative: cards are bounded but calendar totals remain complete (50.926417ms)
+✔ quality-auditor: cards are bounded but calendar totals remain complete (10.640583ms)
+✔ engineering: cards are bounded but calendar totals remain complete (9.176041ms)
+✔ authorization and invalid dates are applied before list pagination and calendar totals (40.196792ms)
+✔ admin calendar includes follow-ups from every authorized professional without selecting a filter (18.696166ms)
+✔ admin overview includes all visit kinds while engineering coordination keeps only audits (20.140583ms)
+✔ short and empty lists do not show unnecessary page controls (8.6325ms)
+✔ cards used elsewhere keep their initial open state and audit action (1.073167ms)
+(node:49940) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/agenda/sync-client.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ unchanged poll preserves the snapshot and only reports loading start/end (47.131583ms)
+✔ temporary failures preserve available data; recovery clears error; authorization failure clears data (20.135208ms)
+✔ one poll at a time; changing profile/disposal prevents old results from applying (0.413542ms)
+✔ late response and late JSON parsing cannot overwrite a completed mutation (0.85ms)
+✔ publication cancels a pending read, clears its token and prevents a completed visit returning (0.258417ms)
+✔ mutation idempotency survives retry, unknown success forces a full read, and profile cancellation discards mutation (0.362084ms)
+✔ invalid or unsolicited 304 never clears existing errors or introduces a snapshot (0.226917ms)
+✔ server DAL performs one conditional RPC and validates unchanged revision before accepting it (0.228167ms)
+✔ native browser fetch is invoked without assigning the synchronizer as its receiver (0.135667ms)
+(node:49941) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/agenda/contracts.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ creation validates exact fields, real dates, discipline/model and canonical UUIDs (3.362625ms)
+✔ confirmation and deletion require a stable request key and integer revision (0.147667ms)
+✔ snapshot sends selected profile and strips fields outside the public agenda contract (0.918375ms)
+✔ General administrator discipline views omit visits and auditors from the other module (12.158709ms)
+✔ auditor bell includes only their pending visits, with a link to the exact visit (1.661875ms)
+✔ auditoria designada fornece nome mínimo e confirmação sem incluir obra nos acessos (6.903791ms)
+✔ lista administrativa inclui auditores sem obras de acompanhamento (0.23775ms)
+✔ snapshots fail closed for inconsistent, duplicate and unauthorized records (0.534709ms)
+✔ new scheduling reaches only the admin RPC with exact fields and no caller override (0.302375ms)
+✔ work follow-up schedules without a model and still asks the assigned professional to confirm (1.264834ms)
+✔ confirmation is scoped to the currently selected auditor before mutation (0.261834ms)
+✔ only the administrator can delete a current visit, removing its notifications (0.23875ms)
+✔ publicação remove a visita e suas notificações da agenda ativa (0.122458ms)
+✔ a concurrent revision change cannot produce a stale confirmed message (1.699166ms)
+✔ conflicts, uncertain writes and provider diagnostics never become fake success (0.35575ms)
+✔ notification uses the work name from the same agenda snapshot as its revision (0.10925ms)
+(node:49942) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/app/follow-up/actions.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ save resolves server findings from one target snapshot and performs only the authoritative save RPC (1.95375ms)
+✔ save fails closed on missing snapshot, unauthorized visit, changed source, future or unconfirmed visit (0.366ms)
+✔ save service preserves closed revision and SQL concurrency/current-access errors without rereading agenda (0.263167ms)
+✔ completing a draft uses its exact revision and deletes only that finding's private photos (0.650959ms)
+✔ completing a reported finding records completion and never lists or removes its closed-report photos (0.171875ms)
+✔ a draft revision conflict cannot mark completion or remove photos (0.119625ms)
+✔ photo upload loads just the target visit and returns the freshly confirmed photo list (19.944167ms)
+✔ closed, missing, future and unconfirmed visit findings cannot receive photos or reach Storage (0.495041ms)
+✔ deletion keeps still-used photos and removes only an unused finding from the authorized visit (0.26225ms)
+✔ stale actor and invalid identifiers are rejected before target data or storage reads (0.213334ms)
+(node:49943) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/follow-up/photos.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ report index reads one visit and never lists Storage or sends report bodies to the editor (4.90425ms)
+✔ new editor loads only the target snapshot and its photo folder, retaining source findings and revision (0.633708ms)
+✔ editor with only work findings needs no visit Storage listing (0.258292ms)
+✔ closed report uses only exact detail and leaves all photo reads to its PDF (0.282417ms)
+✔ invalid, denied and unavailable visits never reach Storage or masquerade as an empty editor (0.447834ms)
+✔ legacy closed report still prevents creating another report from its index (0.2945ms)
+(node:49944) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/app/api/follow-up/list/route.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ all follow-up endpoints verify context once and reject unauthenticated/denied requests before data (29.538625ms)
+✔ paged HTTP reads only one authorized projection and never accesses Storage (1.315333ms)
+✔ all three obsolete bulk endpoints require reload without fetching a partial history (1.687375ms)
+✔ query rejects unbounded sizes, malformed cursors, work IDs and oversized searches (0.828042ms)
+✔ cursor, page size, search, work and visit scope pass to SQL unchanged (0.337959ms)
+✔ malformed, duplicate, oversized or out-of-scope pages fail closed (2.5445ms)
+✔ profile, auth and database failure do not masquerade as an empty success (0.630583ms)
+✔ both engineering scopes retain the selected grants in the paged RPC (0.291583ms)
+✔ photo lists authorize one exact visit before Storage; rejected and invalid visits list nothing (0.699042ms)
+✔ SQL, transport and Storage failures never masquerade as empty successful lists (0.856333ms)
+(node:49945) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/app/api/access/list/route.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ lists require active General Administration, not just an account with that capability (32.118ms)
+✔ invalid page, search, user or work IDs are rejected before data queries (3.089917ms)
+✔ user dropdown requests just selected page and search; decision history just selected account (0.492875ms)
+✔ work history uses stable order, exact count and only 20 rows at requested offset (2.199708ms)
+✔ revoked database authority, missing count and provider errors fail visibly (1.204042ms)
+✔ team form reads existing selections by IDs, never scans 1000 accounts or 10000 grants (0.615833ms)
+(node:49946) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/access/workspace-resources.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ opening Works loads neither agenda nor dashboard and keeps remote history enabled (1.661917ms)
+✔ overview hydrates its complete calendar and aggregate, without fetching history (0.215ms)
+✔ agenda, auditor history and follow-up hydrate only agenda and preserve deep links (0.301209ms)
+✔ coordination never opens the removed agenda or reports tabs (0.2125ms)
+✔ administration opens reports or settings without agenda or dashboard (0.159166ms)
+✔ action-plan deep link retains its exact publication read and invalid IDs do not query history (0.299709ms)
+✔ development preview remains local and production query failures retain unavailable state (0.158541ms)
+✔ missing workspace never loads operational data (0.156334ms)
+✔ section resources preserve calendar-dependent engineering flows and skip unrelated sections (0.104333ms)
+ℹ tests 79
+ℹ suites 0
+ℹ pass 79
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1307.266916

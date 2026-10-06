@@ -48,9 +48,9 @@ const render = (user, changes = {}) => renderToStaticMarkup(createElement(VisitA
 
 for (const user of [admin, auditor, engineer]) test(`${user.role}: cards are bounded but calendar totals remain complete`, () => {
   const html = render(user);
-  assert.equal((html.match(/<article /g) ?? []).length, 20);
-  assert.match(html, /1–20 de 105 visitas/);
-  assert.match(html, /Página 1 de 6/);
+  assert.equal((html.match(/<article /g) ?? []).length, 10);
+  assert.match(html, /1–10 de 105 visitas/);
+  assert.match(html, /Página 1 de 11/);
   assert.match(html, /105 visitas agendadas/);
   assert.doesNotMatch(html, /Detalhe reservado|AGENDAMENTO ADMINISTRATIVO|Confirmar data|Excluir agendamento/);
   assert.equal((html.match(/<details[^>]* open=/g) ?? []).length, 0);
@@ -64,7 +64,7 @@ test("authorization and invalid dates are applied before list pagination and cal
   ];
   for (const user of [admin, auditor, engineer]) {
     const html = render(user, { visits: [...hidden, ...visits] });
-    assert.match(html, /1–20 de 105 visitas/);
+    assert.match(html, /1–10 de 105 visitas/);
     assert.match(html, /105 visitas agendadas/);
     assert.doesNotMatch(html, /FORBIDDEN|INVALID/);
   }
@@ -98,7 +98,8 @@ test("admin overview includes all visit kinds while engineering coordination kee
 test("short and empty lists do not show unnecessary page controls", () => {
   const short = render(auditor, { visits: visits.slice(0, 3) });
   assert.equal((short.match(/<article /g) ?? []).length, 3);
-  assert.doesNotMatch(short, /Páginas de visitas agendadas/);
+  assert.match(short, /Itens por página: Páginas de visitas agendadas/);
+  assert.match(short, /disabled=""/);
   const empty = render(auditor, { visits: [] });
   assert.equal((empty.match(/<article /g) ?? []).length, 0);
   assert.match(empty, /Nenhuma visita agendada para este auditor/);

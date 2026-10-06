@@ -29,7 +29,8 @@ import { DeferredCatalogs, useDeferredCatalogs } from "./deferred-catalogs";
 import { AuditPhotoProvider } from "./audit-photo-context";
 import { useAuditPublication, publicationQuery } from "./use-audit-publication";
 import { auditPhotoThumbnailUrl } from "@/lib/photos/urls";
-import { useAgenda, isAgendaSnapshot, newRequestId } from "./use-agenda";
+import { AgendaWindow } from "./agenda-window";
+import { useAgenda, newRequestId } from "./use-agenda";
 import { AuditComparisonProvider, AuditComparisonHistory, usePreviousAudits } from "./audit-comparison-history";
 import type { AuditComparison } from "@/lib/audits/comparison-contracts";
 import type { AuditDashboardSnapshot } from "@/lib/audits/dashboard-contracts";
@@ -117,7 +118,7 @@ function ProfileWorkspace({ context: providedContext, initialScreen, initialVisi
   const agendaScreen = screen === "report" && ["safety-auditor", "quality-auditor"].includes(baseUser.role) ? "audits" : screen;
   const needsAgenda = workspaceResources(agendaScreen).agenda || notificationsOpen;
   const liveAgendaRefresh = agendaScreen === "agenda" || notificationsOpen;
-  const { agenda: syncedAgenda, agendaSyncError, refreshPending, retryAgenda, mutationPending, runAgendaAction, removePublishedVisit } = useAgenda(initialAgenda, baseUser.id, context.profile, context.engineeringScope, context.administrativeScope, needsAgenda, liveAgendaRefresh);
+  const { month: agendaMonth, setMonth: setAgendaMonth, agenda: syncedAgenda, agendaSyncError, refreshPending, retryAgenda, mutationPending, runAgendaAction, removePublishedVisit } = useAgenda(initialAgenda, baseUser.id, context.profile, context.engineeringScope, context.administrativeScope, needsAgenda, liveAgendaRefresh);
   const { user, visits, agenda, localTestVisitIds } = useMemo(() => {
     const localTestVisits: Visit[] = [
       { id: "local-audit-flow-security", workId: localTestWork.id, module: "safety", kind: "audit", modelId: "security-it07-r02", auditorId: baseUser.id, date: getSaoPauloToday(), note: "Teste local do relatório de Segurança.", createdBy: baseUser.id, createdAt: `${getSaoPauloToday()}T12:00:00.000-03:00`, revision: 1, confirmationStatus: "confirmed", confirmedAt: `${getSaoPauloToday()}T12:00:00.000-03:00`, auditorName: baseUser.name, createdByName: "Teste local", history: [] },
@@ -150,7 +151,7 @@ function ProfileWorkspace({ context: providedContext, initialScreen, initialVisi
   [user.id, context.profile, context.engineeringScope, context.administrativeScope]);
   const { state: catalogState, catalogs, loadCatalogs, setCatalogs } = useDeferredCatalogs(agendaActor, initialCatalogs);
   const [session, setSession] = useState<PrototypeAuditState>({ audits: initialAudits.audits, responses: initialAudits.responses, criteriaSnapshots: initialAudits.criteriaSnapshots });
-  const publication = useAuditPublication(agendaActor, session, setSession);
+  const publication = useAuditPublication(agendaActor, session, setSession, agendaMonth, ["overview", "audits", "fill", "audit_review", "engineering_quality", "engineering_safety", "action_plan"].includes(screen));
   const auditDetails = usePublishedAuditDetails(providedContext, initialAudits, setSession, session, remoteAudits);
   const [activeAuditId, setActiveAuditId] = useState<string | null>(null);
   const [completedPreview, setCompletedPreview] = useState<{ audit: AuditRecord; work: ProfileWorkspaceContext["works"][number] } | null>(null);
@@ -415,6 +416,8 @@ function ProfileWorkspace({ context: providedContext, initialScreen, initialVisi
   const isAdminSettings = isAdmin && currentScreen === "settings";
   const navigate = (next: string) => { if (allowed.has(next)) { setCompletedPreview(null); if (next === "report") setReportSection("reports"); setScreen(next); setError(""); } };
   const navigateAgenda = (item: AdminNotification) => {
+    const notificationMonth = item.href ? new URL(item.href, window.location.origin).searchParams.get("mes") : null;
+    if (notificationMonth) setAgendaMonth(notificationMonth);
     const visitId = item.href ? new URL(item.href, window.location.origin).searchParams.get("visita") : null;
     const target = visits.find((visit) => visit.id === visitId && canReadVisit(user, visit))
       ?? visits.find((visit) => canReadVisit(user, visit) && agendaWorks.some((entry) => entry.id === visit.workId && entry.name === item.workName));
@@ -438,11 +441,11 @@ function ProfileWorkspace({ context: providedContext, initialScreen, initialVisi
       throw new Error("Esta auditoria só pode ser iniciada pelo profissional responsável na data confirmada.");
     let current = visit;
     if (!localTestVisitIds.has(visit.id)) {
-      const response = await fetch("/api/agenda", { credentials: "same-origin", cache: "no-store", signal: requestSignal() });
+      const response = await fetch(`/api/agenda/visits/${visit.id}?${publicationQuery(agendaActor)}`, { credentials: "same-origin", cache: "no-store", signal: requestSignal() });
       if (!response.ok) throw new Error("Não foi possível conferir o agendamento. Tente novamente.");
-      const fresh: unknown = await response.json();
-      if (!isAgendaSnapshot(fresh) || !fresh.available) throw new Error("Não foi possível conferir o agendamento. Tente novamente.");
-      const persisted = fresh.visits.find((entry) => entry.id === visit.id);
+      const fresh = await response.json();
+      if (!fresh?.available || !fresh.visit) throw new Error("Não foi possível conferir o agendamento. Tente novamente.");
+      const persisted = fresh.visit as Visit;
       if (!persisted || persisted.revision !== visit.revision || (!resuming && !canBeginScheduledAudit(user, persisted, getSaoPauloToday())))
         throw new Error("O agendamento mudou ou não está mais disponível para iniciar. Atualize a agenda.");
       current = persisted;
@@ -535,6 +538,7 @@ function ProfileWorkspace({ context: providedContext, initialScreen, initialVisi
   const deferCatalogs = (children: ReactNode) => <DeferredCatalogs state={catalogState} load={loadCatalogs}>{children}</DeferredCatalogs>;
   return <AuditHistoryProvider actor={agendaActor} enabled={remoteAudits}><AuditPhotoProvider responses={session.responses} store={publication.photoStore}><AuditComparisonProvider actor={agendaActor}><AuditDetailsContext value={auditDetails}><div className="app-shell">
     <a className="skip-link" href="#main-content">Ir para o conteúdo</a>
+    <AgendaWindow.Provider value={{ month: agendaMonth, setMonth: setAgendaMonth, loading: refreshPending || !agenda.available, blocked: mutationPending, error: agendaSyncError, retry: () => { void retryAgenda(); } }}>
     <AdministrativeHeader name={user.name} email={context.email} userId={user.id} scope={isAdmin ? context.administrativeScope : undefined} profileLabel={isAdmin ? undefined : profileLabel} notifications={agenda.notifications} notificationsLoading={notificationsOpen && refreshPending} onNotificationsRetry={() => { void retryAgenda(); }} notificationsError={notificationsOpen ? agendaSyncError : undefined} onNotificationsOpenChange={setNotificationsOpen} onNavigateAgenda={navigateAgenda} />
     <div className="navigation-bar"><nav className="main-navigation" aria-label="Navegação principal">{nav.map(({ key, label, icon }) => <button type="button" key={key} className={`nav-item${currentScreen === key || (key === "audits" && auditNav) || (currentScreen === "action_plan" && key === `engineering_${actionPlanSource?.module}`) ? " active" : ""}`} aria-current={currentScreen === key ? "page" : undefined} onClick={() => navigate(key)}><Icon name={icon} /><span>{label}</span></button>)}</nav></div>
     <main className="main-content" id="main-content" tabIndex={-1}><div className="content-wrap">
@@ -590,6 +594,7 @@ function ProfileWorkspace({ context: providedContext, initialScreen, initialVisi
       {!canAgenda && !isAdmin && currentScreen === "agenda" && <section className="panel"><h2>Nenhuma obra disponível na agenda</h2><p className="muted">Consulte seus acessos para verificar as obras autorizadas.</p></section>}
       <footer className="page-footer"><span>Diálogo Engenharia · Auditorias</span></footer>
     </div></main>
+    </AgendaWindow.Provider>
   </div></AuditDetailsContext></AuditComparisonProvider></AuditPhotoProvider></AuditHistoryProvider>;
 }
 

@@ -1,6 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useAgendaWindow } from "../agenda-window";
+import { MonthNavigation } from "../published-history-page";
+import { HistoryPagination, useHistoryPage } from "../history-pagination";
 import { Icon } from "../ui-icon";
 import styles from "./admin-notifications.module.css";
 
@@ -76,6 +79,7 @@ export function AdminNotifications({ items = emptyNotifications, userId, loading
   onOpenChange?: (open: boolean) => void;
   onNavigateAgenda?: (item: AdminNotification) => void;
 }) {
+  const agendaWindow = useAgendaWindow();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -113,8 +117,9 @@ export function AdminNotifications({ items = emptyNotifications, userId, loading
   const dismissedKeys = useMemo(() => parseReadKeys(dismissedSnapshot), [dismissedSnapshot]);
   const visibleItems = useMemo(() => items.filter((item) => !dismissedKeys.has(notificationKey(item))), [items, dismissedKeys]);
   const sortedItems = [...visibleItems].sort((left, right) => timestamp(right.createdAt) - timestamp(left.createdAt));
+  const page = useHistoryPage(sortedItems, `notifications:${userId}:${agendaWindow?.month}`);
   const unreadCount = visibleItems.filter((item) => !readKeys.has(notificationKey(item))).length;
-  const countLabel = unreadCount === 1 ? "1 notificação não lida" : `${unreadCount} notificações não lidas`;
+  const countLabel = `${unreadCount === 1 ? "1 notificação não lida" : `${unreadCount} notificações não lidas`}${agendaWindow ? " neste mês" : ""}`;
 
   const markVisibleRead = useCallback(() => {
     const stored = parseReadKeys(storedSnapshot(readStorageKey(userId)));
@@ -170,12 +175,13 @@ export function AdminNotifications({ items = emptyNotifications, userId, loading
     </button>
     <section id={panelId} className={styles.panel} aria-labelledby={headingId} hidden={!open}>
       <div className={styles.heading}>
-        <h2 id={headingId}>Notificações</h2>
+        <h2 id={headingId}>Notificações{agendaWindow ? " do mês" : ""}</h2>
       </div>
+      {agendaWindow && <MonthNavigation month={agendaWindow.month} onMonthChange={m => { if (!agendaWindow.blocked) agendaWindow.setMonth(m); }} label="Notificações" />}
       {loading && <p className={styles.empty} role="status">Carregando notificações…</p>}
       {error && <div role="alert"><p className={styles.empty}>{error}</p>{onRetry && <button type="button" className="secondary" disabled={loading} onClick={onRetry}>{loading ? "Carregando…" : "Tentar novamente"}</button>}</div>}
       {sortedItems.length ? <ul className={styles.list}>
-        {sortedItems.map((item) => <li key={`${item.type}:${item.id}`}>
+        {page.items.map((item) => <li key={`${item.type}:${item.id}`}>
           {item.type !== "audit_published" || item.href
             ? <a className={styles.item} href={item.href ?? "/app?secao=agenda"}
               onClick={(event) => {
@@ -191,6 +197,7 @@ export function AdminNotifications({ items = emptyNotifications, userId, loading
               onClick={() => { dismissNotification(item); triggerRef.current?.focus(); }}><NotificationContent item={item} /><span>Dispensar notificação</span></button>}
         </li>)}
       </ul> : !loading && !error && <p className={styles.empty}>Nenhuma notificação no momento.</p>}
+      <HistoryPagination {...page} label="Páginas: notificações" unit="notificações" />
     </section>
   </div>;
 }

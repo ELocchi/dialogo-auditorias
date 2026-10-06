@@ -5,6 +5,8 @@ import type { AgendaActorContext } from "@/lib/agenda/contracts";
 import type { AuditHistoryQuery } from "@/lib/audits/history-contracts";
 import { auditHistoryKey, createAuditHistoryLoader, idleAuditHistory } from "@/lib/audits/history-loader";
 
+const ActorContext = createContext<AgendaActorContext | null>(null);
+export const useHistoryActor = () => useContext(ActorContext);
 const AuditHistoryContext = createContext<ReturnType<typeof createAuditHistoryLoader> | null>(null);
 const noSubscription = () => () => {};
 const idleSnapshot = () => idleAuditHistory;
@@ -19,7 +21,7 @@ export function AuditHistoryProvider({ actor, enabled = true, children }: {
     ? createAuditHistoryLoader({ userId, profile, engineeringScope, administrativeScope }) : null,
   [enabled, userId, profile, engineeringScope, administrativeScope]);
   useEffect(() => () => loader?.cancel(), [loader]);
-  return <AuditHistoryContext.Provider value={loader}>{children}</AuditHistoryContext.Provider>;
+  return <ActorContext.Provider value={enabled ? actor : null}><AuditHistoryContext.Provider value={loader}>{children}</AuditHistoryContext.Provider></ActorContext.Provider>;
 }
 
 export function useServerAuditHistoryEnabled() {

@@ -47,11 +47,16 @@ function reset() {
 }
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const stubs = {
+ "follow-up/document": "export async function scheduledDocument(){return {}};export async function standaloneDocument(){return {}}",
+ "lists/service": `export async function readListPage(client,context,query,ids){const s=globalThis.__followUpMutations;
+  const all=[...s.snapshot.reports.flatMap(r=>r.findings),...(s.snapshot.draft?.findings??[]),...s.snapshot.workFindings];
+  return {available:true,items:all.filter(f=>ids.includes(f.id)),hasMore:false,nextCursor:null};}`,
+
   "auth/session": "export async function requireActiveProfile() { return globalThis.__followUpMutations.active; }",
   "access/workspace": "export async function readWorkspaceContext() { const state=globalThis.__followUpMutations; state.contextReads++; return state.context; }",
   "supabase/server": "export async function createClient() { return globalThis.__followUpMutations.client; }",
   "follow-up/visit-service": "export async function readFollowUpVisit(client,context,visitId) { const state=globalThis.__followUpMutations; state.targeted.push(visitId); return state.snapshot; }",
-  "agenda/service": "export async function readAgendaSnapshot() { throw Error('A mutation cannot read the entire agenda'); }",
+  "agenda/service": "export function parseAgendaVisit(v){return v};export async function readAgendaSnapshot() { throw Error('A mutation cannot read the entire agenda'); }",
 };
 registerHooks({ resolve(specifier, context, nextResolve) {
   const key = Object.keys(stubs).find((candidate) => specifier.endsWith(`/${candidate}`) || specifier.endsWith(`/${candidate}.ts`));

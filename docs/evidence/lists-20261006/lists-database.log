@@ -1,0 +1,5 @@
+Bounded lists, stable cursors and authorization: PostgreSQL 18.3 (PGlite 0.5.8) on wasm32-unknown-emscripten, compiled by emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 3.1.74 (1092ec30a3fb1d46b1782ff1b4db5094d3d06ae5), 32-bit
+LIST_METRICS {"afterRows":20,"afterBytes":10190,"beforeRows":1502,"beforeBytes":547141}
+AGENDA_LIST_METRICS {"afterRows":20,"afterBytes":14487,"beforeRows":1209,"beforeBytes":775207}
+PASS: Bounded lists, stable cursors and authorization; new fixtures rolled back; isolated database discarded.
+Local SQL verification complete. Supabase HTTP/Auth and multi-connection concurrency were not exercised.

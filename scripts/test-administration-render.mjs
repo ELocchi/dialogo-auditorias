@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { registerHooks } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import ts from "typescript";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -10,6 +10,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 let state;
 const stubs = {
+  "@/app/components/access/AccessDecisionHistory": "export function AccessDecisionHistory(props){globalThis.__administrationRender.decisionHistory=props;return null}",
   "next/link": "import {createElement} from 'react';export default function Link(props){return createElement('a',props)}",
   "@/lib/auth/session": "export async function requireAdministrator(){const s=globalThis.__administrationRender;if(s.denied)throw Error('DENIED');return {id:'actor'}}",
   "@/lib/supabase/server": "export async function createClient(){return {}}",
@@ -20,9 +21,14 @@ const stubs = {
 registerHooks({
   resolve(specifier, context, nextResolve) {
     if (specifier === "react" && context.parentURL?.startsWith("data:")) return nextResolve(specifier, { ...context, parentURL: import.meta.url });
+    if (specifier.endsWith("/AccessDecisionHistory")) return {url:`data:text/javascript,${encodeURIComponent(stubs["@/app/components/access/AccessDecisionHistory"])}`,shortCircuit:true};
     if (stubs[specifier]) return { url: `data:text/javascript,${encodeURIComponent(stubs[specifier])}`, shortCircuit: true };
     if (specifier.endsWith(".css")) return { url: "data:text/javascript,export default {}", shortCircuit: true };
-    if (specifier.startsWith("@/")) return nextResolve(pathToFileURL(path.join(root, "src", `${specifier.slice(2)}.ts`)).href, context);
+    if (specifier.startsWith("@/")) { const candidate=path.join(root,"src",specifier.slice(2)); return nextResolve(pathToFileURL(candidate+(existsSync(candidate+".tsx")?".tsx":".ts")).href,context); }
+    if (specifier.startsWith(".") && context.parentURL?.startsWith("file:") && !path.extname(specifier)) {
+      const candidate=path.resolve(path.dirname(fileURLToPath(context.parentURL)),specifier);
+      for(const ext of [".ts",".tsx"]) if(existsSync(candidate+ext)) return nextResolve(pathToFileURL(candidate+ext).href,context);
+    }
     return nextResolve(specifier, context);
   },
   load(url, context, nextLoad) {
@@ -44,8 +50,8 @@ test("administration landing requests counts only and retains links", async () =
   reset({ view: "summary", pendingCount: 24, activeCount: 1032 });
   const html = await render();
   assert.deepEqual(state.reads, [{ view: "summary", page: 1 }]);
-  assert.match(html, /24 aprovações pendentes/);
-  assert.match(html, /1032 contas ativas/);
+  assert.match(html, /Aprovações: 24 pendentes/);
+  assert.match(html, /Contas ativas: 1032/);
   assert.match(html, /href="\/administracao\/usuarios\/pendentes"/);
   assert.match(html, /href="\/administracao\/usuarios\/historico"/);
   assert.equal(state.pending, null);
@@ -78,8 +84,8 @@ test("history page is not sliced a second time and preserves account, scope and 
   assert.deepEqual(state.reads, [{ view: "history", page: 2 }]);
   assert.match(html, /<summary><strong>Fixture<\/strong><\/summary>/);
   assert.match(html, /Inativo/);
-  assert.match(html, /Solicitação aprovada: Administrativo de Qualidade/);
-  assert.match(html, /Responsável anterior/);
+  assert.match(html, /Administrativo de Qualidade/);
+  assert.equal(state.decisionHistory.userId,"user-21");
   assert.match(html, /Página 2 de 2 · 21 registros/);
   assert.equal(state.editors.length, 1);
   assert.equal(state.editors[0].account, account);

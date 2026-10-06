@@ -7,6 +7,8 @@ export type FollowUpVisitSnapshot = {
   available: boolean;
   visit: Visit | null;
   reports: FollowUpReport[];
+  hasReports?: boolean;
+  hasLegacyReport?: boolean;
   draft: FindingDraft | null;
   workFindings: WorkFinding[];
   message?: string;

@@ -1,7 +1,7 @@
 /** Data needed by the visible workspace. The complete agenda is retained for calendars. */
 export function workspaceResources(screen: string) {
   return {
-    agenda: !["works", "settings", "criteria", "report", "discussion", "publication", "engineering_coordination"].includes(screen),
+    agenda: !["follow_up", "works", "settings", "criteria", "report", "discussion", "publication", "engineering_coordination"].includes(screen),
     dashboard: ["overview", "engineering_quality", "engineering_safety"].includes(screen),
   };
 }

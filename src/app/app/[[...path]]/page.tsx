@@ -15,7 +15,7 @@ import { workspaceEntryScreen, workspaceResources } from "@/lib/access/workspace
 
 export const dynamic = "force-dynamic";
 
-type Query = { secao?: string; visita?: string; plano?: string };
+type Query = { mes?: string; secao?: string; visita?: string; plano?: string };
 const parseAuditId = (value: string | undefined) => value && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
   ? value.toLowerCase() : undefined;
 
@@ -35,7 +35,7 @@ export default async function OperationalPage({ searchParams }: { searchParams: 
     context.administrativeScope, Boolean(initialActionPlanAuditId));
   const resources = workspaceResources(initialScreen);
   const [initialAgenda, initialDashboard, initialAudits, activeAccountCount] = await Promise.all([
-    resources.agenda ? readAgendaSnapshot(client, context) : Promise.resolve(undefined),
+    resources.agenda ? readAgendaSnapshot(client, context, typeof query.mes === "string" && /^(?!0000)\d{4}-(0[1-9]|1[0-2])$/.test(query.mes) ? query.mes : undefined) : Promise.resolve(undefined),
     preview || !resources.dashboard ? Promise.resolve(undefined) : readAuditDashboard(client, context),
     preview ? readPublishedAuditOverview(client, context) : initialActionPlanAuditId
       ? readPublishedAuditHistory(client, context, { auditId: initialActionPlanAuditId, pageSize: 1, includeFindings: false })

@@ -5,6 +5,9 @@ import { auditModelLabels, formatAuditDate, type WorkRecord } from "@/domain/ope
 import { type DemoUser, type AppModule, type Visit } from "@/domain/prototype-access";
 import { assignAuditorColors, assignWorkColors } from "@/domain/auditor-calendar-colors";
 import { getCalendarDays, getSaoPauloToday, isCalendarDate, shiftCalendarMonth } from "@/domain/visit-calendar";
+import { useAgendaWindow } from "./agenda-window";
+import { AsyncSkeleton } from "./async-feedback";
+import { useHistoryPage, HistoryPagination } from "./history-pagination";
 import { Icon } from "./ui-icon";
 import styles from "./admin-visit-calendar.module.css";
 
@@ -30,7 +33,10 @@ export function AdminVisitCalendar({ visits, works, auditors = [], onViewAgenda,
   keepVisitorColors?: boolean;
 }) {
   const [today] = useState(() => getSaoPauloToday());
-  const [month, setMonth] = useState(() => today.slice(0, 7));
+  const [localMonth, setLocalMonth] = useState(() => today.slice(0, 7));
+  const window = useAgendaWindow();
+  const month = window?.month ?? localMonth;
+  const setMonth = window?.setMonth ?? setLocalMonth;
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const headingId = useId();
   const monthId = useId();
@@ -74,8 +80,9 @@ export function AdminVisitCalendar({ visits, works, auditors = [], onViewAgenda,
     visitsByDate.set(visit.date, entries);
   }
   const visibleVisits = selectedDate ? visitsByDate.get(selectedDate) ?? [] : monthVisits;
+  const page = useHistoryPage(visibleVisits, `calendar:${month}:${selectedDate}:${selectedAuditorId}:${selectedWorkId}`);
   const changeMonth = (direction: -1 | 1) => {
-    setMonth((previous) => shiftCalendarMonth(previous, direction));
+    setMonth(shiftCalendarMonth(month, direction));
     setSelectedDate(null);
   };
 
@@ -84,13 +91,15 @@ export function AdminVisitCalendar({ visits, works, auditors = [], onViewAgenda,
       <h3 id={headingId}>{calendarOnly ? "Calendário" : "Agenda de visitas"}</h3>
       <div className={styles.toolbar}>
         <div className={styles.monthNavigation} role="group" aria-label="Navegar pelo calendário">
-          <button data-tooltip="Mês anterior" type="button" className={styles.monthButton} aria-label="Mês anterior: calendário" disabled={month === "0001-01"} onClick={() => changeMonth(-1)}><Icon name="arrow" className={styles.previous} /></button>
+          <button data-tooltip="Mês anterior" type="button" className={styles.monthButton} aria-label="Mês anterior: calendário" disabled={window?.blocked || month === "0001-01"} onClick={() => changeMonth(-1)}><Icon name="arrow" className={styles.previous} /></button>
           <span id={monthId} className={styles.monthLabel} aria-live="polite">{monthLabel}</span>
-          <button data-tooltip="Próximo mês" type="button" className={styles.monthButton} aria-label="Próximo mês: calendário" disabled={month === "9999-12"} onClick={() => changeMonth(1)}><Icon name="arrow" /></button>
+          <button data-tooltip="Próximo mês" type="button" className={styles.monthButton} aria-label="Próximo mês: calendário" disabled={window?.blocked || month === "9999-12"} onClick={() => changeMonth(1)}><Icon name="arrow" /></button>
         </div>
       </div>
     </div>
-    <table className={styles.calendar} aria-labelledby={monthId}>
+    {window?.loading && !window.error && <AsyncSkeleton label="Carregando calendário…" rows={2} />}
+    {window?.error && <div role="alert"><p>{window.error}</p><button type="button" className="secondary" onClick={window.retry}>Tentar novamente</button></div>}
+    <table aria-busy={window?.loading} className={styles.calendar} aria-labelledby={monthId}>
       <thead><tr>{weekdays.map(([short, full]) => <th scope="col" key={short}><abbr title={full}>{short}</abbr></th>)}</tr></thead>
       <tbody>{Array.from({ length: days.length / 7 }, (_, week) => <tr key={week}>
         {days.slice(week * 7, week * 7 + 7).map((date, index) => {
@@ -112,7 +121,8 @@ export function AdminVisitCalendar({ visits, works, auditors = [], onViewAgenda,
           return <td key={date} aria-label={calendarOnly ? label : undefined}>
             {calendarOnly ? <span className={`${styles.day}${hasAudit ? ` ${styles.auditDay}` : ""}`} title={label} aria-current={date === today ? "date" : undefined}>
               {content}
-            </span> : <button data-tooltip={selectedDate === date ? "Limpar filtro" : "Filtrar dia"} type="button" className={`${styles.day}${hasAudit ? ` ${styles.auditDay}` : ""}`} aria-label={`${selectedDate === date ? "Limpar filtro:" : "Filtrar:"} ${label}`}
+            </span> : <button data-tooltip={selectedDate === date ? "Limpar filtro" : "Filtrar dia"} type="button" className={`${styles.day}${hasAudit ? ` ${styles.auditDay}` : ""}`} disabled={window?.loading || window?.blocked}
+              aria-label={`${selectedDate === date ? "Limpar filtro:" : "Filtrar:"} ${label}`}
               aria-current={date === today ? "date" : undefined} aria-pressed={selectedDate === date} aria-controls={appointmentsId}
               onClick={() => setSelectedDate((previous) => previous === date ? null : date)}>
               {content}
@@ -137,7 +147,7 @@ export function AdminVisitCalendar({ visits, works, auditors = [], onViewAgenda,
         {selectedDate && <button type="button" className="text-button" onClick={() => setSelectedDate(null)}>Ver mês todo</button>}
       </div>
       {visibleVisits.length ? <div className={styles.listScroll} role="region" aria-label="Visitas agendadas" tabIndex={0}>
-        <ul className={styles.list}>{visibleVisits.map((visit) => <li key={visit.id} className={styles.visit}>
+        <ul className={styles.list}>{page.items.map((visit) => <li key={visit.id} className={styles.visit}>
           <time dateTime={visit.date} className={styles.visitDate}>{formatAuditDate(visit.date).slice(0, 5)}</time>
           <div className={styles.visitInfo}>
             <strong>{workNames.get(visit.workId)}</strong>
@@ -146,7 +156,8 @@ export function AdminVisitCalendar({ visits, works, auditors = [], onViewAgenda,
           </div>
           <span className={styles.auditorDot} style={{ backgroundColor: colors[colorKey(visit)] }} aria-hidden="true" />
         </li>)}</ul>
-      </div> : <p className={styles.empty}>{selectedDate ? "Nenhuma visita agendada para este dia." : "Nenhuma visita agendada neste mês."}</p>}
+      </div> : !window?.loading && !window?.error ? <p className={styles.empty}>{selectedDate ? "Nenhuma visita agendada para este dia." : "Nenhuma visita agendada neste mês."}</p> : null}
+      <HistoryPagination {...page} label="Páginas: visitas do calendário" unit="visitas" />
     </div>}
     {!calendarOnly && onViewAgenda && <button className={`text-button panel-link ${styles.agendaLink}`} type="button" onClick={onViewAgenda}>Consultar agenda<Icon name="arrow" /></button>}
   </section>;

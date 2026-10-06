@@ -1,0 +1,13 @@
+
+> auditoria-obra@0.1.0 lint
+> eslint
+
+
+<validation-copy>/scripts/test-async-browser.mjs
+  4:10  warning  'pathToFileURL' is defined but never used  @typescript-eslint/no-unused-vars
+
+<validation-copy>/src/lib/audits/history-loader.ts
+  77:36  warning  '_module' is defined but never used  @typescript-eslint/no-unused-vars
+
+✖ 2 problems (0 errors, 2 warnings)
+

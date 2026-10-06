@@ -1,19 +1,19 @@
 "use client";
 import { AsyncSkeleton } from "./async-feedback";
 
-import { useState } from "react";
+import { useListState } from "./list-state";
 import type { AuditRecord, WorkRecord } from "@/domain/operational-records";
 import { getSaoPauloToday, shiftCalendarMonth } from "@/domain/visit-calendar";
 import type { AuditHistoryQuery } from "@/lib/audits/history-contracts";
 import { useAuditHistory } from "./audit-history-context";
-import { useHistoryPage } from "./history-pagination";
+import { useHistoryPage, initialPage, isPageState } from "./history-pagination";
 import { Icon } from "./ui-icon";
 import calendarStyles from "./admin-visit-calendar.module.css";
 import styles from "./history-pagination.module.css";
 
 const monthLabelFormatter = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" });
 
-function MonthNavigation({ month, onMonthChange, label }: { month: string; onMonthChange: (value: string) => void; label: string }) {
+export function MonthNavigation({ month, onMonthChange, label }: { month: string; onMonthChange: (value: string) => void; label: string }) {
   const monthLabel = monthLabelFormatter.format(new Date(`${month}-01T12:00:00Z`));
   return <div className={calendarStyles.monthNavigation} role="group" aria-label={label}>
     <button data-tooltip="Mês anterior" type="button" className={calendarStyles.monthButton} aria-label={`Mês anterior: ${label}`} disabled={month === "0001-01"} onClick={() => onMonthChange(shiftCalendarMonth(month, -1))}><Icon name="arrow" className={calendarStyles.previous} /></button>
@@ -30,25 +30,24 @@ function monthRange(month: string) {
 
 export function usePublishedHistoryPage(audits: readonly AuditRecord[], filters: AuditHistoryQuery, contextKey: string) {
   const key = JSON.stringify([contextKey, filters]);
-  const [stored, setPage] = useState({ key, page: 1 });
-  const page = stored.key === key ? stored.page : 1;
-  if (stored.key !== key) setPage({ key, page: 1 });
+  const [stored, setPage] = useListState(`audit:${key}`, initialPage, isPageState);
+  const page = stored.page;
   const local = useHistoryPage(audits, key);
-  const remote = useAuditHistory({ ...filters, page, pageSize: 10 });
+  const remote = useAuditHistory({ ...filters, page, pageSize: stored.size });
   if (!remote.enabled) return { ...local, remote: false, status: "ready" as const, message: undefined, retry: remote.retry, findings: [] };
   const snapshot = remote.snapshot;
   const total = snapshot?.total ?? 0;
   const currentPage = snapshot?.page ?? page;
-  const pageSize = snapshot?.pageSize ?? 10;
+  const pageSize = snapshot?.pageSize ?? stored.size;
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
-  if (remote.status === "ready" && snapshot && page > pageCount) setPage({ key, page: pageCount });
   return {
     remote: true, status: remote.status, message: remote.message, retry: remote.retry,
     items: snapshot?.audits ?? [], findings: snapshot?.findings ?? [],
-    page: currentPage, total, pageCount,
-    first: total ? (currentPage - 1) * pageSize + 1 : 0,
+    page: currentPage, total, pageCount, pageSize,
+    first: snapshot?.audits.length ? (currentPage - 1) * pageSize + 1 : 0,
     last: Math.min(currentPage * pageSize, total),
-    onPageChange: (next: number) => setPage({ key, page: next }),
+    onPageChange: (next: number) => setPage({ ...stored, page: Math.max(1, Math.min(next, pageCount)) }),
+    onSizeChange: (size: number) => setPage({ size, page: 1 }),
   };
 }
 
@@ -70,7 +69,7 @@ export function HistoryFilters({ works, workId, onWorkChange, dateFrom, dateTo, 
   };
   return <div className={`${styles.filters}${className ? ` ${className}` : ""}`} role="group" aria-label={label}>
     {works && onWorkChange && <label><select className="filter-select" aria-label={`${label}: obra`} value={workId ?? ""} onChange={(event) => onWorkChange(event.target.value)}><option value="">Todas as obras</option>{works.map((work) => <option key={work.id} value={work.id}>{work.name}</option>)}</select></label>}
-    <MonthNavigation month={month} onMonthChange={selectMonth} label={`${label}: navegar por mês`} />
+    {!dateFrom && !dateTo ? <><span>Todos os períodos</span><button type="button" className="secondary" onClick={() => selectMonth(month)}>Escolher mês</button></> : <><MonthNavigation month={month} onMonthChange={selectMonth} label={`${label}: navegar por mês`} /><button type="button" className="secondary" onClick={() => { onFromChange(""); onToChange(""); }}>Todos os períodos</button></>}
   </div>;
 }
 

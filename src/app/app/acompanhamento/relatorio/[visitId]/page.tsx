@@ -10,6 +10,7 @@ import { getSaoPauloToday } from "@/domain/visit-calendar";
 import { canAccessModule, canConsultAgenda, canReadOperationalDocuments, canReadVisit, roleLabels } from "@/domain/prototype-access";
 import { uuidPattern } from "@/lib/access/validation";
 import { AdministrativeHeader } from "@/app/components/administrative-header";
+import { FollowUpVisitIndex } from "@/app/components/follow-up-visit-index";
 import { FollowUpReportPage } from "@/app/components/follow-up-report-page";
 import { Icon, type IconName } from "@/app/components/ui-icon";
 import styles from "@/app/components/follow-up-report-page.module.css";
@@ -28,7 +29,7 @@ export default async function ReportPage({ params, searchParams }: {
   if (!context || (context.profile !== "AUDITOR_SEGURANCA" && context.profile !== "AUDITOR_QUALIDADE")) notFound();
   const client = await createClient();
   const snapshot = reportId ? await readFollowUpReportDetail(client, context, visitId, reportId)
-    : await readFollowUpVisit(client, context, visitId);
+    : await readFollowUpVisit(client, context, visitId, true);
   if (!snapshot.available) throw new Error("Não foi possível consultar o acompanhamento. Tente novamente.");
   const visit = snapshot.visit;
   const work = visit && context.works.find((entry) => entry.id === visit.workId);
@@ -38,11 +39,9 @@ export default async function ReportPage({ params, searchParams }: {
   if (reportId && !selectedReport) notFound();
   const draft = "draft" in snapshot ? snapshot.draft ?? undefined : undefined;
   const workFindings = "workFindings" in snapshot ? snapshot.workFindings : [];
-  const sortedReports = visitReports.slice().sort((a, b) => a.updatedAt.localeCompare(b.updatedAt));
-  const showingIndex = !reportId && novo !== "1" && sortedReports.length > 0;
+  const showingIndex = !reportId && novo !== "1" && ("hasReports" in snapshot ? snapshot.hasReports : visitReports.length > 0);
   const canCreate = visit.confirmationStatus === "confirmed" && visit.date <= getSaoPauloToday()
-    && sortedReports.every((report) => report.id !== report.visitId)
-    && (sortedReports.length > 0 || (draft?.findings.length ?? 0) > 0 || workFindings.length > 0);
+    && !("hasLegacyReport" in snapshot ? snapshot.hasLegacyReport : visitReports.some(report => report.id === report.visitId));
   // Only the editor uses thumbnails. Index and closed report pages leave Storage to the PDF request.
   const hasVisitFindings = (draft?.findings.length ?? 0) > 0 || visitReports.some((entry) => entry.findings.length > 0);
   const photos = !showingIndex && !selectedReport && hasVisitFindings
@@ -75,24 +74,7 @@ export default async function ReportPage({ params, searchParams }: {
             : <button className={`primary ${styles.addReportButton}`} type="button" disabled aria-label="Criar novo relatório"
               data-tooltip="A criação exige visita confirmada, apontamento disponível e banco atualizado">+</button>}
         </div>
-        <section className="panel" aria-label="Relatórios da visita">
-          <ul className={styles.reportList}>{sortedReports.map((report, index) => {
-            const savedAt = new Date(report.updatedAt);
-            const day = savedAt.toLocaleDateString("pt-BR", { day: "2-digit", timeZone: "America/Sao_Paulo" });
-            const month = savedAt.toLocaleDateString("pt-BR", { month: "short", timeZone: "America/Sao_Paulo" }).replace(".", "").toUpperCase();
-            const year = savedAt.toLocaleDateString("pt-BR", { year: "numeric", timeZone: "America/Sao_Paulo" });
-            const date = savedAt.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
-            return <li key={report.id}>
-              <span className={styles.reportDate}><strong>{day}</strong><small>{month} {year}</small></span>
-              <span className={styles.reportInfo}><strong>{report.title === "Relatório orientativo" ? `Relatório ${index + 1}` : report.title}</strong>
-                <small>{date}</small></span>
-              <a className={styles.downloadButton} href={`/app/acompanhamento/relatorio/${visitId}/pdf?relatorio=${report.id}`} download
-                aria-label={`Baixar PDF: ${report.title}`} data-tooltip="Baixar PDF">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" /></svg>
-              </a>
-            </li>;
-          })}</ul>
-        </section>
+        <FollowUpVisitIndex actor={actor} visitId={visitId} />
       </div> : <FollowUpReportPage visit={visit} actor={actor} agendaAvailable={snapshot.available}
           backHref="/app?secao=acompanhamento"
           backLabel="Voltar ao acompanhamento"

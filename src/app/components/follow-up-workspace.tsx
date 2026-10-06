@@ -1,44 +1,39 @@
 "use client";
 import { SlowOperation } from "./slow-operation";
 import { DownloadButton } from "./download-button";
-import { AsyncSkeleton } from "@/app/components/async-feedback";
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import type { DemoUser, Visit } from "@/domain/prototype-access";
-import { canReadVisit } from "@/domain/prototype-access";
 import type { WorkRecord } from "@/domain/operational-records";
-import { isStandaloneReportIndex, standalonePdfHref } from "@/lib/follow-up/standalone-contracts";
 import type { AgendaActorContext } from "@/lib/agenda/contracts";
 import type { FollowUpFinding } from "@/lib/follow-up/service";
-import { indexFollowUpReports, mergeFollowUpFindings } from "@/lib/follow-up/display";
 import { maxPhotoBytes, maxPhotosPerFinding } from "@/lib/follow-up/photos";
 import { completeFindingAction, completeWorkFindingAction, createWorkFindingAction, uploadFindingPhotosAction } from "@/app/follow-up/actions";
-import { useFollowUpSnapshot, isFollowUpWorkspaceSnapshot } from "./use-follow-up-snapshot";
+import { useCursorList } from "./use-cursor-list";
+import { ListFilters, ListPagination, ListStatus } from "./list-controls";
+import { listWorkFinding, listSavedFinding, listReportHref } from "@/lib/lists/presentation";
 import { useFollowUpPhotoStore } from "./use-follow-up-photos";
 import { FollowUpPhotoPicker, FollowUpWorkFindingRow, FollowUpSavedFindingRow } from "./follow-up-workspace-rows";
 import styles from "./follow-up-workspace.module.css";
 
 type Props = { user: DemoUser; visits: readonly Visit[]; works: readonly WorkRecord[]; actor: AgendaActorContext; agendaAvailable: boolean };
 const emptyFinding = (): FollowUpFinding => ({ id: "", location: "", description: "", correction: "", serious: false });
-const noCompleted: readonly string[] = [];
 
 export function FollowUpWorkspace(props: Props) {
   const { userId, profile, engineeringScope, administrativeScope } = props.actor;
   return <FollowUpWorkspaceSession key={JSON.stringify([userId, profile, engineeringScope, administrativeScope])} {...props} />;
 }
 
-function FollowUpWorkspaceSession({ user, visits, works, actor, agendaAvailable }: Props) {
+function FollowUpWorkspaceSession({ user, works, actor }: Props) {
   const discipline = user.role === "quality-auditor" ? "quality" : "safety";
   const authorizedWorks = useMemo(() => new Map(works.map((work) => [work.id, work])), [works]);
-  const scheduled = useMemo(() => visits.filter((visit) => visit.kind === "follow_up" && visit.auditorId === user.id
-    && visit.module === discipline && authorizedWorks.has(visit.workId) && canReadVisit(user, visit))
-    .sort((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id)), [visits, user, discipline, authorizedWorks]);
-  const { data: snapshot, loading, error: readError, retry, update } = useFollowUpSnapshot(actor, "/api/follow-up/workspace", isFollowUpWorkspaceSnapshot);
-  const standalone = useFollowUpSnapshot(actor, "/api/follow-up/standalone-reports", isStandaloneReportIndex);
+  const { anchor: findingsListAnchor, ...findingsList } = useCursorList(actor, "findings", "follow-up-findings", discipline);
+  const { anchor: reportsListAnchor, ...reportsList } = useCursorList(actor, "reports", "follow-up-reports", discipline);
+  const retry = findingsList.retry;
   const reportWorks = works.filter(work => !work.isDemo && user.workModuleScopes?.some(scope => scope.workId === work.id && scope.module === discipline));
   const photoStore = useFollowUpPhotoStore(actor);
-  const [filterWorkId, setFilterWorkId] = useState("");
+  const filterWorkId = findingsList.state.workId;
   const [adding, setAdding] = useState(false);
   const [targetWorkId, setTargetWorkId] = useState("");
   const [finding, setFinding] = useState<FollowUpFinding>(emptyFinding);
@@ -49,30 +44,12 @@ function FollowUpWorkspaceSession({ user, visits, works, actor, agendaAvailable 
   const [error, setError] = useState("");
   const mounted = useRef(true);
   const mutationPending = useRef(false);
-  const available = !!snapshot && !loading && !readError;
+  const available = !!findingsList.data && !findingsList.loading && !findingsList.error;
   const disabled = pending || !available;
-  const draftByVisit = useMemo(() => new Map(snapshot?.drafts.map((entry) => [entry.visitId, entry]) ?? []), [snapshot?.drafts]);
-  const reportsByVisit = useMemo(() => indexFollowUpReports(snapshot?.reports ?? []), [snapshot?.reports]);
-  const savedFindings = useMemo(() => mergeFollowUpFindings(scheduled, draftByVisit, reportsByVisit, snapshot?.completed ?? noCompleted, authorizedWorks),
-    [scheduled, draftByVisit, reportsByVisit, snapshot?.completed, authorizedWorks]);
-  const workFindings = useMemo(() => (snapshot?.workFindings ?? []).filter((entry) => authorizedWorks.has(entry.workId) && entry.module === discipline), [snapshot?.workFindings, authorizedWorks, discipline]);
-  const createReportWork = reportWorks.find(work => work.id === filterWorkId)
-    ?? reportWorks.find(work => workFindings.some(finding => finding.workId === work.id)) ?? reportWorks[0];
-  const visibleWorkFindings = useMemo(() => filterWorkId ? workFindings.filter((item) => item.workId === filterWorkId) : workFindings, [filterWorkId, workFindings]);
-  const visibleSavedFindings = useMemo(() => filterWorkId ? savedFindings.filter((item) => item.workId === filterWorkId) : savedFindings, [filterWorkId, savedFindings]);
-  const scheduledById = useMemo(() => new Map(scheduled.map((visit) => [visit.id, visit])), [scheduled]);
-  const visibleReports = useMemo(() => [
-    ...(snapshot?.reports ?? []).flatMap(report => {
-      const visit = scheduledById.get(report.visitId);
-      if (!visit) return [];
-      return [{ id: report.id, title: report.title, updatedAt: report.updatedAt, displayDate: report.updatedAt,
-        workName: authorizedWorks.get(visit.workId)?.name ?? "Obra",
-        pdfHref: `/app/acompanhamento/relatorio/${report.visitId}/pdf?relatorio=${report.id}` }];
-    }),
-    ...(standalone.data?.reports ?? []).filter(report => report.module === discipline && authorizedWorks.has(report.workId))
-      .map(report => ({ ...report, displayDate: `${report.date}T12:00:00-03:00`, pdfHref: standalonePdfHref(report.id) })),
-  ].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt) || right.id.localeCompare(left.id)),
-  [snapshot?.reports, standalone.data?.reports, scheduledById, authorizedWorks, discipline]);
+  const items = findingsList.data?.items ?? [];
+  const createReportWork = reportWorks.find(work => work.id === filterWorkId) ?? reportWorks[0];
+  const visibleReports = (reportsList.data?.items ?? []).map(report => ({ ...report, title: report.title!,
+    displayDate: `${report.date}T12:00:00-03:00`, pdfHref: listReportHref(report) }));
 
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   useEffect(() => { if (previewUrl) return () => URL.revokeObjectURL(previewUrl); }, [previewUrl]);
@@ -107,8 +84,7 @@ function FollowUpWorkspaceSession({ user, visits, works, actor, agendaAvailable 
       const result = await createWorkFindingAction(formData, actor);
       if (!mounted.current) return;
       if (result.status === "success" && result.finding) {
-        const saved = result.finding;
-        update((current) => ({ ...current, workFindings: [saved, ...current.workFindings] }));
+        findingsList.first(); retry();
         setMessage(result.message); setAdding(false); setFinding(emptyFinding()); setPhotoFiles([]); setPreviewUrl(null);
       } else setError(result.message);
     } catch { if (mounted.current) setError("Não foi possível salvar o apontamento. Tente novamente."); }
@@ -133,32 +109,30 @@ function FollowUpWorkspaceSession({ user, visits, works, actor, agendaAvailable 
       const result = await completeFindingAction(visitId, findingId, actor);
       if (!mounted.current) return;
       if (result.status === "success") {
-        const saved = result.draft;
-        update((current) => ({ ...current, ...(saved ? { drafts: [...current.drafts.filter((entry) => entry.visitId !== saved.visitId), saved] } : {}), completed: [...current.completed, `${visitId}:${findingId}`] }));
+        retry();
         setMessage(result.message);
         requestAnimationFrame(() => document.getElementById("follow-up-findings-heading")?.focus());
       } else setError(result.message);
     } catch { if (mounted.current) setError("Não foi possível concluir a pendência. Tente novamente."); }
     finally { finishMutation(); }
-  }, [available, beginMutation, actor, update, finishMutation]);
+  }, [available, beginMutation, actor, retry, finishMutation]);
   const completeWorkFinding = useCallback(async (id: string) => {
     if (!available || !beginMutation("Concluindo apontamento…")) return;
     try {
       const completed = await completeWorkFindingAction(id, actor);
       if (!mounted.current) return;
       if (completed) {
-        update((current) => ({ ...current, workFindings: current.workFindings.filter((item) => item.id !== id) }));
+        retry();
         setMessage("Pendência concluída e removida da lista ativa.");
         requestAnimationFrame(() => document.getElementById("follow-up-findings-heading")?.focus());
       } else setError("Não foi possível concluir a pendência. Atualize a página e tente novamente.");
     } catch { if (mounted.current) setError("Não foi possível concluir a pendência. Tente novamente."); }
     finally { finishMutation(); }
-  }, [available, beginMutation, actor, update, finishMutation]);
+  }, [available, beginMutation, actor, retry, finishMutation]);
 
   return <>
     <div className="page-intro"><h2>Acompanhamento</h2></div>
-    {!agendaAvailable && <p className={styles.availability} role="status">A agenda está indisponível no momento. Atualize a página para consultar as visitas.</p>}
-    {readError && <p className={styles.availability} role="alert">Não foi possível consultar os relatórios e apontamentos. <button type="button" className="secondary" onClick={retry}>Recarregar relatórios e apontamentos</button></p>}
+
     <div className={styles.layout}>
       <section className={`panel ${styles.listPanel}`} aria-label="Relatórios orientativos">
         <div className={`panel-heading ${styles.reportHeader}`}><h3>Relatórios orientativos</h3>
@@ -168,7 +142,8 @@ function FollowUpWorkspaceSession({ user, visits, works, actor, agendaAvailable 
                 data-tooltip="Sem obras disponíveis">+</button>}
         </div>
         {!createReportWork && <p className="muted">Para criar um relatório, é necessário ter uma obra disponível neste perfil.</p>}
-        {visibleReports.length ? <ul className={styles.reportList}>{visibleReports.map((report) => {
+        <div ref={reportsListAnchor}><ListFilters list={reportsList} works={works} label="Relatórios orientativos" /><ListStatus list={reportsList} empty="Nenhum relatório orientativo encontrado." /></div>
+        {!reportsList.loading && !reportsList.error && visibleReports.length ? <ul className={styles.reportList}>{visibleReports.map((report) => {
           const savedAt = new Date(report.displayDate);
           const day = savedAt.toLocaleDateString("pt-BR", { day: "2-digit", timeZone: "America/Sao_Paulo" });
           const month = savedAt.toLocaleDateString("pt-BR", { month: "short", timeZone: "America/Sao_Paulo" }).replace(".", "").toUpperCase();
@@ -181,16 +156,14 @@ function FollowUpWorkspaceSession({ user, visits, works, actor, agendaAvailable 
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" /></svg>
             </DownloadButton>
           </li>;
-        })}</ul> : snapshot && standalone.data && !loading && !readError && !standalone.loading && !standalone.error ? <p className="muted">Nenhum relatório orientativo salvo para este perfil.</p> : null}
-        {standalone.loading && <p className="muted" role="status">Carregando relatórios…</p>}
+        })}</ul> : null}
+        <ListPagination list={reportsList} label="Relatórios orientativos" />
       </section>
       <section className={`panel ${styles.findingsPanel}`} aria-label="Apontamentos de acompanhamento">
         <div className={`panel-heading ${styles.findingHeader}`}><h3 id="follow-up-findings-heading" tabIndex={-1}>Apontamentos</h3>
-          <select className="filter-select" aria-label="Filtrar apontamentos por obra" value={filterWorkId} onChange={(event) => setFilterWorkId(event.target.value)}>
-            <option value="">Todas as obras</option>{works.map((work) => <option key={work.id} value={work.id}>{work.name}</option>)}
-          </select>
           <button type="button" className={`primary ${styles.addFindingButton}`} aria-label="Adicionar apontamento" data-tooltip="Adicionar apontamento" disabled={disabled || works.length === 0} onClick={beginFinding}>+</button>
         </div>
+        <div ref={findingsListAnchor}><ListFilters list={findingsList} works={works} label="Apontamentos" /></div>
         {adding && <form className={styles.addFindingForm} onSubmit={(event) => { void submitFinding(event); }}>
           <div className={styles.findingTopRow}>
             <div className={styles.photoField} role="group" aria-label="Foto obrigatória"><FollowUpPhotoPicker disabled={disabled} previewUrl={previewUrl} onSelect={(file) => {
@@ -215,14 +188,16 @@ function FollowUpWorkspaceSession({ user, visits, works, actor, agendaAvailable 
             <div className={styles.findingActions}><button type="button" className="secondary" disabled={pending} onClick={() => setAdding(false)}>Cancelar</button><button type="submit" className="primary" disabled={disabled}>{pending ? "Salvando…" : "Salvar apontamento"}</button></div>
           </>}
         </form>}
-        {loading && <AsyncSkeleton label="Carregando apontamentos e relatórios…" />}
+        <ListStatus list={findingsList} empty="Nenhum apontamento encontrado." />
         <SlowOperation pending={pending} />
         {message && <p className={styles.success} role="status">{message}</p>}
         {error && <p className={styles.error} role="alert">{error}</p>}
-        {visibleWorkFindings.length + visibleSavedFindings.length ? <ul className={styles.savedFindings}>
-          {visibleWorkFindings.map((item) => <FollowUpWorkFindingRow key={`work:${item.id}`} item={item} workName={authorizedWorks.get(item.workId)?.name ?? "Obra"} actor={actor} disabled={disabled} onComplete={completeWorkFinding} />)}
-          {visibleSavedFindings.map((item) => <FollowUpSavedFindingRow key={`${item.visitId}:${item.id}`} item={item} actor={actor} photoStore={photoStore} disabled={disabled} onComplete={completeFinding} onUpload={addPhotosToFinding} />)}
-        </ul> : snapshot && !loading && !readError ? <p className="muted">{filterWorkId ? "Nenhum apontamento registrado para esta obra." : "Nenhum apontamento registrado para este perfil."}</p> : null}
+        {!findingsList.loading && !findingsList.error && <ul className={styles.savedFindings}>
+          {items.map(item => item.source === "work"
+            ? <FollowUpWorkFindingRow key={item.key} item={listWorkFinding(item)} workName={item.workName} actor={actor} disabled={disabled} onComplete={completeWorkFinding} />
+            : <FollowUpSavedFindingRow key={item.key} item={listSavedFinding(item)} actor={actor} photoStore={photoStore} disabled={disabled} onComplete={completeFinding} onUpload={addPhotosToFinding} />)}
+        </ul>}
+        <ListPagination list={findingsList} label="Apontamentos" disabled={pending} />
       </section>
     </div>
   </>;

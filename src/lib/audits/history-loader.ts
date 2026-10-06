@@ -113,8 +113,8 @@ export function createAuditHistoryLoader(actor: AgendaActorContext, fetcher: typ
           if (!isRecord(value)) throw new Error(unavailable);
           const parsed = ([[key, request], [otherKey, otherRequest]] as const).map(([entryKey, entryRequest]) => {
             if (!entryRequest || entryRequest.controller.signal.aborted) return null;
-            const module = entryRequest.query.module;
-            const snapshot = module && parseAuditHistoryPage(value[module], entryRequest.query);
+            const discipline = entryRequest.query.module;
+            const snapshot = discipline && parseAuditHistoryPage(value[discipline], entryRequest.query);
             if (!snapshot) throw new Error(unavailable);
             return [entryKey, snapshot] as const;
           });

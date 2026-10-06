@@ -4,17 +4,18 @@ import { scheduledDocument, standaloneDocument } from "@/lib/follow-up/document"
 import { requireActiveProfile } from "@/lib/auth/session";
 import { readWorkspaceContext } from "@/lib/access/workspace";
 import { createClient } from "@/lib/supabase/server";
-import { parseSaveFollowUp, readFollowUpReports, resolveReportFindings, saveFollowUpReport, type FollowUpSnapshot, type SaveFollowUpResult } from "@/lib/follow-up/service";
-import { readFindingDrafts, saveFindingDrafts, type FindingDraftSnapshot, type SaveFindingDraftResult } from "@/lib/follow-up/findings";
+import { parseSaveFollowUp, resolveReportFindings, saveFollowUpReport, type FollowUpSnapshot, type SaveFollowUpResult } from "@/lib/follow-up/service";
+import { saveFindingDrafts, type FindingDraftSnapshot, type SaveFindingDraftResult } from "@/lib/follow-up/findings";
 import { detectPhotoType, followUpPhotoBucket, maxPhotoBytes, maxPhotosPerFinding,
   photoPath, readVisitPhotos, type FindingPhoto } from "@/lib/follow-up/photos";
-import { readAgendaSnapshot } from "@/lib/agenda/service";
+import { readListPage } from "@/lib/lists/service";
+import { parseAgendaVisit } from "@/lib/agenda/service";
 import { readFollowUpVisit } from "@/lib/follow-up/visit-service";
 import { canReadVisit } from "@/domain/prototype-access";
 import { getSaoPauloToday } from "@/domain/visit-calendar";
 import { uuidPattern } from "@/lib/access/validation";
 import type { AgendaActorContext } from "@/lib/agenda/contracts";
-import { readStandaloneFindings, saveStandaloneReport } from "@/lib/follow-up/standalone-service";
+import { saveStandaloneReport } from "@/lib/follow-up/standalone-service";
 import type { StandaloneSaveResult } from "@/lib/follow-up/standalone-contracts";
 
 async function activeContext(expected: AgendaActorContext) {
@@ -41,10 +42,9 @@ export async function saveStandaloneReportAction(value: unknown, expected: Agend
   return result;
 }
 
-export async function readStandaloneFindingsAction(workId: string, expected: AgendaActorContext) {
-  const context = await activeContext(expected);
-  if (!context) return { available: false, findings: [] };
-  return readStandaloneFindings(await createClient(), context, workId);
+export async function readStandaloneFindingsAction(_workId: string, expected: AgendaActorContext) {
+  await activeContext(expected);
+  return { available: false, findings: [] };
 }
 
 export type WorkFinding = { id: string; workId: string; module: "safety" | "quality"; location: string; description: string;
@@ -59,29 +59,13 @@ const toWorkFinding = (row: WorkFindingRow): WorkFinding => ({ id: row.id, workI
 const findingModule = (profile: string) => profile === "AUDITOR_SEGURANCA" ? "SEGURANCA" : profile === "AUDITOR_QUALIDADE" ? "QUALIDADE" : null;
 
 export async function readWorkFindingsAction(expected: AgendaActorContext): Promise<{ available: boolean; findings: WorkFinding[] }> {
-  const context = await activeContext(expected);
-  const findingDiscipline = context ? findingModule(context.profile) : null;
-  if (!context || !findingDiscipline) return { available: false, findings: [] };
-  const { data, error } = await (await createClient()).from("follow_up_work_findings")
-    .select("id,work_id,modulo,location,description,correction,serious,photo_file_name,created_at")
-    .eq("auditor_auth_user_id", context.user.id).eq("modulo", findingDiscipline).is("completed_at", null).order("created_at", { ascending: false }).limit(1000);
-  if (error || !data) return { available: false, findings: [] };
-  const authorized = new Set(context.works.map((work) => work.id));
-  return { available: true, findings: (data as WorkFindingRow[]).filter((row) => authorized.has(row.work_id)).map(toWorkFinding) };
+  await activeContext(expected);
+  return { available: false, findings: [] };
 }
 
-export async function readEngineeringWorkFindingsAction(module: "safety" | "quality", expected: AgendaActorContext): Promise<{ available: boolean; findings: WorkFinding[] }> {
-  const context = await activeContext(expected);
-  if (!context || context.profile !== "ENGENHARIA" || !["safety", "quality"].includes(module))
-    return { available: false, findings: [] };
-  const authorized = new Set(context.works.map((work) => work.id));
-  const { data, error } = await (await createClient()).from("follow_up_work_findings")
-    .select("id,work_id,modulo,location,description,correction,serious,photo_file_name,created_at")
-    .eq("modulo", module === "safety" ? "SEGURANCA" : "QUALIDADE")
-    .is("completed_at", null).order("created_at", { ascending: false }).limit(1000);
-  if (error || !data) return { available: false, findings: [] };
-  return { available: true, findings: (data as WorkFindingRow[])
-    .filter((row) => authorized.has(row.work_id)).map(toWorkFinding) };
+export async function readEngineeringWorkFindingsAction(_module: "safety" | "quality", expected: AgendaActorContext): Promise<{ available: boolean; findings: WorkFinding[] }> {
+  await activeContext(expected);
+  return { available: false, findings: [] };
 }
 
 export async function createWorkFindingAction(formData: FormData, expected: AgendaActorContext): Promise<{
@@ -136,9 +120,8 @@ export async function completeWorkFindingAction(id: string, expected: AgendaActo
 }
 
 export async function readFollowUpReportsAction(expected: AgendaActorContext): Promise<FollowUpSnapshot> {
-  const context = await activeContext(expected);
-  if (!context) return { available: false, reports: [], message: "Seu acesso mudou. Atualize a página." };
-  return readFollowUpReports(await createClient(), context);
+  await activeContext(expected);
+  return { available: false, reports: [], message: "Atualize a página para consultar as listas." };
 }
 
 export async function saveFollowUpReportAction(input: unknown, expected: AgendaActorContext): Promise<SaveFollowUpResult> {
@@ -149,15 +132,15 @@ export async function saveFollowUpReportAction(input: unknown, expected: AgendaA
   const value = parseSaveFollowUp(input);
   if (!value) return { status: "error", message: "Confira o nome, os textos e os apontamentos selecionados antes de salvar." };
   const client = await createClient({ writableCookies: true });
-  const snapshot = await readFollowUpVisit(client, context, value.visitId);
+  const snapshot = await readFollowUpVisit(client, context, value.visitId, true);
   if (!snapshot.available) return { status: "error", message: "Não foi possível conferir os apontamentos. Atualize a página." };
   const visit = snapshot.visit;
   if (!visit) return { status: "error", message: "A visita não está disponível para este perfil." };
   if (visit.confirmationStatus !== "confirmed" || visit.date > getSaoPauloToday())
     return { status: "error", message: "Para criar o relatório, confirme a visita e aguarde a data agendada." };
-  const previousFindings = snapshot.reports.flatMap((entry) => entry.findings);
-  const workFindings = snapshot.workFindings.map(({ id, location, description, correction, serious }) => ({ id, location, description, correction, serious }));
-  const findings = resolveReportFindings(value.findings, previousFindings, [...(snapshot.draft?.findings ?? []), ...workFindings]);
+  const selection = await readListPage(client, context, { kind: "findings", visitId: visit.id, workId: visit.workId, module: visit.module, search: "", size: 50, cursor: null }, value.findings.map(item => item.id));
+  const selected = selection.items.map(item => ({ id: item.id, location: item.location!, description: item.description!, correction: item.correction!, serious: item.serious! }));
+  const findings = selection.available && !selection.hasMore ? resolveReportFindings(value.findings, selected, selected) : null;
   if (!findings) return { status: "error", message: value.findings.length
     ? "Os apontamentos mudaram. Atualize a página e selecione novamente."
     : "Selecione pelo menos um apontamento para incluir no relatório." };
@@ -173,9 +156,8 @@ export async function saveFollowUpReportAction(input: unknown, expected: AgendaA
 }
 
 export async function readFindingDraftsAction(expected: AgendaActorContext): Promise<FindingDraftSnapshot> {
-  const context = await activeContext(expected);
-  if (!context) return { available: false, drafts: [], message: "Seu acesso mudou. Atualize a página." };
-  return readFindingDrafts(await createClient(), context);
+  await activeContext(expected);
+  return { available: false, drafts: [], message: "Atualize a página para consultar as listas." };
 }
 
 export async function saveFindingDraftsAction(input: unknown, expected: AgendaActorContext): Promise<SaveFindingDraftResult> {
@@ -191,7 +173,7 @@ export async function completeFindingAction(visitId: string, findingId: string, 
   if (!context || !uuidPattern.test(visitId) || !uuidPattern.test(findingId))
     return { status: "error", message: "Não foi possível concluir o apontamento." };
   const client = await createClient({ writableCookies: true });
-  const snapshot = await readFollowUpVisit(client, context, visitId);
+  const snapshot = await readFollowUpVisit(client, context, visitId, false, findingId);
   if (!snapshot.available || !snapshot.visit) return { status: "error", message: "Atualize a página e tente novamente." };
   const draft = snapshot.draft ?? undefined;
   const reportFindings = snapshot.reports.flatMap((entry) => entry.findings);
@@ -221,12 +203,8 @@ export async function completeFindingAction(visitId: string, findingId: string, 
 }
 
 export async function readCompletedFindingsAction(expected: AgendaActorContext): Promise<string[] | null> {
-  const context = await activeContext(expected);
-  if (!context) return null;
-  const { data, error } = await (await createClient()).from("follow_up_finding_completions")
-    .select("visit_id,finding_id").eq("auditor_auth_user_id", context.user.id);
-  if (error || !data) return null;
-  return data.map((item) => `${item.visit_id}:${item.finding_id}`);
+  await activeContext(expected);
+  return null;
 }
 
 type PhotoResult = { status: "success" | "error"; message: string; photos?: FindingPhoto[] };
@@ -236,12 +214,12 @@ export async function readFindingPhotosAction(visitIds: string[], expected: Agen
   const context = await activeContext(expected);
   if (!context || !Array.isArray(visitIds) || visitIds.length > 100
     || visitIds.some((id) => !uuidPattern.test(id))) return { available: false, photos: [], message: "Não foi possível consultar as fotos." };
-  const agenda = await readAgendaSnapshot(await createClient(), context);
-  if (!agenda.available) return { available: false, photos: [], message: "Não foi possível consultar as fotos." };
-  const authorized = new Set(agenda.visits.filter((visit) => visit.kind === "follow_up"
-    && visit.auditorId === context.user.id && canReadVisit(context.user, visit)).map((visit) => visit.id));
-  if (visitIds.some((id) => !authorized.has(id))) return { available: false, photos: [], message: "Não foi possível consultar as fotos." };
   const client = await createClient();
+  for (const id of new Set(visitIds)) {
+    const { data, error } = await client.rpc("read_audit_agenda_visit_detail", { p_profile: context.profile, p_engineering_scope: context.engineeringScope, p_administrative_scope: context.administrativeScope, p_visit_id: id });
+    const visit = error ? null : parseAgendaVisit(data, context, true);
+    if (!visit || visit.kind !== "follow_up" || visit.auditorId !== context.user.id || !canReadVisit(context.user, visit)) return { available: false, photos: [], message: "Não foi possível consultar as fotos." };
+  }
   const lists = await Promise.all([...new Set(visitIds)].map((id) => readVisitPhotos(client, context.user.id, id)));
   if (lists.some((list) => !list)) return { available: false, photos: [], message: "As fotos estarão disponíveis após a atualização do armazenamento." };
   return { available: true, photos: lists.flatMap((list) => list ?? []) };
@@ -258,7 +236,7 @@ export async function uploadFindingPhotosAction(formData: FormData, expected: Ag
     || !files.length || files.length > maxPhotosPerFinding || files.some((file) => typeof file === "string"))
     return { status: "error", message: "Selecione uma foto JPG ou PNG." };
   const client = await createClient({ writableCookies: true });
-  const snapshot = await readFollowUpVisit(client, context, visitId);
+  const snapshot = await readFollowUpVisit(client, context, visitId, false, findingId);
   const visit = snapshot.visit;
   if (!snapshot.available || !visit || visit.confirmationStatus !== "confirmed" || visit.date > getSaoPauloToday())
     return { status: "error", message: "O apontamento não está disponível para receber fotos. Atualize a página." };
@@ -300,7 +278,7 @@ export async function deleteFindingPhotosAction(visitId: string, findingId: stri
   const context = await activeContext(expected);
   if (!context || !uuidPattern.test(visitId) || !uuidPattern.test(findingId)) return false;
   const client = await createClient({ writableCookies: true });
-  const snapshot = await readFollowUpVisit(client, context, visitId);
+  const snapshot = await readFollowUpVisit(client, context, visitId, false, findingId);
   if (!snapshot.available || !snapshot.visit) return false;
   const stillUsed = [...(snapshot.draft?.findings ?? []),
     ...snapshot.reports.flatMap((entry) => entry.findings)].some((item) => item.id === findingId);

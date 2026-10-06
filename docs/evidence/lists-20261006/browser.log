@@ -1,0 +1,11 @@
+PASS Rede lenta, skeleton, limite e teclado
+PASS Erro de API, retry e vazio
+PASS Tamanho, filtros e respostas fora de ordem
+PASS Voltar preserva página, busca, tamanho e posição
+PASS Seleção mantida entre páginas e limpa ao trocar obra
+PASS Mobile, foco visível, árvore de acessibilidade e reduced motion
+PASS Agenda busca somente o mês solicitado e recupera falha
+PASS Seletor de equipe paginado, busca e seleção preservada
+PASS Histórico da obra não perde formulário; loading, falha e retry
+PASS Relatório da visita seleciona apontamentos em páginas distintas
+10/10 browser scenarios passed

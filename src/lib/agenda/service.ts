@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { canAccessWorkModule, canManageAgenda, canReadVisit, modelModule, moduleLabels, type DemoUser, type Visit } from "../../domain/prototype-access.ts";
 import { auditModelLabels, type AuditModelId } from "../../domain/operational-records.ts";
-import { isCalendarDate } from "../../domain/visit-calendar.ts";
+import { getSaoPauloToday, isCalendarDate } from "../../domain/visit-calendar.ts";
 import { uuidPattern } from "../access/validation.ts";
 import type { ProfileWorkspaceContext } from "../access/workspace-context.ts";
 import { isAgendaRevision, unavailableAgenda, type AgendaSyncResult, type AgendaActionResult, type AgendaNotification, type AgendaSnapshot, type ConfirmAgendaVisitInput, type CreateAgendaVisitInput, type DeleteAgendaVisitInput } from "./contracts.ts";
@@ -95,7 +95,7 @@ function notificationsFor(visits: Visit[], context: ProfileWorkspaceContext): Ag
     const workName = visit.workName ?? context.works.find((work) => work.id === visit.workId)!.name;
     const createdAt = visit.lastChangedAt ?? visit.history.at(-1)?.changedAt ?? visit.createdAt;
     const detail = `${visit.kind === "follow_up" ? "Acompanhamento" : "Auditoria"} de ${moduleLabels[visit.module]}${visit.auditorName ? `\n${visit.auditorName}` : ""}`;
-    const base = { workName, detail, href: `/app?secao=agenda&visita=${encodeURIComponent(visit.id)}` };
+    const base = { workName, detail, href: `/app?secao=agenda&mes=${visit.date.slice(0, 7)}&visita=${encodeURIComponent(visit.id)}` };
     if (canManageAgenda(context.user)) {
       items.push({ ...base, id: `${visit.id}:${visit.revision}:scheduled`, type: "visit_scheduled", createdAt });
       if (visit.confirmationStatus === "confirmed" && visit.confirmedAt) items.push({ ...base,
@@ -129,17 +129,18 @@ function parseAgendaData(data: unknown, context: ProfileWorkspaceContext): Agend
     if (new Set(visits.map((visit) => visit.id)).size !== visits.length
       || new Set(auditors.map((auditor) => `${auditor.id}:${auditor.role}`)).size !== auditors.length) return unavailableAgenda();
     visits.sort((left, right) => left.date.localeCompare(right.date) || left.id.localeCompare(right.id));
-    return { available: true, visits, auditors, notifications: notificationsFor(visits, context) };
+    return { available: true, ...(typeof data.month === "string" ? { month: data.month } : {}), visits, auditors, notifications: notificationsFor(visits, context) };
   } catch { return unavailableAgenda(); }
 }
 
 
 /** The database checks authority and revision in the same read-only snapshot. */
-export async function readAgendaUpdate(client: Client, context: ProfileWorkspaceContext, knownRevision: string | null = null, compact = true): Promise<AgendaSyncResult> {
+export async function readAgendaUpdate(client: Client, context: ProfileWorkspaceContext, knownRevision: string | null = null, compact = true, month?: string): Promise<AgendaSyncResult> {
   const unavailable = (): AgendaSyncResult => ({ unchanged: false, snapshot: unavailableAgenda() });
   try {
     const previous = isAgendaRevision(knownRevision) ? knownRevision : null;
-    const { data, error } = await client.rpc(compact ? "read_compact_audit_agenda_if_changed" : "read_audit_agenda_if_changed", {
+    const { data, error } = await client.rpc(month ? "read_audit_agenda_month" : compact ? "read_compact_audit_agenda_if_changed" : "read_audit_agenda_if_changed", {
+      ...(month ? { p_month: `${month}-01` } : {}),
       p_profile: context.profile, p_engineering_scope: context.engineeringScope,
       p_administrative_scope: context.administrativeScope ?? null, p_known_revision: previous,
     });
@@ -152,8 +153,8 @@ export async function readAgendaUpdate(client: Client, context: ProfileWorkspace
   } catch { return unavailable(); }
 }
 
-export async function readAgendaSnapshot(client: Client, context: ProfileWorkspaceContext): Promise<AgendaSnapshot> {
-  const result = await readAgendaUpdate(client, context);
+export async function readAgendaSnapshot(client: Client, context: ProfileWorkspaceContext, month = getSaoPauloToday().slice(0, 7)): Promise<AgendaSnapshot> {
+  const result = await readAgendaUpdate(client, context, null, true, month);
   return result.unchanged ? unavailableAgenda() : result.snapshot;
 }
 
@@ -174,9 +175,11 @@ async function mutate(client: Client, context: ProfileWorkspaceContext, rpc: str
       return failure("Não foi possível confirmar a operação. Atualize a agenda e confira o registro antes de tentar novamente.");
     }
     if (!uuid(data)) return failure("A resposta não pôde ser confirmada. Atualize a agenda antes de tentar novamente.");
-    const snapshot = await readAgendaSnapshot(client, context);
+    const detail = rpc === "confirm_audit_visit" ? await client.rpc("read_audit_agenda_visit_detail", { p_profile: context.profile, p_engineering_scope: context.engineeringScope, p_administrative_scope: context.administrativeScope, p_visit_id: data }) : null;
+    const confirmed = detail?.data ? parseAgendaVisit(detail.data, context, true) : null;
+    const snapshot = await readAgendaSnapshot(client, context, confirmed?.date.slice(0, 7));
     if (rpc === "confirm_audit_visit" && snapshot.available) {
-      const current = snapshot.visits.find((visit) => visit.id === data);
+      const current = confirmed;
       if (!current || current.revision !== params.p_expected_revision || current.confirmationStatus !== "confirmed") {
         return { status: "error", message: "A programação mudou após sua confirmação. Confira a data atual na agenda.", visitId: data, snapshot };
       }
@@ -218,9 +221,9 @@ export async function confirmAgendaVisit(input: unknown, context: ProfileWorkspa
   const value = parseConfirmAgendaVisit(input);
   if (!value) return failure("Reabra o agendamento e confira a data antes de confirmar.");
   if (context.user.role !== "safety-auditor" && context.user.role !== "quality-auditor") return failure("Selecione o perfil de auditor responsável para confirmar a data.");
-  const current = await readAgendaSnapshot(client, context);
-  const visit = current.visits.find((entry) => entry.id === value.visitId);
-  if (!current.available || !visit || visit.auditorId !== context.user.id
+  const detail = await client.rpc("read_audit_agenda_visit_detail", { p_profile: context.profile, p_engineering_scope: context.engineeringScope, p_administrative_scope: context.administrativeScope, p_visit_id: value.visitId });
+  const visit = detail.error ? null : parseAgendaVisit(detail.data, context, true);
+  if (!visit || visit.auditorId !== context.user.id
     || (context.user.role !== "safety-auditor" && context.user.role !== "quality-auditor")
     || !canReadVisit(context.user, visit)) return failure("Esta confirmação não está disponível para o perfil selecionado. Atualize a agenda.");
   // The RPC checks the expected revision under a row lock, including on replay.

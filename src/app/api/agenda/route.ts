@@ -1,3 +1,4 @@
+import { getSaoPauloToday } from "@/domain/visit-calendar";
 import { verifiedUser, effectiveAccount } from "@/lib/auth/session";
 import { readActiveProfileContext } from "@/lib/auth/active-profile-session";
 import { readWorkspaceContext } from "@/lib/access/workspace";
@@ -24,11 +25,12 @@ export async function GET(request: Request) {
   }
   const context = await readWorkspaceContext({ user, account, ...selected });
   if (!context) return Response.json(unavailableAgenda(), { status: 403, headers });
+  const month = query.get("mes") ?? getSaoPauloToday().slice(0, 7);
+  if (month !== null && !/^(?!0000)\d{4}-(0[1-9]|1[0-2])$/.test(month)) return Response.json(unavailableAgenda(), { status: 400, headers });
   const candidate = request.headers.get("If-None-Match")?.match(/^"([a-f0-9]{32})"$/)?.[1];
-  // Tabs opened before deployment still need their full notes; new clients
-  // explicitly opt in to the compact format and fetch details when opened.
+  // Calendar reads always have a month boundary; visit prose/history is read by ID.
   const result = await readAgendaUpdate(await createClient(), context, isAgendaRevision(candidate) ? candidate : null,
-    query.get("formato") === "compacto");
+    query.get("formato") === "compacto", month ?? undefined);
   if (result.unchanged) return new Response(null, { status: 304, headers: { ...headers, ETag: `"${result.revision}"` } });
   const { snapshot } = result;
   return Response.json(snapshot, { status: snapshot.available ? 200 : 503,

@@ -24,12 +24,14 @@ export class AgendaSyncClient {
   private active = false;
   private readonly query: string;
   private readonly fetcher: Fetch;
+  private readonly month?: string;
   private readonly attempts = new Map<string, { payload: string; requestId: string }>();
 
-  constructor(initialAgenda: AgendaSnapshot, actor: AgendaActorContext, fetcher: Fetch = fetch) {
+  constructor(initialAgenda: AgendaSnapshot, actor: AgendaActorContext, fetcher: Fetch = fetch, month?: string) {
     this.fetcher = fetcher;
+    this.month = month;
     this.state = { agenda: initialAgenda, agendaSyncError: "", mutationPending: false, refreshPending: false };
-    this.query = new URLSearchParams({ formato: "compacto", usuario: actor.userId, perfil: actor.profile,
+    this.query = new URLSearchParams({ ...(month ? { mes: month } : {}), formato: "compacto", usuario: actor.userId, perfil: actor.profile,
       atuacao: actor.engineeringScope ?? "", administrativo: actor.administrativeScope ?? "" }).toString();
   }
   getState = () => this.state;
@@ -93,7 +95,7 @@ export class AgendaSyncClient {
     try {
       const result = await action(attempt.requestId);
       if (this.current(epoch)) {
-        if (result.snapshot?.available) this.publish({ agenda: result.snapshot, agendaSyncError: "" });
+        if (result.snapshot?.available && (!this.month || result.snapshot.month === this.month)) this.publish({ agenda: result.snapshot, agendaSyncError: "" });
         else {
           // A successful write with unavailable read must force the next full read.
           this.publish({ agenda: { ...this.state.agenda, revision: undefined }, agendaSyncError: result.snapshot ? retryMessage : this.state.agendaSyncError });
@@ -105,7 +107,7 @@ export class AgendaSyncClient {
       if (this.current(epoch)) this.publish({ agenda: { ...this.state.agenda, revision: undefined } });
       return { status: "error", message: "Não foi possível confirmar o resultado da operação. Tente novamente com os mesmos dados para consultar ou concluir este envio." };
     } finally {
-      if (this.current(epoch)) this.publish({ mutationPending: false });
+      if (this.current(epoch)) { this.publish({ mutationPending: false }); if (this.month) void this.refresh(); }
     }
   };
 

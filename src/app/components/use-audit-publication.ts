@@ -31,7 +31,7 @@ export async function publicationFetch<T>(url: string, init?: RequestInit): Prom
 export const publicationJson = (body: unknown): RequestInit => ({ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 
 export function useAuditPublication(actor: AgendaActorContext, session: PrototypeAuditState,
-  setSession: Dispatch<SetStateAction<PrototypeAuditState>>) {
+  setSession: Dispatch<SetStateAction<PrototypeAuditState>>, month?: string, enabled = true) {
   const [photoStore] = useState(() => createAuditPhotoStore());
   const [plans, setPlans] = useState<PublicationIndex["plans"]>([]);
   const [status, setStatus] = useState("");
@@ -44,7 +44,8 @@ export function useAuditPublication(actor: AgendaActorContext, session: Prototyp
   const meta = useRef(new Map<string, { revision: number; saved: string; files: Map<string, File> }>());
   const queue = useRef<Promise<unknown>>(Promise.resolve());
   const query = publicationQuery(actor);
-  const loadKey = `${query}:${loadAttempt}`;
+  const listQuery = `${query}${month ? `&mes=${month}` : ""}`;
+  const loadKey = `${listQuery}:${loadAttempt}`;
   const accept = useCallback((data: PersistedAudit) => {
     meta.current.set(data.audit.id, { revision: data.revision, saved: JSON.stringify([data.responses, data.safetyClosure ?? null]), files: new Map() });
     setDraftVersions(current => ({ ...current, [data.audit.id]: data }));
@@ -54,15 +55,16 @@ export function useAuditPublication(actor: AgendaActorContext, session: Prototyp
       criteriaSnapshots: { ...current.criteriaSnapshots, [data.audit.id]: data.criteria } }));
   }, [setSession]);
   useEffect(() => {
+    if (!enabled) return;
     const controller = new AbortController();
-    void publicationFetch<PublicationIndex>(`/api/publications?${query}`, { signal: controller.signal }).then(data => {
+    void publicationFetch<PublicationIndex>(`/api/publications?${listQuery}`, { signal: controller.signal }).then(data => {
       if (controller.signal.aborted) return;
       data.drafts.forEach(draft => { if (!meta.current.has(draft.audit.id)) accept(draft); });
       setPlans(data.plans);
       setLoaded({ key: loadKey, error: "" });
     }).catch(reason => { if (!controller.signal.aborted) setLoaded({ key: loadKey, error: reason instanceof Error ? reason.message : "Não foi possível recuperar os rascunhos." }); });
     return () => controller.abort();
-  }, [query, accept, loadKey]);
+  }, [listQuery, accept, loadKey, enabled]);
   const save = useCallback((id: string, responses: AuditDrafts, safetyClosure?: SafetyClosure, automatic = false) => {
     const task = queue.current.catch(() => undefined).then(async () => {
       const current = meta.current.get(id);
@@ -100,8 +102,8 @@ export function useAuditPublication(actor: AgendaActorContext, session: Prototyp
     return () => { window.clearTimeout(timer); window.removeEventListener("beforeunload", warn); };
   }, [session, save, status, retryAttempt]);
   return { photoStore, plans, status, error, draftVersions, save,
-    loading: loaded?.key !== loadKey,
-    loadError: loaded?.key === loadKey ? loaded.error : "",
+    loading: enabled && loaded?.key !== loadKey,
+    loadError: enabled && loaded?.key === loadKey ? loaded.error : "",
     retryLoad: () => setLoadAttempt(value => value + 1),
     retrySave: () => { failed.current.clear(); setError(""); setStatus("Salvando rascunho…"); setRetryAttempt(value => value + 1); },
     async start(visit: Visit) {

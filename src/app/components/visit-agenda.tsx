@@ -1,4 +1,5 @@
 "use client";
+import { useListSelection } from "./list-state";
 import { containDialogFocus } from "./dialog-keyboard";
 
 import { useId, useRef, useState, type ChangeEvent, type FormEvent } from "react";
@@ -22,7 +23,8 @@ import {
   type AuditModelId,
   type WorkRecord,
 } from "@/domain/operational-records";
-import { getHistoryPage } from "@/domain/audit-history";
+import { HistoryPagination, useHistoryPage } from "./history-pagination";
+import { useAgendaWindow } from "./agenda-window";
 import { getSaoPauloToday, isCalendarDate } from "@/domain/visit-calendar";
 import type { AgendaActionResult, CreateAgendaVisitInput } from "@/lib/agenda/contracts";
 import { newRequestId } from "@/lib/agenda/sync-client";
@@ -30,7 +32,6 @@ import { AdminVisitCalendar } from "./admin-visit-calendar";
 import { useAgendaVisitDetail } from "./use-agenda-visit-detail";
 import { Icon } from "./ui-icon";
 import styles from "./visit-agenda.module.css";
-import paginationStyles from "./history-pagination.module.css";
 
 type VisitAgendaProps = {
   user: DemoUser;
@@ -68,7 +69,7 @@ function AdministrativeAgenda({ user, works, users, visits, module, workId, avai
   const addButtonRef = useRef<HTMLButtonElement>(null);
   const listId = useId();
   const dialogTitleId = useId();
-  const [selectedAuditorId, setSelectedAuditorId] = useState<string | null>(null);
+  const [selectedAuditorId, setSelectedAuditorId] = useListSelection(`visit-agenda.tsx:selectedAuditorId:${user.id}:${user.role}:${user.activity}`);
   const [draftVisits, setDraftVisits] = useState<{ id: string; requestId: string; input: VisitInput }[]>([]);
   const [exporting, setExporting] = useState(false);
   const exportingRef = useRef(false);
@@ -164,7 +165,7 @@ function AuditorAgenda({ user, works, users, visits, available, mutationPending 
 
 function EngineeringAgenda({ user, works, users, visits, available, mutationPending = false, syncError, onDelete, onConfirm }: VisitAgendaProps) {
   const listId = useId();
-  const [selectedVisitorId, setSelectedVisitorId] = useState<string | null>(null);
+  const [selectedVisitorId, setSelectedVisitorId] = useListSelection(`visit-agenda.tsx:selectedVisitorId:${user.id}:${user.role}:${user.activity}`);
   const authorizedWorks = works.filter((work) => user.modules.some((discipline) => canConsultAgenda(user, work.id, discipline)));
   const workIds = new Set(authorizedWorks.map((work) => work.id));
   const authorizedVisits = visits.filter((visit) => workIds.has(visit.workId) && canReadVisit(user, visit) && isCalendarDate(visit.date));
@@ -243,16 +244,14 @@ function AgendaContext({ user, works, users, visits, module, workId, available, 
 /** Paginate only the cards: the calendar always receives the full authorized collection. */
 function PaginatedVisitList({ visits, works, user, users, available, mutationPending, onDelete, onConfirm, collapsedInitially }: Pick<VisitAgendaProps,
   "visits" | "works" | "user" | "users" | "available" | "mutationPending" | "onDelete" | "onConfirm"> & { collapsedInitially?: boolean }) {
-  const [requestedPage, setPage] = useState(1);
+  const agendaWindow = useAgendaWindow();
   const listRef = useRef<HTMLDivElement>(null);
-  const page = getHistoryPage(visits, requestedPage, 20);
-  // Retain the clamped page after deletion, including when later refreshes add visits.
-  if (page.page !== requestedPage) setPage(page.page);
+  const page = useHistoryPage(visits, `visits:${user.id}:${user.role}:${agendaWindow?.month}:${visits[0]?.auditorId ?? ""}`);
   const worksById = new Map(works.map((work) => [work.id, work]));
   const changePage = (nextPage: number) => {
-    setPage(nextPage);
+    page.onPageChange(nextPage);
     listRef.current?.focus({ preventScroll: true });
-    listRef.current?.scrollIntoView({ block: "start" });
+    listRef.current?.scrollIntoView({ block: "start", behavior: "instant" });
   };
   return <>
     <div ref={listRef} className={styles.visitList} tabIndex={-1} role="group" aria-label="Lista de visitas agendadas">
@@ -260,13 +259,7 @@ function PaginatedVisitList({ visits, works, user, users, available, mutationPen
         work={worksById.get(visit.workId)} available={available} mutationPending={mutationPending}
         onDelete={onDelete} onConfirm={onConfirm} collapsedInitially={collapsedInitially} />)}
     </div>
-    {page.pageCount > 1 && <nav className={paginationStyles.pagination} aria-label="Páginas de visitas agendadas">
-      <p aria-live="polite">{page.first}–{page.last} de {page.total} visitas<span>Página {page.page} de {page.pageCount}</span></p>
-      <div>
-        <button type="button" className="secondary" disabled={page.page === 1 || mutationPending} onClick={() => changePage(page.page - 1)}>Página anterior</button>
-        <button type="button" className="secondary" disabled={page.page === page.pageCount || mutationPending} onClick={() => changePage(page.page + 1)}>Próxima página</button>
-      </div>
-    </nav>}
+    <HistoryPagination {...page} status={mutationPending || agendaWindow?.loading ? "loading" : "ready"} onPageChange={changePage} label="Páginas de visitas agendadas" unit="visitas" />
   </>;
 }
 

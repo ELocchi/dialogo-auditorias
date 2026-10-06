@@ -1,17 +1,7 @@
-import { createClient } from "@/lib/supabase/server";
 import { auditResponseHeaders as headers, readAuditRequestContext } from "@/lib/audits/request-context";
-import { unavailableFollowUpWorkspace } from "@/lib/follow-up/workspace-contracts";
-import { readFollowUpWorkspace } from "@/lib/follow-up/workspace-service";
-
 export const dynamic = "force-dynamic";
-
+/** Older tabs must reload to use the paged contract; never return a partial history. */
 export async function GET(request: Request) {
-  try {
-    const access = await readAuditRequestContext(request);
-    if (!access.context) return Response.json(unavailableFollowUpWorkspace(), { status: access.status, headers });
-    if (!["AUDITOR_SEGURANCA", "AUDITOR_QUALIDADE"].includes(access.context.profile))
-      return Response.json(unavailableFollowUpWorkspace(), { status: 403, headers });
-    const snapshot = await readFollowUpWorkspace(await createClient(), access.context);
-    return Response.json(snapshot, { status: snapshot.available ? 200 : 503, headers });
-  } catch { return Response.json(unavailableFollowUpWorkspace(), { status: 503, headers }); }
+ const access = await readAuditRequestContext(request);
+ return Response.json({ ...{ available: false, reports: [], drafts: [], completed: [], workFindings: [] }, message: "Atualize a página para consultar as listas." }, { status: access.context ? 410 : access.status, headers });
 }

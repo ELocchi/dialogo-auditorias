@@ -34,22 +34,24 @@ select public.approve_access_request_v3(pg_temp.id(4),array['ENGENHARIA'],'EQUIP
 select public.approve_access_request_v3(pg_temp.id(5),array['ENGENHARIA'],'COORDENACAO',null,
  jsonb_build_array(jsonb_build_object('perfil','ENGENHARIA','obra_id',pg_temp.id(101),'modulo','QUALIDADE'),jsonb_build_object('perfil','ENGENHARIA','obra_id',pg_temp.id(101),'modulo','SEGURANCA')),'Isolated coordinator');
 -- Clients cannot forge actor, score, snapshots or final PDFs via direct RPC/table/storage.
-select pg_temp.expect_error($s$select public.publication_command(pg_temp.id(2),'AUDITOR_QUALIDADE',null,null,'list')$s$,'42501');
+select pg_temp.expect_error($s$select public.publication_command(pg_temp.id(2),'AUDITOR_QUALIDADE',null,null,'list',null,null,jsonb_build_object('month','2026-10'))$s$,'42501');
 select pg_temp.expect_error('select * from public.audit_drafts','42501');
 select pg_temp.expect_error('insert into storage.objects(id,bucket_id,name) values(gen_random_uuid(),''audit-drafts'',''forged.jpg'')','42501');
 reset role;
 insert into public.audit_visits(id,obra_id,modulo,modelo_id,auditor_auth_user_id,data_prevista,created_by,updated_by,confirmation_status,confirmed_by,confirmed_at)
  select pg_temp.id(n),pg_temp.id(101),'QUALIDADE','quality-f175',pg_temp.id(2),(clock_timestamp() at time zone 'America/Sao_Paulo')::date,pg_temp.id(1),pg_temp.id(1),'confirmed',pg_temp.id(2),now() from generate_series(201,202) n;
+create function pg_temp.list_payload() returns jsonb language sql as $f$ select jsonb_build_object('month',to_char((clock_timestamp() at time zone 'America/Sao_Paulo')::date,'YYYY-MM')) $f$;
 create function pg_temp.start_payload() returns jsonb language sql as $f$
  select '{"modelId":"quality-f175","label":"00","fvsServices":[],"criteria":[{"id":"item1","code":"1","title":"Fixture","text":"Fixture description","group":"Group","subgroup":"","source":"F175","locator":"1","documentedWeight":10,"orientations":[],"verificationRule":"Conforme/Não Conforme"}]}'::jsonb;
 $f$;
 set local role service_role;
-select pg_temp.assert_true(public.publication_command(pg_temp.id(2),'AUDITOR_QUALIDADE',null,null,'list') = '{"drafts":[],"plans":[]}'::jsonb,'Empty index is readable');
+select pg_temp.assert_true(public.publication_command(pg_temp.id(2),'AUDITOR_QUALIDADE',null,null,'list',null,null,pg_temp.list_payload()) = '{"drafts":[],"plans":[]}'::jsonb,'Empty index is readable');
+select pg_temp.assert_true(public.publication_command(pg_temp.id(2),'AUDITOR_QUALIDADE',null,null,'list') = public.publication_command(pg_temp.id(2),'AUDITOR_QUALIDADE',null,null,'list',null,null,pg_temp.list_payload()),'Previous app version defaults to the current month during rolling deploy');
 select pg_temp.expect_error($s$select public.publication_command(pg_temp.id(3),'ENGENHARIA','EQUIPE_OBRA',null,'start-audit',pg_temp.id(201),null,pg_temp.start_payload())$s$,'42501');
 select set_config('dialogo.test.draft',(public.publication_command(pg_temp.id(2),'AUDITOR_QUALIDADE',null,null,'start-audit',pg_temp.id(201),null,pg_temp.start_payload())->>'id'),true);
 create function pg_temp.draft_id() returns uuid language sql as $f$ select current_setting('dialogo.test.draft')::uuid $f$;
 select pg_temp.assert_true(public.publication_command(pg_temp.id(2),'AUDITOR_QUALIDADE',null,null,'start-audit',pg_temp.id(201),null,pg_temp.start_payload())->>'id'=pg_temp.draft_id()::text,'Starting twice resumes one draft');
-select pg_temp.assert_true(jsonb_array_length(public.publication_command(pg_temp.id(2),'AUDITOR_QUALIDADE',null,null,'list')->'drafts')=1,'Auditor can list the assigned draft');
+select pg_temp.assert_true(jsonb_array_length(public.publication_command(pg_temp.id(2),'AUDITOR_QUALIDADE',null,null,'list',null,null,pg_temp.list_payload())->'drafts')=1,'Auditor can list the assigned draft');
 select public.publication_command(pg_temp.id(2),'AUDITOR_QUALIDADE',null,null,'save-audit',pg_temp.draft_id(),1,'{"responses":{"quality-f175":{"item1":{"answer":"Não conforme","note":"Fixture finding","photos":[]}}},"photos":{}}');
 select pg_temp.assert_true(public.publication_command(pg_temp.id(2),'AUDITOR_QUALIDADE',null,null,'read-audit',pg_temp.draft_id())->>'revision'='2','Draft survives fresh read');
 select pg_temp.expect_error($s$select public.publication_command(pg_temp.id(2),'AUDITOR_QUALIDADE',null,null,'save-audit',pg_temp.draft_id(),1,'{}')$s$,'40001');
@@ -87,17 +89,17 @@ select public.publication_command(pg_temp.id(3),'ENGENHARIA','EQUIPE_OBRA',null,
 select public.publication_command(pg_temp.id(3),'ENGENHARIA','EQUIPE_OBRA',null,'publish-plan',pg_temp.draft_id(),1,jsonb_build_object('reportFileName',repeat('b',64)||'.pdf'));
 select pg_temp.assert_true(public.publication_command(pg_temp.id(5),'ENGENHARIA','COORDENACAO',null,'read-plan',pg_temp.draft_id())->'publication'->>'audit_id'=pg_temp.draft_id()::text,'Coordination reads only the published plan');
 select pg_temp.expect_error($s$select public.publication_command(pg_temp.id(3),'ENGENHARIA','EQUIPE_OBRA',null,'save-plan',pg_temp.draft_id(),1,'{}')$s$,'55000');
-select pg_temp.assert_true(jsonb_array_length(public.publication_command(pg_temp.id(2),'AUDITOR_QUALIDADE',null,null,'list')->'drafts')=0,'Published audit leaves the draft list');
-select pg_temp.assert_true(jsonb_array_length(public.publication_command(pg_temp.id(3),'ENGENHARIA','EQUIPE_OBRA',null,'list')->'plans')=1,'Site team lists published plans');
-select pg_temp.assert_true(jsonb_array_length(public.publication_command(pg_temp.id(5),'ENGENHARIA','COORDENACAO',null,'list')->'plans')=1,'Coordination lists published plans');
-select pg_temp.assert_true(jsonb_array_length(public.publication_command(pg_temp.id(4),'ENGENHARIA','EQUIPE_OBRA',null,'list')->'plans')=0,'Other work plans remain hidden');
-select pg_temp.assert_true(jsonb_array_length(public.publication_command(pg_temp.id(1),'ADMINISTRATIVO',null,'GERAL','list')->'plans')=0,'Administrator without a work grant cannot list that plan');
+select pg_temp.assert_true(jsonb_array_length(public.publication_command(pg_temp.id(2),'AUDITOR_QUALIDADE',null,null,'list',null,null,pg_temp.list_payload())->'drafts')=0,'Published audit leaves the draft list');
+select pg_temp.assert_true(jsonb_array_length(public.publication_command(pg_temp.id(3),'ENGENHARIA','EQUIPE_OBRA',null,'list',null,null,pg_temp.list_payload())->'plans')=1,'Site team lists published plans');
+select pg_temp.assert_true(jsonb_array_length(public.publication_command(pg_temp.id(5),'ENGENHARIA','COORDENACAO',null,'list',null,null,pg_temp.list_payload())->'plans')=1,'Coordination lists published plans');
+select pg_temp.assert_true(jsonb_array_length(public.publication_command(pg_temp.id(4),'ENGENHARIA','EQUIPE_OBRA',null,'list',null,null,pg_temp.list_payload())->'plans')=0,'Other work plans remain hidden');
+select pg_temp.assert_true(jsonb_array_length(public.publication_command(pg_temp.id(1),'ADMINISTRATIVO',null,'GERAL','list',null,null,pg_temp.list_payload())->'plans')=0,'Administrator without a work grant cannot list that plan');
 reset role;
 select pg_temp.assert_true((select count(*)=1 from public.published_action_plans),'One immutable plan per audit');
 select pg_temp.expect_error('delete from public.published_action_plans','55000');
 update public.access_accounts set ativo=false where auth_user_id=pg_temp.id(3);
 set local role service_role;
 select pg_temp.expect_error($s$select public.publication_command(pg_temp.id(3),'ENGENHARIA','EQUIPE_OBRA',null,'read-plan',pg_temp.draft_id())$s$,'42501');
-select pg_temp.expect_error($s$select public.publication_command(pg_temp.id(3),'ENGENHARIA','EQUIPE_OBRA',null,'list')$s$,'42501');
+select pg_temp.expect_error($s$select public.publication_command(pg_temp.id(3),'ENGENHARIA','EQUIPE_OBRA',null,'list',null,null,pg_temp.list_payload())$s$,'42501');
 reset role;
 rollback;

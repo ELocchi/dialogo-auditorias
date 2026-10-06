@@ -6,6 +6,9 @@ import { BackLink } from "@/app/components/back-control";
 import { containDialogFocus } from "./dialog-keyboard";
 
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
+import { useFollowUpPhotoStore, useFollowUpVisitPhotos } from "./use-follow-up-photos";
+import { useCursorList } from "./use-cursor-list";
+import { ListFilters, ListStatus, ListPagination } from "./list-controls";
 import { EvidenceThumbnail } from "./evidence-thumbnail";
 import { followUpPhotoThumbnailUrl } from "@/lib/photos/urls";
 import type { Visit } from "@/domain/prototype-access";
@@ -85,12 +88,16 @@ export function ClosedReportPdf({ visitId, href, report, autoDownload, message }
 }
 
 function FollowUpReportSession({ visit, actor, agendaAvailable, backHref, backLabel, initialReport, initialReportedFindings, initialDraft, initialPhotos, initialWorkFindings, reportsAvailable, draftsAvailable }: FollowUpReportPageProps) {
+  const photoStore = useFollowUpPhotoStore(actor);
   const [report, setReport] = useState(initialReport);
   const [participants, setParticipants] = useState(initialReport?.participants ?? "");
   const [subjects, setSubjects] = useState(initialReport?.subjects ?? "");
   const [decisions, setDecisions] = useState(initialReport?.decisions ?? "");
   const [selectedIds, setSelectedIds] = useState<string[]>(initialReport?.findings.map((finding) => finding.id)
     ?? [...(initialDraft?.findings.map((finding) => finding.id) ?? []), ...initialWorkFindings.map((finding) => finding.id)]);
+  const { anchor: listAnchor, ...list } = useCursorList(actor, "findings", "report-selection", visit.module, visit.workId, !report, visit.id);
+  const [chosen, setChosen] = useState<FollowUpFinding[]>([...(initialDraft?.findings ?? []), ...initialWorkFindings]);
+  const pageFindings: FollowUpFinding[] = (list.data?.items ?? []).map(item => ({ id: item.id, location: item.location!, description: item.description!, correction: item.correction!, serious: item.serious! }));
   const [pending, setPending] = useState(false);
   const [nameOpen, setNameOpen] = useState(false);
   const nameDialog = useRef<HTMLDialogElement>(null);
@@ -120,7 +127,7 @@ function FollowUpReportSession({ visit, actor, agendaAvailable, backHref, backLa
     if (!findings.some((entry) => entry.id === finding.id)) findings.push({ id: finding.id,
       location: finding.location, description: finding.description, correction: finding.correction, serious: finding.serious });
   }
-  const selectedFindings = findings.filter((finding) => selectedIds.includes(finding.id));
+  const selectedFindings = [...new Map([...findings, ...chosen, ...pageFindings].map(item => [item.id, item])).values()].filter((finding) => selectedIds.includes(finding.id));
   const canWrite = !report && agendaAvailable && reportsAvailable && draftsAvailable
     && visit.confirmationStatus === "confirmed"
     && visit.date <= getSaoPauloToday();
@@ -164,7 +171,7 @@ function FollowUpReportSession({ visit, actor, agendaAvailable, backHref, backLa
           ? "Os dados do acompanhamento estão indisponíveis no momento. Atualize a página."
           : visit.confirmationStatus !== "confirmed" ? "Confirme a data na Agenda antes de criar o relatório."
             : "A criação do relatório está disponível a partir da data agendada."}</p>}
-        {findings.length === 0 && <p className={styles.notice}>Registre pelo menos um apontamento na aba Acompanhamento antes de criar o relatório.</p>}
+        {!list.loading && !list.error && list.data?.items.length === 0 && <p className={styles.notice}>Registre pelo menos um apontamento na aba Acompanhamento antes de criar o relatório.</p>}
         {selectedFindings.length > 30 && <p className={styles.notice}>Selecione até 30 apontamentos para este relatório.</p>}
         {message && <p className={styles.success} role="status">{message}</p>}
         <form onSubmit={requestSave} className={styles.form}>
@@ -180,21 +187,27 @@ function FollowUpReportSession({ visit, actor, agendaAvailable, backHref, backLa
       </section>
       <section className="panel" aria-label="Apontamentos do relatório">
         <div className="panel-heading"><h3>Apontamentos registrados</h3></div>
-        {findings.length ? <><p className={styles.selectionHint}>Selecione os apontamentos que deseja incluir no relatório.</p>
-          <ul className={styles.findings}>{findings.map((finding) => <li key={finding.id}>
+        <div ref={listAnchor}><ListFilters list={list} label="Apontamentos do relatório" disabled={pending} /><ListStatus list={list} /></div>
+        <p role="status">{selectedIds.length} de 30 selecionados</p>
+        {pageFindings.length ? <><p className={styles.selectionHint}>Selecione os apontamentos que deseja incluir no relatório.</p>
+          <ul className={styles.findings}>{pageFindings.map((finding) => <li key={finding.id}>
             <label className={styles.findingChoice}><input type="checkbox" checked={selectedIds.includes(finding.id)}
-              disabled={!canWrite || pending} onChange={(event) => setSelectedIds((current) => event.target.checked
-                ? [...current, finding.id] : current.filter((id) => id !== finding.id))} />
+              disabled={!canWrite || pending || !selectedIds.includes(finding.id) && selectedIds.length >= 30} onChange={(event) => {
+                setChosen(current => [...new Map([...current, finding].map(item => [item.id,item])).values()]);
+                setSelectedIds(current => event.target.checked ? [...current, finding.id] : current.filter(id => id !== finding.id));
+              }} />
               <span className={styles.findingText}><strong>{finding.description}{finding.serious && <em className={styles.seriousBadge}>Item grave</em>}</strong>
                 {finding.location && <span>Local: {finding.location}</span>}
                 <span>Orientação para correção: {finding.correction}</span></span></label>
+            {list.data?.items.some(item => item.id === finding.id && item.source !== "work") && !initialPhotos.some(p => p.findingId === finding.id) && <ReportFindingPhotos actor={actor} visitId={visit.id} finding={finding} store={photoStore} />}
             {initialPhotos.some((photo) => photo.findingId === finding.id) && <div className={styles.photos}>
               {initialPhotos.filter((photo) => photo.findingId === finding.id).map((photo) =>
                 <EvidenceThumbnail thumbnailSrc={followUpPhotoThumbnailUrl(`/app/acompanhamento/fotos/${visit.id}/${photo.fileName}`, actor)} originalSrc={`/app/acompanhamento/fotos/${visit.id}/${photo.fileName}`} alt={`Foto de ${finding.description}`} width={110} height={82}  key={photo.fileName} />)}</div>}
-            {initialWorkFindings.some((item) => item.id === finding.id) && <div className={styles.photos}>
-              {initialWorkFindings.filter((item) => item.id === finding.id).map((item) =>
+            {(list.data?.items ?? []).some((item) => item.id === finding.id) && <div className={styles.photos}>
+              {(list.data?.items ?? []).filter((item) => item.source === "work").filter((item) => item.id === finding.id).map((item) =>
                 <EvidenceThumbnail thumbnailSrc={followUpPhotoThumbnailUrl(`/app/acompanhamento/obras/${item.workId}/fotos/${item.photoFileName}`, actor)} originalSrc={`/app/acompanhamento/obras/${item.workId}/fotos/${item.photoFileName}`} alt={`Foto de ${finding.description}`} width={110} height={82}  key={item.id} />)}</div>}
-          </li>)}</ul></> : <p className="muted">Nenhum apontamento registrado para esta visita.</p>}
+          </li>)}</ul></> : null}
+        <ListPagination list={list} label="Apontamentos do relatório" disabled={pending} />
       </section>
     </div>
     {nameOpen && <dialog ref={nameDialog} className={styles.nameDialog} aria-labelledby="report-name-title"
@@ -213,4 +226,12 @@ function FollowUpReportSession({ visit, actor, agendaAvailable, backHref, backLa
         </form>
     </dialog>}
   </>;
+}
+
+function ReportFindingPhotos({ actor, visitId, finding, store }: { actor: AgendaActorContext; visitId: string; finding: FollowUpFinding; store: ReturnType<typeof useFollowUpPhotoStore> }) {
+ const { ref, status, photos, retry } = useFollowUpVisitPhotos(store, visitId);
+ return <ul><li ref={ref}>{status === "error" ? <button type="button" className="secondary" onClick={retry}>Recarregar foto</button> : status !== "ready" ? <span role="status">Carregando foto…</span> : photos.filter(p => p.findingId === finding.id).map(photo => {
+  const url = `/app/acompanhamento/fotos/${visitId}/${photo.fileName}`;
+  return <EvidenceThumbnail key={photo.fileName} thumbnailSrc={followUpPhotoThumbnailUrl(url, actor)} originalSrc={url} alt={`Foto de ${finding.description}`} width={110} height={82} />;
+ })}</li></ul>;
 }

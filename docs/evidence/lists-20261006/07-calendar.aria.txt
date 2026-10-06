@@ -1,0 +1,102 @@
+- main:
+  - heading "Validação de listas — dados fictícios" [level=1]
+  - region "Agenda de visitas":
+    - heading "Agenda de visitas" [level=3]
+    - group "Navegar pelo calendário":
+      - 'button "Mês anterior: calendário"'
+      - text: dezembro de 2026
+      - 'button "Próximo mês: calendário"'
+    - table "dezembro de 2026":
+      - rowgroup:
+        - row "Dom Seg Ter Qua Qui Sex Sáb":
+          - columnheader "Dom"
+          - columnheader "Seg"
+          - columnheader "Ter"
+          - columnheader "Qua"
+          - columnheader "Qui"
+          - columnheader "Sex"
+          - columnheader "Sáb"
+      - rowgroup:
+        - 'row "Filtrar: 1 de dezembro de 2026, 0 visitas agendadas Filtrar: 2 de dezembro de 2026, 0 visitas agendadas Filtrar: 3 de dezembro de 2026, 0 visitas agendadas Filtrar: 4 de dezembro de 2026, 0 visitas agendadas Filtrar: 5 de dezembro de 2026, 0 visitas agendadas"':
+          - cell
+          - cell
+          - 'cell "Filtrar: 1 de dezembro de 2026, 0 visitas agendadas"':
+            - 'button "Filtrar: 1 de dezembro de 2026, 0 visitas agendadas"': "1"
+          - 'cell "Filtrar: 2 de dezembro de 2026, 0 visitas agendadas"':
+            - 'button "Filtrar: 2 de dezembro de 2026, 0 visitas agendadas"': "2"
+          - 'cell "Filtrar: 3 de dezembro de 2026, 0 visitas agendadas"':
+            - 'button "Filtrar: 3 de dezembro de 2026, 0 visitas agendadas"': "3"
+          - 'cell "Filtrar: 4 de dezembro de 2026, 0 visitas agendadas"':
+            - 'button "Filtrar: 4 de dezembro de 2026, 0 visitas agendadas"': "4"
+          - 'cell "Filtrar: 5 de dezembro de 2026, 0 visitas agendadas"':
+            - 'button "Filtrar: 5 de dezembro de 2026, 0 visitas agendadas"': "5"
+        - 'row "Filtrar: 6 de dezembro de 2026, 0 visitas agendadas Filtrar: 7 de dezembro de 2026, 0 visitas agendadas Filtrar: 8 de dezembro de 2026, 0 visitas agendadas Filtrar: 9 de dezembro de 2026, 0 visitas agendadas Filtrar: 10 de dezembro de 2026, 0 visitas agendadas Filtrar: 11 de dezembro de 2026, 0 visitas agendadas Filtrar: 12 de dezembro de 2026, 0 visitas agendadas"':
+          - 'cell "Filtrar: 6 de dezembro de 2026, 0 visitas agendadas"':
+            - 'button "Filtrar: 6 de dezembro de 2026, 0 visitas agendadas"': "6"
+          - 'cell "Filtrar: 7 de dezembro de 2026, 0 visitas agendadas"':
+            - 'button "Filtrar: 7 de dezembro de 2026, 0 visitas agendadas"': "7"
+          - 'cell "Filtrar: 8 de dezembro de 2026, 0 visitas agendadas"':
+            - 'button "Filtrar: 8 de dezembro de 2026, 0 visitas agendadas"': "8"
+          - 'cell "Filtrar: 9 de dezembro de 2026, 0 visitas agendadas"':
+            - 'button "Filtrar: 9 de dezembro de 2026, 0 visitas agendadas"': "9"
+          - 'cell "Filtrar: 10 de dezembro de 2026, 0 visitas agendadas"':
+            - 'button "Filtrar: 10 de dezembro de 2026, 0 visitas agendadas"': "10"
+          - 'cell "Filtrar: 11 de dezembro de 2026, 0 visitas agendadas"':
+            - 'button "Filtrar: 11 de dezembro de 2026, 0 visitas agendadas"': "11"
+          - 'cell "Filtrar: 12 de dezembro de 2026, 0 visitas agendadas"':
+            - 'button "Filtrar: 12 de dezembro de 2026, 0 visitas agendadas"': "12"
+        - 'row "Filtrar: 13 de dezembro de 2026, 0 visitas agendadas Filtrar: 14 de dezembro de 2026, 0 visitas agendadas Filtrar: 15 de dezembro de 2026, 0 visitas agendadas Filtrar: 16 de dezembro de 2026, 0 visitas agendadas Filtrar: 17 de dezembro de 2026, 0 visitas agendadas Filtrar: 18 de dezembro de 2026, 0 visitas agendadas Filtrar: 19 de dezembro de 2026, 0 visitas agendadas"':
+          - 'cell "Filtrar: 13 de dezembro de 2026, 0 visitas agendadas"':
+            - 'button "Filtrar: 13 de dezembro de 2026, 0 visitas agendadas"': "13"
+          - 'cell "Filtrar: 14 de dezembro de 2026, 0 visitas agendadas"':
+            - 'button "Filtrar: 14 de dezembro de 2026, 0 visitas agendadas"': "14"
+          - 'cell "Filtrar: 15 de dezembro de 2026, 0 visitas agendadas"':
+            - 'button "Filtrar: 15 de dezembro de 2026, 0 visitas agendadas"': "15"
+          - 'cell "Filtrar: 16 de dezembro de 2026, 0 visitas agendadas"':
+            - 'button "Filtrar: 16 de dezembro de 2026, 0 visitas agendadas"': "16"
+          - 'cell "Filtrar: 17 de dezembro de 2026, 0 visitas agendadas"':
+            - 'button "Filtrar: 17 de dezembro de 2026, 0 visitas agendadas"': "17"
+          - 'cell "Filtrar: 18 de dezembro de 2026, 0 visitas agendadas"':
+            - 'button "Filtrar: 18 de dezembro de 2026, 0 visitas agendadas"': "18"
+          - 'cell "Filtrar: 19 de dezembro de 2026, 0 visitas agendadas"':
+            - 'button "Filtrar: 19 de dezembro de 2026, 0 visitas agendadas"': "19"
+        - 'row "Filtrar: 20 de dezembro de 2026, 0 visitas agendadas Filtrar: 21 de dezembro de 2026, 0 visitas agendadas Filtrar: 22 de dezembro de 2026, 0 visitas agendadas Filtrar: 23 de dezembro de 2026, 0 visitas agendadas Filtrar: 24 de dezembro de 2026, 0 visitas agendadas Filtrar: 25 de dezembro de 2026, 0 visitas agendadas Filtrar: 26 de dezembro de 2026, 0 visitas agendadas"':
+          - 'cell "Filtrar: 20 de dezembro de 2026, 0 visitas agendadas"':
+            - 'button "Filtrar: 20 de dezembro de 2026, 0 visitas agendadas"': "20"
+          - 'cell "Filtrar: 21 de dezembro de 2026, 0 visitas agendadas"':
+            - 'button "Filtrar: 21 de dezembro de 2026, 0 visitas agendadas"': "21"
+          - 'cell "Filtrar: 22 de dezembro de 2026, 0 visitas agendadas"':
+            - 'button "Filtrar: 22 de dezembro de 2026, 0 visitas agendadas"': "22"
+          - 'cell "Filtrar: 23 de dezembro de 2026, 0 visitas agendadas"':
+            - 'button "Filtrar: 23 de dezembro de 2026, 0 visitas agendadas"': "23"
+          - 'cell "Filtrar: 24 de dezembro de 2026, 0 visitas agendadas"':
+            - 'button "Filtrar: 24 de dezembro de 2026, 0 visitas agendadas"': "24"
+          - 'cell "Filtrar: 25 de dezembro de 2026, 0 visitas agendadas"':
+            - 'button "Filtrar: 25 de dezembro de 2026, 0 visitas agendadas"': "25"
+          - 'cell "Filtrar: 26 de dezembro de 2026, 0 visitas agendadas"':
+            - 'button "Filtrar: 26 de dezembro de 2026, 0 visitas agendadas"': "26"
+        - 'row "Filtrar: 27 de dezembro de 2026, 0 visitas agendadas Filtrar: 28 de dezembro de 2026, 0 visitas agendadas Filtrar: 29 de dezembro de 2026, 0 visitas agendadas Filtrar: 30 de dezembro de 2026, 0 visitas agendadas Filtrar: 31 de dezembro de 2026, 0 visitas agendadas"':
+          - 'cell "Filtrar: 27 de dezembro de 2026, 0 visitas agendadas"':
+            - 'button "Filtrar: 27 de dezembro de 2026, 0 visitas agendadas"': "27"
+          - 'cell "Filtrar: 28 de dezembro de 2026, 0 visitas agendadas"':
+            - 'button "Filtrar: 28 de dezembro de 2026, 0 visitas agendadas"': "28"
+          - 'cell "Filtrar: 29 de dezembro de 2026, 0 visitas agendadas"':
+            - 'button "Filtrar: 29 de dezembro de 2026, 0 visitas agendadas"': "29"
+          - 'cell "Filtrar: 30 de dezembro de 2026, 0 visitas agendadas"':
+            - 'button "Filtrar: 30 de dezembro de 2026, 0 visitas agendadas"': "30"
+          - 'cell "Filtrar: 31 de dezembro de 2026, 0 visitas agendadas"':
+            - 'button "Filtrar: 31 de dezembro de 2026, 0 visitas agendadas"': "31"
+          - cell
+          - cell
+    - group "Cores dos auditores": Nenhum auditor autorizado nesta disciplina.
+    - heading "Visitas do mês" [level=4]
+    - paragraph: Nenhuma visita agendada neste mês.
+    - 'navigation "Páginas: visitas do calendário"':
+      - status: 0–0 de 0 visitas Página 1 de 1
+      - text: Por página
+      - 'combobox "Itens por página: Páginas: visitas do calendário"':
+        - option "10" [selected]
+        - option "20"
+        - option "50"
+      - 'button "Página anterior: Páginas: visitas do calendário" [disabled]': Anterior
+      - 'button "Próxima página: Páginas: visitas do calendário" [disabled]': Próxima

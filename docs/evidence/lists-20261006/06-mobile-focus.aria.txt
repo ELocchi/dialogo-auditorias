@@ -1,0 +1,101 @@
+- main:
+  - heading "Validação de listas — dados fictícios" [level=1]
+  - region "Apontamentos":
+    - heading "Apontamentos" [level=2]
+    - 'group "Filtros: Apontamentos"':
+      - 'combobox "Obra: Apontamentos"':
+        - option "Todas as obras" [selected]
+        - option "Obra de teste A"
+        - option "Obra de teste B"
+      - text: Buscar
+      - 'searchbox "Buscar: Apontamentos"'
+    - list:
+      - listitem:
+        - link "Apontamento 0001":
+          - /url: /revisao-listas?fluxo=detalhe
+        - paragraph: Orientação fictícia para o teste
+      - listitem:
+        - link "Apontamento 0002":
+          - /url: /revisao-listas?fluxo=detalhe
+        - paragraph: Orientação fictícia para o teste
+      - listitem:
+        - link "Apontamento 0003":
+          - /url: /revisao-listas?fluxo=detalhe
+        - paragraph: Orientação fictícia para o teste
+      - listitem:
+        - link "Apontamento 0004":
+          - /url: /revisao-listas?fluxo=detalhe
+        - paragraph: Orientação fictícia para o teste
+      - listitem:
+        - link "Apontamento 0005":
+          - /url: /revisao-listas?fluxo=detalhe
+        - paragraph: Orientação fictícia para o teste
+      - listitem:
+        - link "Apontamento 0006":
+          - /url: /revisao-listas?fluxo=detalhe
+        - paragraph: Orientação fictícia para o teste
+      - listitem:
+        - link "Apontamento 0007":
+          - /url: /revisao-listas?fluxo=detalhe
+        - paragraph: Orientação fictícia para o teste
+      - listitem:
+        - link "Apontamento 0008":
+          - /url: /revisao-listas?fluxo=detalhe
+        - paragraph: Orientação fictícia para o teste
+      - listitem:
+        - link "Apontamento 0009":
+          - /url: /revisao-listas?fluxo=detalhe
+        - paragraph: Orientação fictícia para o teste
+      - listitem:
+        - link "Apontamento 0010":
+          - /url: /revisao-listas?fluxo=detalhe
+        - paragraph: Orientação fictícia para o teste
+      - listitem:
+        - link "Apontamento 0011":
+          - /url: /revisao-listas?fluxo=detalhe
+        - paragraph: Orientação fictícia para o teste
+      - listitem:
+        - link "Apontamento 0012":
+          - /url: /revisao-listas?fluxo=detalhe
+        - paragraph: Orientação fictícia para o teste
+      - listitem:
+        - link "Apontamento 0013":
+          - /url: /revisao-listas?fluxo=detalhe
+        - paragraph: Orientação fictícia para o teste
+      - listitem:
+        - link "Apontamento 0014":
+          - /url: /revisao-listas?fluxo=detalhe
+        - paragraph: Orientação fictícia para o teste
+      - listitem:
+        - link "Apontamento 0015":
+          - /url: /revisao-listas?fluxo=detalhe
+        - paragraph: Orientação fictícia para o teste
+      - listitem:
+        - link "Apontamento 0016":
+          - /url: /revisao-listas?fluxo=detalhe
+        - paragraph: Orientação fictícia para o teste
+      - listitem:
+        - link "Apontamento 0017":
+          - /url: /revisao-listas?fluxo=detalhe
+        - paragraph: Orientação fictícia para o teste
+      - listitem:
+        - link "Apontamento 0018":
+          - /url: /revisao-listas?fluxo=detalhe
+        - paragraph: Orientação fictícia para o teste
+      - listitem:
+        - link "Apontamento 0019":
+          - /url: /revisao-listas?fluxo=detalhe
+        - paragraph: Orientação fictícia para o teste
+      - listitem:
+        - link "Apontamento 0020":
+          - /url: /revisao-listas?fluxo=detalhe
+        - paragraph: Orientação fictícia para o teste
+    - 'navigation "Páginas: Apontamentos"':
+      - status: Página 1 20 registros · há mais
+      - text: Por página
+      - 'combobox "Itens por página: Apontamentos"':
+        - option "10"
+        - option "20" [selected]
+        - option "50"
+      - 'button "Anterior: Apontamentos" [disabled]': Anterior
+      - 'button "Próxima: Apontamentos"': Próxima

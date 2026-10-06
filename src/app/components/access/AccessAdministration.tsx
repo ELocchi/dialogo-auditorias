@@ -1,17 +1,16 @@
 import Link from "next/link";
+import { AccessDecisionHistory } from "./AccessDecisionHistory";
 import { cache } from "react";
 import { requireAdministrator } from "@/lib/auth/session";
 import { platformDisplayName } from "@/lib/auth/display-name";
 import { createClient } from "@/lib/supabase/server";
 import { readAdministration, type AdministrationHistoryPage, type AdministrationView } from "@/lib/access/administration-service";
-import { administrativeLabels, profileLabels, type AccessDecision, type AccessGrant, type AccessProfile, type AccessWork, type EditableAccessAccount, type PendingRequest } from "@/lib/access/contracts";
+import { administrativeLabels, profileLabels, type AccessDecision, type AccessGrant, type AccessWork, type EditableAccessAccount, type PendingRequest } from "@/lib/access/contracts";
 import { PendingRequests } from "@/app/components/access/PendingRequests";
 import { EditUserDialog } from "@/app/components/access/EditUserDialog";
 import styles from "@/app/administracao/usuarios/access.module.css";
 
 const pageSize = 20;
-const dateFormatter = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
-const date = (value: string) => dateFormatter.format(new Date(value));
 
 // React cache is scoped to this server render; each request rechecks database access.
 const loadAdministration = cache(async (view: AdministrationView, page: number) => {
@@ -68,12 +67,6 @@ function HistorySection({ data, historyPage, actorId }: { data: AdministrationHi
   </section>;
 }
 
-const decisionProfiles = (decision: AccessDecision) => [...new Set(decision.perfis?.length ? decision.perfis : [decision.perfil])];
-
-const profileLabelFor = (decision: AccessDecision, profile: AccessProfile) => profile === "ADMINISTRATIVO" && decision.atuacao_administrativa
-  ? administrativeLabels[decision.atuacao_administrativa]
-  : profileLabels[profile];
-
 function UserProfileCard({ account, decisions, grants, works: availableWorks, workNames, actorId }: {
   account: EditableAccessAccount;
   decisions: AccessDecision[];
@@ -101,55 +94,9 @@ function UserProfileCard({ account, decisions, grants, works: availableWorks, wo
         <div><dt>Obras</dt><dd>{works.length > 0 ? <span className={styles.profileWorkList}>{works.map((work) => <span key={work}>{work}</span>)}</span> : "Nenhuma obra liberada"}</dd></div>
       </dl>
       <h3 className={styles.userChangesTitle}>Histórico</h3>
-      <div className={styles.userChanges}>{decisions.map((decision) =>
-        <DecisionChange key={decision.id} decision={decision} />
-      )}</div>
+      <AccessDecisionHistory userId={account.auth_user_id} actorId={actorId} userName={platformDisplayName(snapshot.email, snapshot.nome || account.auth_user_id)} />
     </div>
   </details>;
-}
-
-function DecisionChange({ decision }: { decision: AccessDecision }) {
-  const actor = decision.actor_snapshot;
-  const bootstrap = decision.decision_type === "BOOTSTRAP";
-  const initialAdjustment = decision.decision_type === "AJUSTE_PERFIS_INICIAL";
-  const engineeringAdjustment = decision.decision_type === "AJUSTE_ATUACAO_INICIAL";
-  const generalAccessAdjustment = decision.decision_type === "AJUSTE_ACESSOS_GERAIS";
-  const operatorDecision = bootstrap || initialAdjustment || engineeringAdjustment || generalAccessAdjustment;
-  const profiles = decisionProfiles(decision);
-  const profileNames = profiles.map((profile) => profileLabelFor(decision, profile)).join(" / ");
-  const works = [...new Set(decision.grants_snapshot.map((grant) => grant.obra_nome).filter((name): name is string => Boolean(name)))];
-  const worksSuffix = works.length > 0 ? `: ${works.join(", ")}` : "";
-  const editSummary = () => {
-    const before = decision.before_access_snapshot;
-    const after = decision.request_snapshot.access_edit;
-    if (!before || !after) return "Perfil e acessos atualizados";
-    const changes: string[] = [];
-    if (before.account.ativo !== after.ativo) changes.push(`Status alterado para ${after.ativo ? "Ativo" : "Inativo"}`);
-    if (before.account.perfis.join("/") !== after.perfis.join("/")) changes.push("Perfis alterados");
-    if ((before.account.atuacao_administrativa ?? null) !== after.atuacao_administrativa) changes.push("Tipo de Administrativo alterado");
-    if ((before.account.atuacoes_engenharia ?? []).join("/") !== after.atuacoes_engenharia.join("/")) changes.push("Atuação de Engenharia alterada");
-    const grantKey = (grant: { perfil?: AccessProfile; obra_id: string; modulo: string }) => `${grant.perfil ?? decision.perfil}/${grant.obra_id}/${grant.modulo}`;
-    const beforeGrants = before.grants.map(grantKey).sort().join("|");
-    const afterGrants = decision.grants_snapshot.map(grantKey).sort().join("|");
-    if (beforeGrants !== afterGrants) changes.push("Obras e acessos atualizados");
-    return changes.join(" · ") || "Informações do usuário revisadas";
-  };
-  const changeLabel = bootstrap ? "Conta administrativa ativada"
-    : initialAdjustment ? `Perfis alterados: ${profileNames}`
-    : engineeringAdjustment ? "Atuação de Engenharia alterada"
-    : generalAccessAdjustment ? "Ampliação dos acessos gerais"
-    : decision.decision_type === "VINCULO_OBRA" ? `Obra adicionada${worksSuffix}`
-    : decision.decision_type === "DESVINCULO_OBRA" ? `Obra removida${worksSuffix}`
-    : decision.decision_type === "EDICAO_USUARIO" ? editSummary()
-    : `Solicitação aprovada: ${profileNames}`;
-  const actorName = operatorDecision
-    ? actor.database_session_user || decision.actor_database_role || "Operador autorizado"
-    : platformDisplayName(actor.email, actor.nome || decision.actor_auth_user_id || "Responsável não registrado");
-  return <article className={styles.userChange}>
-    <strong>{changeLabel}</strong>
-    <span>Por {actorName}</span>
-    <time dateTime={decision.decided_at}>{date(decision.decided_at)}</time>
-  </article>;
 }
 
 function Pagination({ current, total, kind, other, embedded, base: explicitBase }: { current: number; total: number; kind: "pendentes" | "historico"; other: number; embedded: boolean; base?: string }) {

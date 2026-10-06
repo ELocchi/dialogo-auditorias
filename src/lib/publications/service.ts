@@ -1,3 +1,4 @@
+import { getSaoPauloToday } from "@/domain/visit-calendar";
 import { safetyScore, validateSafetyClosure } from "@/domain/safety-audit";
 import "server-only";
 import { createHash } from "node:crypto";
@@ -88,8 +89,8 @@ export function publicationService(context: ProfileWorkspaceContext, client: Cli
   async function planSource(id: string) { return command<PlanSource>("read-plan", id); }
   const findings = (source: PlanSource) => extractPublicationFindings(source.audit.criteria, source.audit.responses);
   return {
-    async index() {
-      const data = await command<{ drafts: AuditDraftRecord[]; plans: { auditId: string; workId: string; module: "quality" | "safety" }[] }>("list");
+    async index(month = getSaoPauloToday().slice(0, 7), ids?: string[]) {
+      const data = await command<{ drafts: AuditDraftRecord[]; plans: { auditId: string; workId: string; module: "quality" | "safety" }[] }>("list", null, null, { month, ...(ids ? { ids } : {}) });
       return { drafts: data.drafts.map(toClient), plans: data.plans };
     },
     async start(visitId: string, userClient: SupabaseClient, model: AuditModelId) {

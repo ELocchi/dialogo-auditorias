@@ -1,0 +1,194 @@
+- main:
+  - heading "Validação de listas — dados fictícios" [level=1]
+  - link "Voltar à lista":
+    - /url: /revisao-listas
+  - heading "Criar relatório orientativo" [level=2]
+  - region "Criação do relatório orientativo":
+    - heading "Relatório da visita" [level=3]
+    - text: Participantes
+    - textbox "Participantes":
+      - /placeholder: Informe os participantes da visita.
+    - text: Assuntos Tratados
+    - textbox "Assuntos Tratados":
+      - /placeholder: Descreva os assuntos tratados na visita.
+    - text: Decisões/Deliberações
+    - textbox "Decisões/Deliberações":
+      - /placeholder: Registre as decisões e deliberações da visita.
+    - button "Salvar relatório"
+  - region "Apontamentos do relatório":
+    - heading "Apontamentos registrados" [level=3]
+    - 'group "Filtros: Apontamentos do relatório"':
+      - text: Buscar
+      - 'searchbox "Buscar: Apontamentos do relatório"'
+    - status: 2 de 30 selecionados
+    - paragraph: Selecione os apontamentos que deseja incluir no relatório.
+    - list:
+      - listitem:
+        - 'checkbox "Apontamento 0001 Local: Térreo Orientação para correção: Orientação fictícia para o teste" [checked]'
+        - strong: Apontamento 0001
+        - text: "Local: Térreo Orientação para correção: Orientação fictícia para o teste"
+        - 'link "Abrir foto: Foto de Apontamento 0001"':
+          - /url: /app/acompanhamento/obras/a1000000-0000-4000-8000-000000000002/fotos/a1000000-0000-4000-8000-000000010000_a1000000-0000-4000-8000-000000011000.jpg
+          - status: Foto indisponível
+        - 'button "Recarregar foto: Foto de Apontamento 0001"': Recarregar
+      - listitem:
+        - 'checkbox "Apontamento 0003 Local: Térreo Orientação para correção: Orientação fictícia para o teste"'
+        - strong: Apontamento 0003
+        - text: "Local: Térreo Orientação para correção: Orientação fictícia para o teste"
+        - 'link "Abrir foto: Foto de Apontamento 0003"':
+          - /url: /app/acompanhamento/obras/a1000000-0000-4000-8000-000000000002/fotos/a1000000-0000-4000-8000-000000009998_a1000000-0000-4000-8000-000000011000.jpg
+          - status: Foto indisponível
+        - 'button "Recarregar foto: Foto de Apontamento 0003"': Recarregar
+      - listitem:
+        - 'checkbox "Apontamento 0005 Local: Térreo Orientação para correção: Orientação fictícia para o teste"'
+        - strong: Apontamento 0005
+        - text: "Local: Térreo Orientação para correção: Orientação fictícia para o teste"
+        - 'link "Abrir foto: Foto de Apontamento 0005"':
+          - /url: /app/acompanhamento/obras/a1000000-0000-4000-8000-000000000002/fotos/a1000000-0000-4000-8000-000000009996_a1000000-0000-4000-8000-000000011000.jpg
+          - status: Foto indisponível
+        - 'button "Recarregar foto: Foto de Apontamento 0005"': Recarregar
+      - listitem:
+        - 'checkbox "Apontamento 0007 Local: Térreo Orientação para correção: Orientação fictícia para o teste"'
+        - strong: Apontamento 0007
+        - text: "Local: Térreo Orientação para correção: Orientação fictícia para o teste"
+        - 'link "Abrir foto: Foto de Apontamento 0007"':
+          - /url: /app/acompanhamento/obras/a1000000-0000-4000-8000-000000000002/fotos/a1000000-0000-4000-8000-000000009994_a1000000-0000-4000-8000-000000011000.jpg
+          - status: Foto indisponível
+        - 'button "Recarregar foto: Foto de Apontamento 0007"': Recarregar
+      - listitem:
+        - 'checkbox "Apontamento 0009 Local: Térreo Orientação para correção: Orientação fictícia para o teste"'
+        - strong: Apontamento 0009
+        - text: "Local: Térreo Orientação para correção: Orientação fictícia para o teste"
+        - 'link "Abrir foto: Foto de Apontamento 0009"':
+          - /url: /app/acompanhamento/obras/a1000000-0000-4000-8000-000000000002/fotos/a1000000-0000-4000-8000-000000009992_a1000000-0000-4000-8000-000000011000.jpg
+          - status: Foto indisponível
+        - 'button "Recarregar foto: Foto de Apontamento 0009"': Recarregar
+      - listitem:
+        - 'checkbox "Apontamento 0011 Local: Térreo Orientação para correção: Orientação fictícia para o teste"'
+        - strong: Apontamento 0011
+        - text: "Local: Térreo Orientação para correção: Orientação fictícia para o teste"
+        - 'link "Abrir foto: Foto de Apontamento 0011"':
+          - /url: /app/acompanhamento/obras/a1000000-0000-4000-8000-000000000002/fotos/a1000000-0000-4000-8000-000000009990_a1000000-0000-4000-8000-000000011000.jpg
+          - status: Foto indisponível
+        - 'button "Recarregar foto: Foto de Apontamento 0011"': Recarregar
+      - listitem:
+        - 'checkbox "Apontamento 0013 Local: Térreo Orientação para correção: Orientação fictícia para o teste"'
+        - strong: Apontamento 0013
+        - text: "Local: Térreo Orientação para correção: Orientação fictícia para o teste"
+        - 'link "Abrir foto: Foto de Apontamento 0013"':
+          - /url: /app/acompanhamento/obras/a1000000-0000-4000-8000-000000000002/fotos/a1000000-0000-4000-8000-000000009988_a1000000-0000-4000-8000-000000011000.jpg
+          - status: Foto indisponível
+        - 'button "Recarregar foto: Foto de Apontamento 0013"': Recarregar
+      - listitem:
+        - 'checkbox "Apontamento 0015 Local: Térreo Orientação para correção: Orientação fictícia para o teste"'
+        - strong: Apontamento 0015
+        - text: "Local: Térreo Orientação para correção: Orientação fictícia para o teste"
+        - 'link "Abrir foto: Foto de Apontamento 0015"':
+          - /url: /app/acompanhamento/obras/a1000000-0000-4000-8000-000000000002/fotos/a1000000-0000-4000-8000-000000009986_a1000000-0000-4000-8000-000000011000.jpg
+          - status: Foto indisponível
+        - 'button "Recarregar foto: Foto de Apontamento 0015"': Recarregar
+      - listitem:
+        - 'checkbox "Apontamento 0017 Local: Térreo Orientação para correção: Orientação fictícia para o teste"'
+        - strong: Apontamento 0017
+        - text: "Local: Térreo Orientação para correção: Orientação fictícia para o teste"
+        - 'link "Abrir foto: Foto de Apontamento 0017"':
+          - /url: /app/acompanhamento/obras/a1000000-0000-4000-8000-000000000002/fotos/a1000000-0000-4000-8000-000000009984_a1000000-0000-4000-8000-000000011000.jpg
+          - status: Foto indisponível
+        - 'button "Recarregar foto: Foto de Apontamento 0017"': Recarregar
+      - listitem:
+        - 'checkbox "Apontamento 0019 Local: Térreo Orientação para correção: Orientação fictícia para o teste"'
+        - strong: Apontamento 0019
+        - text: "Local: Térreo Orientação para correção: Orientação fictícia para o teste"
+        - 'link "Abrir foto: Foto de Apontamento 0019"':
+          - /url: /app/acompanhamento/obras/a1000000-0000-4000-8000-000000000002/fotos/a1000000-0000-4000-8000-000000009982_a1000000-0000-4000-8000-000000011000.jpg
+          - status: Carregando foto…
+          - img "Foto de Apontamento 0019"
+      - listitem:
+        - 'checkbox "Apontamento 0021 Local: Térreo Orientação para correção: Orientação fictícia para o teste"'
+        - strong: Apontamento 0021
+        - text: "Local: Térreo Orientação para correção: Orientação fictícia para o teste"
+        - 'link "Abrir foto: Foto de Apontamento 0021"':
+          - /url: /app/acompanhamento/obras/a1000000-0000-4000-8000-000000000002/fotos/a1000000-0000-4000-8000-000000009980_a1000000-0000-4000-8000-000000011000.jpg
+          - status: Carregando foto…
+          - img "Foto de Apontamento 0021"
+      - listitem:
+        - 'checkbox "Apontamento 0023 Local: Térreo Orientação para correção: Orientação fictícia para o teste"'
+        - strong: Apontamento 0023
+        - text: "Local: Térreo Orientação para correção: Orientação fictícia para o teste"
+        - 'link "Abrir foto: Foto de Apontamento 0023"':
+          - /url: /app/acompanhamento/obras/a1000000-0000-4000-8000-000000000002/fotos/a1000000-0000-4000-8000-000000009978_a1000000-0000-4000-8000-000000011000.jpg
+          - status: Carregando foto…
+          - img "Foto de Apontamento 0023"
+      - listitem:
+        - 'checkbox "Apontamento 0025 Local: Térreo Orientação para correção: Orientação fictícia para o teste"'
+        - strong: Apontamento 0025
+        - text: "Local: Térreo Orientação para correção: Orientação fictícia para o teste"
+        - 'link "Abrir foto: Foto de Apontamento 0025"':
+          - /url: /app/acompanhamento/obras/a1000000-0000-4000-8000-000000000002/fotos/a1000000-0000-4000-8000-000000009976_a1000000-0000-4000-8000-000000011000.jpg
+          - status: Carregando foto…
+          - img "Foto de Apontamento 0025"
+      - listitem:
+        - 'checkbox "Apontamento 0027 Local: Térreo Orientação para correção: Orientação fictícia para o teste"'
+        - strong: Apontamento 0027
+        - text: "Local: Térreo Orientação para correção: Orientação fictícia para o teste"
+        - 'link "Abrir foto: Foto de Apontamento 0027"':
+          - /url: /app/acompanhamento/obras/a1000000-0000-4000-8000-000000000002/fotos/a1000000-0000-4000-8000-000000009974_a1000000-0000-4000-8000-000000011000.jpg
+          - status: Carregando foto…
+          - img "Foto de Apontamento 0027"
+      - listitem:
+        - 'checkbox "Apontamento 0029 Local: Térreo Orientação para correção: Orientação fictícia para o teste"'
+        - strong: Apontamento 0029
+        - text: "Local: Térreo Orientação para correção: Orientação fictícia para o teste"
+        - 'link "Abrir foto: Foto de Apontamento 0029"':
+          - /url: /app/acompanhamento/obras/a1000000-0000-4000-8000-000000000002/fotos/a1000000-0000-4000-8000-000000009972_a1000000-0000-4000-8000-000000011000.jpg
+          - status: Carregando foto…
+          - img "Foto de Apontamento 0029"
+      - listitem:
+        - 'checkbox "Apontamento 0031 Local: Térreo Orientação para correção: Orientação fictícia para o teste"'
+        - strong: Apontamento 0031
+        - text: "Local: Térreo Orientação para correção: Orientação fictícia para o teste"
+        - 'link "Abrir foto: Foto de Apontamento 0031"':
+          - /url: /app/acompanhamento/obras/a1000000-0000-4000-8000-000000000002/fotos/a1000000-0000-4000-8000-000000009970_a1000000-0000-4000-8000-000000011000.jpg
+          - status: Carregando foto…
+          - img "Foto de Apontamento 0031"
+      - listitem:
+        - 'checkbox "Apontamento 0033 Local: Térreo Orientação para correção: Orientação fictícia para o teste"'
+        - strong: Apontamento 0033
+        - text: "Local: Térreo Orientação para correção: Orientação fictícia para o teste"
+        - 'link "Abrir foto: Foto de Apontamento 0033"':
+          - /url: /app/acompanhamento/obras/a1000000-0000-4000-8000-000000000002/fotos/a1000000-0000-4000-8000-000000009968_a1000000-0000-4000-8000-000000011000.jpg
+          - status: Carregando foto…
+          - img "Foto de Apontamento 0033"
+      - listitem:
+        - 'checkbox "Apontamento 0035 Local: Térreo Orientação para correção: Orientação fictícia para o teste"'
+        - strong: Apontamento 0035
+        - text: "Local: Térreo Orientação para correção: Orientação fictícia para o teste"
+        - 'link "Abrir foto: Foto de Apontamento 0035"':
+          - /url: /app/acompanhamento/obras/a1000000-0000-4000-8000-000000000002/fotos/a1000000-0000-4000-8000-000000009966_a1000000-0000-4000-8000-000000011000.jpg
+          - status: Carregando foto…
+          - img "Foto de Apontamento 0035"
+      - listitem:
+        - 'checkbox "Apontamento 0037 Local: Térreo Orientação para correção: Orientação fictícia para o teste"'
+        - strong: Apontamento 0037
+        - text: "Local: Térreo Orientação para correção: Orientação fictícia para o teste"
+        - 'link "Abrir foto: Foto de Apontamento 0037"':
+          - /url: /app/acompanhamento/obras/a1000000-0000-4000-8000-000000000002/fotos/a1000000-0000-4000-8000-000000009964_a1000000-0000-4000-8000-000000011000.jpg
+          - status: Carregando foto…
+          - img "Foto de Apontamento 0037"
+      - listitem:
+        - 'checkbox "Apontamento 0039 Local: Térreo Orientação para correção: Orientação fictícia para o teste"'
+        - strong: Apontamento 0039
+        - text: "Local: Térreo Orientação para correção: Orientação fictícia para o teste"
+        - 'link "Abrir foto: Foto de Apontamento 0039"':
+          - /url: /app/acompanhamento/obras/a1000000-0000-4000-8000-000000000002/fotos/a1000000-0000-4000-8000-000000009962_a1000000-0000-4000-8000-000000011000.jpg
+          - status: Carregando foto…
+          - img "Foto de Apontamento 0039"
+    - 'navigation "Páginas: Apontamentos do relatório"':
+      - status: Página 1 20 registros · há mais
+      - text: Por página
+      - 'combobox "Itens por página: Apontamentos do relatório"':
+        - option "10"
+        - option "20" [selected]
+        - option "50"
+      - 'button "Anterior: Apontamentos do relatório" [disabled]': Anterior
+      - 'button "Próxima: Apontamentos do relatório"': Próxima

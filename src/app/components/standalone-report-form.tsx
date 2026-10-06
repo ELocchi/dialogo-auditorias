@@ -1,17 +1,16 @@
 "use client";
 import { SlowOperation } from "@/app/components/slow-operation";
 import { useHydrated } from "./use-hydrated";
-import { readWithDeadline } from "@/lib/read-with-deadline";
-import { AsyncSkeleton } from "./async-feedback";
+import { useCursorList } from "./use-cursor-list";
+import { ListFilters, ListStatus, ListPagination } from "./list-controls";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import type { WorkRecord } from "@/domain/operational-records";
 import type { AgendaActorContext } from "@/lib/agenda/contracts";
 import { newRequestId } from "@/lib/agenda/sync-client";
-import type { FollowUpFinding } from "@/lib/follow-up/service";
-import { readStandaloneFindingsAction, saveStandaloneReportAction } from "@/app/follow-up/actions";
+import { saveStandaloneReportAction } from "@/app/follow-up/actions";
 import { ReportHeading } from "./follow-up-report-page";
 import styles from "./follow-up-report-page.module.css";
 
@@ -22,23 +21,12 @@ export function StandaloneReportForm({ works, actor, today, initialWorkId }: {
   const hydrated = useHydrated();
   const [workId, setWorkId] = useState(() => works.find(work => work.id === initialWorkId)?.id ?? works[0]?.id ?? "");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [attempt, setAttempt] = useState(0);
-  const [findingState, setFindingState] = useState<{ workId: string; attempt: number; available: boolean; findings: FollowUpFinding[] } | null>(null);
+  const { anchor: listAnchor, ...list } = useCursorList(actor, "work-findings", "report-finding-picker", actor.profile === "AUDITOR_SEGURANCA" ? "safety" : "quality", workId, !!workId);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const busy = useRef(false);
   const request = useRef<{ fingerprint: string; id: string } | null>(null);
-  const { userId, profile, engineeringScope, administrativeScope } = actor;
-  useEffect(() => {
-    if (!workId) return;
-    let current = true;
-    void readWithDeadline(readStandaloneFindingsAction(workId, { userId, profile, engineeringScope, administrativeScope }))
-      .then(result => { if (current) setFindingState({ workId, attempt, ...result }); })
-      .catch(() => { if (current) setFindingState({ workId, attempt, available: false, findings: [] }); });
-    return () => { current = false; };
-  }, [workId, attempt, userId, profile, engineeringScope, administrativeScope]);
-  const loaded = findingState?.workId === workId && findingState.attempt === attempt;
-  const findings = loaded && findingState.available ? findingState.findings : [];
+  const findings = list.data?.items ?? [];
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -86,12 +74,10 @@ export function StandaloneReportForm({ works, actor, today, initialWorkId }: {
       <section className="panel" aria-label="Apontamentos opcionais">
         <div className="panel-heading"><h3>Apontamentos da obra</h3></div>
         <p className={styles.selectionHint}>Opcional. Selecione até 30 apontamentos para incluir suas fotos e orientações no relatório.</p>
-        {!workId ? <p className="muted">Nenhuma obra disponível para consultar os apontamentos.</p>
-          : !loaded ? <AsyncSkeleton label="Carregando apontamentos…" />
-          : !findingState.available ? <div className={styles.notice} role="alert">
-            <p>Não foi possível consultar os apontamentos. Você pode salvar o relatório sem incluí-los.</p>
-            <button className="secondary" type="button" disabled={!hydrated || pending} onClick={() => setAttempt(n => n + 1)}>Recarregar apontamentos</button>
-          </div> : !findings.length ? <p className="muted">Nenhum apontamento pendente nesta obra.</p> :
+        <div ref={listAnchor}><ListFilters list={list} label="Apontamentos para o relatório" disabled={pending} /></div>
+        <p role="status">{selectedIds.length} de 30 selecionados{selectedIds.length > 0 && <> <button type="button" className="secondary" disabled={pending} onClick={() => setSelectedIds([])}>Limpar seleção</button></>}</p>
+        {!workId ? <p className="muted">Nenhuma obra disponível.</p> : <ListStatus list={list} empty="Nenhum apontamento encontrado." />}
+        {!list.loading && !list.error &&
           <ul className={styles.findings}>{findings.map(finding => <li key={finding.id}>
             <label className={styles.findingChoice}>
               <input type="checkbox" checked={selectedIds.includes(finding.id)}
@@ -101,6 +87,7 @@ export function StandaloneReportForm({ works, actor, today, initialWorkId }: {
                 {finding.location && <span>{finding.location}</span>}<p>{finding.correction}</p></div>
             </label>
           </li>)}</ul>}
+        <ListPagination list={list} label="Apontamentos para o relatório" disabled={pending} />
       </section>
     </div>
   </>;

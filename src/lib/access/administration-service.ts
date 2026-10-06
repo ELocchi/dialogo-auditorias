@@ -56,7 +56,7 @@ function validGrant(value: unknown, historical = false): boolean {
 }
 
 const decisionTypes: AccessDecision["decision_type"][] = ["BOOTSTRAP", "APROVACAO", "AJUSTE_PERFIS_INICIAL", "AJUSTE_ATUACAO_INICIAL", "AJUSTE_ACESSOS_GERAIS", "VINCULO_OBRA", "DESVINCULO_OBRA", "EDICAO_USUARIO"];
-function validDecision(value: unknown, userId: string): value is AccessDecision {
+export function validDecision(value: unknown, userId: string): value is AccessDecision {
   if (!record(value) || !uuid(value.id) || value.auth_user_id !== userId
     || !decisionTypes.includes(value.decision_type as AccessDecision["decision_type"]) || !profile(value.perfil)
     || !(value.perfis === null || arrayOf(value.perfis, profile))

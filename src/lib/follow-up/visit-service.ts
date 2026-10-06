@@ -96,11 +96,11 @@ function parseList<T>(value: unknown, parse: (entry: unknown) => T | null, key: 
   return result;
 }
 
-export async function readFollowUpVisit(client: Client, context: ProfileWorkspaceContext, visitId: string): Promise<FollowUpVisitSnapshot> {
-  if (!auditor(context) || !uuid(visitId)) return unavailableFollowUpVisit();
+export async function readFollowUpVisit(client: Client, context: ProfileWorkspaceContext, visitId: string, headerOnly = false, findingId?: string): Promise<FollowUpVisitSnapshot> {
+  if (!auditor(context) || !uuid(visitId) || findingId !== undefined && !uuid(findingId)) return unavailableFollowUpVisit();
   const id = visitId.toLowerCase();
   try {
-    const { data, error } = await client.rpc("read_follow_up_visit", params(context, id));
+    const { data, error } = await client.rpc(headerOnly ? "read_follow_up_editor_header" : findingId ? "read_follow_up_finding_context" : "read_follow_up_visit", { ...params(context, id), ...(findingId ? { p_finding_id: findingId } : {}) });
     if (error || !object(data) || data.available !== true || !Array.isArray(data.reports)
       || !Array.isArray(data.workFindings)) return unavailableFollowUpVisit(unavailableMessage);
     if (data.visit === null) return data.reports.length === 0 && data.draft === null && data.workFindings.length === 0
@@ -112,7 +112,7 @@ export async function readFollowUpVisit(client: Client, context: ProfileWorkspac
     const draft = data.draft === null ? null : parseDraft(data.draft, id);
     const workFindings = parseList(data.workFindings, (entry) => parseWorkFinding(entry, visit), (entry) => entry.id);
     if (!reports || (data.draft !== null && !draft) || !workFindings) return unavailableFollowUpVisit(unavailableMessage);
-    return { available: true, visit, reports, draft, workFindings };
+    return { available: true, visit, reports, draft, workFindings, ...(headerOnly ? { hasReports: data.hasReports === true, hasLegacyReport: data.hasLegacyReport === true } : {}) };
   } catch { return unavailableFollowUpVisit(unavailableMessage); }
 }
 

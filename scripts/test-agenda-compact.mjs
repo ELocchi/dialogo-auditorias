@@ -88,9 +88,10 @@ test("display actor comparison rejects stale user, profile, scope, module and du
 
 test("browser detail requests are private, abortable, tied to current visit revision and never expose provider errors", async () => {
   const controller = new AbortController();
+  let requestSignal;
   const result = await fetchAgendaVisitDetail(full, user, controller.signal, async (url, init) => {
     assert.match(url, new RegExp(`/api/agenda/visits/${full.id}\\?`));
-    assert.equal(init.cache, "no-store"); assert.equal(init.credentials, "same-origin"); assert.equal(init.signal, controller.signal);
+    assert.equal(init.cache, "no-store"); assert.equal(init.credentials, "same-origin"); requestSignal=init.signal; assert.equal(init.signal.aborted,false);
     return Response.json({ available: true, visit: full });
   });
   assert.deepEqual(result, full);
@@ -102,4 +103,5 @@ test("browser detail requests are private, abortable, tied to current visit revi
   for (const status of [401, 403, 404, 500, 503]) {
     await assert.rejects(fetchAgendaVisitDetail(full, user, controller.signal, async () => new Response("PRIVATE_DIAGNOSTIC", { status })), (error) => !error.message.includes("PRIVATE_DIAGNOSTIC"));
   }
+  controller.abort(); assert.equal(requestSignal.aborted,true,"Caller cancellation propagates through deadline signal");
 });

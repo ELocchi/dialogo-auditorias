@@ -1,0 +1,22 @@
+- main:
+  - heading "Validação de listas — dados fictícios" [level=1]
+  - region "Apontamentos":
+    - heading "Apontamentos" [level=2]
+    - 'group "Filtros: Apontamentos"':
+      - 'combobox "Obra: Apontamentos"':
+        - option "Todas as obras" [selected]
+        - option "Obra de teste A"
+        - option "Obra de teste B"
+      - text: Buscar
+      - 'searchbox "Buscar: Apontamentos"': inexistente
+    - status: Nenhum registro encontrado.
+    - list
+    - 'navigation "Páginas: Apontamentos"':
+      - status: Página 1 0 registros · fim da lista
+      - text: Por página
+      - 'combobox "Itens por página: Apontamentos"':
+        - option "10"
+        - option "20" [selected]
+        - option "50"
+      - 'button "Anterior: Apontamentos" [disabled]': Anterior
+      - 'button "Próxima: Apontamentos" [disabled]': Próxima

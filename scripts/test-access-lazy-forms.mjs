@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { registerHooks } from "node:module";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import path from "node:path";
 import ts from "typescript";
@@ -10,14 +10,19 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const stubs = {
-  "next/navigation": "export const useRouter=()=>({refresh(){}})",
+  "next/link": "export default function Link(props){return props.children}",
+  "next/navigation": "export const useRouter=()=>({refresh(){}});export function unstable_rethrow(){}",
   "@/app/administracao/usuarios/actions": "export const updateAccessAction=async()=>({});export const approveAccessAction=async()=>({})",
 };
 registerHooks({
   resolve(specifier, context, nextResolve) {
     if (stubs[specifier]) return { url: `data:text/javascript,${encodeURIComponent(stubs[specifier])}`, shortCircuit: true };
     if (specifier.endsWith(".css")) return { url: "data:text/javascript,export default {}", shortCircuit: true };
-    if (specifier.startsWith("@/")) return nextResolve(pathToFileURL(path.join(root, "src", `${specifier.slice(2)}.ts`)).href, context);
+    if (specifier.startsWith("@/")) { const candidate=path.join(root,"src",specifier.slice(2)); return nextResolve(pathToFileURL(candidate+(existsSync(candidate+".tsx")?".tsx":".ts")).href,context); }
+    if (specifier.startsWith(".") && context.parentURL?.startsWith("file:") && !path.extname(specifier)) {
+      const candidate=path.resolve(path.dirname(fileURLToPath(context.parentURL)),specifier);
+      for(const ext of [".ts",".tsx"]) if(existsSync(candidate+ext)) return nextResolve(pathToFileURL(candidate+ext).href,context);
+    }
     return nextResolve(specifier, context);
   },
   load(url, context, nextLoad) {

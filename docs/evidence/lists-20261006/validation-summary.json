@@ -1,0 +1,74 @@
+{
+  "date": "2026-10-06",
+  "base_commit": "cb7df516ce6eb8459c3396fad79091e68f325793",
+  "deployed": false,
+  "remote_migrations_applied": false,
+  "pending_migrations": 5,
+  "environment": {
+    "platform": "macOS",
+    "app": "Next.js 16.3.4 / React 19.2.8",
+    "browser": "Chrome via Playwright",
+    "database": "PostgreSQL 18.3 via PGlite 0.5.8, isolated fixtures"
+  },
+  "measurements": [
+    {
+      "name": "findings",
+      "before_rows": 1502,
+      "after_rows": 20,
+      "before_bytes": 547141,
+      "after_bytes": 10190,
+      "byte_reduction_percent": 98.14
+    },
+    {
+      "name": "agenda",
+      "before_rows": 1209,
+      "after_rows": 20,
+      "before_bytes": 775207,
+      "after_bytes": 14487,
+      "byte_reduction_percent": 98.13
+    }
+  ],
+  "tests": {
+    "performance": {
+      "passed": 386,
+      "failed": 0
+    },
+    "lists": {
+      "passed": 79,
+      "failed": 0,
+      "overlaps_performance": true
+    },
+    "publication": {
+      "passed": 16,
+      "failed": 0
+    },
+    "browser": {
+      "passed": 10,
+      "failed": 0
+    },
+    "sql_lists": "passed",
+    "sql_publication": "passed",
+    "production_build": "passed",
+    "lint": {
+      "errors": 0,
+      "existing_warnings": 2
+    }
+  },
+  "limits": [
+    "Synthetic SQL payload measurements, not production latency",
+    "Browser uses real components with mocked API in isolated review fixture",
+    "No manual NVDA run",
+    "No live Supabase HTTP/Auth or multi-connection concurrency test"
+  ],
+  "evidence_sha256": {
+    "regressions.log": "87126805c729aa6af4d9493b08df48c97f578fcd4838e45e1fd24b6ce73b9bb7",
+    "lists-tests.log": "031473dd080cd88c636673a9e8525461122badb55f36cfecd21af64b97afd98c",
+    "publication-tests.log": "7e6f3b71ee2266773d0c6d616771c71f387e95b8ab198c52ea10c861b9bf1973",
+    "lists-database.log": "d7ef9c076b505f866f46ceb5efa232daf3c18d3f602f4505648da861404066d9",
+    "publication-database.log": "f383c5950305f81096269960593451f6b3d55fa3959f8f66baf633933c96430e",
+    "build.log": "fbfcd03d1f46d3eec98803de960452c5878ff341331af72f6d0a1f9f0f21a67d",
+    "lint.log": "d6c8d73c9acc6e6b3dbe738b8dc4c3fd5c5f18eab33085d34b9248a410fc9f4c",
+    "browser.log": "c2c5936e3dc4ed78e8d3d8946ec40741694d5debed1272a35ef46435a77b1aba",
+    "browser-results.json": "4edd8a3a58f9a9cc4974d1fc741028638b21442aafc5a30412a40aea4fcf858c"
+  }
+}

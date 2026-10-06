@@ -3,6 +3,9 @@
 import { startTransition, useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import type { ProfileWorkspaceContext } from "@/lib/access/workspace-context";
 import type { AgendaActionResult, AgendaSnapshot } from "@/lib/agenda/contracts";
+import { useListFilter } from "./list-state";
+import { getSaoPauloToday } from "@/domain/visit-calendar";
+import { unavailableAgenda } from "@/lib/agenda/contracts";
 import { AgendaSyncClient } from "@/lib/agenda/sync-client";
 
 export { isAgendaSnapshot } from "@/lib/agenda/contracts";
@@ -11,8 +14,13 @@ export { newRequestId } from "@/lib/agenda/sync-client";
 export function useAgenda(initialAgenda: AgendaSnapshot, userId: string, profile: ProfileWorkspaceContext["profile"],
   engineeringScope: ProfileWorkspaceContext["engineeringScope"], administrativeScope: ProfileWorkspaceContext["administrativeScope"],
   enabled = true, liveRefresh = false) {
-  const client = useMemo(() => new AgendaSyncClient(initialAgenda, { userId, profile, engineeringScope, administrativeScope }),
-    [initialAgenda, userId, profile, engineeringScope, administrativeScope]);
+  const [month, setMonth] = useListFilter(`agenda:${userId}:${profile}:${engineeringScope}:${administrativeScope}`, initialAgenda.month ?? getSaoPauloToday().slice(0, 7));
+  useEffect(() => {
+    if (initialAgenda.month && new URLSearchParams(window.location.search).get("mes") === initialAgenda.month) setMonth(initialAgenda.month);
+  }, [initialAgenda.month, setMonth]);
+  const seed = initialAgenda.month === month || !initialAgenda.month && initialAgenda.available ? initialAgenda : unavailableAgenda();
+  const client = useMemo(() => new AgendaSyncClient(initialAgenda.month === month || !initialAgenda.month && initialAgenda.available ? initialAgenda : unavailableAgenda(), { userId, profile, engineeringScope, administrativeScope }, fetch, month),
+    [initialAgenda, userId, profile, engineeringScope, administrativeScope, month]);
   const state = useSyncExternalStore(client.subscribe, client.getState, client.getState);
   const started = useRef<AgendaSyncClient | null>(null);
   const lastRefreshAt = useRef(0);
@@ -39,7 +47,7 @@ export function useAgenda(initialAgenda: AgendaSnapshot, userId: string, profile
     window.addEventListener("focus", refreshIfStale);
     document.addEventListener("visibilitychange", onVisibilityChange);
     // Hydrated screens need no duplicate read. Returning to a screen revalidates its retained snapshot.
-    if (started.current === client || !initialAgenda.available) refresh();
+    if (started.current === client || !seed.available) refresh();
     started.current = client;
     return () => {
       client.cancelRefresh();
@@ -47,12 +55,12 @@ export function useAgenda(initialAgenda: AgendaSnapshot, userId: string, profile
       window.removeEventListener("focus", refreshIfStale);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [client, initialAgenda.available, enabled, liveRefresh]);
+  }, [client, seed.available, enabled, liveRefresh]);
   const runAgendaAction = (operation: string, payload: object, action: (requestId: string) => Promise<AgendaActionResult>) =>
     client.runAction(operation, payload, (requestId) => new Promise<AgendaActionResult>((resolve, reject) => {
       startTransition(async () => {
         try { resolve(await action(requestId)); } catch (cause) { reject(cause); }
       });
     }));
-  return { ...state, retryAgenda: client.refresh, runAgendaAction, removePublishedVisit: client.removePublishedVisit };
+  return { ...state, month, setMonth, retryAgenda: client.refresh, runAgendaAction, removePublishedVisit: client.removePublishedVisit };
 }

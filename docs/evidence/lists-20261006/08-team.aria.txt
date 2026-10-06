@@ -1,0 +1,39 @@
+- main:
+  - heading "Validação de listas — dados fictícios" [level=1]
+  - heading "Equipe" [level=2]
+  - text: Buscar usuário
+  - searchbox "Buscar usuário": Pessoa
+  - text: Usuário disponível
+  - combobox "Usuário disponível":
+    - option "Selecione um usuário" [selected]
+    - option "Pessoa 201"
+    - option "Pessoa 202"
+    - option "Pessoa 203"
+    - option "Pessoa 204"
+    - option "Pessoa 205"
+    - option "Pessoa 206"
+    - option "Pessoa 207"
+    - option "Pessoa 208"
+    - option "Pessoa 209"
+    - option "Pessoa 210"
+    - option "Pessoa 211"
+    - option "Pessoa 212"
+    - option "Pessoa 213"
+    - option "Pessoa 214"
+    - option "Pessoa 215"
+    - option "Pessoa 216"
+    - option "Pessoa 217"
+    - option "Pessoa 218"
+    - option "Pessoa 219"
+  - text: Cargo
+  - textbox "Cargo":
+    - /placeholder: Informe o cargo
+  - button "Adicionar usuário" [disabled]
+  - navigation "Páginas de usuários disponíveis":
+    - status: 1–20 de 45 usuários Página 1 de 3
+    - 'button "Página anterior: Páginas de usuários disponíveis" [disabled]': Anterior
+    - 'button "Próxima página: Páginas de usuários disponíveis"': Próxima
+  - article:
+    - strong: Pessoa 200
+    - text: Cargo não informado
+    - 'button "Remover da equipe: Pessoa 200"': Remover da equipe

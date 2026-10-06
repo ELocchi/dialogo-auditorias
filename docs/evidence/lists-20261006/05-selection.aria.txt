@@ -1,0 +1,40 @@
+- main:
+  - heading "Validação de listas — dados fictícios" [level=1]
+  - link "Voltar aos relatórios":
+    - /url: /app?secao=acompanhamento
+  - heading "Relatório Orientativo" [level=2]
+  - region "Novo relatório orientativo":
+    - text: Obra
+    - combobox "Obra":
+      - option "Obra de teste A"
+      - option "Obra de teste B" [selected]
+    - text: Data do relatório
+    - textbox "Data do relatório": 2026-10-06
+    - text: Título
+    - textbox "Título": Relatório Orientativo
+    - text: Participantes
+    - textbox "Participantes"
+    - text: Assuntos abordados e orientações
+    - textbox "Assuntos abordados e orientações"
+    - text: Decisões e encaminhamentos
+    - textbox "Decisões e encaminhamentos"
+    - link "Cancelar":
+      - /url: /app?secao=acompanhamento
+    - button "Salvar relatório"
+  - region "Apontamentos opcionais":
+    - heading "Apontamentos da obra" [level=3]
+    - paragraph: Opcional. Selecione até 30 apontamentos para incluir suas fotos e orientações no relatório.
+    - 'group "Filtros: Apontamentos para o relatório"':
+      - text: Buscar
+      - 'searchbox "Buscar: Apontamentos para o relatório"'
+    - status: 0 de 30 selecionados
+    - status "Carregando lista…"
+    - 'navigation "Páginas: Apontamentos para o relatório"':
+      - status: Página 1
+      - text: Por página
+      - 'combobox "Itens por página: Apontamentos para o relatório"':
+        - option "10"
+        - option "20" [selected]
+        - option "50"
+      - 'button "Anterior: Apontamentos para o relatório" [disabled]': Anterior
+      - 'button "Próxima: Apontamentos para o relatório" [disabled]': Próxima

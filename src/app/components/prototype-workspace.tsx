@@ -1,5 +1,6 @@
 "use client";
 
+import { useListFilter, useListSelection } from "./list-state";
 import { useState, type ReactNode } from "react";
 import { auditModelLabels, auditVersionLabel, formatAuditDate, type AuditRecord, type WorkRecord } from "@/domain/operational-records";
 import { canEditAudit, canConsultAgenda, canReadAudit, canReadVisit, modelModule, roleLabels, moduleLabels, type DemoUser, type AppModule, type Visit } from "@/domain/prototype-access";
@@ -8,6 +9,9 @@ import { WorkRanking } from "./work-ranking";
 import { AdminFindings } from "./admin-findings";
 import type { AdminFindingSummary } from "./admin-findings";
 import { PublishedAuditFindingsList, type PublishedAuditFinding } from "./engineering-resource-panels";
+import { usePublishedPlans } from "./use-published-plans";
+import { useAgendaWindow } from "./agenda-window";
+import { MonthNavigation } from "./published-history-page";
 import { AdminMonthlyRanking } from "./admin-monthly-ranking";
 import { AdminVisitCalendar } from "./admin-visit-calendar";
 import type { PublishedMonthlyWorkScore } from "@/domain/admin-ranking";
@@ -18,7 +22,7 @@ import type { AgendaActionResult } from "@/lib/agenda/contracts";
 import { MaintenanceHistory } from "./maintenance-history";
 import { DialogoLogo } from "./dialogo-logo";
 import { sortAuditHistory } from "@/domain/audit-history";
-import { HistoryPagination } from "./history-pagination";
+import { HistoryPagination, useHistoryPage } from "./history-pagination";
 import { HistoryFilters, HistoryLoadStatus, HistoryMonthFilter, usePublishedHistoryPage } from "./published-history-page";
 import { getSaoPauloToday } from "@/domain/visit-calendar";
 import styles from "./prototype-workspace.module.css";
@@ -168,8 +172,8 @@ function EngineeringOverview({ user, works, audits, auditFindings, summary, publ
   previewRanking: boolean;
   open: (screen: string) => void;
 }) {
-  const [selectedVisitorId, setSelectedVisitorId] = useState<string | null>(null);
-  const [selectedCalendarWorkId, setSelectedCalendarWorkId] = useState<string | null>(null);
+  const [selectedVisitorId, setSelectedVisitorId] = useListSelection(`prototype-workspace.tsx:selectedVisitorId:${user.id}:${user.role}:${user.activity}`);
+  const [selectedCalendarWorkId, setSelectedCalendarWorkId] = useListSelection(`prototype-workspace.tsx:selectedCalendarWorkId:${user.id}:${user.role}:${user.activity}`);
   const workNames = new Map(works.map((work) => [work.id, work.name]));
   const publishedScores: PublishedMonthlyWorkScore[] = audits.flatMap((audit) => {
     const workName = workNames.get(audit.workId);
@@ -241,8 +245,8 @@ function historyContextKey(user: DemoUser, works: readonly WorkRecord[], filter 
 }
 
 export function AuditList({ user, audits, works, onOpen, module, workId, contextKey = "" }: { user: DemoUser; audits: readonly AuditRecord[]; works: readonly WorkRecord[]; onOpen: (audit: AuditRecord) => void; module?: AppModule; workId?: string; contextKey?: string }) {
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [dateFrom, setDateFrom] = useListFilter(`AuditList:dateFrom:${`${user.id}:${user.role}`}`);
+  const [dateTo, setDateTo] = useListFilter(`AuditList:dateTo:${`${user.id}:${user.role}`}`);
   const visible = sortAuditHistory(audits.filter((audit) => (!dateFrom || audit.date >= dateFrom) && (!dateTo || audit.date <= dateTo)));
   const history = usePublishedHistoryPage(visible, { module, workId, dateFrom: dateFrom || undefined, dateTo: dateTo || undefined, includeFindings: false }, historyContextKey(user, works, contextKey));
   const rows = history.remote ? [...visible.filter((audit) => audit.isDemo || audit.status !== "Publicada"), ...history.items] : history.items;
@@ -269,9 +273,9 @@ export function AuditorScheduledAudits({ user, visits, works, audits, auditFindi
   startedVisitIds: ReadonlySet<string>;
   catalog: ReactNode;
 }) {
-  const [publicationWorkId, setPublicationWorkId] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [publicationWorkId, setPublicationWorkId] = useListFilter(`AuditorScheduledAudits:publicationWorkId:${`${user.id}:${user.role}`}`);
+  const [dateFrom, setDateFrom] = useListFilter(`AuditorScheduledAudits:dateFrom:${`${user.id}:${user.role}`}`);
+  const [dateTo, setDateTo] = useListFilter(`AuditorScheduledAudits:dateTo:${`${user.id}:${user.role}`}`);
   const workById = new Map(works.map((work) => [work.id, work]));
   const scheduled = visits.filter((visit) => visit.kind === "audit" && visit.auditorId === user.id
     && workById.has(visit.workId) && canReadVisit(user, visit))
@@ -285,6 +289,8 @@ export function AuditorScheduledAudits({ user, visits, works, audits, auditFindi
     .slice().sort((left, right) => Number(right.serious === true) - Number(left.serious === true) || right.auditDate.localeCompare(left.auditDate));
   const publicationItems = publicationPage.remote ? [...visiblePublished.filter((audit) => audit.isDemo), ...publicationPage.items] : publicationPage.items;
   const exampleWork = workById.get(scheduled[0]?.workId ?? "") ?? works[0];
+  const agendaWindow = useAgendaWindow();
+  const scheduledPage = useHistoryPage(scheduled, `scheduled:${user.id}:${user.role}:${agendaWindow?.month}`);
   const exampleDate = scheduled[0]?.date ?? "2026-09-18";
   const showExample = !publicationPage.remote && process.env.NODE_ENV !== "production" && published.length === 0 && !!exampleWork;
   const showFilteredExample = showExample && (!publicationWorkId || publicationWorkId === exampleWork.id);
@@ -295,11 +301,13 @@ export function AuditorScheduledAudits({ user, visits, works, audits, auditFindi
       <div className={styles.auditorSidebar}>
         <section className={`panel ${styles.scheduledPanel}`} aria-label="Auditorias agendadas">
           <div className="panel-heading"><h3>Auditorias agendadas</h3></div>
+          {agendaWindow && <MonthNavigation month={agendaWindow.month} onMonthChange={m => { if (!agendaWindow.blocked) agendaWindow.setMonth(m); }} label="Auditorias agendadas" />}
           {scheduled.length ? <div className={styles.scheduledList}>
-            {scheduled.map((visit) => <VisitCard key={visit.id} visit={visit} user={user} users={users}
+            {scheduledPage.items.map((visit) => <VisitCard key={visit.id} visit={visit} user={user} users={users}
               work={workById.get(visit.workId)} available={available} mutationPending={mutationPending}
               onDelete={onDelete} onConfirm={onConfirm} onStartAudit={onStartAudit} auditStarted={startedVisitIds.has(visit.id)} collapsedInitially />)}
-          </div> : <p className="muted">Nenhuma auditoria agendada para este perfil.</p>}
+          </div> : <p className="muted">Nenhuma auditoria agendada neste mês.</p>}
+          <HistoryPagination {...scheduledPage} status={agendaWindow?.loading ? "loading" : "ready"} label="Páginas: auditorias agendadas" />
         </section>
         <section className="panel" aria-label="Apontamentos das auditorias">
           <div className="panel-heading"><h3>Apontamentos das auditorias</h3></div>
@@ -355,8 +363,8 @@ export function PublishedAuditsPanel({ user, works, audits, module, onCreateActi
   hasPublishedActionPlan?: (source: ActionPlanSource) => boolean;
   onDownloadActionPlan?: (source: ActionPlanSource) => void;
 }) {
-  const [publicationWorkId, setPublicationWorkId] = useState("");
-  const [month, setMonth] = useState(() => getSaoPauloToday().slice(0, 7));
+  const [publicationWorkId, setPublicationWorkId] = useListFilter(`PublishedAuditsPanel:publicationWorkId:${user.id}:${user.role}:${user.activity}:${module}`);
+  const [month, setMonth] = useListFilter(`publications:month:${user.id}:${module}`, getSaoPauloToday().slice(0, 7));
   const [year, monthNumber] = month.split("-").map(Number);
   const dateFrom = month ? `${month}-01` : "";
   const dateTo = month && Number.isInteger(year) && Number.isInteger(monthNumber)
@@ -367,6 +375,7 @@ export function PublishedAuditsPanel({ user, works, audits, module, onCreateActi
   const visiblePublished = published.filter((audit) => (!publicationWorkId || audit.workId === publicationWorkId) && (!dateFrom || audit.date >= dateFrom) && (!dateTo || audit.date <= dateTo));
   const publicationPage = usePublishedHistoryPage(visiblePublished, { module, workId: publicationWorkId || undefined, dateFrom: dateFrom || undefined, dateTo: dateTo || undefined, includeFindings: false }, historyContextKey(user, works, module));
   const publicationItems = publicationPage.remote ? [...visiblePublished.filter((audit) => audit.isDemo), ...publicationPage.items] : publicationPage.items;
+  const planPage = usePublishedPlans(publicationItems.map(a => a.id));
   const exampleWork = works[0];
   const exampleDate = "2026-09-18";
   const showExample = !publicationPage.remote && process.env.NODE_ENV !== "production" && published.length === 0 && !!exampleWork;
@@ -389,13 +398,15 @@ export function PublishedAuditsPanel({ user, works, audits, module, onCreateActi
       </div>
       <div className={styles.publicationColumn}>
         <h4>Plano de ação</h4>
+        {planPage.loading && <p role="status">Carregando planos…</p>}
+        {planPage.error && <p role="alert">Não foi possível carregar os planos. <button className="secondary" type="button" onClick={planPage.retry}>Tentar novamente</button></p>}
         {publicationItems.length ? publicationItems.map((audit) => {
           const workName = workById.get(audit.workId)?.name ?? "Obra";
           const source: ActionPlanSource = { auditId: audit.id, workId: audit.workId, workName, date: audit.date, module, example: false };
-          const publishedPlan = hasPublishedActionPlan?.(source) ?? false;
+          const publishedPlan = !!planPage.data?.plans.some(plan => plan.auditId === audit.id) || (hasPublishedActionPlan?.(source) ?? false);
           return <PublishedDocumentCard key={audit.id} example={audit.isDemo} date={audit.date} workName={workName} responsible={user.name}
             actionLabel={publishedPlan ? "Baixar PDF do plano publicado" : onCreateActionPlan ? "Criar plano de ação" : undefined}
-            onAction={publishedPlan && onDownloadActionPlan ? () => onDownloadActionPlan(source) : onCreateActionPlan ? () => onCreateActionPlan(source) : undefined} />;
+            onAction={planPage.loading || planPage.error ? undefined : publishedPlan && onDownloadActionPlan ? () => onDownloadActionPlan(source) : onCreateActionPlan ? () => onCreateActionPlan(source) : undefined} />;
         }) : showFilteredExample ? (() => {
           const source: ActionPlanSource = { auditId: null, workId: exampleWork.id, workName: exampleWork.name, date: exampleDate, module, example: true };
           const publishedPlan = hasPublishedActionPlan?.(source) ?? false;

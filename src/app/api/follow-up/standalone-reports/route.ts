@@ -1,16 +1,7 @@
-import { createClient } from "@/lib/supabase/server";
 import { auditResponseHeaders as headers, readAuditRequestContext } from "@/lib/audits/request-context";
-import { readStandaloneReports } from "@/lib/follow-up/standalone-service";
-
 export const dynamic = "force-dynamic";
+/** Older tabs must reload to use the paged contract; never return a partial history. */
 export async function GET(request: Request) {
-  const unavailable = { available: false, reports: [] };
-  try {
-    const { context, status } = await readAuditRequestContext(request);
-    if (!context) return Response.json(unavailable, { status, headers });
-    if (!["AUDITOR_SEGURANCA", "AUDITOR_QUALIDADE", "ENGENHARIA"].includes(context.profile))
-      return Response.json(unavailable, { status: 403, headers });
-    const snapshot = await readStandaloneReports(await createClient(), context);
-    return Response.json(snapshot, { status: snapshot.available ? 200 : 503, headers });
-  } catch { return Response.json(unavailable, { status: 503, headers }); }
+ const access = await readAuditRequestContext(request);
+ return Response.json({ ...{ available: false, reports: [] }, message: "Atualize a página para consultar as listas." }, { status: access.context ? 410 : access.status, headers });
 }

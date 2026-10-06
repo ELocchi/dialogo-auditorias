@@ -18,6 +18,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const listsOnly = process.argv.includes("--lists-only");
 const safetyOnly = process.argv.includes("--safety-only");
 const publicationOnly = process.argv.includes("--publication-only");
 const standaloneOnly = process.argv.includes("--standalone-reports-only");
@@ -36,8 +37,8 @@ const administrationPageOnly = process.argv.includes("--administration-page-only
 const batchAgendaOnly = process.argv.includes("--batch-agenda-only");
 const compactAgendaOnly = process.argv.includes("--compact-agenda-only");
 const emailConfirmationOnly = process.argv.includes("--email-confirmation-only");
-if (process.argv.slice(2).some((arg) => !["--safety-only", "--standalone-reports-only", "--publication-only", "--baseline-only", "--assignment-only", "--overview-only", "--sync-only", "--projection-only", "--comparison-only", "--history-only", "--dashboard-sync-only", "--follow-up-workspace-only", "--follow-up-targeted-only", "--access-context-only", "--administration-page-only", "--batch-agenda-only", "--compact-agenda-only", "--email-confirmation-only"].includes(arg))
-  || ([safetyOnly, standaloneOnly, publicationOnly, baselineOnly, assignmentOnly, overviewOnly, syncOnly, projectionOnly, comparisonOnly, historyOnly, dashboardSyncOnly, followUpWorkspaceOnly, followUpTargetedOnly, accessContextOnly, administrationPageOnly, batchAgendaOnly, compactAgendaOnly, emailConfirmationOnly].filter(Boolean).length > 1)) {
+if (process.argv.slice(2).some((arg) => !["--lists-only", "--safety-only", "--standalone-reports-only", "--publication-only", "--baseline-only", "--assignment-only", "--overview-only", "--sync-only", "--projection-only", "--comparison-only", "--history-only", "--dashboard-sync-only", "--follow-up-workspace-only", "--follow-up-targeted-only", "--access-context-only", "--administration-page-only", "--batch-agenda-only", "--compact-agenda-only", "--email-confirmation-only"].includes(arg))
+  || ([listsOnly, safetyOnly, standaloneOnly, publicationOnly, baselineOnly, assignmentOnly, overviewOnly, syncOnly, projectionOnly, comparisonOnly, historyOnly, dashboardSyncOnly, followUpWorkspaceOnly, followUpTargetedOnly, accessContextOnly, administrationPageOnly, batchAgendaOnly, compactAgendaOnly, emailConfirmationOnly].filter(Boolean).length > 1)) {
   throw new Error("Supported arguments: --baseline-only, --assignment-only, --overview-only, --sync-only, --projection-only, --comparison-only, --history-only, --dashboard-sync-only, --follow-up-workspace-only, --follow-up-targeted-only, --access-context-only, --administration-page-only, --batch-agenda-only, --compact-agenda-only or --email-confirmation-only");
 }
 
@@ -394,7 +395,7 @@ if (!baselineOnly) suites.push({
 if (!baselineOnly) suites.push({
   name: "Audit and action plan persistence/publication suite",
   migrations: readdirSync(path.join(projectRoot, "supabase", "migrations"))
-    .filter(name => name.endsWith(".sql") && name <= "20261005000300_publication_list_alias.sql"
+    .filter(name => name.endsWith(".sql") && name <= "20261006000500_publication_month.sql"
       && !["20261005000200_orientative_pdf_archive.sql", "20260924000200_verify_published_audit_access.sql", "20260930000400_test_orientative_report.sql"].includes(name)).sort(),
   test: "audit_action_plan_publication.sql", storageAdapter: true,
   omitHistoricPublicationBackfills: true,
@@ -420,8 +421,15 @@ if (!baselineOnly) suites.push({
       && !["20260924000200_verify_published_audit_access.sql", "20260930000400_test_orientative_report.sql"].includes(name)).sort(),
   test: "safety_catalog_upgrade.sql", baselineAuthRows: 5, upgradeMigration: "20261005000100_safety_scoring_accidents.sql", storageAdapter: true, omitHistoricPublicationBackfills: true,
 });
+if (!baselineOnly) suites.push({
+  name: "Bounded lists, stable cursors and authorization",
+  migrations: readdirSync(path.join(projectRoot, "supabase", "migrations"))
+    .filter(name => name.endsWith(".sql") && name <= "20261006000500_publication_month.sql"
+      && !["20260924000200_verify_published_audit_access.sql", "20260930000400_test_orientative_report.sql"].includes(name)).sort(),
+  test: "list_pagination.sql", storageAdapter: true, omitHistoricPublicationBackfills: true,
+});
 const { PGlite } = await loadPGlite();
-for (const suite of suites.filter((item) => (!safetyOnly || ["safety_scoring_accidents.sql", "safety_catalog_upgrade.sql"].includes(item.test)) && (!standaloneOnly || item.test === "standalone_follow_up_reports.sql") && (!publicationOnly || item.test === "audit_action_plan_publication.sql") && (!assignmentOnly || item.test === "audit_assignment_access.sql")
+for (const suite of suites.filter((item) => (!listsOnly || item.test === "list_pagination.sql") && (!safetyOnly || ["safety_scoring_accidents.sql", "safety_catalog_upgrade.sql"].includes(item.test)) && (!standaloneOnly || item.test === "standalone_follow_up_reports.sql") && (!publicationOnly || item.test === "audit_action_plan_publication.sql") && (!assignmentOnly || item.test === "audit_assignment_access.sql")
   && (!overviewOnly || item.test === "published_audit_overview.sql")
   && (!syncOnly || item.test === "agenda_sync.sql")
   && (!projectionOnly || item.test === "cached_audit_findings.sql")
@@ -498,6 +506,12 @@ for (const suite of suites.filter((item) => (!safetyOnly || ["safety_scoring_acc
       await db.exec(phases[1]);
     } else {
       const results = await db.exec(testSql);
+      if (suite.test === "list_pagination.sql") {
+        const metrics = results.flatMap(result => result.rows).find(row => row.list_metrics)?.list_metrics;
+        assert.ok(metrics && metrics.afterRows === 20 && metrics.beforeRows >= 1500);
+        console.log(`LIST_METRICS ${JSON.stringify(metrics)}`);
+        console.log(`AGENDA_LIST_METRICS ${JSON.stringify(results.flatMap(result => result.rows).find(row => row.agenda_list_metrics)?.agenda_list_metrics)}`);
+      }
       if (suite.test === "paged_access_administration.sql") {
         const metrics = results.flatMap((result) => result.rows).find((row) => row.administration_fixture_metrics)?.administration_fixture_metrics;
         assert.ok(metrics, "Paged administration fixture must provide count and JSON byte evidence.");

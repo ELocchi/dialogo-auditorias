@@ -1,0 +1,129 @@
+[
+  {
+    "name": "Rede lenta, skeleton, limite e teclado",
+    "passed": true,
+    "elapsedMs": 4543,
+    "evidence": {
+      "initialRequests": 1,
+      "initialRows": 20,
+      "fixtureRows": 1502,
+      "requestDelayMs": 1800,
+      "keyboard": "Enter on focused next button"
+    }
+  },
+  {
+    "name": "Erro de API, retry e vazio",
+    "passed": true,
+    "elapsedMs": 3234,
+    "evidence": {
+      "statuses": [
+        503,
+        200
+      ],
+      "requests": 3,
+      "empty": true
+    }
+  },
+  {
+    "name": "Tamanho, filtros e respostas fora de ordem",
+    "passed": true,
+    "elapsedMs": 6807,
+    "evidence": {
+      "size": 50,
+      "filterResetsCursor": true,
+      "staleResponseIgnored": true
+    }
+  },
+  {
+    "name": "Voltar preserva página, busca, tamanho e posição",
+    "passed": true,
+    "elapsedMs": 2002,
+    "evidence": {
+      "beforeScroll": 549,
+      "afterScroll": 549,
+      "page": 2,
+      "searchPreserved": true
+    }
+  },
+  {
+    "name": "Seleção mantida entre páginas e limpa ao trocar obra",
+    "passed": true,
+    "elapsedMs": 1118,
+    "evidence": {
+      "selectedAcrossPages": 2,
+      "workChangeClearsSelection": true
+    }
+  },
+  {
+    "name": "Mobile, foco visível, árvore de acessibilidade e reduced motion",
+    "passed": true,
+    "elapsedMs": 546,
+    "evidence": {
+      "viewport": 390,
+      "focus": {
+        "outline": "solid",
+        "width": "3px"
+      },
+      "axeViolations": [],
+      "reducedMotion": true
+    }
+  },
+  {
+    "name": "Agenda busca somente o mês solicitado e recupera falha",
+    "passed": true,
+    "elapsedMs": 3791,
+    "evidence": {
+      "months": [
+        "2026-10",
+        "2026-11",
+        "2026-12",
+        "2026-12"
+      ],
+      "apiFailureRetried": true
+    }
+  },
+  {
+    "name": "Seletor de equipe paginado, busca e seleção preservada",
+    "passed": true,
+    "elapsedMs": 2725,
+    "evidence": {
+      "requests": [
+        {
+          "page": "1",
+          "search": ""
+        },
+        {
+          "page": "2",
+          "search": ""
+        },
+        {
+          "page": "1",
+          "search": ""
+        },
+        {
+          "page": "1",
+          "search": "Pessoa"
+        }
+      ],
+      "selectionPreserved": true
+    }
+  },
+  {
+    "name": "Histórico da obra não perde formulário; loading, falha e retry",
+    "passed": true,
+    "elapsedMs": 2935,
+    "evidence": {
+      "requests": 2,
+      "preservedUnsavedForm": true
+    }
+  },
+  {
+    "name": "Relatório da visita seleciona apontamentos em páginas distintas",
+    "passed": true,
+    "elapsedMs": 1342,
+    "evidence": {
+      "selected": 2,
+      "visitScoped": true
+    }
+  }
+]

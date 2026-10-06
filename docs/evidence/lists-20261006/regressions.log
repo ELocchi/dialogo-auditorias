@@ -1,0 +1,584 @@
+
+> auditoria-obra@0.1.0 test:performance
+> node --experimental-strip-types --test scripts/test-audit-detail-loader.mjs scripts/test-audit-detail-routes.mjs scripts/test-audit-history.mjs scripts/test-pdf-worker.mjs scripts/test-deferred-catalogs.mjs scripts/test-access-summary.mjs scripts/test-audit-photo-store.mjs scripts/test-photo-thumbnails.mjs scripts/test-photo-thumbnail-routes.mjs scripts/test-agenda-sync.mjs scripts/test-audit-comparison.mjs scripts/test-audit-comparison-loader.mjs scripts/test-paged-audit-history.mjs scripts/test-audit-history-loader.mjs scripts/test-audit-dashboard.mjs scripts/test-audit-dashboard-cache.mjs scripts/test-follow-up-workspace.mjs scripts/test-follow-up-photo-loader.mjs scripts/test-follow-up-display.mjs scripts/test-follow-up-visit.mjs scripts/test-follow-up-mutations.mjs scripts/test-follow-up-report-page.mjs scripts/test-follow-up-pdf.mjs scripts/test-follow-up-pdf-routes.mjs scripts/test-follow-up-report-sections.mjs scripts/test-follow-up-findings.mjs scripts/test-follow-up-photos.mjs scripts/test-access-context-reads.mjs scripts/test-effective-access.mjs scripts/test-active-profile.mjs scripts/test-workspace-context.mjs scripts/test-agenda-session.mjs scripts/test-reference-documents.mjs scripts/test-follow-up-pdf-resource.mjs scripts/test-workspace-sections.mjs scripts/test-administration-pages.mjs scripts/test-administration-render.mjs scripts/test-agenda-rendering.mjs scripts/test-agenda.mjs scripts/test-agenda-batch.mjs scripts/test-session-request-cache.mjs scripts/test-agenda-compact.mjs scripts/test-agenda-detail-route.mjs scripts/test-access-lazy-forms.mjs scripts/test-administration-streaming.mjs
+
+(node:49795) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/auth/effective-access.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ all selected profiles and scopes use one exact RPC and preserve the previous presentation (24.948375ms)
+✔ account plus selected workspace takes two data calls and isolates the selected profile (0.562708ms)
+✔ invalid selections, foreign identities and ungranted scopes are denied before the RPC (0.210666ms)
+✔ malformed, foreign or mixed-profile projections fail as a whole (1.384542ms)
+✔ empty current scopes remain valid and administrative contexts accept only the authorized catalog (0.568416ms)
+✔ large scopes are complete rather than silently capped at 400 grants or 1000 works (15.376917ms)
+✔ every read checks current grants again and provider errors never reuse earlier authorization (0.76275ms)
+(node:49796) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/app/components/recover-action.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ twenty closed access editors render only their triggers, without replicated work selectors (9.709166ms)
+✔ closed approval cards preserve summaries while deferring all approval forms and confirmation dialogs (2.953959ms)
+✔ empty approval page retains its eligibility explanation without mounting forms (0.225333ms)
+(node:49797) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/auth/active-profile.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ anonymous, pending, revoked or unselected sessions never execute aggregate queries (31.2955ms)
+✔ selected profile must be General Administration even when account owns several profiles (1.235208ms)
+✔ stale user, profile, Engineering scope or Administrative scope causes no aggregate queries (0.857792ms)
+✔ database administrator authority is required before either aggregate is read (0.198416ms)
+✔ valid request uses exactly two HEAD counts with the correct confirmation and active filters (3.379333ms)
+✔ session cookie supplies authority when optional display identity is omitted (0.752125ms)
+✔ missing or invalid counts and provider failure stay unavailable rather than becoming zero (1.341292ms)
+✔ client sends current identity and bypasses cache on every mount/retry (0.984375ms)
+✔ client reports authorization/fetch/data failures and retries without keeping an old count (0.411083ms)
+(node:49798) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/auth/active-profile.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ Every authorized profile round-trips as a versioned preference without credentials (6.308042ms)
+✔ Malformed, oversized, unknown, and unversioned cookies never select a profile (2.572041ms)
+✔ A preference belongs to the current identity and cannot activate an ungranted profile (0.147958ms)
+✔ Revoked profiles and inactive or missing accounts invalidate an earlier choice (0.146291ms)
+✔ Every account with a single assigned profile is automatic (36.089708ms)
+✔ Form selection rejects duplicate, missing, unknown, file, or ungranted values (42.866583ms)
+✔ Choosing Engineering cannot modify the approved Engineering scope or supply a redirect (28.03175ms)
+✔ General administration and both approved Engineering scopes produce seven distinct choices (0.264458ms)
+✔ General administrator can select both discipline views, but scoped administrators cannot widen access (0.257542ms)
+✔ Engineering with two scopes enters its registered primary scope when it is the only profile (0.311584ms)
+✔ Version 2 requires an explicit valid Engineering scope and rejects scopes for other profiles (0.154208ms)
+✔ Legacy v1 Engineering selects only its existing authorized primary scope (0.089042ms)
+✔ Engineering forms reject absent, duplicate, malformed and ungranted scopes (0.13625ms)
+✔ Protected workspace rejects anonymous and pending sessions and asks multi-profile users to choose (0.786875ms)
+✔ A single approved profile reaches the protected workspace without a preference cookie (0.125ms)
+✔ Protected workspace rechecks current grants, identity and Auth activity on every entry (0.262333ms)
+✔ Protected workspace observes scope removal and returns only the selected Engineering activity (0.19825ms)
+✔ Duplicate preference cookies fail closed for multiple profiles (0.093041ms)
+✔ Administration requires the active Administrative view and the independent database check (0.277125ms)
+✔ Profile action writes only a current approved choice and always redirects inside the workspace (0.314959ms)
+✔ The report profile choice returns to the editor only for an approved auditor (0.229542ms)
+✔ Report return targets cannot redirect to arbitrary URLs or accept duplicate values (0.198959ms)
+✔ Preference cookies are HttpOnly, local-preview compatible and Secure for HTTPS (0.149583ms)
+✔ Successful login clears the previous choice without changing the validated pending checkpoint (0.312042ms)
+✔ Successful logout clears the choice, while a failed logout leaves the session context unchanged (0.124125ms)
+(node:49799) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/access/administration-service.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ summary, pending and history request just their view using one database snapshot (5.97025ms)
+✔ summary never exposes unrelated user or work payloads returned by a provider (0.134333ms)
+✔ empty and out of range pages retain valid counts and the full works catalog (0.196459ms)
+✔ invalid requested views and pages are rejected without any provider call (0.779916ms)
+✔ invalid envelopes, counts and incomplete or duplicated pages fail closed (1.50675ms)
+✔ pending requests must have their confirmed identity and renderable fields (0.979958ms)
+✔ foreign decisions, grants and target snapshots invalidate the complete user page (2.151375ms)
+✔ legacy immutable decisions and inactive-work grants retain their original shapes (5.822625ms)
+✔ edit snapshots retain administrative scopes and require safe fields for the change description (3.590125ms)
+✔ selected user history and active works remain complete beyond 1000 records (26.039ms)
+✔ every call revalidates current authorization and errors never reuse a previous page (9.687667ms)
+(node:49800) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/auth/display-name.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ administration landing requests counts only and retains links (5.452666ms)
+✔ pending page uses its server page and complete work choices without reading history (1.806333ms)
+✔ history page is not sliced a second time and preserves account, scope and legacy history display (5.40975ms)
+✔ unavailable views retain their retry page and never render mutation forms (0.630875ms)
+✔ unauthorized rendering does not load any administrative page (0.345583ms)
+(node:49801) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/auth/display-name.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ users: authorization gates identity and data; a slow name does not block the list (32.153125ms)
+✔ users: rejected authorization never reads names or administrative data (1.961125ms)
+✔ pending: authorization gates identity and data; a slow name does not block the list (20.23675ms)
+✔ pending: rejected authorization never reads names or administrative data (3.034333ms)
+✔ history: authorization gates identity and data; a slow name does not block the list (37.617125ms)
+✔ history: rejected authorization never reads names or administrative data (43.878625ms)
+✔ the named header streams while a slow list retains its own loading state (32.454958ms)
+✔ email-derived names render without a name query on every administrative route (29.987667ms)
+✔ missing or blank display names retain the authenticated email, or the generic user fallback (44.839084ms)
+✔ all administrative pages normalize invalid pagination before starting list reads (97.448708ms)
+✔ route loading UIs are accessible neutral shells and make no authenticated reads (10.719958ms)
+(node:49802) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/agenda/batch-service.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ batch accepts 1 to 200 valid rows and rejects duplicate canonical request UUIDs, empty or invalid items (1.65725ms)
+✔ mixed batch creates once and refreshes once regardless of number of visits (2.815666ms)
+✔ invalid payload or unauthorized single row rejects complete batch before any RPC (0.177416ms)
+✔ SQL error preserves safe retries and never reads partial or supposedly successful snapshot (0.287125ms)
+✔ invalid response cannot silently accept a partial batch (0.201667ms)
+✔ unavailable final read still reports committed batch and does not resubmit mutation (0.165583ms)
+✔ retry forwards exactly the same per-row UUIDs and catches unknown network failure without success (0.204875ms)
+(node:49803) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/agenda/service.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ legacy synchronization remains compatible for tabs opened before deployment (2.145541ms)
+✔ compact snapshot keeps every visit and exact notification time without notes or histories (47.0855ms)
+✔ incomplete or unauthorized compact rows fail closed instead of fabricating empty details (5.276833ms)
+✔ detail reads exactly one authorized visit and keeps complete rescheduling history (14.171167ms)
+✔ detail null, denied, malformed, wrong target and provider failure remain distinct (0.332417ms)
+✔ display actor comparison rejects stale user, profile, scope, module and duplicate parameters (0.32675ms)
+✔ browser detail requests are private, abortable, tied to current visit revision and never expose provider errors (78.738916ms)
+(node:49804) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/agenda/detail-client.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ detail route authenticates selected context before reading the target (35.020084ms)
+✔ detail route refuses stale displayed identity or scope and sends no private content (8.76125ms)
+✔ detail route reads one exact visit and never permits browser or intermediary caching (0.424875ms)
+✔ removed, revoked and unavailable details never appear as an empty successful note (0.544625ms)
+(node:49805) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/app/components/list-state.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ administrative: cards are bounded but calendar totals remain complete (113.984917ms)
+✔ quality-auditor: cards are bounded but calendar totals remain complete (25.464125ms)
+✔ engineering: cards are bounded but calendar totals remain complete (15.827709ms)
+✔ authorization and invalid dates are applied before list pagination and calendar totals (75.924917ms)
+✔ admin calendar includes follow-ups from every authorized professional without selecting a filter (46.972958ms)
+✔ admin overview includes all visit kinds while engineering coordination keeps only audits (47.137875ms)
+✔ short and empty lists do not show unnecessary page controls (9.050833ms)
+✔ cards used elsewhere keep their initial open state and audit action (1.217875ms)
+(node:49806) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/auth/active-profile.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ Agenda actions authenticate before any payload, displayed-context or DAL work (1.192542ms)
+✔ Every action rejects stale identity, profile and Engineering activity before workspace reads or mutations (3.377834ms)
+✔ Current account approval and cookie choice are required even when displayed context still matches (0.326208ms)
+✔ Valid actions pass the verified active context and writable session client to the intended DAL operation (0.410042ms)
+✔ Failure to rebuild authorized workspace prevents action mutation (0.103334ms)
+✔ GET returns private uncached 401/403 without agenda data for anonymous, pending, revoked or unselected sessions (36.961625ms)
+✔ GET rejects displayed identity/profile/activity mismatch before invoking workspace or agenda readers (2.744875ms)
+✔ Valid GET uses cookie-selected identity/activity and session client and preserves no-store headers (1.359875ms)
+✔ GET cannot expose stale data when workspace or persistent agenda is unavailable (0.856708ms)
+✔ new tabs request compact synchronization while pre-deployment tabs keep full details (0.467542ms)
+✔ conditional GET authenticates on every poll and returns zero body only for unchanged data (1.186333ms)
+✔ conditional GET ignores malformed or wildcard tokens and exposes no token for failed reads (0.73975ms)
+(node:49807) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/agenda/sync-client.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ unchanged poll preserves the snapshot and only reports loading start/end (15.428083ms)
+✔ temporary failures preserve available data; recovery clears error; authorization failure clears data (2.577541ms)
+✔ one poll at a time; changing profile/disposal prevents old results from applying (0.3615ms)
+✔ late response and late JSON parsing cannot overwrite a completed mutation (1.246375ms)
+✔ publication cancels a pending read, clears its token and prevents a completed visit returning (0.30825ms)
+✔ mutation idempotency survives retry, unknown success forces a full read, and profile cancellation discards mutation (0.382709ms)
+✔ invalid or unsolicited 304 never clears existing errors or introduces a snapshot (0.251708ms)
+✔ server DAL performs one conditional RPC and validates unchanged revision before accepting it (0.231042ms)
+✔ native browser fetch is invoked without assigning the synchronizer as its receiver (0.142542ms)
+(node:49808) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/agenda/contracts.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ creation validates exact fields, real dates, discipline/model and canonical UUIDs (1.229917ms)
+✔ confirmation and deletion require a stable request key and integer revision (0.137875ms)
+✔ snapshot sends selected profile and strips fields outside the public agenda contract (0.892791ms)
+✔ General administrator discipline views omit visits and auditors from the other module (0.348333ms)
+✔ auditor bell includes only their pending visits, with a link to the exact visit (0.345125ms)
+✔ auditoria designada fornece nome mínimo e confirmação sem incluir obra nos acessos (0.788041ms)
+✔ lista administrativa inclui auditores sem obras de acompanhamento (0.180584ms)
+✔ snapshots fail closed for inconsistent, duplicate and unauthorized records (0.496958ms)
+✔ new scheduling reaches only the admin RPC with exact fields and no caller override (0.304292ms)
+✔ work follow-up schedules without a model and still asks the assigned professional to confirm (0.383334ms)
+✔ confirmation is scoped to the currently selected auditor before mutation (0.21975ms)
+✔ only the administrator can delete a current visit, removing its notifications (0.20275ms)
+✔ publicação remove a visita e suas notificações da agenda ativa (0.107709ms)
+✔ a concurrent revision change cannot produce a stale confirmed message (0.1885ms)
+✔ conflicts, uncertain writes and provider diagnostics never become fake success (0.24175ms)
+✔ notification uses the work name from the same agenda snapshot as its revision (0.087333ms)
+(node:49809) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/audits/comparison-loader.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ history loads only on demand, batches three answers and reuses a profile cache (30.020166ms)
+✔ overlapping requests share in-flight IDs and fetch only missing comparisons (0.595708ms)
+✔ missing records remain errors and a retry requests only the absent audit (0.590458ms)
+✔ unavailable, invalid or out-of-context payloads cannot become comparison data (41.346541ms)
+✔ synchronous failures and HTTP denial can be retried without a stuck in-flight entry (1.918667ms)
+✔ profile disposal clears cached answers and ignores late network and JSON completions (2.449083ms)
+✔ StrictMode cancellation can restart immediately and old responses cannot overwrite it (0.297542ms)
+✔ cache stays bounded and an evicted history loads again; invalid batches never fetch (5.168291ms)
+(node:49810) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/auth/active-profile.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ comparison authenticates and rejects inactive, pending or unselected sessions before RPC (37.349209ms)
+✔ comparison rejects stale identity, profile, engineering and administrative scopes (13.392625ms)
+✔ comparison IDs accept at most three distinct UUIDs and normalize case (1.646125ms)
+✔ one compact RPC uses selected profile and exact IDs without Storage, preserving answer strings (3.740667ms)
+✔ unknown or individually denied audits remain absent, not loaded empty responses (1.27475ms)
+✔ service rejects malformed or unrequested rows and scoped work/module mismatches (0.796708ms)
+✔ service projects only five fields and failures never include partial comparison data (1.420792ms)
+(node:49811) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/audits/dashboard-service.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ cache hits still authorize one conditional RPC per request and skip full history when unchanged (8.453667ms)
+✔ new publication or narrower authorized projection replaces every cached aggregate (2.475209ms)
+✔ RPC errors, exceptions and invalid revision responses never serve a stale summary (2.761917ms)
+✔ expired entries refetch full metadata before becoming reusable again (0.310083ms)
+✔ changed snapshots cannot cache a partial subtotal after scope drift or invalid rows (0.91225ms)
+✔ cache isolates actors, selected profiles, scopes, effective modules, grants and work names (0.893042ms)
+✔ cached outputs cannot be mutated by a caller and independent server processes cold-load safely (0.315709ms)
+✔ entry and byte limits bound cache memory; oversized summaries remain correct without caching (1.145042ms)
+✔ byte accounting caches computed summaries without retaining the much larger overview (16.210334ms)
+✔ local overlays force full authorized input and never poison the cached persisted summary (1.057916ms)
+✔ concurrent readers each authorize and cache hints never substitute for their database snapshot (0.414292ms)
+(node:49812) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/audits/dashboard.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+{"dashboardPayloadBytes":{"before":4370098,"after":414586,"reduction":0.9051},"audits":2000,"findings":10000}
+✔ complete counts and plan groups remain independent of a ten-row history page (2.9915ms)
+✔ precomputed rankings preserve duplicate conflicts, ties, zero scores and annual means (10.671625ms)
+✔ recurrence counts audits once and keeps quantitative subitems in their original detail order (0.299041ms)
+✔ scope filtering excludes every metric, ranking and finding from other works/modules (8.153667ms)
+✔ serious overview combines active follow-up findings with serious audit items (0.527333ms)
+✔ overlay accepts only this auditor's authorized, published session records and discards evidence fields (34.997167ms)
+✔ server recomputes local publication overlays against all history, including items entering the top five (1.36075ms)
+✔ summary service restricts auditor discipline even when the account has multiple modules (0.230541ms)
+✔ dashboard HTTP routes authenticate before reads and validate private bounded overlays (115.841166ms)
+✔ large history becomes aggregates rather than full publication metadata and finding rows (80.46025ms)
+(node:49813) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/audits/detail-loader.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ opening an audit fetches once, reuses concurrent demand and sends the active profile (49.584333ms)
+✔ changing profile cancels pending details and cannot apply a late response (0.361792ms)
+✔ failed detail loading keeps an explicit error and allows a successful retry (0.515917ms)
+✔ mismatching or incomplete audit details cannot replace the selected audit (0.747875ms)
+✔ a profile owns its own cache and unavailable audit IDs cause no request (1.301708ms)
+✔ paged histories can open an authorized audit absent from the initial index (0.372708ms)
+✔ unlisted details still reject denial and a response for another audit (0.2725ms)
+(node:49814) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/auth/active-profile.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ both routes authenticate and reject pending, inactive or unselected sessions before audit reads (90.720917ms)
+✔ stale identity, profile, activity and administrative scope never reach workspace or audit DAL (7.930208ms)
+✔ request context is rebuilt from the verified account and cookie, including requests without identity query (13.913667ms)
+✔ workspace revocation and malformed audit IDs fail before detail or report storage work (6.25825ms)
+✔ detail GET uses exactly the selected audit and verified profile, with private response and evidence (14.955625ms)
+✔ an inaccessible audit is a private 404 and cannot reveal another publication or sign its files (3.155ms)
+✔ RPC and Storage failures return private 503 responses without redirecting (2.959ms)
+✔ a report signing error cannot redirect even when the adapter also returns stale signed data (3.178625ms)
+✔ report GET signs only the requested PDF after authorization and redirects without caching (0.400334ms)
+(node:49815) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/audits/history-loader.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ pages load only on demand, deduplicate canonical filters and bind native fetch correctly (44.346833ms)
+✔ coordination batches matching quality and safety pages behind one authenticated request (0.713709ms)
+✔ separate filters and pages cannot overwrite each other after responses arrive out of order (3.472417ms)
+✔ only the final subscriber leaving aborts pending work; StrictMode resubscription reuses it (2.376166ms)
+✔ expired pages revalidate and temporary failures preserve rows while explicit retry recovers (1.269667ms)
+✔ authorization denial clears cached pages and rejects late successful responses (0.615416ms)
+✔ cancel prevents late JSON writes and allows a new StrictMode request for the same page (0.337125ms)
+✔ cache has at most twelve inactive pages, evicted pages reload and profiles never share data (3.6965ms)
+✔ malformed pages, foreign findings and unrequested filters never become ready (18.183709ms)
+✔ projection excludes detail fields and permits valid empty pages beyond the end (0.404083ms)
+✔ invalid queries never fetch, and synchronous failures can be retried (7.459791ms)
+(node:49816) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/domain/audit-history.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ o histórico percorre todas as auditorias uma vez e mantém a ordem entre datas iguais (8.723583ms)
+✔ limites vazios, páginas inválidas e redução dos dados não criam uma página vazia (0.180666ms)
+✔ mudar obra, disciplina ou perfil volta à primeira página e o retorno não restaura página antiga (0.097167ms)
+✔ apontamentos são paginados por auditoria preservando todos os itens da auditoria expandida (1.025ms)
+(node:49817) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/audits/photo-store.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ evidence shared between items, checks and audits survives until its last reference is removed (2.615083ms)
+✔ reopening the form and publishing keep referenced originals for previews and PDF generation (0.331084ms)
+✔ different photos with the same camera filename never overwrite existing evidence (0.177ms)
+✔ discarded and unreferenced selected files are released without affecting another draft (0.147666ms)
+✔ cancelling an evidence request prevents a late fetch from retaining its File (0.192542ms)
+✔ a response arriving after removal of the last reference cannot repopulate the cache (0.100958ms)
+✔ closing a workspace releases files and invalidates pending work even if it later reopens (0.160666ms)
+(node:49818) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/catalogs/deferred-loader.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ does not fetch before demand; concurrent tabs share one request and reopening uses loaded data (33.880458ms)
+✔ starting a new audit explicitly refreshes the revision and never accepts a failed load as a bundled catalog (0.72625ms)
+✔ errors permit retry and only the explicit missing-migration signal allows initial catalog fallback (0.387042ms)
+✔ profile disposal discards late replies and a strict-mode restart can load again (0.463875ms)
+✔ saving a catalog replaces cached data and an older request cannot overwrite the saved revision (5.358125ms)
+✔ catalog endpoint fails closed before reading and keeps every response private (4.5515ms)
+(node:49819) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/auth/effective-access.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ A verified General administrator with one profile enters the workspace directly (3.035833ms)
+✔ Missing account RPC or missing administrative scope fails closed without legacy fallback (0.378292ms)
+✔ Approved single auditor and engineering profiles enter their workspace (1.245542ms)
+✔ All four authorized profiles require an explicit profile choice (0.149417ms)
+✔ Combined technical profiles never imply administration (0.129292ms)
+✔ An Engineering-only account with both authorized scopes enters its primary scope directly (0.114542ms)
+✔ Missing, duplicate, unknown, unordered or incompatible Engineering scope arrays fail closed (0.201458ms)
+✔ Missing, duplicated, unknown, noncanonical, or conflicting profile sets fail closed (0.205ms)
+✔ Missing verified identity, corporate email, or confirmation denies access before database reads (0.152708ms)
+✔ Both database records must belong to the verified identity (0.254292ms)
+✔ Pending, unconfirmed, inactive, missing, or malformed authorization records fail closed (1.348916ms)
+✔ Self-declared metadata cannot turn a pending request into an effective account (0.249875ms)
+✔ Failed reads, missing authority RPC, and transport failures never grant access (0.347708ms)
+✔ Every new server read observes account revocation and Auth bans even with the same session (0.28025ms)
+(node:49820) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/follow-up/display.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ active findings preserve draft precedence, latest report text and per-visit completion (14.93925ms)
+✔ same timestamp preserves source order and empty/completed lists do not create findings (0.417791ms)
+(node:49821) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/follow-up/findings.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ Findings saved before a report are read through the profile scoped RPC (1.1305ms)
+✔ Saving a finding passes its revision and rejects invalid text before RPC (0.260084ms)
+✔ Unauthorized profiles and stale revisions cannot save findings (0.935625ms)
+(node:49822) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/app/follow-up/actions.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ save resolves server findings from one target snapshot and performs only the authoritative save RPC (1.713167ms)
+✔ save fails closed on missing snapshot, unauthorized visit, changed source, future or unconfirmed visit (1.147ms)
+✔ save service preserves closed revision and SQL concurrency/current-access errors without rereading agenda (0.719208ms)
+✔ completing a draft uses its exact revision and deletes only that finding's private photos (0.717541ms)
+✔ completing a reported finding records completion and never lists or removes its closed-report photos (0.18425ms)
+✔ a draft revision conflict cannot mark completion or remove photos (0.12425ms)
+✔ photo upload loads just the target visit and returns the freshly confirmed photo list (18.109958ms)
+✔ closed, missing, future and unconfirmed visit findings cannot receive photos or reach Storage (1.029041ms)
+✔ deletion keeps still-used photos and removes only an unused finding from the authorized visit (0.312417ms)
+✔ stale actor and invalid identifiers are rejected before target data or storage reads (0.225459ms)
+(node:49823) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/follow-up/report-pdf-resource.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ preview, open and download reuse one authenticated PDF and its server file name (26.305375ms)
+✔ leaving aborts pending transport and ignores a response that finishes after cancellation (1.091042ms)
+✔ immediate disposal cancels before making a network request (0.273583ms)
+✔ leaving during blob reading cannot retain a URL or publish a stale report (0.751833ms)
+✔ retry after server error fetches again without replacing the saved report or reusing failures (2.467542ms)
+✔ synchronous transport failure can retry and a login redirect or invalid document is never displayed (7.209125ms)
+✔ old requests cannot overwrite a new load, including Strict Mode disposal and restart (1.979083ms)
+✔ separate report/profile resources never share a Blob or pending request (1.41425ms)
+✔ subscriptions and download names remain safe across loading, failure, retry and disposal (1.099375ms)
+(node:49824) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/app/app/acompanhamento/relatorio/%5BvisitId%5D/pdf/route.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ auditor and both engineering scopes load only the exact report, with all visit and historical work photos (337.823458ms)
+✔ a unique report works without reportId and visualization remains inline (21.174833ms)
+✔ unavailable, unauthorized, ambiguous or mismatched report reads never touch Storage (0.915125ms)
+✔ list, download and image corruption failures produce 503 instead of partial PDFs (39.123583ms)
+✔ archived PDF survives source loss, but revoked report access still denies download (38.58775ms)
+(node:49825) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/follow-up/pdf-photos.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ real PDF derivatives preserve orientation, aspect ratio, alpha and original bytes (142.764208ms)
+✔ real images reduce PDF bytes while retaining every text section, image and ordering (370.140959ms)
+ℹ PDF fixture: 3915323 → 971025 bytes; 9 pages; 4 ordered photos.
+✔ global admission bounds concurrent downloads, resize, complete documents and queue (15.920417ms)
+✔ timeouts/cancellation reject promptly while retaining occupied slots until real work settles (46.73175ms)
+✔ a cancelled queued request starts no download and frees its queue position (0.383375ms)
+✔ bad images, missing downloads and exhausted byte budgets fail the complete PDF (185.214875ms)
+(node:49826) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/follow-up/photo-loader.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ does not read photos until a row is visible; subscriptions alone are inert (43.343416ms)
+✔ two findings from one visit share a request; only the last departure cancels it (5.741125ms)
+✔ at most two listings run concurrently and an offscreen queued visit is skipped (8.855666ms)
+✔ StrictMode release and immediate reacquire preserve the shared request (0.956166ms)
+✔ upload replacement wins even if the old listing ignores cancellation (1.196542ms)
+✔ listing failure is distinct from empty photos and only an explicit retry refetches (6.413916ms)
+✔ 401/403 clears cached names, aborts all listings and blocks further reads for this context (10.300333ms)
+✔ switching profiles cancels and isolates data, including late responses (46.501792ms)
+✔ rejects malformed lists, duplicate filenames and photos belonging to another visit/finding (3.71975ms)
+✔ cache is bounded for inactive visits without dropping visits beyond the old 100 limit (125.736958ms)
+✔ returning to a visible visit reuses fresh metadata and refreshes it after expiration (3.111916ms)
+✔ cancel stops queued reads and a synchronous fetch failure releases concurrency slots (1.39325ms)
+(node:49827) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/follow-up/photos.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ photo names and file signatures are validated (1.464541ms)
+✔ private photo listing keeps only valid names for the requested visit (0.207ms)
+✔ PDF keeps cover sections and renders a photo on findings pages (96.897666ms)
+(node:49828) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/follow-up/photos.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ report index reads one visit and never lists Storage or sends report bodies to the editor (12.902042ms)
+✔ new editor loads only the target snapshot and its photo folder, retaining source findings and revision (29.084459ms)
+✔ editor with only work findings needs no visit Storage listing (12.718583ms)
+✔ closed report uses only exact detail and leaves all photo reads to its PDF (0.333792ms)
+✔ invalid, denied and unavailable visits never reach Storage or masquerade as an empty editor (0.50525ms)
+✔ legacy closed report still prevents creating another report from its index (0.3145ms)
+(node:49829) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/follow-up/service.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ report input requires and trims the three independent sections (1.038209ms)
+✔ read reports accepts three sections and flags an old database response (0.409333ms)
+✔ only checked findings enter the report, using current saved content (0.13425ms)
+(node:49830) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/follow-up/visit-service.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ one visit RPC preserves the full editor payload and persisted visit history (1.902167ms)
+✔ one report RPC returns only the selected detail and forwards both engineering scopes (0.619292ms)
+✔ absent or denied visits and absent or ambiguous reports remain explicit successful misses (0.240334ms)
+✔ wrong roles and malformed requested IDs are rejected before RPC (0.147083ms)
+✔ visit projection rejects foreign IDs, owner, module, grants and malformed visit/history fields (0.65075ms)
+✔ malformed or duplicate visit children fail the complete snapshot instead of dropping rows (0.857292ms)
+✔ report detail checks the requested report and restricts photo references to its findings and work (0.407917ms)
+✔ visit lists are not silently limited to 1000 reports or work findings (10.813042ms)
+✔ RPC, transport and malformed responses never become successful empty views (0.723041ms)
+(node:49831) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/app/api/follow-up/list/route.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ all follow-up endpoints verify context once and reject unauthenticated/denied requests before data (73.302584ms)
+✔ paged HTTP reads only one authorized projection and never accesses Storage (1.12025ms)
+✔ all three obsolete bulk endpoints require reload without fetching a partial history (1.712666ms)
+✔ query rejects unbounded sizes, malformed cursors, work IDs and oversized searches (0.888792ms)
+✔ cursor, page size, search, work and visit scope pass to SQL unchanged (0.357834ms)
+✔ malformed, duplicate, oversized or out-of-scope pages fail closed (3.274375ms)
+✔ profile, auth and database failure do not masquerade as an empty success (0.6575ms)
+✔ both engineering scopes retain the selected grants in the paged RPC (0.3335ms)
+✔ photo lists authorize one exact visit before Storage; rejected and invalid visits list nothing (0.679291ms)
+✔ SQL, transport and Storage failures never masquerade as empty successful lists (0.8065ms)
+(node:49832) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/auth/active-profile.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ history authenticates active selected identity before any history RPC (62.595042ms)
+✔ history query validates sizes, dates, filters, booleans and duplicate fields before RPC (17.521458ms)
+✔ paged history reads one limited RPC with all filters and only compact findings (2.836333ms)
+✔ paged history preserves complete totals across pages with no off-page findings (1.430833ms)
+✔ metadata-only comparison lookup and absent records have exact totals without Storage (0.580708ms)
+✔ history service rejects count, sorting, scope and filter mismatches without partial data (2.204375ms)
+✔ history service failure stays private and never invokes an eager fallback (0.25275ms)
+(node:49833) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/pdf/audit-report.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ audit renderer preserves pages, evidence, summary destinations and observations (320.120667ms)
+✔ security and quantitative reports render their response details without a DOM (38.243584ms)
+✔ action plan preserves landscape layout, corrective actions, images and summary links (16.625333ms)
+(node:49833) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/pdf/report.worker.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ production worker fetches assets and transfers an actual PDF with no browser globals (194.819292ms)
+✔ cancelling a preview terminates its worker and rejects the pending result (0.848417ms)
+✔ unsupported workers fall back to a real PDF and tolerate unavailable images (9.76625ms)
+(node:49834) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/app/api/audits/%5BauditId%5D/photos/%5BfileName%5D/route.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ every photo route authenticates before resource reads or downloads (11.608084ms)
+✔ actual route derivatives use private storage and reauthorize on warm cache (125.498542ms)
+✔ work photos retain finding, owner, work and filename filters; originals are byte-identical (0.858958ms)
+✔ audit photo requests cannot cross module or work scope, including a populated cache (0.299666ms)
+✔ visit photo cache cannot bypass missing visit, removed photo or a different profile (0.423291ms)
+✔ visit image uses one exact RPC, no list calls, and preserves original bytes (6.973916ms)
+✔ photo authorization errors and malformed responses cannot reuse a warm thumbnail (2.941417ms)
+✔ engineering reads a published work photo from its auditor's folder in both scopes (49.747709ms)
+✔ work photo access still rejects another work, discipline, owner and unsupported profile (2.721791ms)
+✔ work photo cache cannot mask database errors or removal of the finding (0.302625ms)
+(node:49835) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/photos/thumbnails.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ real thumbnail is bounded WebP, much smaller, and leaves original bytes intact (45.547208ms)
+✔ source size, malformed images and pixel bombs are rejected (148.082375ms)
+✔ authorization runs before every cache lookup; revocation cannot reveal a cached image (60.816792ms)
+✔ original requests bypass derivative cache and preserve exact original bytes and MIME (25.894208ms)
+✔ cache evicts by bytes, entry count and expiry, reusing only fresh image bytes (1.414333ms)
+✔ duplicate requests authorize separately and share one bounded processing job (1.897209ms)
+✔ failed authorization, download and resize are private errors and can be retried (0.735416ms)
+✔ thumbnail URLs keep exact profile identity and never change signed original references (0.489459ms)
+(node:49836) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/auth/active-profile.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ Unauthenticated or rejected Auth session cannot read PDF or original bytes (42.093084ms)
+✔ Pending, inactive or database-revoked accounts are rejected before private file access (1.16575ms)
+✔ Engineering profiles open reports only for an authorized discipline and active work (43.482917ms)
+✔ Auditors can read only their discipline while an active grant exists (1.529875ms)
+✔ An auditor receives the selected private revision through the guarded reader (0.639292ms)
+✔ Bundled auditor documents work with existing RLS grants before the new RPC is deployed (25.091042ms)
+✔ Missing, duplicate or wrong-user cookie and removed Administrative membership do not authorize a document (6.055125ms)
+✔ The current database administrator predicate must succeed even for an approved Administrative cookie (9.46025ms)
+✔ Only the three fixed document identifiers resolve: filenames, object keys and traversal attempts return 404 (13.186ms)
+✔ Each Administrative PDF request returns exactly its private file with inline disposition and no shared cache (0.719666ms)
+✔ A General administrator's selected discipline limits reference documents in that view (0.408375ms)
+✔ Original downloads preserve the source PDF/DOCX per model and require the same Administrative authorization (0.507709ms)
+✔ PDF download forces an attachment and never selects the editable original (0.52775ms)
+✔ Private file failure returns uncached 503 without disclosing paths or provider diagnostics (0.250417ms)
+✔ Versioned reference assets have the declared PDF/DOCX signatures in the private directory (2.558042ms)
+✔ Private revision PDFs and originals are served without filesystem fallback (0.61825ms)
+✔ Revision read errors and malformed contents cannot silently expose an older document (0.59ms)
+✔ Explicit versions pass the revision identity; invalid IDs fail before file reads (4.2565ms)
+(node:49837) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/auth/active-profile.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ administrative page and nested components share one live authorization during an RSC render (46.974167ms)
+✔ equal scalar identities deduplicate account reads without mixing changed identity fields (3.156125ms)
+✔ each new render rechecks Auth and immediately observes account revocation (8.154292ms)
+✔ concurrent RSC requests cannot reuse another user's session, account or access request (5.089209ms)
+✔ the next render rechecks the selected profile and administrative scope (10.63425ms)
+✔ administrator helper, Auth and database failures keep the original fail-closed redirects (13.066542ms)
+✔ failed authorization deduplicates only within its render and can recover on a new request (4.55225ms)
+✔ own access requests cache by user ID and retain the response identity check (1.460834ms)
+✔ real Server Actions outside RSC verify authorization again and reject revocation before mutation (3.38925ms)
+(node:49838) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/access/workspace-context.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ perfil escolhido usa somente suas próprias concessões e obras ativas (1.389875ms)
+✔ Engenharia não transforma dois pares obra/módulo em acesso cruzado (9.489166ms)
+✔ Administrativo mantém catálogo sem herdar operações dos perfis técnicos (0.215167ms)
+✔ Administrativos de Segurança e Qualidade recebem apenas sua disciplina (0.153083ms)
+✔ resultado publicado chega aos contextos administrativos autorizados sem acesso a rascunhos (0.170166ms)
+✔ Administrativo Geral pode visualizar cada disciplina sem ampliar o perfil salvo (0.105375ms)
+✔ perfil técnico sem concessões não recebe obras ou usuários fictícios (0.108833ms)
+✔ conta desativada, identidade divergente e perfil não aprovado fecham o contexto (0.107833ms)
+✔ concessões malformadas e obras duplicadas não abrem contexto (0.098458ms)
+✔ prévia na obra cadastrada continua temporária e preserva dados originais (17.4655ms)
+✔ duas atuações Engenharia abrem visões diferentes sem ampliar obras ou módulos (0.214708ms)
+✔ atuação forjada ou revogada não abre a visão da equipe (0.08ms)
+✔ dados salvos no cadastro alimentam o cartão da obra autorizada (0.104916ms)
+(node:49839) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://<validation-copy>/src/lib/access/workspace-resources.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to <validation-copy>/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ opening Works loads neither agenda nor dashboard and keeps remote history enabled (1.322833ms)
+✔ overview hydrates its complete calendar and aggregate, without fetching history (0.189959ms)
+✔ agenda, auditor history and follow-up hydrate only agenda and preserve deep links (0.311708ms)
+✔ coordination never opens the removed agenda or reports tabs (0.226458ms)
+✔ administration opens reports or settings without agenda or dashboard (0.187583ms)
+✔ action-plan deep link retains its exact publication read and invalid IDs do not query history (0.274375ms)
+✔ development preview remains local and production query failures retain unavailable state (0.120208ms)
+✔ missing workspace never loads operational data (0.144292ms)
+✔ section resources preserve calendar-dependent engineering flows and skip unrelated sections (0.099042ms)
+ℹ tests 386
+ℹ suites 0
+ℹ pass 386
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2697.490542

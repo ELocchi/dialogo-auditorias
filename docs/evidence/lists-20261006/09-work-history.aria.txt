@@ -1,0 +1,14 @@
+- main:
+  - heading "Validação de listas — dados fictícios" [level=1]
+  - text: Nome em edição
+  - textbox "Nome em edição": Texto ainda não salvo
+  - region "Histórico do cadastro":
+    - heading "Histórico do cadastro" [level=2]
+    - text: 20 alterações por página · horários de Brasília
+    - group:
+      - strong: 06/10/2026, 09:00
+      - text: Pessoa de teste Nome do projeto
+    - navigation "Páginas do histórico da obra":
+      - status: 21–40 de 41 alterações Página 2 de 3
+      - 'button "Página anterior: Páginas do histórico da obra"': Anterior
+      - 'button "Próxima página: Páginas do histórico da obra"': Próxima

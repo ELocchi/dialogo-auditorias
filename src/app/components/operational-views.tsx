@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useListFilter } from "./list-state";
+import { useHistoryPage, HistoryPagination } from "./history-pagination";
 import { useId, useState } from "react";
 import type { WorkRecord } from "@/domain/operational-records";
 import { Icon } from "./ui-icon";
@@ -20,17 +22,18 @@ function ChevronIcon() {
 }
 
 export function Works({ works, canManage = false }: { works: readonly WorkRecord[]; canManage?: boolean }) {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useListFilter(`works-search:${works.map(w => w.id).join(",")}`);
   const [searchOpen, setSearchOpen] = useState(false);
   const searchId = useId();
   const filteredWorks = works.filter((work) => searchable(`${work.name} ${work.city}`).includes(searchable(query.trim())));
+  const page = useHistoryPage(filteredWorks, `works:${works.map(w => w.id).join(",")}:${query}`);
   const resetFilters = () => setQuery("");
 
   return <div className="operational-view">
     <div className="page-intro">
       <div><h2>Obras</h2></div>
       <div className="work-create-action">
-        {searchOpen && <div id={searchId} className="work-inline-search" role="search" aria-label="Filtrar obras">
+        {(searchOpen || query) && <div id={searchId} className="work-inline-search" role="search" aria-label="Filtrar obras">
           <div className="work-search-field">
             <input type="search" aria-label="Buscar obra" autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nome da obra ou cidade" />
             {query && <button type="button" className="work-search-clear" onClick={(event) => { event.currentTarget.parentElement?.querySelector<HTMLInputElement>("input")?.focus(); resetFilters(); }} aria-label="Limpar busca" data-tooltip="Limpar busca">×</button>}
@@ -42,7 +45,7 @@ export function Works({ works, canManage = false }: { works: readonly WorkRecord
       </div>
     </div>
     <div className="work-grid">
-      {filteredWorks.map((work) => <article className="work-project-card" key={work.id}>
+      {page.items.map((work) => <article className="work-project-card" key={work.id}>
         <div className="work-project-heading">
           <span className="work-building-icon"><BuildingIcon /></span>
           {canManage && !work.isDemo && <a className="secondary work-edit-icon" href={`/administracao/obras/${work.id}`} aria-label={`Editar obra ${work.name}`} data-tooltip="Editar obra"><Icon name="edit" /></a>}
@@ -52,6 +55,7 @@ export function Works({ works, canManage = false }: { works: readonly WorkRecord
         {work.isDemo && <div className="work-project-footer"><span className="work-session-dot" />Cadastro demonstrativo</div>}
       </article>)}
     </div>
+    <HistoryPagination {...page} label="Páginas de obras" unit="obras" />
     {filteredWorks.length === 0 && <div className="operational-empty"><h3>Nenhuma obra encontrada</h3><p>Altere o nome para consultar as obras disponíveis.</p><button type="button" className="secondary" onClick={resetFilters}>Limpar filtros</button></div>}
   </div>;
 }

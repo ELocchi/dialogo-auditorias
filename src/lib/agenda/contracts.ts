@@ -11,6 +11,7 @@ export type AgendaNotification = {
 
 export type AgendaSnapshot = {
   available: boolean;
+  month?: string;
   /** Authenticated projection token; omitted for unavailable/local snapshots. */
   revision?: string;
   visits: Visit[];

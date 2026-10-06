@@ -28,10 +28,9 @@ function reset(profile = "AUDITOR_QUALIDADE", scope = null) {
   state.client = {
     async rpc(name, parameters) {
       state.calls.push({ name, parameters });
-      assert.ok(["read_follow_up_workspace", "read_follow_up_report_index", "can_read_follow_up_visit_photos"].includes(name),
+      assert.ok(["read_follow_up_list_page", "can_read_follow_up_visit_photos"].includes(name),
         "No broad agenda, report body or duplicate auth RPCs in the service");
-      return { data: name === "read_follow_up_workspace" ? state.raw
-        : name === "read_follow_up_report_index" ? state.index : state.canReadPhotos, error: state.rpcError };
+      return { data: name === "read_follow_up_list_page" ? state.raw : state.canReadPhotos, error: state.rpcError };
     },
     storage: { from(bucket) {
       assert.equal(bucket, "follow-up-photos");
@@ -54,6 +53,7 @@ registerHooks({ resolve(specifier, context, nextResolve) {
   if (specifier.startsWith("@/")) return nextResolve(pathToFileURL(path.join(root, "src", `${specifier.slice(2)}.ts`)).href, context);
   return nextResolve(specifier, context);
 } });
+const list = await import("../src/app/api/follow-up/list/route.ts");
 const workspace = await import("../src/app/api/follow-up/workspace/route.ts");
 const reports = await import("../src/app/api/follow-up/reports/route.ts");
 const photos = await import("../src/app/api/follow-up/visits/[visitId]/photos/route.ts");
@@ -78,62 +78,43 @@ test("all follow-up endpoints verify context once and reject unauthenticated/den
   }
 });
 
-test("workspace loads all four lists through one authorized RPC with no Storage access", async () => {
-  reset();
-  assert.deepEqual(await check(await workspace.GET(request()), 200), snapshot);
-  assert.equal(state.guards, 1);
-  assert.deepEqual(state.calls, [{ name: "read_follow_up_workspace", parameters: {
-    p_profile: "AUDITOR_QUALIDADE", p_engineering_scope: null, p_administrative_scope: null,
-  } }]);
-  assert.equal(state.lists.length, 0);
+const pageRow = { ...workFinding, source: "work", key: `work:${findingId}`, at: updatedAt, workName: "Obra de teste" };
+const page = { available: true, items: [pageRow], hasMore: false, nextCursor: null };
+const listRequest = (extra = "") => new Request(`https://offline.invalid/api/follow-up/list?kind=work-findings${extra}`);
+test("paged HTTP reads only one authorized projection and never accesses Storage", async () => {
+ reset(); state.raw=structuredClone(page);
+ assert.deepEqual(await check(await list.GET(listRequest()),200),page);
+ assert.equal(state.calls.length,1); assert.equal(state.calls[0].name,"read_follow_up_list_page");
+ assert.equal(state.calls[0].parameters.p_size,20); assert.equal(state.lists.length,0);
 });
-
-test("workspace strips unused long report fields and never silently accepts missing completion data", async () => {
-  reset(); state.raw.reports[0] = { ...report, participants: "private long text", subjects: "private", decisions: "private" };
-  assert.deepEqual(await check(await workspace.GET(request()), 200), snapshot);
-  for (const completed of [null, undefined, ["invalid"], [`${visitId}:${findingId}`, `${visitId}:${findingId}`]]) {
-    reset(); state.raw.completed = completed;
-    const body = await check(await workspace.GET(request()), 503);
-    assert.equal(body.available, false); assert.deepEqual(body.reports, []); assert.deepEqual(body.workFindings, []);
-  }
+test("all three obsolete bulk endpoints require reload without fetching a partial history", async () => {
+ const standalone = await import("../src/app/api/follow-up/standalone-reports/route.ts");
+ for(const endpoint of [workspace,reports,standalone]) { reset(); await check(await endpoint.GET(request()),410); assert.equal(state.calls.length,0); }
 });
-
-test("malformed or out-of-scope workspace results fail as a whole", async () => {
-  for (const mutate of [
-    (raw) => { raw.reports.push(raw.reports[0]); },
-    (raw) => { raw.drafts.push(raw.drafts[0]); },
-    (raw) => { raw.reports[0].findings[0].description = "bad"; },
-    (raw) => { raw.workFindings[0].workId = id(90); },
-    (raw) => { raw.workFindings[0].module = "safety"; },
-    (raw) => { raw.workFindings[0].serious = "yes"; },
-    (raw) => { raw.workFindings[0].photoFileName = "wrong.jpg"; },
-    (raw) => { raw.workFindings[0].createdAt = "wrong"; },
-  ]) {
-    reset(); mutate(state.raw);
-    const body = await check(await workspace.GET(request()), 503);
-    assert.equal(body.available, false); assert.deepEqual(body.reports, []);
-  }
+test("query rejects unbounded sizes, malformed cursors, work IDs and oversized searches", async () => {
+ for(const query of ["&size=1000","&size=0","&cursor={}","&workId=bad",`&search=${"a".repeat(121)}`,"&module=wrong","&visitId=bad"]) {
+  reset(); await check(await list.GET(listRequest(query)),400); assert.equal(state.calls.length,0);
+ }
 });
-
-test("wrong roles never reach a follow-up workspace or report-index RPC", async () => {
-  for (const profile of ["ENGENHARIA", "ADMINISTRATIVO"]) {
-    reset(profile, profile === "ENGENHARIA" ? "COORDENACAO" : null);
-    await check(await workspace.GET(request()), 403); assert.equal(state.calls.length, 0);
-    await check(await runPhotos(), 403); assert.equal(state.calls.length, 0);
-  }
-  reset(); await check(await reports.GET(request()), 403); assert.equal(state.calls.length, 0);
+test("cursor, page size, search, work and visit scope pass to SQL unchanged", async () => {
+ reset(); state.raw=page;
+ const cursor={at:updatedAt,key:pageRow.key};
+ await check(await list.GET(listRequest(`&size=10&workId=${workId}&visitId=${visitId}&search=Corre%C3%A7%C3%A3o&cursor=${encodeURIComponent(JSON.stringify(cursor))}`)),200);
+ const args=state.calls[0].parameters; assert.equal(args.p_size,10); assert.deepEqual(args.p_cursor,cursor); assert.equal(args.p_work_id,workId); assert.equal(args.p_visit_id,visitId); assert.equal(args.p_search,"Correção");
 });
-
-test("engineering receives only report links; both selected engineering scopes reach the database", async () => {
-  for (const scope of ["EQUIPE_OBRA", "COORDENACAO"]) {
-    reset("ENGENHARIA", scope);
-    state.index.reports[0] = { ...index.reports[0], findings: [finding], participants: "Long prose", subjects: "Private", revision: 1 };
-    assert.deepEqual(await check(await reports.GET(request()), 200), index);
-    assert.equal(state.guards, 1); assert.equal(state.lists.length, 0);
-    assert.deepEqual(state.calls, [{ name: "read_follow_up_report_index", parameters: {
-      p_profile: "ENGENHARIA", p_engineering_scope: scope, p_administrative_scope: null,
-    } }]);
-  }
+test("malformed, duplicate, oversized or out-of-scope pages fail closed", async () => {
+ for(const mutate of [p=>p.items.push({...pageRow,workId:id(999)}),p=>p.items.push(pageRow),p=>p.items[0].module="safety",p=>p.hasMore=true,p=>p.items[0].photoFileName="../private.jpg",p=>p.items[0].description=null,p=>p.items=Array.from({length:51},()=>pageRow)]) {
+  reset(); state.raw=structuredClone(page); mutate(state.raw); const response=await check(await list.GET(listRequest()),503); assert.equal(response.available,false);
+ }
+});
+test("profile, auth and database failure do not masquerade as an empty success", async () => {
+ for(const profile of ["ADMINISTRATIVO","OUTRO"]) {reset(profile);await check(await list.GET(listRequest()),403);assert.equal(state.calls.length,0);}
+ for(const status of [401,403]) {reset();state.authStatus=status;await check(await list.GET(listRequest()),status);assert.equal(state.calls.length,0);}
+ reset();state.rpcError={message:"private diagnostic"};const response=await check(await list.GET(listRequest()),503);assert.equal(JSON.stringify(response).includes("private diagnostic"),false);
+ reset();state.raw={available:true,items:[],hasMore:false,nextCursor:null};assert.deepEqual(await check(await list.GET(listRequest()),200),state.raw);
+});
+test("both engineering scopes retain the selected grants in the paged RPC", async () => {
+ for(const scope of ["EQUIPE_OBRA","COORDENACAO"]) {reset("ENGENHARIA",scope);state.raw=page;await check(await list.GET(listRequest()),200);assert.equal(state.calls[0].parameters.p_engineering_scope,scope);}
 });
 
 test("photo lists authorize one exact visit before Storage; rejected and invalid visits list nothing", async () => {
@@ -153,9 +134,9 @@ test("photo lists authorize one exact visit before Storage; rejected and invalid
 
 test("SQL, transport and Storage failures never masquerade as empty successful lists", async () => {
   reset(); state.rpcError = { code: "XX000" };
-  await check(await workspace.GET(request()), 503);
+  await check(await list.GET(listRequest()), 503);
   reset("ENGENHARIA", "COORDENACAO"); state.rpcError = { code: "XX000" };
-  await check(await reports.GET(request()), 503);
+  await check(await list.GET(listRequest()), 503);
   for (const [error, status] of [[{ code: "42501" }, 403], [{ code: "XX000" }, 503]]) {
     reset(); state.rpcError = error;
     await check(await runPhotos(), status); assert.equal(state.lists.length, 0);

@@ -1,11 +1,12 @@
 "use client";
 import { DownloadButton } from "./download-button";
-import { readWithDeadline } from "@/lib/read-with-deadline";
+import { useListFilter } from "./list-state";
+import { useCursorList } from "./use-cursor-list";
+import { ListFilters, ListStatus, ListPagination } from "./list-controls";
+import { listWorkFinding } from "@/lib/lists/presentation";
 
-import { AsyncSkeleton } from "./async-feedback";
 import { EvidenceThumbnail } from "./evidence-thumbnail";
-import { useEffect, useId, useState, type ReactNode } from "react";
-import { readEngineeringWorkFindingsAction, type WorkFinding } from "@/app/follow-up/actions";
+import { useId, useState, type ReactNode } from "react";
 import { moduleLabels, type AppModule } from "@/domain/prototype-access";
 import { auditModelLabels, formatAuditDate, type AuditModelId, type WorkRecord } from "@/domain/operational-records";
 import type { AgendaActorContext } from "@/lib/agenda/contracts";
@@ -44,9 +45,9 @@ export function PublishedAuditFindingsList({ auditFindings, works, module, conte
   module?: AppModule;
   heading?: string;
 }) {
-  const [workId, setWorkId] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [workId, setWorkId] = useListFilter(`published-findings:workId:${contextKey}`);
+  const [dateFrom, setDateFrom] = useListFilter(`published-findings:dateFrom:${contextKey}`);
+  const [dateTo, setDateTo] = useListFilter(`published-findings:dateTo:${contextKey}`);
   const [expandedAudits, setExpandedAudits] = useState<Set<string>>(() => new Set());
   const [expandedFindings, setExpandedFindings] = useState<Set<string>>(() => new Set());
   const idPrefix = useId().replace(/:/g, "");
@@ -125,28 +126,18 @@ export function EngineeringResourcePanels({ actor, works, module, catalogs, audi
   findingCount?: number;
   deferCatalogs?: (children: ReactNode) => ReactNode;
 }) {
-  const [attempt, setAttempt] = useState(0);
-  const [result, setResult] = useState<{ key: string; findings: WorkFinding[]; available: boolean } | null>(null);
+  const { anchor: listAnchor, ...list } = useCursorList(actor, "work-findings", "engineering-findings", module);
+  const findings = list.data?.items.map(listWorkFinding) ?? [];
   const [expandedOtherFindings, setExpandedOtherFindings] = useState<Set<string>>(() => new Set());
   const { userId, profile, engineeringScope, administrativeScope } = actor;
   const workNames = new Map(works.map((work) => [work.id, work.name]));
-  const key = JSON.stringify([module, userId, profile, engineeringScope, administrativeScope, attempt]);
-  const loading = result?.key !== key;
-  const findings = !loading ? result?.findings ?? [] : [];
-  const available = result?.available;
-  useEffect(() => {
-    let active = true;
-    readWithDeadline(readEngineeringWorkFindingsAction(module, { userId, profile, engineeringScope, administrativeScope }))
-      .then((result) => { if (active) { setResult({ key, findings: result.findings, available: result.available }); } })
-      .catch(() => active && setResult({ key, findings: [], available: false }));
-    return () => { active = false; };
-  }, [module, userId, profile, engineeringScope, administrativeScope, key]);
 
   return <div className={styles.grid}>
     <section className="panel" aria-label={`Apontamentos de ${moduleLabels[module]}`}>
       <PublishedAuditFindingsList heading="Apontamentos" auditFindings={auditFindings} works={works} module={module} contextKey={JSON.stringify([module, userId, profile, engineeringScope, administrativeScope])} />
-      {loading ? <AsyncSkeleton label="Carregando apontamentos…" /> : !available ? <div role="alert"><p className="muted">Não foi possível consultar os demais apontamentos.</p><button type="button" className="secondary" onClick={() => setAttempt(value => value + 1)}>Tentar novamente</button></div>
-        : findings.length ? <><span className={styles.listLabel}>OUTROS APONTAMENTOS</span><ul className={styles.findings}>{findings.slice(0, 6).map((finding, findingIndex) => {
+      <div ref={listAnchor}><span className={styles.listLabel}>OUTROS APONTAMENTOS</span><ListFilters list={list} works={works} label="Outros apontamentos" /></div>
+      <ListStatus list={list} empty="Nenhum outro apontamento encontrado." />
+      {!list.loading && !list.error && findings.length ? <ul className={styles.findings}>{findings.map((finding, findingIndex) => {
           const expanded = expandedOtherFindings.has(finding.id);
           const detailsId = `other-finding-${findingIndex}`;
           const photoUrl = `/app/acompanhamento/obras/${finding.workId}/fotos/${finding.photoFileName}`;
@@ -167,8 +158,8 @@ export function EngineeringResourcePanels({ actor, works, module, catalogs, audi
               </div>
             </div>}
           </li>;
-        })}</ul></>
-          : null}
+        })}</ul> : null}
+      <ListPagination list={list} label="Outros apontamentos" />
     </section>
     <EngineeringRoutesPanel modules={[module]} catalogs={catalogs} deferCatalogs={deferCatalogs} />
   </div>;

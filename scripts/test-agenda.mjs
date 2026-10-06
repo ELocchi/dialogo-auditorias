@@ -1,5 +1,6 @@
 import test from 'node:test';
 import { withoutPublishedVisit } from '../src/lib/agenda/contracts.ts';
+import { getSaoPauloToday } from '../src/domain/visit-calendar.ts';
 import assert from 'node:assert/strict';
 import { parseCreateAgendaVisit, parseConfirmAgendaVisit, readAgendaSnapshot, createAgendaVisit, deleteAgendaVisit, confirmAgendaVisit } from '../src/lib/agenda/service.ts';
 
@@ -33,7 +34,7 @@ function fixture({ visits = [visit], auditors = [], error = null, mutationData =
     if (throws) throw new Error('private provider diagnostic');
     if (name === 'confirm_audit_visit' && !error) currentVisits = postConfirmationVisits ?? currentVisits.map((entry) => ({ ...entry, confirmationStatus: 'confirmed', confirmedAt: '2030-02-02T12:00:00Z' }));
     if (name === 'delete_audit_visit' && !error) currentVisits = currentVisits.filter((entry) => entry.id !== params.p_visit_id);
-    return name === 'read_compact_audit_agenda_if_changed' ? { data: { unchanged: false, revision: 'a'.repeat(32), snapshot: { visits: currentVisits, auditors } }, error: readError } : { data: mutationData, error };
+    return name === 'read_audit_agenda_visit_detail' ? { data: currentVisits.find(v=>v.id===params.p_visit_id) ?? null, error:readError } : name === 'read_audit_agenda_month' ? { data: { unchanged: false, revision: 'a'.repeat(32), snapshot: { visits: currentVisits, auditors } }, error: readError } : { data: mutationData, error };
   } } };
 }
 
@@ -63,7 +64,7 @@ test('snapshot sends selected profile and strips fields outside the public agend
   assert.equal(result.visits[0].private, undefined);
   assert.equal(result.auditors[0].email, undefined);
   assert.deepEqual(result.auditors[0].workIds, [workId]);
-  assert.deepEqual(f.calls[0].params, { p_profile: 'ADMINISTRATIVO', p_engineering_scope: null, p_administrative_scope: 'GERAL', p_known_revision: null });
+  assert.deepEqual(f.calls[0].params, { p_profile: 'ADMINISTRATIVO', p_engineering_scope: null, p_administrative_scope: 'GERAL', p_known_revision: null, p_month: `${getSaoPauloToday().slice(0,7)}-01` });
   assert.equal(result.notifications[0].type, 'visit_scheduled');
 });
 
@@ -89,7 +90,7 @@ test('auditor bell includes only their pending visits, with a link to the exact 
   const result = await readAgendaSnapshot(f.client, context('safety-auditor'));
   assert.equal(result.notifications.length, 1);
   assert.equal(result.notifications[0].type, 'visit_confirmation_requested');
-  assert.equal(result.notifications[0].href, `/app?secao=agenda&visita=${visitId}`);
+  assert.equal(result.notifications[0].href, `/app?secao=agenda&mes=${visit.date.slice(0,7)}&visita=${visitId}`);
   const confirmed = fixture({ visits: [{ ...visit, confirmationStatus: 'confirmed', confirmedAt: '2030-02-02T12:00:00Z' }] });
   assert.equal((await readAgendaSnapshot(confirmed.client, context('safety-auditor'))).notifications.length, 0);
   const admin = await readAgendaSnapshot(confirmed.client, context());
@@ -121,7 +122,7 @@ test('auditoria designada fornece nome mínimo e confirmação sem incluir obra 
     const invalid = fixture({ visits: [changed] });
     assert.equal((await readAgendaSnapshot(invalid.client, ctx)).available, false);
     assert.equal((await confirmAgendaVisit(confirmation, ctx, invalid.client)).status, 'error');
-    assert.ok(invalid.calls.every((call) => call.name === 'read_compact_audit_agenda_if_changed'));
+    assert.ok(invalid.calls.every((call) => ['read_audit_agenda_month','read_audit_agenda_visit_detail'].includes(call.name)));
   }
   assert.equal((await readAgendaSnapshot(fixture({ visits: [assigned] }).client, { ...ctx, user: { ...ctx.user, modules: [] } })).available, false);
 });
@@ -193,7 +194,7 @@ test('work follow-up schedules without a model and still asks the assigned profe
 test('confirmation is scoped to the currently selected auditor before mutation', async () => {
   for (const role of ['administrative', 'engineering', 'quality-auditor']) {
     const f = fixture(); assert.equal((await confirmAgendaVisit(confirmation, context(role), f.client)).status, 'error');
-    assert.ok(f.calls.every((call) => call.name === 'read_compact_audit_agenda_if_changed'));
+    assert.ok(f.calls.every((call) => ['read_audit_agenda_month','read_audit_agenda_visit_detail'].includes(call.name)));
   }
   const other = fixture({ visits: [{ ...visit, auditorId: otherId }] });
   assert.equal((await confirmAgendaVisit(confirmation, context('safety-auditor'), other.client)).status, 'error');
