@@ -25,8 +25,7 @@ import { MaintenanceHistory } from "./maintenance-history";
 import { DialogoLogo } from "./dialogo-logo";
 import { sortAuditHistory } from "@/domain/audit-history";
 import { HistoryPagination, useHistoryPage } from "./history-pagination";
-import { HistoryFilters, HistoryLoadStatus, HistoryMonthFilter, usePublishedHistoryPage } from "./published-history-page";
-import { getSaoPauloToday } from "@/domain/visit-calendar";
+import { HistoryLoadStatus, HistoryMonthFilter, useHistoryMonth, usePublishedHistoryPage } from "./published-history-page";
 import styles from "./prototype-workspace.module.css";
 import engineeringStyles from "./engineering-overview.module.css";
 
@@ -247,13 +246,12 @@ function historyContextKey(user: DemoUser, works: readonly WorkRecord[], filter 
 }
 
 export function AuditList({ user, audits, works, onOpen, module, workId, contextKey = "" }: { user: DemoUser; audits: readonly AuditRecord[]; works: readonly WorkRecord[]; onOpen: (audit: AuditRecord) => void; module?: AppModule; workId?: string; contextKey?: string }) {
-  const [dateFrom, setDateFrom] = useListFilter(`AuditList:dateFrom:${`${user.id}:${user.role}`}`);
-  const [dateTo, setDateTo] = useListFilter(`AuditList:dateTo:${`${user.id}:${user.role}`}`);
+  const { month, setMonth, dateFrom, dateTo } = useHistoryMonth(`AuditList:${user.id}:${user.role}`);
   const visible = sortAuditHistory(audits.filter((audit) => (!dateFrom || audit.date >= dateFrom) && (!dateTo || audit.date <= dateTo)));
   const history = usePublishedHistoryPage(visible, { module, workId, dateFrom: dateFrom || undefined, dateTo: dateTo || undefined, includeFindings: false }, historyContextKey(user, works, contextKey));
   const rows = history.remote ? [...visible.filter((audit) => audit.isDemo || audit.status !== "Publicada"), ...history.items] : history.items;
   return <><div className="page-intro"><div><h2>Auditorias e histórico</h2><p className="muted">Rascunhos próprios e consultas permitidas no módulo e na obra selecionados.</p></div></div>
-    <HistoryFilters dateFrom={dateFrom} dateTo={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} label="Filtrar histórico" />
+    <HistoryMonthFilter month={month} onMonthChange={setMonth} label="Filtrar histórico" />
     <HistoryLoadStatus history={history} />
     <div className="table-panel"><table><caption>Auditorias do contexto</caption><thead><tr><th>Obra / registro</th><th>Modelo / versão</th><th>Data / responsável</th><th>Situação</th><th>Acesso</th></tr></thead><tbody>{rows.map((audit) => <tr key={audit.id}><td><strong>{works.find((work) => work.id === audit.workId)?.name}</strong><small>{audit.id}</small></td><td>{auditModelLabels[audit.modelId].name}<small>{auditVersionLabel(audit)}</small></td><td>{formatAuditDate(audit.date)}<small>{audit.auditor}</small></td><td><span className="badge">{audit.status}</span></td><td><button type="button" className="secondary" onClick={() => onOpen(audit)}>{canEditAudit(user, audit) ? "Retomar rascunho" : "Consultar auditoria"}</button></td></tr>)}{rows.length === 0 && history.status === "ready" && <tr><td colSpan={5}>Nenhuma auditoria disponível para este perfil e contexto.</td></tr>}</tbody></table></div>
     <HistoryPagination {...history} label="Páginas do histórico de auditorias" />
@@ -276,8 +274,7 @@ export function AuditorScheduledAudits({ user, visits, works, audits, auditFindi
   catalog: ReactNode;
 }) {
   const [publicationWorkId, setPublicationWorkId] = useListFilter(`AuditorScheduledAudits:publicationWorkId:${`${user.id}:${user.role}`}`);
-  const [dateFrom, setDateFrom] = useListFilter(`AuditorScheduledAudits:dateFrom:${`${user.id}:${user.role}`}`);
-  const [dateTo, setDateTo] = useListFilter(`AuditorScheduledAudits:dateTo:${`${user.id}:${user.role}`}`);
+  const { month, setMonth, dateFrom, dateTo } = useHistoryMonth(`AuditorScheduledAudits:${user.id}:${user.role}`);
   const workById = new Map(works.map((work) => [work.id, work]));
   const scheduled = visits.filter((visit) => visit.kind === "audit" && visit.auditorId === user.id
     && workById.has(visit.workId) && canReadVisit(user, visit))
@@ -302,8 +299,8 @@ export function AuditorScheduledAudits({ user, visits, works, audits, auditFindi
     <div className={styles.auditorLayout}>
       <div className={styles.auditorSidebar}>
         <section className={`panel ${styles.scheduledPanel}`} aria-label="Auditorias agendadas">
-          <div className="panel-heading"><h3>Auditorias agendadas</h3></div>
-          {agendaWindow && <MonthNavigation month={agendaWindow.month} onMonthChange={m => { if (!agendaWindow.blocked) agendaWindow.setMonth(m); }} label="Auditorias agendadas" />}
+          <div className={`panel-heading panel-filter-heading ${styles.publicationHeading}`}><h3>Auditorias agendadas</h3>
+          {agendaWindow && <MonthNavigation month={agendaWindow.month} onMonthChange={m => { if (!agendaWindow.blocked) agendaWindow.setMonth(m); }} label="Auditorias agendadas" />}</div>
           {scheduled.length ? <div className={styles.scheduledList}>
             {scheduledPage.items.map((visit) => <VisitCard key={visit.id} visit={visit} user={user} users={users}
               work={workById.get(visit.workId)} available={available} mutationPending={mutationPending}
@@ -312,16 +309,16 @@ export function AuditorScheduledAudits({ user, visits, works, audits, auditFindi
           <HistoryPagination {...scheduledPage} status={agendaWindow?.loading ? "loading" : "ready"} label="Páginas: auditorias agendadas" />
         </section>
         <section className="panel" aria-label="Apontamentos das auditorias">
-          <div className="panel-heading"><h3>Apontamentos das auditorias</h3></div>
-          <PublishedAuditFindingsList auditFindings={visibleFindings} works={works} module={discipline} contextKey={historyContextKey(user, works)} />
+          <PublishedAuditFindingsList heading="Apontamentos das auditorias" auditFindings={visibleFindings} works={works} module={discipline} contextKey={historyContextKey(user, works)} />
         </section>
       </div>
       <div className={styles.auditorSidebar}>
         <section className="panel" aria-label="Auditorias publicadas">
-          <div className={`panel-heading ${styles.publicationHeading}`}><h3>Auditorias publicadas</h3>
+          <div className={`panel-heading panel-filter-heading ${styles.publicationHeading}`}><h3>Auditorias publicadas</h3>
             {showExample && <span className="badge badge-amber">Prévia de teste</span>}
+            <HistoryMonthFilter className={styles.publicationFilters} works={works} workId={publicationWorkId} onWorkChange={setPublicationWorkId} month={month} onMonthChange={setMonth} label="Filtrar auditorias publicadas" />
           </div>
-          <HistoryFilters works={works} workId={publicationWorkId} onWorkChange={setPublicationWorkId} dateFrom={dateFrom} dateTo={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} label="Filtrar auditorias publicadas" />
+
           <HistoryLoadStatus history={publicationPage} />
           <div className={styles.publicationColumns}>
             <div className={styles.publicationColumn}>
@@ -368,11 +365,7 @@ export function PublishedAuditsPanel({ user, works, audits, module, onCreateActi
   const [publicationWorkId, setPublicationWorkId] = useListFilter(`PublishedAuditsPanel:publicationWorkId:${user.id}:${user.role}:${user.activity}:${module}`);
   const administrative = user.role === "administrative";
   const actor = useHistoryActor();
-  const [month, setMonth] = useListFilter(`publications:month:${user.id}:${user.role}:${module}`, administrative ? "" : getSaoPauloToday().slice(0, 7));
-  const [year, monthNumber] = month.split("-").map(Number);
-  const dateFrom = month ? `${month}-01` : "";
-  const dateTo = month && Number.isInteger(year) && Number.isInteger(monthNumber)
-    ? `${month}-${String(new Date(Date.UTC(year, monthNumber, 0)).getUTCDate()).padStart(2, "0")}` : "";
+  const { month, setMonth, dateFrom, dateTo } = useHistoryMonth(`publications:${user.id}:${user.role}:${module}`);
   const workById = new Map(works.map((work) => [work.id, work]));
   const published = sortAuditHistory(audits.filter((audit) => audit.status === "Publicada" && modelModule(audit.modelId) === module
     && workById.has(audit.workId) && canReadAudit(user, audit)));
@@ -388,8 +381,8 @@ export function PublishedAuditsPanel({ user, works, audits, module, onCreateActi
   const showFilteredExample = showExample && (!publicationWorkId || publicationWorkId === exampleWork.id);
 
   return <section className="panel" aria-label={`Auditorias publicadas de ${moduleLabels[module]}`}>
-    <div className={`panel-heading ${styles.publicationHeading}`}><h3>{moduleLabels[module]}</h3>
-      <HistoryMonthFilter className={styles.publicationFilters} works={works} workId={publicationWorkId} onWorkChange={setPublicationWorkId} month={month} onMonthChange={setMonth} allowAllPeriods={administrative} label={`Filtrar ${moduleLabels[module]}`} />
+    <div className={`panel-heading panel-filter-heading ${styles.publicationHeading}`}><h3>{moduleLabels[module]}</h3>
+      <HistoryMonthFilter className={styles.publicationFilters} works={works} workId={publicationWorkId} onWorkChange={setPublicationWorkId} month={month} onMonthChange={setMonth} label={`Filtrar ${moduleLabels[module]}`} />
     </div>
     <HistoryLoadStatus history={publicationPage} />
     <div className={styles.publicationColumns}>

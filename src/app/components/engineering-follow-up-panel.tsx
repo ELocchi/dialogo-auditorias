@@ -1,10 +1,11 @@
 "use client";
 import { DownloadButton } from "./download-button";
 import { useCursorList } from "./use-cursor-list";
-import { ListFilters, ListStatus, ListPagination } from "./list-controls";
+import { ListWorkFilter, ListFilters, ListStatus, ListPagination } from "./list-controls";
 import { listReportHref } from "@/lib/lists/presentation";
 
-import { memo } from "react";
+import { memo, useId, useState } from "react";
+import { Icon } from "./ui-icon";
 import { moduleLabels, type AppModule, type Visit } from "@/domain/prototype-access";
 import { formatAuditDate, type WorkRecord } from "@/domain/operational-records";
 import type { AgendaActorContext } from "@/lib/agenda/contracts";
@@ -20,9 +21,12 @@ export function EngineeringFollowUpPanel(props: Props) {
 
 function EngineeringFollowUpSession({ actor, works, module }: Props) {
   const { anchor: listAnchor, ...list } = useCursorList(actor, "reports", "engineering-reports", module);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchId = useId();
+  const showSearch = searchOpen || !!list.search;
   return <section className="panel" aria-label={`Relatório Orientativo de ${moduleLabels[module]}`}>
-    <div className={`panel-heading ${styles.heading}`}><h3>Relatório Orientativo</h3></div>
-    <div ref={listAnchor}><ListFilters list={list} works={works} label="Relatórios orientativos" /></div>
+    <div className={`panel-heading panel-filter-heading ${styles.heading}`}><h3>Relatório Orientativo</h3><ListWorkFilter list={list} works={works} label="Relatórios orientativos" /><button type="button" className={`secondary ${styles.searchButton}`} aria-label="Buscar relatórios" data-tooltip="Buscar" aria-expanded={showSearch} aria-controls={showSearch ? searchId : undefined} onClick={() => { setSearchOpen(!showSearch); if (showSearch) list.setSearch(""); }}><Icon name="search" /></button></div>
+    <div ref={listAnchor}><ListFilters list={list} label="Relatórios orientativos" showSearch={showSearch} searchId={searchId} focusSearch={searchOpen} /></div>
     <ListStatus list={list} empty="Nenhum relatório orientativo encontrado." />
     {!list.loading && !list.error && <div className={styles.list}>{list.data?.items.map(item =>
       <EngineeringFollowUpReportCard key={item.key} report={{ id: item.id, title: item.title!, date: item.date!,

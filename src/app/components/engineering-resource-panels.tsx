@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "./ui-icon";
 import { DownloadButton } from "./download-button";
 import { useListFilter } from "./list-state";
 import { useCursorList } from "./use-cursor-list";
@@ -14,7 +15,7 @@ import { catalogVersion, type CatalogSnapshot } from "@/lib/catalogs/contracts";
 import { groupAuditHistoryFindings } from "@/domain/audit-history";
 import { followUpPhotoThumbnailUrl } from "@/lib/photos/urls";
 import { HistoryPagination, useHistoryPage } from "./history-pagination";
-import { HistoryFilters, HistoryLoadStatus, usePublishedHistoryPage } from "./published-history-page";
+import { HistoryMonthFilter, useHistoryMonth, HistoryLoadStatus, usePublishedHistoryPage } from "./published-history-page";
 import { useAuditDetails } from "./audit-details-context";
 import styles from "./engineering-resource-panels.module.css";
 
@@ -38,16 +39,18 @@ export type PublishedAuditFinding = {
   evidencePhotos?: readonly { name: string; url?: string; thumbnailUrl?: string }[];
 };
 
-export function PublishedAuditFindingsList({ auditFindings, works, module, contextKey = "", heading }: {
+export function PublishedAuditFindingsList({ auditFindings, works, module, contextKey = "", heading, workFilter }: {
   auditFindings: readonly PublishedAuditFinding[];
   works: readonly WorkRecord[];
   contextKey?: string;
   module?: AppModule;
   heading?: string;
+  workFilter?: { value: string; onChange: (value: string) => void };
 }) {
-  const [workId, setWorkId] = useListFilter(`published-findings:workId:${contextKey}`);
-  const [dateFrom, setDateFrom] = useListFilter(`published-findings:dateFrom:${contextKey}`);
-  const [dateTo, setDateTo] = useListFilter(`published-findings:dateTo:${contextKey}`);
+  const [storedWorkId, setStoredWorkId] = useListFilter(`published-findings:workId:${contextKey}`);
+  const workId = workFilter?.value ?? storedWorkId;
+  const setWorkId = workFilter?.onChange ?? setStoredWorkId;
+  const { month, setMonth, dateFrom, dateTo } = useHistoryMonth(`published-findings:${contextKey}`);
   const [expandedAudits, setExpandedAudits] = useState<Set<string>>(() => new Set());
   const [expandedFindings, setExpandedFindings] = useState<Set<string>>(() => new Set());
   const idPrefix = useId().replace(/:/g, "");
@@ -62,9 +65,9 @@ export function PublishedAuditFindingsList({ auditFindings, works, module, conte
   const localHistory = useHistoryPage(groupedAuditFindings, JSON.stringify([contextKey, workId, dateFrom, dateTo, works.map((work) => work.id).sort()]));
   const history = page.remote ? { ...page, items: groupedAuditFindings } : localHistory;
 
-  const filters = <HistoryFilters className={heading ? styles.headingFilters : undefined} works={works} workId={workId} onWorkChange={setWorkId} dateFrom={dateFrom} dateTo={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} label="Filtrar apontamentos" />;
+  const filters = <HistoryMonthFilter className={heading ? styles.headingFilters : undefined} works={works} workId={workId} onWorkChange={setWorkId} month={month} onMonthChange={setMonth} label="Filtrar apontamentos" />;
 
-  return <>{heading ? <div className={`panel-heading ${styles.findingsHeading}`}><h3>{heading}</h3>{filters}</div> : filters}
+  return <>{heading ? <div className={`panel-heading panel-filter-heading ${styles.findingsHeading}`}><h3>{heading}</h3>{filters}</div> : filters}
     <HistoryLoadStatus history={page} />
     {!history.items.length && page.status === "ready" && <p className="muted">Nenhum apontamento incluído em relatório de auditoria publicado neste período.</p>}
     <div className={styles.auditGroups}>{history.items.map((group, groupIndex) => {
@@ -117,25 +120,38 @@ export function PublishedAuditFindingsList({ auditFindings, works, module, conte
   })}</div><HistoryPagination {...history} label="Páginas das auditorias com apontamentos" /></>;
 }
 
-export function EngineeringResourcePanels({ actor, works, module, catalogs, auditFindings = [], deferCatalogs = (content) => content }: {
+export function EngineeringResourcePanels({ actor, works, module, catalogs, auditFindings = [], showRoutes = true, deferCatalogs = (content) => content }: {
   actor: AgendaActorContext;
   works: readonly WorkRecord[];
   module: AppModule;
   catalogs: CatalogSnapshot;
   auditFindings?: readonly PublishedAuditFinding[];
   findingCount?: number;
+  showRoutes?: boolean;
   deferCatalogs?: (children: ReactNode) => ReactNode;
 }) {
   const { anchor: listAnchor, ...list } = useCursorList(actor, "work-findings", "engineering-findings", module);
   const findings = list.data?.items.map(listWorkFinding) ?? [];
+  const [otherOpen, setOtherOpen] = useState(true);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const otherId = useId();
+  const searchId = useId();
+  const showSearch = searchOpen || !!list.search;
   const [expandedOtherFindings, setExpandedOtherFindings] = useState<Set<string>>(() => new Set());
   const { userId, profile, engineeringScope, administrativeScope } = actor;
   const workNames = new Map(works.map((work) => [work.id, work.name]));
 
   return <div className={styles.grid}>
     <section className="panel" aria-label={`Apontamentos de ${moduleLabels[module]}`}>
-      <PublishedAuditFindingsList heading="Apontamentos" auditFindings={auditFindings} works={works} module={module} contextKey={JSON.stringify([module, userId, profile, engineeringScope, administrativeScope])} />
-      <div ref={listAnchor}><span className={styles.listLabel}>OUTROS APONTAMENTOS</span><ListFilters list={list} works={works} label="Outros apontamentos" /></div>
+      <PublishedAuditFindingsList workFilter={{ value: list.state.workId, onChange: list.setWorkId }} heading="Apontamentos" auditFindings={auditFindings} works={works} module={module} contextKey={JSON.stringify([module, userId, profile, engineeringScope, administrativeScope])} />
+      <div ref={listAnchor} className={styles.otherHeading}>
+        <button type="button" className={styles.otherToggle} aria-expanded={otherOpen} aria-controls={otherId} onClick={() => setOtherOpen(open => !open)}>
+          <span>Outros apontamentos</span><i className={`${styles.chevron}${otherOpen ? ` ${styles.chevronExpanded}` : ""}`} aria-hidden="true" />
+        </button>
+        <button type="button" className={`secondary ${styles.searchButton}`} aria-label="Buscar outros apontamentos" data-tooltip="Buscar" aria-expanded={otherOpen && showSearch} aria-controls={searchId} onClick={() => { setOtherOpen(true); setSearchOpen(!showSearch); if (showSearch) list.setSearch(""); }}><Icon name="search" /></button>
+      </div>
+      <div id={otherId} hidden={!otherOpen}>
+      <ListFilters list={list} label="Outros apontamentos" showSearch={showSearch} searchId={searchId} focusSearch={searchOpen && otherOpen} />
       <ListStatus list={list} empty="Nenhum outro apontamento encontrado." />
       {!list.loading && !list.error && findings.length ? <ul className={styles.findings}>{findings.map((finding, findingIndex) => {
           const expanded = expandedOtherFindings.has(finding.id);
@@ -160,8 +176,9 @@ export function EngineeringResourcePanels({ actor, works, module, catalogs, audi
           </li>;
         })}</ul> : null}
       <ListPagination list={list} label="Outros apontamentos" />
+      </div>
     </section>
-    <EngineeringRoutesPanel modules={[module]} catalogs={catalogs} deferCatalogs={deferCatalogs} />
+    {showRoutes && <EngineeringRoutesPanel modules={[module]} catalogs={catalogs} deferCatalogs={deferCatalogs} />}
   </div>;
 }
 

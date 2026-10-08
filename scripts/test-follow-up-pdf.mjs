@@ -30,7 +30,10 @@ async function inspectPdf(bytes) {
   const pdf = await PDFDocument.load(bytes);
   let text = "";
   const drawnPhotos = [];
+  const pages = [];
   for (const page of pdf.getPages()) {
+    const textStart = text.length;
+    const photoStart = drawnPhotos.length;
     const contents = page.node.Contents();
     const streams = contents instanceof PDFArray ? Array.from({ length: contents.size() }, (_, i) => contents.lookup(i)) : [contents];
     const commands = streams.filter((stream) => stream instanceof PDFRawStream)
@@ -44,8 +47,9 @@ async function inspectPdf(bytes) {
         drawnPhotos.push({ width: Number(stream.dict.get(PDFName.of("Width"))?.toString()),
           height: Number(stream.dict.get(PDFName.of("Height"))?.toString()), bytes: stream.contents });
     }
+    pages.push({ text: text.slice(textStart), photos: drawnPhotos.slice(photoStart) });
   }
-  return { pdf, text, drawnPhotos };
+  return { pdf, text, drawnPhotos, pages };
 }
 
 test("real PDF derivatives preserve orientation, aspect ratio, alpha and original bytes", async () => {
@@ -160,4 +164,35 @@ test("bad images, missing downloads and exhausted byte budgets fail the complete
   const bounded = createFollowUpPdfPhotoPipeline({ maximumPhotoBytes: 2, resize: async () => new Uint8Array(3) });
   await assert.rejects(bounded([source(id(1))], consume), /memory budget/);
   assert.equal((await run([source(id(1))], consume)).length, 1, "Failure does not retain a cache or leak a slot");
+});
+
+
+test("each photo keeps its finding description and correction on the same page", async () => {
+  const findings = Array.from({length: 7}, (_, i) => ({id: id(i + 1), description: `DESCRICAO_VINCULADA_${i + 1}`,
+    location: `LOCAL_${i + 1}`, correction: `CORRECAO_VINCULADA_${i + 1}`}));
+  const photos = [];
+  for (let n = 1; n <= 6; n++) {
+    const bytes = new Uint8Array(await sharp({create:{width:100+n,height:n%2?200:60,channels:3,background:"#20446a"}}).jpeg().toBuffer());
+    photos.unshift({findingId:id(n),mimeType:"image/jpeg",bytes});
+    if(n===2) photos.push({findingId:id(n),mimeType:"image/jpeg",bytes});
+  }
+  const bytes = await createFollowUpReportPdf({...details, report:{...report,participants:"Equipe",subjects:"Visita",decisions:"Orientações",findings},photos});
+  const result = await inspectPdf(bytes);
+  assert.equal(result.drawnPhotos.length,7);
+  for (const page of result.pages) for (const photo of page.photos) {
+    const n=photo.width-100;
+    assert.ok(page.text.includes(`DESCRICAO_VINCULADA_${n}`));
+    assert.ok(page.text.includes(`CORRECAO_VINCULADA_${n}`));
+    assert.ok(page.text.includes(`Apontamento ${n}`));
+  }
+  assert.ok(result.text.includes('DESCRICAO_VINCULADA_7'));
+});
+
+test("long finding text remains complete after a photo and page breaks", async () => {
+  const description=Array.from({length:90},(_,i)=>`LINHA_${i}`).join('\n');
+  const bytes=await createFollowUpReportPdf({...details,report:{...report,findings:[{id:id(1),description,location:'Local',correction:'FIM_DA_ORIENTACAO'}]},photos:[{findingId:id(1),mimeType:'image/jpeg',bytes:new Uint8Array(await small.arrayBuffer())}]});
+  const result=await inspectPdf(bytes);
+  for(let i=0;i<90;i++)assert.ok(result.text.includes(`LINHA_${i}\n`));
+  assert.ok(result.text.includes('FIM_DA_ORIENTACAO'));
+  assert.ok(result.pages.find(p=>p.photos.length)?.text.includes('LINHA_0'));
 });

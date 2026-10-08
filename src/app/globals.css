@@ -285,3 +285,14 @@ td small { display: block; color: var(--muted); font-size: 10px; margin-top: 5px
   :is(button, a, input, select, textarea, summary):focus-visible { outline: 3px solid Highlight; }
   .action-tooltip { border: 1px solid CanvasText; }
 }
+
+/* Shared headings: title, work filter, month and actions stay together. */
+.panel-heading.panel-filter-heading { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 12px; }
+.panel-filter-heading > h3, .panel-filter-heading > span:first-child { flex: 1 1 100px; min-width: 0; margin: 0; }
+.panel-filter-heading > .filter-select, .panel-filter-heading select.filter-select { width: 150px; min-width: 0; max-width: 100%; }
+.panel-filter-heading > [role="group"] { display: flex; flex: 0 1 auto; flex-wrap: wrap; align-items: center; gap: 12px; width: auto; max-width: 100%; margin: 0; }
+.panel-filter-heading > [role="group"] > label { min-width: 0; }
+@media (max-width: 600px) {
+  .panel-filter-heading > h3, .panel-filter-heading > span:first-child { flex-basis: 100%; }
+  .panel-heading.panel-filter-heading { justify-content: flex-start; }
+}

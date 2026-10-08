@@ -617,9 +617,14 @@ function EngineeringSection({ title, module, user, works, audits, auditFindings,
   return <>
     <div className="page-intro"><div><h2>{title}</h2></div></div>
     <div className={styles.engineeringSection}>
-      <PublishedAuditsPanel user={user} works={works} audits={audits} module={module} onCreateActionPlan={onCreateActionPlan} hasPublishedActionPlan={hasPublishedActionPlan} onDownloadActionPlan={onDownloadActionPlan} />
-      <EngineeringFollowUpPanel actor={actor} visits={visits} works={works} module={module} />
-      <EngineeringResourcePanels findingCount={findingCount} actor={actor} works={works} module={module} catalogs={catalogs} deferCatalogs={deferCatalogs} auditFindings={auditFindings.filter((finding) => finding.module === module)} />
+      <div className={styles.engineeringColumn}>
+        <PublishedAuditsPanel user={user} works={works} audits={audits} module={module} onCreateActionPlan={onCreateActionPlan} hasPublishedActionPlan={hasPublishedActionPlan} onDownloadActionPlan={onDownloadActionPlan} />
+        <EngineeringResourcePanels showRoutes={false} findingCount={findingCount} actor={actor} works={works} module={module} catalogs={catalogs} deferCatalogs={deferCatalogs} auditFindings={auditFindings.filter((finding) => finding.module === module)} />
+      </div>
+      <div className={styles.engineeringColumn}>
+        <EngineeringFollowUpPanel actor={actor} visits={visits} works={works} module={module} />
+        <EngineeringRoutesPanel modules={[module]} catalogs={catalogs} deferCatalogs={deferCatalogs} />
+      </div>
     </div>
   </>;
 }

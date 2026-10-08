@@ -1,7 +1,7 @@
 "use client";
 import { AsyncSkeleton } from "./async-feedback";
 
-import { useListState } from "./list-state";
+import { useListFilter, useListState } from "./list-state";
 import type { AuditRecord, WorkRecord } from "@/domain/operational-records";
 import { getSaoPauloToday, shiftCalendarMonth } from "@/domain/visit-calendar";
 import type { AuditHistoryQuery } from "@/lib/audits/history-contracts";
@@ -57,29 +57,20 @@ export function HistoryLoadStatus({ history }: { history: { status: string; mess
   return null;
 }
 
-export function HistoryFilters({ works, workId, onWorkChange, dateFrom, dateTo, onFromChange, onToChange, label, className }: {
-  works?: readonly WorkRecord[]; workId?: string; onWorkChange?: (value: string) => void;
-  dateFrom: string; dateTo: string; onFromChange: (value: string) => void; onToChange: (value: string) => void; label: string; className?: string;
-}) {
-  const month = (/^\d{4}-\d{2}-\d{2}$/.test(dateFrom) ? dateFrom : /^\d{4}-\d{2}-\d{2}$/.test(dateTo) ? dateTo : getSaoPauloToday()).slice(0, 7);
-  const selectMonth = (nextMonth: string) => {
-    const range = monthRange(nextMonth);
-    onFromChange(range.from);
-    onToChange(range.to);
-  };
-  return <div className={`${styles.filters}${className ? ` ${className}` : ""}`} role="group" aria-label={label}>
-    {works && onWorkChange && <label><select className="filter-select" aria-label={`${label}: obra`} value={workId ?? ""} onChange={(event) => onWorkChange(event.target.value)}><option value="">Todas as obras</option>{works.map((work) => <option key={work.id} value={work.id}>{work.name}</option>)}</select></label>}
-    {!dateFrom && !dateTo ? <><span>Todos os períodos</span><button type="button" className="secondary" onClick={() => selectMonth(month)}>Escolher mês</button></> : <><MonthNavigation month={month} onMonthChange={selectMonth} label={`${label}: navegar por mês`} /><button type="button" className="secondary" onClick={() => { onFromChange(""); onToChange(""); }}>Todos os períodos</button></>}
-  </div>;
+export function useHistoryMonth(scope: string) {
+  const todayMonth = getSaoPauloToday().slice(0, 7);
+  const [stored, setMonth] = useListFilter(`history-month:v1:${scope}`, todayMonth);
+  const month = /^(?!0000)\d{4}-(0[1-9]|1[0-2])$/.test(stored) ? stored : todayMonth;
+  const range = monthRange(month);
+  return { month, setMonth, dateFrom: range.from, dateTo: range.to };
 }
 
-export function HistoryMonthFilter({ works, workId, onWorkChange, month, onMonthChange, label, className, allowAllPeriods = false }: {
+export function HistoryMonthFilter({ works, workId, onWorkChange, month, onMonthChange, label, className }: {
   works?: readonly WorkRecord[]; workId?: string; onWorkChange?: (value: string) => void;
-  month: string; onMonthChange: (value: string) => void; label: string; className?: string; allowAllPeriods?: boolean;
+  month: string; onMonthChange: (value: string) => void; label: string; className?: string;
 }) {
   return <div className={`${styles.filters}${className ? ` ${className}` : ""}`} role="group" aria-label={label}>
     {works && onWorkChange && <label><select className="filter-select" aria-label={`${label}: obra`} value={workId ?? ""} onChange={(event) => onWorkChange(event.target.value)}><option value="">Todas as obras</option>{works.map((work) => <option key={work.id} value={work.id}>{work.name}</option>)}</select></label>}
-    {allowAllPeriods && <label><select className="filter-select" aria-label={`${label}: período`} value={month ? "month" : "all"} onChange={event => onMonthChange(event.target.value === "all" ? "" : getSaoPauloToday().slice(0, 7))}><option value="all">Todos os períodos</option><option value="month">Por mês</option></select></label>}
     {month && <MonthNavigation month={month} onMonthChange={onMonthChange} label={`${label}: navegar por mês`} />}
   </div>;
 }

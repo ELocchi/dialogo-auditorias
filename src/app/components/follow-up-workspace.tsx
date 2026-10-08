@@ -3,7 +3,7 @@ import { SlowOperation } from "./slow-operation";
 import { DownloadButton } from "./download-button";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
 import type { DemoUser, Visit } from "@/domain/prototype-access";
 import type { WorkRecord } from "@/domain/operational-records";
 import type { AgendaActorContext } from "@/lib/agenda/contracts";
@@ -11,10 +11,11 @@ import type { FollowUpFinding } from "@/lib/follow-up/service";
 import { maxPhotoBytes, maxPhotosPerFinding } from "@/lib/follow-up/photos";
 import { completeFindingAction, completeWorkFindingAction, createWorkFindingAction, uploadFindingPhotosAction } from "@/app/follow-up/actions";
 import { useCursorList } from "./use-cursor-list";
-import { ListFilters, ListPagination, ListStatus } from "./list-controls";
+import { ListWorkFilter, ListFilters, ListPagination, ListStatus } from "./list-controls";
 import { listWorkFinding, listSavedFinding, listReportHref } from "@/lib/lists/presentation";
 import { useFollowUpPhotoStore } from "./use-follow-up-photos";
 import { FollowUpPhotoPicker, FollowUpWorkFindingRow, FollowUpSavedFindingRow } from "./follow-up-workspace-rows";
+import { Icon } from "./ui-icon";
 import styles from "./follow-up-workspace.module.css";
 
 type Props = { user: DemoUser; visits: readonly Visit[]; works: readonly WorkRecord[]; actor: AgendaActorContext; agendaAvailable: boolean };
@@ -30,6 +31,12 @@ function FollowUpWorkspaceSession({ user, works, actor }: Props) {
   const authorizedWorks = useMemo(() => new Map(works.map((work) => [work.id, work])), [works]);
   const { anchor: findingsListAnchor, ...findingsList } = useCursorList(actor, "findings", "follow-up-findings", discipline);
   const { anchor: reportsListAnchor, ...reportsList } = useCursorList(actor, "reports", "follow-up-reports", discipline);
+  const [reportSearchOpen, setReportSearchOpen] = useState(false);
+  const [findingSearchOpen, setFindingSearchOpen] = useState(false);
+  const reportSearchId = useId();
+  const findingSearchId = useId();
+  const showReportSearch = reportSearchOpen || !!reportsList.search;
+  const showFindingSearch = findingSearchOpen || !!findingsList.search;
   const retry = findingsList.retry;
   const reportWorks = works.filter(work => !work.isDemo && user.workModuleScopes?.some(scope => scope.workId === work.id && scope.module === discipline));
   const photoStore = useFollowUpPhotoStore(actor);
@@ -135,14 +142,15 @@ function FollowUpWorkspaceSession({ user, works, actor }: Props) {
 
     <div className={styles.layout}>
       <section className={`panel ${styles.listPanel}`} aria-label="Relatórios orientativos">
-        <div className={`panel-heading ${styles.reportHeader}`}><h3>Relatórios orientativos</h3>
+        <div className={`panel-heading panel-filter-heading ${styles.reportHeader}`}><h3>Relatórios orientativos</h3><ListWorkFilter list={reportsList} works={works} label="Relatórios orientativos" />
+          <button type="button" className={`secondary ${styles.searchButton}`} aria-label="Buscar relatórios" data-tooltip="Buscar" aria-expanded={showReportSearch} aria-controls={reportSearchId} onClick={() => { setReportSearchOpen(!showReportSearch); if (showReportSearch) reportsList.setSearch(""); }}><Icon name="search" /></button>
           {createReportWork ? <Link className={`primary ${styles.addReportButton}`} href={`/app/acompanhamento/relatorio/novo?obra=${createReportWork.id}`}
               aria-label="Criar relatório orientativo" data-tooltip="Criar relatório orientativo">+</Link>
             : <button type="button" className={`primary ${styles.addReportButton}`} disabled aria-label="Criar relatório orientativo"
                 data-tooltip="Sem obras disponíveis">+</button>}
         </div>
         {!createReportWork && <p className="muted">Para criar um relatório, é necessário ter uma obra disponível neste perfil.</p>}
-        <div ref={reportsListAnchor}><ListFilters list={reportsList} works={works} label="Relatórios orientativos" /><ListStatus list={reportsList} empty="Nenhum relatório orientativo encontrado." /></div>
+        <div ref={reportsListAnchor}><ListFilters list={reportsList} label="Relatórios orientativos" showSearch={showReportSearch} searchId={reportSearchId} focusSearch={reportSearchOpen} /><ListStatus list={reportsList} empty="Nenhum relatório orientativo encontrado." /></div>
         {!reportsList.loading && !reportsList.error && visibleReports.length ? <ul className={styles.reportList}>{visibleReports.map((report) => {
           const savedAt = new Date(report.displayDate);
           const day = savedAt.toLocaleDateString("pt-BR", { day: "2-digit", timeZone: "America/Sao_Paulo" });
@@ -160,10 +168,11 @@ function FollowUpWorkspaceSession({ user, works, actor }: Props) {
         <ListPagination list={reportsList} label="Relatórios orientativos" />
       </section>
       <section className={`panel ${styles.findingsPanel}`} aria-label="Apontamentos de acompanhamento">
-        <div className={`panel-heading ${styles.findingHeader}`}><h3 id="follow-up-findings-heading" tabIndex={-1}>Apontamentos</h3>
+        <div className={`panel-heading panel-filter-heading ${styles.findingHeader}`}><h3 id="follow-up-findings-heading" tabIndex={-1}>Apontamentos</h3><ListWorkFilter list={findingsList} works={works} label="Apontamentos" />
+          <button type="button" className={`secondary ${styles.searchButton}`} aria-label="Buscar apontamentos" data-tooltip="Buscar" aria-expanded={showFindingSearch} aria-controls={findingSearchId} onClick={() => { setFindingSearchOpen(!showFindingSearch); if (showFindingSearch) findingsList.setSearch(""); }}><Icon name="search" /></button>
           <button type="button" className={`primary ${styles.addFindingButton}`} aria-label="Adicionar apontamento" data-tooltip="Adicionar apontamento" disabled={disabled || works.length === 0} onClick={beginFinding}>+</button>
         </div>
-        <div ref={findingsListAnchor}><ListFilters list={findingsList} works={works} label="Apontamentos" /></div>
+        <div ref={findingsListAnchor}><ListFilters list={findingsList} label="Apontamentos" showSearch={showFindingSearch} searchId={findingSearchId} focusSearch={findingSearchOpen} /></div>
         {adding && <form className={styles.addFindingForm} onSubmit={(event) => { void submitFinding(event); }}>
           <div className={styles.findingTopRow}>
             <div className={styles.photoField} role="group" aria-label="Foto obrigatória"><FollowUpPhotoPicker disabled={disabled} previewUrl={previewUrl} onSelect={(file) => {

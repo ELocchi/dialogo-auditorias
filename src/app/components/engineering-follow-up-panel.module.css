@@ -1,4 +1,6 @@
-.heading { align-items: center; gap: 16px; }
+.heading { display: grid; grid-template-columns: minmax(0, 1fr) 44px; align-items: center; gap: 16px; }
+.heading h3 { margin: 0; }
+.searchButton { width: 44px; height: 44px; padding: 0; display: grid; place-items: center; }
 .heading select { min-width: 190px; max-width: 240px; }
 .list { display: grid; gap: 12px; }
 .card { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px; border: 1px solid var(--line); border-left: 5px solid var(--red); border-radius: 14px; }

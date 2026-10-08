@@ -1,18 +1,25 @@
 "use client";
-import { useId } from "react";
+import { useEffect, useId, useRef } from "react";
 import type { WorkRecord } from "@/domain/operational-records";
 import type { CursorList } from "./use-cursor-list";
 import { AsyncSkeleton } from "./async-feedback";
 import { Icon } from "./ui-icon";
 import styles from "./history-pagination.module.css";
 
-export function ListFilters({ list, works, label, disabled = false }: { disabled?: boolean; list: CursorList; works?: readonly WorkRecord[]; label: string }) {
-  const id = useId();
+export function ListWorkFilter({ list, works, label }: { list: CursorList; works: readonly WorkRecord[]; label: string }) {
+  return <select className="filter-select" aria-label={`Obra: ${label}`} value={list.state.workId} onChange={event => list.setWorkId(event.target.value)}><option value="">Todas as obras</option>{works.map(work => <option key={work.id} value={work.id}>{work.name}</option>)}</select>;
+}
+
+export function ListFilters({ list, works, label, disabled = false, showSearch = true, searchId, focusSearch = false }: { disabled?: boolean; list: CursorList; works?: readonly WorkRecord[]; label: string; showSearch?: boolean; searchId?: string; focusSearch?: boolean }) {
+  const generatedId = useId();
+  const id = searchId ?? generatedId;
+  const searchRef = useRef<HTMLInputElement>(null);
+  useEffect(() => { if (showSearch && focusSearch) searchRef.current?.focus(); }, [showSearch, focusSearch]);
   return <div className={styles.filters} role="group" aria-disabled={disabled} aria-label={`Filtros: ${label}`}>
     {works && <select disabled={disabled} className="filter-select" aria-label={`Obra: ${label}`} value={list.state.workId} onChange={e => list.setWorkId(e.target.value)}>
       <option value="">Todas as obras</option>{works.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
     </select>}
-    <label htmlFor={id}>Buscar<input id={id} type="search" disabled={disabled} maxLength={120} value={list.search} aria-label={`Buscar: ${label}`} onChange={e => list.setSearch(e.target.value)} /></label>
+    {showSearch && <label htmlFor={id}>Buscar<input ref={searchRef} id={id} type="search" disabled={disabled} maxLength={120} value={list.search} aria-label={`Buscar: ${label}`} onChange={e => list.setSearch(e.target.value)} /></label>}
   </div>;
 }
 export function ListStatus({ list, empty = "Nenhum registro encontrado." }: { list: CursorList; empty?: string }) {

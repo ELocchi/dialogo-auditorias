@@ -114,21 +114,33 @@ export async function createFollowUpReportPdf({ report, workName, visitDate, aud
   };
   startFindingsPage();
   for (const [index, finding] of report.findings.entries()) {
-    ensureFindingsSpace(55);
-    findingLines(`${index + 1}. ${finding.description}${finding.serious ? " · ITEM GRAVE" : ""}`, bold, 10,
-      finding.serious ? red : navy);
-    if (finding.location) findingLines(`Local: ${finding.location}`, regular, 9, muted, 14);
-    findingLines(`Orientação para correção: ${finding.correction}`, regular, 9, navy, 14);
-    y -= 9;
+    const description = `${index + 1}. ${finding.description}${finding.serious ? " · ITEM GRAVE" : ""}`;
+    const textHeight = 15 * (wrap(description, bold, 10, right - left).length
+      + (finding.location ? wrap(`Local: ${finding.location}`, regular, 9, right - left - 14).length : 0)
+      + wrap(`Orientação para correção: ${finding.correction}`, regular, 9, right - left - 14).length);
+    const drawDetails = () => {
+      findingLines(description, bold, 10, finding.serious ? red : navy);
+      if (finding.location) findingLines(`Local: ${finding.location}`, regular, 9, muted, 14);
+      findingLines(`Orientação para correção: ${finding.correction}`, regular, 9, navy, 14);
+      y -= 16;
+    };
     let photoIndex = 0;
     for await (const photo of photosForFinding?.(finding.id) ?? photos.filter((item) => item.findingId === finding.id)) {
       const image = photo.mimeType === "image/png" ? await pdf.embedPng(photo.bytes) : await pdf.embedJpg(photo.bytes);
       const scaled = image.scaleToFit(right - left - 28, 270);
-      ensureFindingsSpace(scaled.height + 30);
-      page.drawText(`Foto ${++photoIndex}`, { x: left + 14, y, size: 8, font: bold, color: muted });
-      y -= 10;
+      // Reserve one block for the image and its own text. Longer descriptions
+      // continue normally, without truncation; every additional photo repeats
+      // its finding details so it cannot be confused with the following item.
+      ensureFindingsSpace(Math.min(564, scaled.height + 30 + textHeight + 16));
+      page.drawText(`Apontamento ${index + 1} · Foto ${++photoIndex}`, { x: left + 14, y, size: 8, font: bold, color: muted });
+      y -= 12;
       page.drawImage(image, { x: left + 14, y: y - scaled.height, width: scaled.width, height: scaled.height });
-      y -= scaled.height + 17;
+      y -= scaled.height + 18;
+      drawDetails();
+    }
+    if (!photoIndex) {
+      ensureFindingsSpace(Math.min(564, textHeight + 16));
+      drawDetails();
     }
   }
 

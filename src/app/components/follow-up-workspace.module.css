@@ -1,8 +1,8 @@
 .layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); align-items: start; gap: 24px; }
 .listPanel, .findingsPanel { min-width: 0; }
-.reportHeader { display: grid; grid-template-columns: minmax(0, 1fr) 44px; align-items: center; gap: 12px; }
-.reportHeader h3 { min-width: 0; }
-.addReportButton { display: grid; width: 44px; min-width: 44px; height: 44px; min-height: 44px; place-items: center; padding: 0; color: white; font-size: 24px; line-height: 1; text-decoration: none; }
+.reportHeader, .findingHeader { display: grid; grid-template-columns: minmax(0, 1fr) 44px 44px; align-items: center; gap: 12px; }
+.reportHeader h3, .findingHeader h3 { min-width: 0; margin: 0; }
+.addReportButton, .addFindingButton { display: grid; width: 44px; min-width: 44px; height: 44px; min-height: 44px; place-items: center; padding: 0; color: white; font-size: 24px; line-height: 1; text-decoration: none; }
 .reportList { display: grid; gap: 12px; margin: 16px 0 0; padding: 0; list-style: none; }
 .reportList li { display: flex; min-width: 0; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--line); border-left: 4px solid var(--red); border-radius: 10px; background: var(--surface); }
 .reportDate { display: flex; width: 60px; height: 62px; flex: 0 0 60px; flex-direction: column; align-items: center; justify-content: center; border: 1px solid var(--navy); border-radius: 8px; background: var(--navy); color: white; }
@@ -14,9 +14,6 @@
 .reportDownload { display: grid; width: 40px; min-width: 40px; height: 40px; min-height: 40px; place-items: center; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--navy); }
 .reportDownload:hover { border-color: var(--navy); background: #e8eef7; }
 .reportDownload svg { width: 20px; height: 20px; }
-.findingHeader { display: grid; grid-template-columns: minmax(0, 1fr) 150px 60px; align-items: center; gap: 8px; }
-.findingHeader h3 { min-width: 0; }
-.addFindingButton { width: 100%; height: 43px; padding-inline: 0; color: white; font-size: 18px; }
 .savedFindings { display: grid; gap: 12px; max-height: 740px; margin: 16px 0 0; padding: 0 3px 0 0; overflow-y: auto; list-style: none; }
 .savedFindings li { display: grid; grid-template-columns: 76px minmax(0, 1fr) auto; align-items: start; gap: 16px; min-width: 0; padding: 15px 16px; border: 1px solid var(--line); border-left: 4px solid var(--navy); border-radius: 10px; background: var(--surface); overflow-wrap: anywhere; }
 .findingMedia { display: flex; flex-wrap: wrap; gap: 5px; width: 76px; min-height: 76px; }
@@ -52,7 +49,9 @@
 .success { border-color: #b7dcc6; background: #edf7f0; color: #20583b; }
 .error { margin: 16px 0 0; border-color: #edcdd0; background: #fff4f3; color: #a43139; }
 @media (max-width: 960px) { .layout { grid-template-columns: 1fr; } }
-@media (max-width: 580px) { .findingHeader { grid-template-columns: 150px 60px; justify-content: end; } .findingHeader h3 { grid-column: 1 / -1; } .savedFindings li { grid-template-columns: 76px minmax(0, 1fr); } .findingComplete { grid-column: 2; justify-self: end; } }
+@media (max-width: 580px) { .savedFindings li { grid-template-columns: 76px minmax(0, 1fr); } .findingComplete { grid-column: 2; justify-self: end; } }
 
 .findingMedia > span[role="status"] { height: auto; min-height: 76px; overflow: visible; }
 .findingMedia > span[role="status"] button { min-width: 0; width: 100%; padding: 6px 2px; font-size: 10px; }
+
+.searchButton { display: grid; place-items: center; width: 44px; min-width: 44px; height: 44px; padding: 0; }
