@@ -1,6 +1,7 @@
 "use client";
 import { PublicationFeedback } from "./publication-feedback";
 import { requestSignal } from "@/lib/request-signal";
+import { agendaDetailQuery } from "@/lib/agenda/detail-client";
 import { AsyncSkeleton } from "./async-feedback";
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
@@ -441,7 +442,7 @@ function ProfileWorkspace({ context: providedContext, initialScreen, initialVisi
       throw new Error("Esta auditoria só pode ser iniciada pelo profissional responsável na data confirmada.");
     let current = visit;
     if (!localTestVisitIds.has(visit.id)) {
-      const response = await fetch(`/api/agenda/visits/${visit.id}?${publicationQuery(agendaActor)}`, { credentials: "same-origin", cache: "no-store", signal: requestSignal() });
+      const response = await fetch(`/api/agenda/visits/${visit.id}?${agendaDetailQuery(user)}`, { credentials: "same-origin", cache: "no-store", signal: requestSignal() });
       if (!response.ok) throw new Error("Não foi possível conferir o agendamento. Tente novamente.");
       const fresh = await response.json();
       if (!fresh?.available || !fresh.visit) throw new Error("Não foi possível conferir o agendamento. Tente novamente.");

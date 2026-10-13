@@ -3,6 +3,8 @@ import { test } from "node:test";
 import { registerHooks } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import path from "node:path";
+import { readFileSync } from "node:fs";
+import { stripTypeScriptTypes } from "node:module";
 import { agendaDetailQuery } from "../src/lib/agenda/detail-client.ts";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -51,6 +53,30 @@ test("detail route reads one exact visit and never permits browser or intermedia
   assert.equal(response.status, 200); assert.equal(response.headers.get("Cache-Control"), "private, no-store");
   assert.equal(response.headers.get("Vary"), "Cookie"); assert.deepEqual(await response.json(), state.result);
   assert.deepEqual(state.calls, [{ context: state.context, id: visitId }]);
+});
+
+test("start audit sends the detail route context for safety and quality auditors", async () => {
+  const app = readFileSync(path.join(root, "src/app/components/prototype-app.tsx"), "utf8");
+  const publication = readFileSync(path.join(root, "src/app/components/use-audit-publication.ts"), "utf8");
+  const querySource = publication.match(/export function publicationQuery\([^]*?\n\}/)?.[0];
+  assert.ok(querySource);
+  const publicationQuery = new Function(stripTypeScriptTypes(querySource.replace(/^export /, "")) + "; return publicationQuery;")();
+  // Exercise the URL actually used by the start button against the real route.
+  const start = app.slice(app.indexOf("const startScheduledAudit ="), app.indexOf("const auditNav ="));
+  const urlExpression = start.match(/fetch\((`[^`]+`)/)?.[1];
+  assert.ok(urlExpression);
+  const requestUrl = new Function("visit", "user", "agendaActor", "agendaDetailQuery", "publicationQuery", `return ${urlExpression};`);
+  for (const discipline of ["safety", "quality"]) {
+    reset();
+    const user = { id: "user", role: `${discipline}-auditor`, modules: [discipline] };
+    state.context.user = user;
+    const actor = { userId: user.id, profile: discipline === "safety" ? "AUDITOR_SEGURANCA" : "AUDITOR_QUALIDADE", engineeringScope: null, administrativeScope: null };
+    const url = requestUrl({ id: visitId }, user, actor, agendaDetailQuery, publicationQuery);
+    const response = await GET(new Request(new URL(url, "https://fixture.invalid")), { params: Promise.resolve({ visitId }) });
+    assert.equal(response.status, 200, `${discipline}: start audit must pass agenda context verification`);
+    assert.deepEqual(await response.json(), state.result);
+    assert.equal(state.calls.length, 1);
+  }
 });
 
 test("removed, revoked and unavailable details never appear as an empty successful note", async () => {
