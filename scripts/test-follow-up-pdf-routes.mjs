@@ -120,12 +120,12 @@ test("archive and queue outages fail explicitly without generating partial PDFs"
   reset();state.archive.clear();state.jobError=true;assert.equal((await get()).status,503);
 });
 
-test("direct browser download redirects to its tracked processing instead of exposing JSON", async()=>{
+test("direct browser download stays in the report page while its PDF is prepared", async()=>{
   reset();state.archive.clear();
   const direct=new Request(request().url,{headers:{accept:'text/html'}});
   const response=await route.GET(direct,{params:Promise.resolve({visitId})});
   assert.equal(response.status,303);privateResponse(response);
-  assert.match(response.headers.get('Location'),/^\/app\/processamentos#job-/);
+  assert.equal(response.headers.get('Location'), `/app/acompanhamento/relatorio/${visitId}?relatorio=${reportId}`);
   assert.deepEqual(state.downloads,[]);
 });
 

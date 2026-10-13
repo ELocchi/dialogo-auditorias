@@ -19,7 +19,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ repo
     document = await standaloneDocument(await createClient(), context, reportId, request.signal);
   } catch (error) {
     if (error instanceof DocumentPending) {
-      if (request.headers.get("accept")?.includes("text/html")) return new Response(null, { status: 303, headers: { ...headers, Location: `/app/processamentos#job-${error.receipt.job.id}` } });
+      if (request.headers.get("accept")?.includes("text/html")) return new Response(null, { status: 303, headers: { ...headers, Location: `/app/acompanhamento/relatorio/avulso/${reportId}` } });
       return Response.json(error.receipt, { status: 202, headers: { ...headers, Location: error.receipt.statusUrl, "Retry-After": "2" } });
     }
     return new Response("Não foi possível carregar o relatório completo. Tente novamente.", { status: 503, headers });
