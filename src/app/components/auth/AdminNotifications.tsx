@@ -177,7 +177,7 @@ export function AdminNotifications({ items = emptyNotifications, userId, loading
       <div className={styles.heading}>
         <h2 id={headingId}>Notificações{agendaWindow ? " do mês" : ""}</h2>
       </div>
-      {agendaWindow && <MonthNavigation month={agendaWindow.month} onMonthChange={m => { if (!agendaWindow.blocked) agendaWindow.setMonth(m); }} label="Notificações" />}
+      {agendaWindow && <div className={styles.monthNavigation}><MonthNavigation month={agendaWindow.month} onMonthChange={m => { if (!agendaWindow.blocked) agendaWindow.setMonth(m); }} label="Notificações" /></div>}
       {loading && <p className={styles.empty} role="status">Carregando notificações…</p>}
       {error && <div role="alert"><p className={styles.empty}>{error}</p>{onRetry && <button type="button" className="secondary" disabled={loading} onClick={onRetry}>{loading ? "Carregando…" : "Tentar novamente"}</button>}</div>}
       {sortedItems.length ? <ul className={styles.list}>

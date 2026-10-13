@@ -44,11 +44,14 @@
 }
 .panel[hidden] { display: none; }
 .heading { padding: 18px 18px 15px; border-bottom: 1px solid var(--line); }
-.heading h2 { margin: 0 0 5px; font-size: 16px; letter-spacing: -.15px; }
+.heading h2 { margin: 0; font-size: 16px; letter-spacing: -.15px; }
+.monthNavigation { padding: 12px 18px 6px; }
+.monthNavigation > div { display: grid; grid-template-columns: 36px minmax(0, 1fr) 36px; align-items: center; }
+.monthNavigation > div > span { min-width: 0; }
 .empty { margin: 0; padding: 30px 18px; color: var(--muted); font-size: 13px; text-align: center; }
 .list { max-height: min(360px, 50vh); margin: 0; padding: 6px; overflow-y: auto; list-style: none; }
 .list li + li { border-top: 1px solid var(--line); }
-.item { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 11px; padding: 13px 11px; border-radius: 6px; color: var(--ink); text-decoration: none; }
+.item { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 11px; padding: 13px 12px; border-radius: 6px; color: var(--ink); text-decoration: none; }
 .itemButton { width: 100%; border: 0; background: transparent; text-align: left; font: inherit; cursor: pointer; }
 a.item:hover, .itemButton:hover { background: #f1f4f8; }
 a.item:focus-visible, .itemButton:focus-visible { outline-offset: -3px; }
