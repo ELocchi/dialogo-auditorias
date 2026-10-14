@@ -2,7 +2,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ProfileWorkspaceContext } from "../access/workspace-context.ts";
 import type { AppModule } from "../../domain/prototype-access.ts";
 import { parsePublishedAuditOverview } from "./service.ts";
-import { buildAuditDashboard, type SeriousWorkFinding } from "./dashboard.ts";
+import { buildAuditDashboard, buildDashboardRanking, type SeriousWorkFinding } from "./dashboard.ts";
+import type { PublishedMonthlyWorkScore } from "../../domain/admin-ranking.ts";
 import { unavailableAuditDashboard, type AuditDashboardSnapshot } from "./dashboard-contracts.ts";
 import { parseAuditDashboardOverlay } from "./dashboard-overlay.ts";
 import { isRecord, isUuid, validText } from "../catalogs/validation.ts";
@@ -121,4 +122,33 @@ export function createAuditDashboardReader(options: {
   };
 }
 
-export const readAuditDashboard = createAuditDashboardReader();
+/** Rankings are shared by all active users. Only the score projection is global;
+ * findings, counts, plans and audit details retain their existing authorization.
+ * Fetch fresh scores on every dashboard read, including scoped cache hits. */
+export function createGlobalAuditDashboardReader() {
+  const readScopedDashboard = createAuditDashboardReader();
+  return async function(client: Client, context: ProfileWorkspaceContext, localPublications?: unknown): Promise<AuditDashboardSnapshot> {
+    if (localPublications !== undefined && parseAuditDashboardOverlay(localPublications, context) === null)
+      return unavailableAuditDashboard();
+    try {
+      const [summary, response] = await Promise.all([
+        readScopedDashboard(client, context, localPublications),
+        client.rpc("read_global_audit_ranking"),
+      ]);
+      if (!summary.available || response.error || !Array.isArray(response.data)) return unavailableAuditDashboard();
+      const scores: PublishedMonthlyWorkScore[] = [];
+      for (const row of response.data) {
+        if (!isRecord(row) || !isUuid(row.workId) || !validText(row.workName, 1000) || !row.workName.trim()
+          || typeof row.month !== "string" || !/^(?!0000)\d{4}-(0[1-9]|1[0-2])$/.test(row.month)
+          || (row.discipline !== "safety" && row.discipline !== "quality")
+          || typeof row.score !== "number" || !Number.isFinite(row.score) || row.score < 0 || row.score > 10)
+          return unavailableAuditDashboard();
+        scores.push({ workId: row.workId, workName: row.workName, month: row.month,
+          discipline: row.discipline, score: row.score, published: true });
+      }
+      return { ...summary, ranking: buildDashboardRanking(scores) };
+    } catch { return unavailableAuditDashboard(); }
+  };
+}
+
+export const readAuditDashboard = createGlobalAuditDashboardReader();

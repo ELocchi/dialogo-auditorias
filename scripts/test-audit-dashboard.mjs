@@ -27,6 +27,10 @@ function clientFor(input, fail = false) {
   const revision = createHash("md5").update(JSON.stringify(input)).digest("hex");
   return { calls: [], async rpc(name, parameters) {
     this.calls.push({name, parameters});
+    if (name === "read_global_audit_ranking") return { data: (input?.audits ?? []).map((a) => ({
+      workId: a.workId, workName: works.find((w) => w.id === a.workId).name,
+      month: a.date.slice(0, 7), discipline: a.modelId.startsWith('security-') ? 'safety' : 'quality', score: a.finalScore,
+    })), error: fail ? { message: "offline" } : null };
     assert.equal(name, "read_published_audit_overview_if_changed");
     return { data: parameters.p_known_revision === revision ? { revision, unchanged: true }
       : { ...input, revision, unchanged: false }, error: fail ? { message: "offline" } : null };
@@ -122,7 +126,7 @@ test("server recomputes local publication overlays against all history, includin
   assert.equal(merged.publishedCount,2);assert.equal(merged.findingCount,7);
   assert.equal(merged.mostSevere[0].checklistItem,"06 · Title 5");assert.equal(merged.mostSevere[0].occurrences,2);
   assert.equal(merged.mostRecurring[0].occurrences,2);
-  assert.deepEqual(merged.ranking.monthly["2026-09"].quality,[]);
+  assert.equal(merged.ranking.monthly["2026-09"].quality[0].score,8, "Global ranking excludes local demo overlays");
   assert.deepEqual(merged.scoreMonths["2026-09"],{sum:18,count:2});
   assert.equal(JSON.stringify(input),source,"server reads must never mutate persisted data");
   const collision={audits:[{...local,id:old.id}],findings:[]};
@@ -161,7 +165,7 @@ test("dashboard HTTP routes authenticate before reads and validate private bound
  assert.equal(routeClient.calls.length,0);
  const response=await route.POST(request({audits:[audit(301,{isDemo:true})],findings:[]}));
  assert.equal(response.status,200);assert.equal((await response.json()).publishedCount,1);
- assert.equal(routeClient.calls.length,1);
+ assert.equal(routeClient.calls.length,2);
  assert.equal((await route.GET(new Request("https://offline.invalid/api/audits/dashboard"))).status,200);
  routeClient=clientFor(null,true);assert.equal((await route.GET(new Request("https://offline.invalid/api/audits/dashboard"))).status,503);
 });

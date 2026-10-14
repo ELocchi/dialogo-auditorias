@@ -5,7 +5,6 @@ import { useState, type ReactNode } from "react";
 import { auditModelLabels, auditVersionLabel, formatAuditDate, type AuditRecord, type WorkRecord } from "@/domain/operational-records";
 import { canEditAudit, canConsultAgenda, canReadAudit, canReadVisit, modelModule, roleLabels, moduleLabels, type DemoUser, type AppModule, type Visit } from "@/domain/prototype-access";
 import { Icon } from "./ui-icon";
-import { WorkRanking } from "./work-ranking";
 import { AdminFindings } from "./admin-findings";
 import type { AdminFindingSummary } from "./admin-findings";
 import { PublishedAuditFindingsList, type PublishedAuditFinding } from "./engineering-resource-panels";
@@ -90,7 +89,7 @@ export function PrototypeDashboard({ user, module, works, agendaWorks = works, a
     </div>
     {findingsPanel}
     <div className="overview-grid">
-      <AdminMonthlyRanking modules={[module]} publishedMonthlyScores={rankingScores} summary={summary?.ranking} available={summary?.available} />
+      <AdminMonthlyRanking publishedMonthlyScores={rankingScores} summary={summary?.ranking} available={summary?.available} />
       <AdminVisitCalendar visits={visits} works={agendaWorks} auditors={[user]} viewerId={user.id} onViewAgenda={() => open("agenda")} includeFollowUps showLegend={false} colorBy="work" />
     </div>
   </>;
@@ -101,7 +100,7 @@ export function PrototypeDashboard({ user, module, works, agendaWorks = works, a
     </div>
     {admin && findingsPanel}
     <div className="overview-grid">
-      {admin ? <AdminMonthlyRanking modules={user.modules} publishedMonthlyScores={rankingScores} summary={summary?.ranking} available={summary?.available} /> : module === "safety" ? <WorkRanking works={works} audits={audits} onViewWorks={() => open("works")} /> : <AdminMonthlyRanking modules={["quality"]} publishedMonthlyScores={rankingScores} summary={summary?.ranking} available={summary?.available} />}
+      <AdminMonthlyRanking publishedMonthlyScores={rankingScores} summary={summary?.ranking} available={summary?.available} />
       {admin ? <AdminVisitCalendar visits={visits} works={works} auditors={auditors} viewerId={user.id} onViewAgenda={() => open("agenda")} includeFollowUps /> : <section className="panel"><div className="panel-heading"><div><span className="section-label">REGISTROS AUTORIZADOS</span><h3>Auditorias recentes</h3></div><span className="icon-tile"><Icon name="calendar" /></span></div>
         {[...audits].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 3).map((audit) => <div className="visit-card" key={audit.id}><div className="visit-info"><strong>{auditModelLabels[audit.modelId].name}</strong><small>{formatAuditDate(audit.date)} · {auditVersionLabel(audit)}</small></div><span className="badge">{audit.status}</span></div>)}
         {audits.length === 0 && <p className={styles.empty}>Nenhum registro disponível neste contexto.</p>}
