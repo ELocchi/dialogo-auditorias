@@ -10,6 +10,22 @@ import type { Visit } from "@/domain/prototype-access";
 import type { AgendaActorContext } from "@/lib/agenda/contracts";
 import type { PersistedAudit, PublicationIndex } from "@/lib/publications/contracts";
 import { auditPhotoReferences, createAuditPhotoStore } from "@/lib/audits/photo-store";
+import {
+  clearDeviceAuditDraft,
+  clearDeviceAuditPhotos,
+  clearDeviceAuditPosition,
+  draftContentKey,
+  persistDeviceAuditPhotos,
+  readDeviceAuditDraft,
+  readDeviceAuditPosition,
+  recoverDeviceAuditDraft,
+  restoreDeviceAuditPhotos,
+  writeDeviceAuditDraft,
+  writeDeviceAuditPosition,
+  type DeviceAuditDraft,
+} from "@/lib/audits/device-draft";
+
+export type DraftPersistenceFeedback = "saving" | "device" | "server" | "error";
 
 export function publicationQuery(actor: AgendaActorContext) {
   return new URLSearchParams({ usuario: actor.userId, perfil: actor.profile,
@@ -45,6 +61,10 @@ export function useAuditPublication(actor: AgendaActorContext, session: Prototyp
   const [loadAttempt, setLoadAttempt] = useState(0);
   const [loaded, setLoaded] = useState<{ key: string; error: string } | null>(null);
   const [retryAttempt, setRetryAttempt] = useState(0);
+  const [draftFeedback, setDraftFeedback] = useState<Record<string, DraftPersistenceFeedback>>({});
+  const deviceWriteGeneration = useRef(new Map<string, number>());
+  const deviceSavedContent = useRef(new Map<string, string>());
+  const deviceQueue = useRef<Promise<unknown>>(Promise.resolve());
   const failed = useRef(new Map<string, string>());
   const [draftVersions, setDraftVersions] = useState<Record<string, PersistedAudit>>({});
   const meta = useRef(new Map<string, { revision: number; saved: string; files: Map<string, File> }>());
@@ -53,13 +73,42 @@ export function useAuditPublication(actor: AgendaActorContext, session: Prototyp
   const listQuery = `${query}${month ? `&mes=${month}` : ""}`;
   const loadKey = `${listQuery}:${loadAttempt}`;
   const accept = useCallback((data: PersistedAudit) => {
-    meta.current.set(data.audit.id, { revision: data.revision, saved: JSON.stringify([data.responses, data.safetyClosure ?? null]), files: new Map() });
-    setDraftVersions(current => ({ ...current, [data.audit.id]: data }));
+    const serverKey = draftContentKey(data.responses, data.safetyClosure);
+    const local = typeof window === "undefined" ? null
+      : recoverDeviceAuditDraft({ actorId: actor.userId, auditId: data.audit.id, workId: data.audit.workId,
+        modelId: data.audit.modelId, revision: data.revision }, readDeviceAuditDraft(window.localStorage, actor.userId, data.audit.id));
+    const recovered = local && local.contentKey !== serverKey ? local : null;
+    const accepted = recovered ? { ...data, responses: recovered.responses, safetyClosure: recovered.safetyClosure } : data;
+    meta.current.set(data.audit.id, { revision: data.revision, saved: serverKey, files: new Map() });
+    setDraftVersions(current => ({ ...current, [data.audit.id]: accepted }));
     setSession(current => ({ ...current, audits: [...current.audits.filter(a => a.id !== data.audit.id), data.audit],
-      responses: { ...current.responses, [data.audit.id]: data.responses },
-      safetyClosures: data.safetyClosure ? { ...current.safetyClosures, [data.audit.id]: data.safetyClosure } : current.safetyClosures,
+      responses: { ...current.responses, [data.audit.id]: accepted.responses },
+      safetyClosures: (() => { const closures = { ...current.safetyClosures }; if (accepted.safetyClosure) closures[data.audit.id] = accepted.safetyClosure; else delete closures[data.audit.id]; return closures; })(),
       criteriaSnapshots: { ...current.criteriaSnapshots, [data.audit.id]: data.criteria } }));
-  }, [setSession]);
+    if (recovered) {
+      setDraftFeedback(current => ({ ...current, [data.audit.id]: "saving" }));
+      void restoreDeviceAuditPhotos(actor.userId, data.audit.id).then((photos) => {
+        photos.forEach(({ reference, file }) => photoStore.restore(reference, file));
+        const restored = new Set(photos.map(({ reference }) => reference));
+        const pending = [...auditPhotoReferences([recovered.responses])]
+          .filter(reference => !reference.startsWith("/api/publications/"));
+        if (pending.every(reference => restored.has(reference))) {
+          deviceSavedContent.current.set(data.audit.id, recovered.contentKey);
+          setDraftFeedback(current => ({ ...current, [data.audit.id]: "device" }));
+        } else {
+          deviceSavedContent.current.delete(data.audit.id);
+          setStatus("Erro ao salvar");
+          setError("O rascunho foi recuperado, mas uma ou mais fotos locais não estavam disponíveis. Revise as evidências antes de continuar.");
+          setDraftFeedback(current => ({ ...current, [data.audit.id]: "error" }));
+        }
+      });
+    } else if (typeof window !== "undefined") {
+      deviceSavedContent.current.delete(data.audit.id);
+      clearDeviceAuditDraft(window.localStorage, actor.userId, data.audit.id);
+      void clearDeviceAuditPhotos(actor.userId, data.audit.id);
+      setDraftFeedback(current => ({ ...current, [data.audit.id]: "server" }));
+    }
+  }, [actor.userId, photoStore, setSession]);
   useEffect(() => {
     if (!enabled) return;
     const controller = new AbortController();
@@ -75,9 +124,9 @@ export function useAuditPublication(actor: AgendaActorContext, session: Prototyp
     const task = queue.current.catch(() => undefined).then(async () => {
       const current = meta.current.get(id);
       if (!current) throw new Error("Reabra a auditoria para recuperar o rascunho.");
-      const key = JSON.stringify([responses, safetyClosure ?? null]);
+      const key = draftContentKey(responses, safetyClosure);
       if (current.saved === key || (automatic && failed.current.get(id) === key)) return current.revision;
-      setStatus("Salvando rascunho…"); setError("");
+      setStatus("Salvando..."); setError(""); setDraftFeedback(value => ({ ...value, [id]: "saving" }));
       const form = new FormData();
       form.set("revision", String(current.revision)); form.set("responses", JSON.stringify(responses)); form.set("safetyClosure", JSON.stringify(safetyClosure ?? null));
       const files = [...auditPhotoReferences([responses])].flatMap(ref => {
@@ -91,27 +140,69 @@ export function useAuditPublication(actor: AgendaActorContext, session: Prototyp
         const result = await publicationFetch<{ revision: number }>(`/api/publications/${id}/save-audit?${query}`, { method: "POST", body: form }, setStatus);
         current.revision = result.revision; current.saved = key; failed.current.delete(id);
         files.forEach(({ ref, file }) => current.files.set(ref, file));
-        setStatus("Rascunho salvo"); return result.revision;
-      } catch (reason) { failed.current.set(id, key); setStatus(""); setError(reason instanceof Error ? reason.message : "Falha ao salvar."); throw reason; }
+        if (typeof window !== "undefined") {
+          const local = readDeviceAuditDraft(window.localStorage, actor.userId, id);
+          if (local?.contentKey === key) {
+            deviceSavedContent.current.delete(id);
+            clearDeviceAuditDraft(window.localStorage, actor.userId, id);
+            void clearDeviceAuditPhotos(actor.userId, id);
+          } else if (local) writeDeviceAuditDraft(window.localStorage, { ...local, serverRevision: result.revision });
+        }
+        setStatus("Rascunho salvo"); setDraftFeedback(value => ({ ...value, [id]: "server" })); return result.revision;
+      } catch (reason) {
+        failed.current.set(id, key); setStatus("Erro ao salvar"); setDraftFeedback(value => ({ ...value, [id]: "error" }));
+        const keptOnDevice = deviceSavedContent.current.get(id) === key;
+        setError(`${reason instanceof Error ? reason.message : "Falha ao salvar."}${keptOnDevice ? " O rascunho permanece neste dispositivo." : " Mantenha esta página aberta e tente novamente."}`); throw reason;
+      }
     });
     queue.current = task; return task;
-  }, [photoStore, query]);
+  }, [actor.userId, photoStore, query]);
   useEffect(() => {
     const dirty = session.audits.filter(a => !a.isDemo && a.status !== "Publicada" && meta.current.has(a.id)
-      && meta.current.get(a.id)!.saved !== JSON.stringify([session.responses[a.id] ?? {}, session.safetyClosures?.[a.id] ?? null]));
+      && meta.current.get(a.id)!.saved !== draftContentKey(session.responses[a.id] ?? {}, session.safetyClosures?.[a.id]));
     if (!dirty.length) return;
     const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
     window.addEventListener("beforeunload", warn);
+    dirty.forEach((audit) => {
+      const responses = session.responses[audit.id] ?? {};
+      const safetyClosure = session.safetyClosures?.[audit.id];
+      const contentKey = draftContentKey(responses, safetyClosure);
+      const generation = (deviceWriteGeneration.current.get(audit.id) ?? 0) + 1;
+      deviceWriteGeneration.current.set(audit.id, generation);
+      deviceSavedContent.current.delete(audit.id);
+      setDraftFeedback(value => ({ ...value, [audit.id]: "saving" }));
+      const snapshot: DeviceAuditDraft = { version: 1, actorId: actor.userId, auditId: audit.id,
+        workId: audit.workId, modelId: audit.modelId, serverRevision: meta.current.get(audit.id)!.revision,
+        updatedAt: new Date().toISOString(), contentKey, responses, ...(safetyClosure ? { safetyClosure } : {}) };
+      const stored = writeDeviceAuditDraft(window.localStorage, snapshot);
+      const references = auditPhotoReferences([responses]);
+      const photos = photoStore.entries().filter(({ reference }) => references.has(reference));
+      const photoWrite = deviceQueue.current.catch(() => undefined)
+        .then(() => persistDeviceAuditPhotos(actor.userId, audit.id, photos));
+      deviceQueue.current = photoWrite;
+      void photoWrite.then((photosStored) => {
+        if (deviceWriteGeneration.current.get(audit.id) !== generation) return;
+        if (stored && photosStored && meta.current.get(audit.id)?.saved !== contentKey) {
+          deviceSavedContent.current.set(audit.id, contentKey);
+          setStatus("Rascunho salvo no dispositivo; aguardando confirmação do servidor.");
+          setDraftFeedback(value => ({ ...value, [audit.id]: "device" }));
+        } else {
+          deviceSavedContent.current.delete(audit.id);
+        }
+      });
+    });
     const timer = window.setTimeout(() => {
-      dirty.filter(a => failed.current.get(a.id) !== JSON.stringify([session.responses[a.id] ?? {}, session.safetyClosures?.[a.id] ?? null])).forEach(a => { void save(a.id, session.responses[a.id] ?? {}, session.safetyClosures?.[a.id], true).catch(() => undefined); });
+      dirty.filter(a => failed.current.get(a.id) !== draftContentKey(session.responses[a.id] ?? {}, session.safetyClosures?.[a.id])).forEach(a => { void save(a.id, session.responses[a.id] ?? {}, session.safetyClosures?.[a.id], true).catch(() => undefined); });
     }, 1000);
     return () => { window.clearTimeout(timer); window.removeEventListener("beforeunload", warn); };
-  }, [session, save, status, retryAttempt]);
-  return { photoStore, plans, status, error, draftVersions, save,
+  }, [actor.userId, photoStore, retryAttempt, save, session]);
+  return { photoStore, plans, status, error, draftVersions, draftFeedback, save,
     loading: enabled && loaded?.key !== loadKey,
     loadError: enabled && loaded?.key === loadKey ? loaded.error : "",
     retryLoad: () => setLoadAttempt(value => value + 1),
-    retrySave: () => { failed.current.clear(); setError(""); setStatus("Salvando rascunho…"); setRetryAttempt(value => value + 1); },
+    retrySave: () => { failed.current.clear(); setError(""); setStatus("Salvando..."); setRetryAttempt(value => value + 1); },
+    rememberedPosition: (id: string) => typeof window === "undefined" ? null : readDeviceAuditPosition(window.localStorage, actor.userId, id),
+    rememberPosition: (id: string, position: number) => { if (typeof window !== "undefined") writeDeviceAuditPosition(window.localStorage, actor.userId, id, position); },
     async start(visit: Visit) {
       const data = await publicationFetch<PersistedAudit>(`/api/publications?${query}`, publicationJson({ visitId: visit.id, modelId: visit.modelId }));
       accept(data); setError(""); setStatus("Rascunho recuperado"); return data.audit.id;
@@ -121,6 +212,12 @@ export function useAuditPublication(actor: AgendaActorContext, session: Prototyp
       setStatus("Solicitando publicação…");
       await publicationFetch(`/api/publications/${id}/publish-audit?${query}`, publicationJson({ revision }), setStatus);
       const data = await publicationFetch<PersistedAudit>(`/api/publications/${id}/audit?${query}`);
+      if (typeof window !== "undefined") {
+        deviceSavedContent.current.delete(id);
+        clearDeviceAuditDraft(window.localStorage, actor.userId, id);
+        clearDeviceAuditPosition(window.localStorage, actor.userId, id);
+        void clearDeviceAuditPhotos(actor.userId, id);
+      }
       accept(data); setStatus("Auditoria publicada"); setError(""); return data.audit;
     },
     planPublished(auditId: string, workId: string, module: "quality" | "safety") {

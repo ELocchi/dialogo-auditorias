@@ -36,3 +36,14 @@ export function scoreLabel(score: number | null, answer?: DraftAnswer): string {
   return score === null ? "--" : score.toFixed(2).replace(".", ",");
 }
 
+export function qualityItemResultLabel(criterion: Criterion, response: ItemResponse): string {
+  const result = scoreLabel(awardedItemScore(criterion, response, false), response.answer);
+  const weight = getCriterionWeight(criterion);
+  return response.answer === "N/A" ? "N/A"
+    : `${result} / ${weight === null ? "—" : weight.toFixed(2).replace(".", ",")}`;
+}
+
+export function qualityGroupResultLabel(score: number | null): string {
+  return score === null ? "—" : `${score.toFixed(1).replace(".", ",")} / 10`;
+}
+

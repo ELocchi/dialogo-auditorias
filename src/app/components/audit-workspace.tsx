@@ -6,12 +6,13 @@ import { preparePhotoUpload } from "@/lib/photos/prepare-upload";
 import { BackButton, BackHeading } from "@/app/components/back-control";
 
 import { AuditPhotoThumbnail } from "./audit-photo-thumbnail";
+import { containDialogFocus } from "./dialog-keyboard";
 import { SafetyClosureDialog } from "./safety-closure-dialog";
 import { safetyScore, toggleGroupNA, type SafetyClosure } from "@/domain/safety-audit";
 import { generatePdf } from "@/lib/pdf/client";
-import { awardedItemScore, scoreLabel, getGroupHeading, getSubgroupHeading, displayAuditDate } from "@/lib/pdf/audit-format";
+import { awardedItemScore, scoreLabel, getGroupHeading, getSubgroupHeading, displayAuditDate, qualityGroupResultLabel, qualityItemResultLabel } from "@/lib/pdf/audit-format";
 import type { AuditPdfInput, PdfPhotoSource } from "@/lib/pdf/types";
-import { memo, useCallback, useId, useMemo, useReducer, useRef, useState } from "react";
+import { memo, useCallback, useId, useMemo, useReducer, useRef, useState, type ChangeEvent } from "react";
 import { useEffect } from "react";
 import { getCriterionDisplayTitle, getCriterionWeight, qualityModels, type Criterion } from "@/domain/catalogs";
 import { fvsServices as bundledFvsServices, type FvsService } from "@/domain/fvs-services";
@@ -25,6 +26,7 @@ import previewStyles from "./catalog-preview-control.module.css";
 import { catalogVersion, type CatalogSnapshot } from "@/lib/catalogs/contracts";
 import {
   calculateAuditFinalScore,
+  calculateQualityGroupScore,
   calculateSecurityFinalScore,
   calculateSecurityGroupScore,
   getDraftCheckWeight,
@@ -257,6 +259,7 @@ type NewAuditProps = {
   showWeights?: boolean;
   previousAudits?: readonly PreviousAudit[];
   fvsServices?: readonly FvsService[];
+  draftPersistence?: "saving" | "device" | "server" | "error";
 };
 
 type AuditReviewProps = {
@@ -326,21 +329,20 @@ export function AuditReview({ model, modelId, workName, details, criteria, draft
       <button type="button" className="primary" disabled={!pdfUrl || published || publishing} onClick={async () => { if (publishing) return; setPublishing(true); setPublicationError(""); try { if (await onPublish()) setPublished(true); } catch (reason) { setPublicationError(reason instanceof Error ? reason.message : "Não foi possível publicar. Tente novamente."); } finally { setPublishing(false); } }}>{published ? "Auditoria publicada" : publishing ? "Publicando…" : pdfUrl ? "Publicar auditoria" : "Gerando prévia…"}</button>
     </div>
     <div className="audit-review-groups">
+      {!security && <p className="audit-review-score-legend"><strong>Notas dos grupos:</strong> escala de 0 a 10. <strong>Quesitos:</strong> resultado ponderado / peso do quesito.</p>}
       {Object.entries(grouped).map(([group, items]) => {
         const collapsed = collapsedGroups.has(group);
         const securityPerformance = security ? calculateSecurityGroupScore(items, drafts, modelId) : null;
-        const groupScore = security
-          ? securityPerformance === null ? null : securityPerformance
-          : items.reduce((total, item) => total + (awardedItemScore(item, getItemResponse(drafts, modelId, item), false) ?? 0), 0);
+        const groupScore = security ? securityPerformance : calculateQualityGroupScore(items, drafts, modelId);
         return <section key={group}>
-        <h3><button type="button" aria-expanded={!collapsed} onClick={() => setCollapsedGroups((current) => { const next = new Set(current); if (next.has(group)) next.delete(group); else next.add(group); return next; })}><span>{group}</span><strong>{scoreLabel(groupScore)}</strong><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg></button></h3>
+        <h3><button type="button" aria-expanded={!collapsed} onClick={() => setCollapsedGroups((current) => { const next = new Set(current); if (next.has(group)) next.delete(group); else next.add(group); return next; })}><span>{group}</span><strong title={security ? "Nota do grupo" : "Nota do grupo na escala de 0 a 10"}>{security ? scoreLabel(groupScore) : qualityGroupResultLabel(groupScore)}</strong><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg></button></h3>
         {!collapsed && <div>{items.map((item) => {
           const response = getItemResponse(drafts, modelId, item);
           const label = item.verificationRule === "Dividido pela quantidade verificada"
             ? `${response.checks?.filter((check) => check.compliant === true).length ?? 0} de ${response.checks?.length ?? 0} conformes`
             : getResponseLabel(response);
           const itemScore = awardedItemScore(item, response, security);
-          return <article key={item.id}><span><b>{item.code}</b>{getCriterionDisplayTitle(item)}{response.serious && <em className="audit-review-serious">Item grave</em>}</span><span className="audit-review-item-result"><em>{label}</em><strong>{scoreLabel(itemScore, response.answer)}</strong></span></article>;
+          return <article key={item.id}><span><b>{item.code}</b>{getCriterionDisplayTitle(item)}{response.serious && <em className="audit-review-serious">Item grave</em>}</span><span className="audit-review-item-result"><em>{label}</em><strong title={security ? "Nota do quesito" : "Resultado ponderado / peso do quesito"}>{security ? scoreLabel(itemScore, response.answer) : qualityItemResultLabel(item, response)}</strong></span></article>;
         })}</div>}
       </section>})}
     </div>
@@ -362,6 +364,23 @@ function VerificationMark({ response, missingPhoto = false }: { response: { answ
   const visual = verificationVisual(response);
   return visual ? <span role="img" className={`verification-mark ${visual.tone}${missingPhoto ? " missing-photo" : ""}`} aria-label={visual.label} title={visual.label}>{visual.icon}</span>
     : <span role="img" className="verification-mark unanswered" aria-label="Não respondido" title="Não respondido">·</span>;
+}
+
+function AuditPhotoSourceDialog({ onClose, onCamera, onFile }: {
+  onClose: () => void; onCamera: () => void; onFile: () => void;
+}) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => { dialog.current?.showModal(); }, []);
+  return <dialog ref={dialog} className="audit-photo-source-dialog" aria-labelledby="audit-photo-source-title"
+    onKeyDown={containDialogFocus} onCancel={(event) => { event.preventDefault(); onClose(); }}>
+    <div className="audit-photo-dialog-heading"><h2 id="audit-photo-source-title">Adicionar fotografia</h2>
+      <button type="button" className="secondary" aria-label="Fechar" onClick={onClose}>×</button></div>
+    <p>Escolha como deseja adicionar a fotografia a este quesito.</p>
+    <div className="audit-photo-source-actions">
+      <button autoFocus type="button" className="primary" onClick={onCamera}>Tirar foto</button>
+      <button type="button" className="secondary" onClick={onFile}>Selecionar arquivo</button>
+    </div>
+  </dialog>;
 }
 
 function previewAuditHistory(date: string, model: string, criteria: readonly Criterion[]): readonly PreviousAudit[] {
@@ -387,7 +406,7 @@ function isRequiredPhotoMissing(criterion: Criterion, response: ItemResponse): b
   return (response.answer === "0" || response.answer === "5" || response.answer === "Não conforme") && !response.photos?.length;
 }
 
-export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts, updateDraft, onFinish, onDraftsChange, safetyClosure, details, workName = "Residencial Horizonte · Guarulhos", responseKey = model, readOnly = false, previousAudits = noPreviousAudits, fvsServices = bundledFvsServices }: NewAuditProps) {
+export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts, updateDraft, onFinish, onDraftsChange, safetyClosure, details, workName = "Residencial Horizonte · Guarulhos", responseKey = model, readOnly = false, previousAudits = noPreviousAudits, fvsServices = bundledFvsServices, draftPersistence }: NewAuditProps) {
   const photoStore = useAuditPhotoStore();
   const [closing, setClosing] = useState(false);
   const [finishing, setFinishing] = useState(false);
@@ -405,7 +424,9 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
   const [photoAttempt, setPhotoAttempt] = useState(0);
   const [photoResult, setPhotoResult] = useState<{ key: string; failed: boolean } | null>(null);
   const [photoTarget, setPhotoTarget] = useState("item");
-  const photoInput = useRef<HTMLInputElement>(null);
+  const [photoPickerOpen, setPhotoPickerOpen] = useState(false);
+  const galleryPhotoInput = useRef<HTMLInputElement>(null);
+  const cameraPhotoInput = useRef<HTMLInputElement>(null);
   const photoPreparation = useRef<AbortController | null>(null);
   const [preparingPhotos, setPreparingPhotos] = useState(false);
   const [photoError, setPhotoError] = useState("");
@@ -467,6 +488,45 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
   const options: DraftAnswer[] = security ? ["0", "5", "10", "N/A"] : supportsNotApplicable ? ["Não conforme", "Conforme", "N/A"] : ["Não conforme", "Conforme"];
   const perCheckWeights = criterion ? usesPerCheckWeights(criterion) : false;
   const quantityChecks = criterion ? response.checks ?? [{ id: `${criterion.id}-1`, label: perCheckWeights ? "" : "Item verificado 1", compliant: null }] : [];
+  const choosePhoto = (target: string) => { setPhotoTarget(target); setPhotoPickerOpen(true); };
+  const receivePhotos = async (event: ChangeEvent<HTMLInputElement>) => {
+    const selected = Array.from(event.target.files ?? []);
+    event.target.value = "";
+    if (!criterion || readOnly || !selected.length || photoPreparation.current) return;
+    if (selected.length > 100) { setPhotoError("Selecione até 100 fotos por vez."); return; }
+    const controller = new AbortController(); photoPreparation.current = controller;
+    setPreparingPhotos(true); setPhotoError("");
+    const references: string[] = [];
+    let accepted = false;
+    try {
+      const prepared: File[] = [];
+      let bytes = 0;
+      // Decode one image at a time; never allocate canvases for the whole batch.
+      for (const file of selected) {
+        const copy = await preparePhotoUpload(file, 3 * 1024 * 1024, controller.signal);
+        bytes += copy.size;
+        if (bytes > 30 * 1024 * 1024) throw new Error("Selecione menos fotos por vez.");
+        prepared.push(copy);
+      }
+      if (controller.signal.aborted) return;
+      references.push(...prepared.map(file => photoStore.add(file)));
+      accepted = updateDraft(photoTarget === "item"
+        ? { ...response, photos: [...(response.photos ?? []), ...references] }
+        : { ...response, checks: quantityChecks.map((entry) => entry.id === photoTarget ? { ...entry, photos: [...(entry.photos ?? []), ...references] } : entry) }) !== false;
+    } catch (reason) {
+      if (!controller.signal.aborted) setPhotoError(reason instanceof Error ? reason.message : "Não foi possível preparar as fotos.");
+    } finally {
+      if (!accepted) photoStore.discardUnreferenced(references);
+      if (!controller.signal.aborted) setPreparingPhotos(false);
+      if (photoPreparation.current === controller) photoPreparation.current = null;
+    }
+  };
+
+  const draftBadge = draftPersistence === "saving" ? { label: "Salvando...", tone: "badge-amber" }
+    : draftPersistence === "device" ? { label: "Salvo no dispositivo; envio pendente", tone: "badge-amber" }
+      : draftPersistence === "server" ? { label: "Rascunho salvo", tone: "badge-green" }
+        : draftPersistence === "error" ? { label: "Erro ao salvar", tone: "badge-red" }
+          : { label: "Rascunho nesta sessão", tone: "badge-amber" };
 
   return <>
     <div className="page-intro">
@@ -474,7 +534,7 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
         <h2>{readOnly ? "Consultar auditoria" : "Preencher auditoria"}</h2>
         {readOnly && <p className="muted">Consulta autorizada, sem edição das respostas do auditor.</p>}
       </div>
-      <span className="badge badge-amber">Rascunho nesta sessão</span>
+      <span className={`badge ${draftBadge.tone}`} role="status">{draftBadge.label}</span>
     </div>
 
     <fieldset disabled={finishing || preparingPhotos} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }} aria-busy={finishing || preparingPhotos}><section className="audit-fill-panel" aria-label="Preenchimento da auditoria">
@@ -552,9 +612,9 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
                 const checks = quantityChecks;
                 updateDraft({ ...response, checks: checks.map((entry) => entry.id === check.id ? { ...entry, compliant: true } : entry) });
               }}><span aria-hidden="true">✓</span></button>
-              <span className="inline-photo-cell">{!photoStore.get(check.photos?.at(-1) ?? "") && <button type="button" className="inline-photo" aria-label={`Adicionar foto: ${criterion.code}, verificação ${checkIndex + 1}`} data-tooltip="Adicionar foto" onClick={() => { setPhotoTarget(check.id); photoInput.current?.click(); }}><span aria-hidden="true">+</span><small className="mobile-action-label">Foto</small></button>}<AuditPhotoThumbnail label={`item ${criterion.code}, verificação ${checkIndex + 1}`} file={photoStore.get(check.photos?.at(-1) ?? "")} onAdd={() => { setPhotoTarget(check.id); photoInput.current?.click(); }} onDelete={() => {
-                updateDraft({ ...response, checks: quantityChecks.map((entry) => entry.id === check.id ? { ...entry, photos: (entry.photos ?? []).slice(0, -1) } : entry) });
-              }} /></span>
+              <span className="inline-photo-cell">{(check.photos ?? []).map((reference, photoIndex) => <AuditPhotoThumbnail key={`${reference}:${photoIndex}`} label={`item ${criterion.code}, verificação ${checkIndex + 1}, foto ${photoIndex + 1}`} file={photoStore.get(reference)} onAdd={() => choosePhoto(check.id)} onDelete={() => {
+                updateDraft({ ...response, checks: quantityChecks.map((entry) => entry.id === check.id ? { ...entry, photos: (entry.photos ?? []).filter((_, index) => index !== photoIndex) } : entry) });
+              }} />)}<button type="button" className="inline-photo" aria-label={`Adicionar foto: ${criterion.code}, verificação ${checkIndex + 1}`} data-tooltip="Adicionar foto" onClick={() => choosePhoto(check.id)}><span aria-hidden="true">+</span><small className="mobile-action-label">Foto</small></button></span>
               <input className="check-note" aria-label={`Observação da verificação ${checkIndex + 1}`} placeholder="Observações" value={check.note ?? ""} onChange={(event) => {
                 const checks = quantityChecks;
                 updateDraft({ ...response, checks: checks.map((entry) => entry.id === check.id ? { ...entry, note: event.target.value } : entry) });
@@ -572,9 +632,9 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
                 <span>{value === "0" || value === "Não conforme" ? "×" : value === "5" ? "!" : value === "10" || value === "Conforme" ? "✓" : "—"}</span><small>{label}</small>
               </button>;
             })}
-            <span className="inline-photo-cell qualitative-photo-list">{(response.photos ?? []).map((reference, photoIndex) => <AuditPhotoThumbnail label={`item ${criterion.code}, foto ${photoIndex + 1}`} key={`${reference}:${photoIndex}`} file={photoStore.get(reference)} onAdd={() => { setPhotoTarget("item"); photoInput.current?.click(); }} onDelete={() => {
+            <span className="inline-photo-cell qualitative-photo-list">{(response.photos ?? []).map((reference, photoIndex) => <AuditPhotoThumbnail label={`item ${criterion.code}, foto ${photoIndex + 1}`} key={`${reference}:${photoIndex}`} file={photoStore.get(reference)} onAdd={() => choosePhoto("item")} onDelete={() => {
               updateDraft({ ...response, photos: (response.photos ?? []).filter((_, index) => index !== photoIndex) });
-            }} />)}<button type="button" className="inline-photo" aria-label={`Adicionar foto: ${criterion.code}`} data-tooltip="Adicionar foto" onClick={() => { setPhotoTarget("item"); photoInput.current?.click(); }}><span aria-hidden="true">+</span><small className="mobile-action-label">Foto</small></button></span>
+            }} />)}<button type="button" className="inline-photo" aria-label={`Adicionar foto: ${criterion.code}`} data-tooltip="Adicionar foto" onClick={() => choosePhoto("item")}><span aria-hidden="true">+</span><small className="mobile-action-label">Foto</small></button></span>
           </div>}
         </fieldset>
 
@@ -583,38 +643,11 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
         </label>}
         {preparingPhotos && <p role="status">Preparando fotos…</p>}
         {photoError && <p role="alert">{photoError}</p>}
-        <input ref={photoInput} className="audit-photo-input" type="file" accept="image/jpeg,image/png" multiple hidden disabled={readOnly || preparingPhotos} onChange={async (event) => {
-            const selected = Array.from(event.target.files ?? []);
-            event.target.value = "";
-            if (!criterion || readOnly || !selected.length || photoPreparation.current) return;
-            if (selected.length > 100) { setPhotoError("Selecione até 100 fotos por vez."); return; }
-            const controller = new AbortController(); photoPreparation.current = controller;
-            setPreparingPhotos(true); setPhotoError("");
-            const references: string[] = [];
-            let accepted = false;
-            try {
-              const prepared: File[] = [];
-              let bytes = 0;
-              // Decode one image at a time; never allocate canvases for the whole batch.
-              for (const file of selected) {
-                const copy = await preparePhotoUpload(file, 3 * 1024 * 1024, controller.signal);
-                bytes += copy.size;
-                if (bytes > 30 * 1024 * 1024) throw new Error("Selecione menos fotos por vez.");
-                prepared.push(copy);
-              }
-              if (controller.signal.aborted) return;
-              references.push(...prepared.map(file => photoStore.add(file)));
-              accepted = updateDraft(photoTarget === "item"
-                ? { ...response, photos: [...(response.photos ?? []), ...references] }
-                : { ...response, checks: quantityChecks.map((entry) => entry.id === photoTarget ? { ...entry, photos: [...(entry.photos ?? []), ...references] } : entry) }) !== false;
-            } catch (reason) {
-              if (!controller.signal.aborted) setPhotoError(reason instanceof Error ? reason.message : "Não foi possível preparar as fotos.");
-            } finally {
-              if (!accepted) photoStore.discardUnreferenced(references);
-              if (!controller.signal.aborted) setPreparingPhotos(false);
-              if (photoPreparation.current === controller) photoPreparation.current = null;
-            }
-          }} />
+        {photoPickerOpen && <AuditPhotoSourceDialog onClose={() => setPhotoPickerOpen(false)}
+          onCamera={() => { setPhotoPickerOpen(false); cameraPhotoInput.current?.click(); }}
+          onFile={() => { setPhotoPickerOpen(false); galleryPhotoInput.current?.click(); }} />}
+        <input ref={galleryPhotoInput} className="audit-photo-input" type="file" accept="image/jpeg,image/png" multiple hidden disabled={readOnly || preparingPhotos} onChange={receivePhotos} />
+        <input ref={cameraPhotoInput} className="audit-photo-input" type="file" accept="image/jpeg,image/png" capture="environment" hidden disabled={readOnly || preparingPhotos} onChange={receivePhotos} />
 
       </div> : criteria.length === 0 ? <div className="catalog-empty"><h3>Nenhum quesito disponível</h3><p>Selecione outro modelo de auditoria.</p></div> : null}
     </section>

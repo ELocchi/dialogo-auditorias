@@ -4,7 +4,7 @@ import { requestSignal } from "@/lib/request-signal";
 import { agendaDetailQuery } from "@/lib/agenda/detail-client";
 import { AsyncSkeleton } from "./async-feedback";
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { type AuditModelId, type AuditRecord } from "@/domain/operational-records";
 import type { ItemResponse } from "@/domain/audit-draft";
@@ -157,9 +157,12 @@ function ProfileWorkspace({ context: providedContext, initialScreen, initialVisi
   const [activeAuditId, setActiveAuditId] = useState<string | null>(null);
   const [completedPreview, setCompletedPreview] = useState<{ audit: AuditRecord; work: ProfileWorkspaceContext["works"][number] } | null>(null);
   const [positions, setPositions] = useState<Record<string, number>>({});
-  const setActiveItem = useCallback((index: number) => {
-    if (activeAuditId) setPositions((previous) => ({ ...previous, [activeAuditId]: index }));
-  }, [activeAuditId]);
+  const setActiveItem = (index: number) => {
+    if (activeAuditId) {
+      setPositions((previous) => ({ ...previous, [activeAuditId]: index }));
+      publication.rememberPosition(activeAuditId, index);
+    }
+  };
   const [catalogId, setCatalogId] = useState<AuditModelId>("security-it07-r02");
   const [catalogQuery, setCatalogQuery] = useState("");
   const [error, setError] = useState("");
@@ -428,6 +431,8 @@ function ProfileWorkspace({ context: providedContext, initialScreen, initialVisi
   const changeContext = () => { setScreen("overview"); setReportSection("reports"); setActiveAuditId(null); setCatalogQuery(""); setError(""); };
   const openAudit = (audit: AuditRecord) => {
     if (!work || !canReadAudit(user, audit) || audit.workId !== work.id || modelModule(audit.modelId) !== auditModule) return;
+    const rememberedPosition = publication.rememberedPosition(audit.id);
+    if (rememberedPosition !== null) setPositions((current) => ({ ...current, [audit.id]: rememberedPosition }));
     setActiveAuditId(audit.id); setReportSection("reports"); setScreen(audit.status === "Publicada" ? "report" : "fill");
   };
   const agendaActions = {
@@ -457,6 +462,8 @@ function ProfileWorkspace({ context: providedContext, initialScreen, initialVisi
       const existing = session.audits.find(a => a.visitId === current.id && !a.isDemo);
       if (existing) await publication.save(existing.id, session.responses[existing.id] ?? {});
       const auditId = await publication.start(current);
+      const rememberedPosition = publication.rememberedPosition(auditId);
+      if (rememberedPosition !== null) setPositions((positions) => ({ ...positions, [auditId]: rememberedPosition }));
       setCompletedPreview(null); setSelectedModule(current.module); setSelectedWorkId(current.workId);
       setActiveAuditId(auditId); setError(""); setScreen("fill"); return;
     }
@@ -578,7 +585,7 @@ function ProfileWorkspace({ context: providedContext, initialScreen, initialVisi
       <PublicationFeedback publication={publication} />
       {needsAgenda && agendaSyncError && <div role="alert"><p>{agendaSyncError}</p><button type="button" className="secondary" disabled={refreshPending || mutationPending} onClick={() => { void retryAgenda(); }}>{refreshPending ? "Atualizando…" : "Recarregar agenda"}</button></div>}
       {auditModule && <>
-        {currentScreen === "fill" && activeAuditWork && activeAudit && activeAudit.status !== "Publicada" && <AuditComparisonHistory activeAudit={remoteAudits ? activeAudit : undefined} audits={activeAuditHistory} localAudits={localComparisonHistory}>{(previousAudits) => <NewAudit key={activeAudit.id} model={modelDisplayName(activeAudit.modelId).replace(" rev. 02", "")} responseKey={activeAudit.modelId} workName={publication.draftVersions[activeAudit.id]?.workName ?? activeAuditWork.name} readOnly={!canEditAudit(user, activeAudit)} showWeights={canReadTechnicalWeights(user, auditModule)} previousAudits={previousAudits} fvsServices={publication.draftVersions[activeAudit.id]?.fvsServices ?? catalogs.fvsWeights?.services} criteria={criteriaForAudit(session, activeAudit)} activeIndex={positions[activeAudit.id] ?? 0} setActiveIndex={setActiveItem} drafts={session.responses[activeAudit.id] ?? {}} updateDraft={(response) => { try { const item = criteriaForAudit(session, activeAudit)[positions[activeAudit.id] ?? 0]; setSession(updatePrototypeResponse(session, user, activeAudit.id, item, response)); return true; } catch (reason) { setError(reason instanceof Error ? reason.message : "Edição indisponível."); return false; } }} safetyClosure={session.safetyClosures?.[activeAudit.id]} onDraftsChange={drafts => { if (canEditAudit(user, activeAudit)) setSession(current => ({ ...current, responses: { ...current.responses, [activeAudit.id]: drafts } })); }} onFinish={async (closure) => { try { validatePrototypeAuditCompletion(session, user, activeAudit.id); if (closure) setSession(current => ({ ...current, safetyClosures: { ...current.safetyClosures, [activeAudit.id]: closure } })); if (!activeAudit.isDemo) await publication.save(activeAudit.id, session.responses[activeAudit.id] ?? {}, closure); setError(""); setScreen("audit_review"); } catch (reason) { setError(reason instanceof Error ? reason.message : "Não foi possível revisar o relatório."); } }} details={{ date: activeAudit.date, auditor: activeAudit.auditor }} />}</AuditComparisonHistory>}
+        {currentScreen === "fill" && activeAuditWork && activeAudit && activeAudit.status !== "Publicada" && <AuditComparisonHistory activeAudit={remoteAudits ? activeAudit : undefined} audits={activeAuditHistory} localAudits={localComparisonHistory}>{(previousAudits) => <NewAudit key={activeAudit.id} model={modelDisplayName(activeAudit.modelId).replace(" rev. 02", "")} responseKey={activeAudit.modelId} workName={publication.draftVersions[activeAudit.id]?.workName ?? activeAuditWork.name} readOnly={!canEditAudit(user, activeAudit)} draftPersistence={publication.draftFeedback[activeAudit.id]} showWeights={canReadTechnicalWeights(user, auditModule)} previousAudits={previousAudits} fvsServices={publication.draftVersions[activeAudit.id]?.fvsServices ?? catalogs.fvsWeights?.services} criteria={criteriaForAudit(session, activeAudit)} activeIndex={positions[activeAudit.id] ?? 0} setActiveIndex={setActiveItem} drafts={session.responses[activeAudit.id] ?? {}} updateDraft={(response) => { try { const item = criteriaForAudit(session, activeAudit)[positions[activeAudit.id] ?? 0]; setSession(updatePrototypeResponse(session, user, activeAudit.id, item, response)); return true; } catch (reason) { setError(reason instanceof Error ? reason.message : "Edição indisponível."); return false; } }} safetyClosure={session.safetyClosures?.[activeAudit.id]} onDraftsChange={drafts => { if (canEditAudit(user, activeAudit)) setSession(current => ({ ...current, responses: { ...current.responses, [activeAudit.id]: drafts } })); }} onFinish={async (closure) => { try { validatePrototypeAuditCompletion(session, user, activeAudit.id); if (closure) setSession(current => ({ ...current, safetyClosures: { ...current.safetyClosures, [activeAudit.id]: closure } })); if (!activeAudit.isDemo) await publication.save(activeAudit.id, session.responses[activeAudit.id] ?? {}, closure); setError(""); setScreen("audit_review"); } catch (reason) { setError(reason instanceof Error ? reason.message : "Não foi possível revisar o relatório."); } }} details={{ date: activeAudit.date, auditor: activeAudit.auditor }} />}</AuditComparisonHistory>}
         {currentScreen === "fill" && !activeAudit && <p className="muted">Selecione um rascunho autorizado no histórico.</p>}
         {currentScreen === "audit_review" && activeAuditWork && activeAudit && <AuditReview safetyClosure={session.safetyClosures?.[activeAudit.id]} publishedReportUrl={activeAudit.reportUrl} model={modelDisplayName(activeAudit.modelId).replace(" rev. 02", "")} modelId={activeAudit.modelId} workName={publication.draftVersions[activeAudit.id]?.workName ?? activeAuditWork.name} details={{ date: activeAudit.date, auditor: activeAudit.auditor }} criteria={criteriaForAudit(session, activeAudit)} drafts={session.responses[activeAudit.id] ?? {}} onBack={() => { if (activeAudit.status !== "Publicada") { setError(""); setScreen("fill"); } }} onPublish={async () => { try {
           if (!activeAudit.isDemo) {

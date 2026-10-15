@@ -1,8 +1,8 @@
 import { safetyScore } from "../../domain/safety-audit.ts";
 import { PDFDocument, PDFName, PDFString, StandardFonts, rgb, type PDFFont, type PDFImage, type PDFPage } from "pdf-lib";
-import { getCriterionDisplayTitle, getCriterionWeight, type Criterion } from "../../domain/catalogs.ts";
-import { calculateAuditFinalScore, calculateChecksCompliance, calculateSecurityGroupScore, getDraftCheckWeight, getItemResponse, type ItemResponse } from "../../domain/audit-draft.ts";
-import { awardedItemScore, scoreLabel, getGroupHeading, getSubgroupHeading, displayAuditDate } from "./audit-format.ts";
+import { getCriterionDisplayTitle, type Criterion } from "../../domain/catalogs.ts";
+import { calculateAuditFinalScore, calculateQualityGroupScore, calculateSecurityGroupScore, getDraftCheckWeight, getItemResponse, type ItemResponse } from "../../domain/audit-draft.ts";
+import { awardedItemScore, scoreLabel, getGroupHeading, getSubgroupHeading, displayAuditDate, qualityGroupResultLabel, qualityItemResultLabel } from "./audit-format.ts";
 import type { AuditPdfInput, PdfAssets } from "./types.ts";
 
 const pdfPageSize = { width: 612, height: 792 };
@@ -149,26 +149,9 @@ async function createSecurityAuditReportPdf({ model, modelId, workName, details,
     page.drawLine({ start: { x: left, y: 576 }, end: { x: right, y: 576 }, thickness: .6, color: navy });
     page.drawLine({ start: { x: left, y: 573 }, end: { x: right, y: 573 }, thickness: 1.3, color: red });
   };
-  const calculateGroupScore = (items: Criterion[]) => {
-    if (security) return calculateSecurityGroupScore(items, drafts, modelId);
-    let obtained = 0, possible = 0;
-    items.forEach((item) => {
-      const response = getItemResponse(drafts, modelId, item);
-      const weight = getCriterionWeight(item) ?? 0;
-      if (response.answer === "N/A") return;
-      if (item.verificationRule === "Dividido pela quantidade verificada") {
-        const checks = (response.checks ?? []).filter((check) => check.compliant !== null);
-        const compliance = calculateChecksCompliance(checks);
-        if (compliance === null) return;
-        possible += weight;
-        obtained += weight * compliance;
-      } else if (response.answer === "Conforme" || response.answer === "Não conforme") {
-        possible += weight;
-        if (response.answer === "Conforme") obtained += weight;
-      }
-    });
-    return possible > 0 ? obtained / possible * 10 : null;
-  };
+  const calculateGroupScore = (items: Criterion[]) => security
+    ? calculateSecurityGroupScore(items, drafts, modelId)
+    : calculateQualityGroupScore(items, drafts, modelId);
   const drawStatus = (page: PDFPage, response: ItemResponse, x: number, y: number, scale = 1) => {
     const answer = response.answer;
     const color = answer === "0" || answer === "Não conforme" ? red : answer === "5" ? orange : answer === "10" || answer === "Conforme" ? green : gray;
@@ -195,8 +178,8 @@ async function createSecurityAuditReportPdf({ model, modelId, workName, details,
     page.drawText(value, { x: x + (boxWidth - textWidth) / 2, y: y + (boxHeight - size) / 2 + 1.5, size, font: bold, color: foreground });
   };
   const drawItemScore = (page: PDFPage, item: Criterion, response: ItemResponse, x: number, y: number) => {
-    const value = scoreLabel(awardedItemScore(item, response, false), response.answer);
-    page.drawText(value, { x: x - bold.widthOfTextAtSize(value, 8), y: y - 3, size: 8, font: bold, color: navy });
+    const value = qualityItemResultLabel(item, response);
+    page.drawText(value, { x: x - bold.widthOfTextAtSize(value, 7), y: y - 3, size: 7, font: bold, color: navy });
   };
   const cover = addPage();
   drawPageHeader(cover);
@@ -229,6 +212,11 @@ async function createSecurityAuditReportPdf({ model, modelId, workName, details,
   const drawSummaryTitle = (page: PDFPage) => page.drawText("SUMÁRIO", { x: left, y: 558, size: 13, font: bold, color: navy });
   let summary = addPage(), summaryY = 535;
   drawSummaryTitle(summary);
+  if (!security) {
+    summary.drawText("NOTAS DOS GRUPOS: ESCALA DE 0 A 10", { x: left, y: summaryY, size: 5.5, font: bold, color: muted });
+    summary.drawText("QUESITOS: RESULTADO PONDERADO / PESO DO QUESITO", { x: left, y: summaryY - 10, size: 5.5, font: bold, color: muted });
+    summaryY -= 28;
+  }
   const startSummaryPage = () => { summary = addPage(); summaryY = 558; };
   const drawSummaryItems = (summaryItems: Criterion[]) => {
     for (const item of summaryItems) {
@@ -241,7 +229,7 @@ async function createSecurityAuditReportPdf({ model, modelId, workName, details,
       titleLines.forEach((value, index) => summary.drawText(value, { x: left + 60, y: summaryY - index * 9, size: 6.8, font: bold, color: navy }));
       if (security) drawStatus(summary, response, right - 15, summaryY, .75);
       else {
-        const itemScore = scoreLabel(awardedItemScore(item, response, false), response.answer);
+        const itemScore = qualityItemResultLabel(item, response);
         summary.drawText(itemScore, { x: right - bold.widthOfTextAtSize(itemScore, 7), y: summaryY - 2, size: 7, font: bold, color: navy });
       }
       summaryLinks.push({ source: summary, itemId: item.id, rect: [left + 5, summaryY - rowHeight + 3, right, itemTop] });
@@ -257,7 +245,7 @@ async function createSecurityAuditReportPdf({ model, modelId, workName, details,
     const headingWidth = Math.min(right - left - 90, bold.widthOfTextAtSize(heading.title, 10.5));
     summary.drawLine({ start: { x: left + 34, y: summaryY - 7 }, end: { x: left + 34 + headingWidth, y: summaryY - 7 }, thickness: 1.6, color: red });
     const groupResult = calculateGroupScore(items);
-    const groupScoreLabel = groupResult === null ? "—" : groupResult.toFixed(1).replace(".", ",");
+    const groupScoreLabel = security ? (groupResult === null ? "—" : groupResult.toFixed(1).replace(".", ",")) : qualityGroupResultLabel(groupResult);
     summary.drawText(groupScoreLabel, { x: right - bold.widthOfTextAtSize(groupScoreLabel, 8), y: summaryY, size: 8, font: bold, color: navy });
     summaryY -= 25;
     if (!security) {
@@ -375,7 +363,7 @@ async function createSecurityAuditReportPdf({ model, modelId, workName, details,
       page.drawText(heading.title, { x: left + 34, y: cursor - 14, size: 10.5, font: bold, color: navy });
       const titleWidth = Math.min(detailWidth - 80, bold.widthOfTextAtSize(heading.title, 10.5));
       page.drawLine({ start: { x: left + 34, y: cursor - 21 }, end: { x: left + 34 + titleWidth, y: cursor - 21 }, thickness: 1.6, color: red });
-      const groupScoreLabel = groupScore === null ? "—" : groupScore.toFixed(1).replace(".", ",");
+      const groupScoreLabel = security ? (groupScore === null ? "—" : groupScore.toFixed(1).replace(".", ",")) : qualityGroupResultLabel(groupScore);
       page.drawText(groupScoreLabel, { x: right - bold.widthOfTextAtSize(groupScoreLabel, 8), y: cursor - 14, size: 8, font: bold, color: navy });
       cursor -= 30;
     }

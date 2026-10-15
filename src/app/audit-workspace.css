@@ -83,6 +83,7 @@
 .audit-review-reference small { color: var(--muted); font-size: 9px; font-weight: 700; letter-spacing: .6px; }
 .audit-review-reference strong { font-size: 13px; }
 .audit-review-groups { display: grid; gap: 12px; max-height: 58vh; padding: 20px 24px; overflow-y: auto; background: #f5f7fa; }
+.audit-review-score-legend { margin: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 7px; background: white; color: var(--muted); font-size: 11px; line-height: 1.5; }
 .audit-review-groups > section { overflow: hidden; border: 1px solid var(--line); border-radius: 8px; background: white; }
 .audit-review-groups h3 { margin: 0; background: #edf2f8; }
 .audit-review-groups h3 button { display: flex; width: 100%; align-items: center; gap: 12px; padding: 13px 15px; border: 0; background: transparent; color: var(--navy); font: inherit; font-size: 13px; font-weight: 700; text-align: left; cursor: pointer; }
@@ -361,8 +362,14 @@
 .audit-photo-dialog-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 16px; }
 .audit-photo-dialog-actions p { flex-basis: 100%; text-align: center; }
 .audit-photo-dialog .photo-delete { color: #b52332; border-color: #b52332; }
+.audit-photo-source-dialog { width: min(420px, calc(100vw - 32px)); padding: 22px; border: 0; border-radius: 12px; color: var(--ink); box-shadow: 0 24px 70px rgb(10 31 58 / 28%); }
+.audit-photo-source-dialog::backdrop { background: rgb(7 21 44 / 58%); }
+.audit-photo-source-dialog p { margin: 14px 0 18px; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.audit-photo-source-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.audit-photo-source-actions button { justify-content: center; min-height: 44px; }
 
 @media (max-width: 640px) {
+  .audit-photo-source-actions { grid-template-columns: 1fr; }
   .quantity-check, .quantity-check.has-photo-action, .quantity-check.has-check-weight { min-width: 0; grid-template-columns: 44px repeat(3, minmax(44px, 1fr)); }
   .quantity-check > .check-label { grid-column: 2 / -1; }
   .quantity-check > .check-note { grid-column: 1 / -1; }

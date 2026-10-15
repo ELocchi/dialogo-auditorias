@@ -109,6 +109,28 @@ export function calculateQualityFinalScore(criteria: Criterion[], drafts: AuditD
   return applicableWeight > 0 ? obtainedScore * totalWeight / applicableWeight : null;
 }
 
+/** Group performance uses a 0–10 scale; item results remain weighted contributions. */
+export function calculateQualityGroupScore(criteria: Criterion[], drafts: AuditDrafts, model: string): number | null {
+  let obtainedScore = 0;
+  let possibleScore = 0;
+  for (const criterion of criteria) {
+    const response = getItemResponse(drafts, model, criterion);
+    const weight = getCriterionWeight(criterion) ?? 0;
+    if (response.answer === "N/A") continue;
+    if (criterion.verificationRule === "Dividido pela quantidade verificada") {
+      const checks = (response.checks ?? []).filter((check) => check.compliant !== null);
+      const compliance = calculateChecksCompliance(checks);
+      if (compliance === null) continue;
+      possibleScore += weight;
+      obtainedScore += weight * compliance;
+    } else if (response.answer === "Conforme" || response.answer === "Não conforme") {
+      possibleScore += weight;
+      if (response.answer === "Conforme") obtainedScore += weight;
+    }
+  }
+  return possibleScore > 0 ? obtainedScore / possibleScore * 10 : null;
+}
+
 export const calculateAuditFinalScore = (criteria: Criterion[], drafts: AuditDrafts, model: string): number | null =>
   model === "security-it07-r02"
     ? calculateSecurityFinalScore(criteria, drafts, model)

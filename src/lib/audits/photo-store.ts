@@ -16,6 +16,10 @@ export function createAuditPhotoStore(initialDrafts: readonly AuditDrafts[] = []
 
   return {
     get(reference: string) { return files.get(reference); },
+    entries() { return [...files.entries()].map(([reference, file]) => ({ reference, file })); },
+    restore(reference: string, file: File) {
+      if (reference && !files.has(reference)) files.set(reference, file);
+    },
     add(file: File): string {
       for (const [reference, existing] of files) if (existing === file) return reference;
       const extension = file.name.match(/\.[^.]+$/)?.[0] ?? "";
