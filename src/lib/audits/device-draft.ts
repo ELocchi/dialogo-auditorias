@@ -1,4 +1,5 @@
-import type { AuditDrafts } from "../../domain/audit-draft.ts";
+import type { Criterion } from "../../domain/catalogs.ts";
+import type { AuditDrafts, DraftAnswer, DraftCheck, ItemResponse } from "../../domain/audit-draft.ts";
 import type { AuditModelId } from "../../domain/operational-records.ts";
 import type { SafetyClosure } from "../../domain/safety-audit.ts";
 
@@ -69,6 +70,80 @@ export function recoverDeviceAuditDraft(server: {
   return local && local.actorId === server.actorId && local.auditId === server.auditId
     && local.workId === server.workId && local.modelId === server.modelId
     && local.serverRevision === server.revision ? local : null;
+}
+
+const cleanText = (value: unknown, maximum: number, fallback = "") =>
+  typeof value === "string" && value.length <= maximum && !value.includes("\0") ? value : fallback;
+
+function cleanPhotos(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.filter((entry): entry is string =>
+    typeof entry === "string" && entry.length > 0 && entry.length <= 500 && !entry.includes("\0")))].slice(0, 12);
+}
+
+function cleanChecks(value: unknown, criterion: Criterion): DraftCheck[] {
+  if (!Array.isArray(value)) return [];
+  const used = new Set<string>();
+  return value.slice(0, 150).flatMap((entry, position): DraftCheck[] => {
+    if (!record(entry)) return [];
+    let id = cleanText(entry.id, 200);
+    if (!id || used.has(id)) {
+      let suffix = position + 1;
+      do { id = `${criterion.id}-recovered-${suffix++}`; } while (used.has(id));
+    }
+    used.add(id);
+    const compliant = entry.compliant === true || entry.compliant === false ? entry.compliant : null;
+    const weight = typeof entry.weight === "number" && Number.isFinite(entry.weight) && entry.weight > 0 ? entry.weight : null;
+    return [{ id, label: cleanText(entry.label, 500), compliant,
+      ...(typeof entry.note === "string" ? { note: cleanText(entry.note, 10_000) } : {}),
+      ...(weight !== null ? { weight } : {}), photos: cleanPhotos(entry.photos) }];
+  });
+}
+
+function cleanResponse(value: unknown, criterion: Criterion, modelId: AuditModelId): ItemResponse | null {
+  if (!record(value)) return null;
+  const quantitative = criterion.verificationRule === "Dividido pela quantidade verificada";
+  const allowsNA = modelId === "security-it07-r02"
+    || criterion.verificationRule === "Conforme/Não Conforme/Não Aplicável"
+    || criterion.sourceNote?.toLocaleLowerCase("pt-BR").includes("não aplic") === true;
+  const allowed = new Set<DraftAnswer>(modelId === "security-it07-r02"
+    ? ["0", "5", "10", "N/A"] : ["Conforme", "Não conforme", ...(allowsNA ? ["N/A" as const] : [])]);
+  const answer = typeof value.answer === "string" && allowed.has(value.answer as DraftAnswer)
+    ? value.answer as DraftAnswer : undefined;
+  return {
+    note: cleanText(value.note, 10_000),
+    serious: value.serious === true,
+    photos: cleanPhotos(value.photos),
+    ...(answer !== undefined && !quantitative ? { answer } : {}),
+    ...(value.autoGroupNA === true && answer === "N/A" ? { autoGroupNA: true } : {}),
+    ...(quantitative ? { checks: cleanChecks(value.checks, criterion) } : {}),
+  };
+}
+
+export function reconcileDeviceAuditDraft(server: {
+  actorId: string; auditId: string; workId: string; modelId: AuditModelId; revision: number;
+  responses: AuditDrafts; criteria: readonly Criterion[]; safetyClosure?: SafetyClosure;
+}, local: DeviceAuditDraft | null): { draft: DeviceAuditDraft; repaired: boolean } | null {
+  if (!local || local.actorId !== server.actorId || local.auditId !== server.auditId
+    || local.workId !== server.workId || local.modelId !== server.modelId) return null;
+  const serverItems = record(server.responses[server.modelId]) ? server.responses[server.modelId] : {};
+  const localItems = record(local.responses[server.modelId]) ? local.responses[server.modelId] : {};
+  const mergedItems: Record<string, ItemResponse> = {};
+  for (const criterion of server.criteria) {
+    const localHasValue = Object.prototype.hasOwnProperty.call(localItems, criterion.id);
+    const serverValue = record(serverItems[criterion.id]) ? serverItems[criterion.id] : {};
+    const localValue = record(localItems[criterion.id]) ? localItems[criterion.id] : null;
+    const preferredValue = localHasValue && localValue ? { ...serverValue, ...localValue } : serverValue;
+    const preferred = cleanResponse(preferredValue, criterion, server.modelId);
+    const fallback = cleanResponse(serverItems[criterion.id], criterion, server.modelId);
+    if (preferred ?? fallback) mergedItems[criterion.id] = (preferred ?? fallback)!;
+  }
+  const responses: AuditDrafts = Object.keys(mergedItems).length ? { [server.modelId]: mergedItems } : {};
+  const safetyClosure = local.safetyClosure ?? server.safetyClosure;
+  const draft: DeviceAuditDraft = { ...local, serverRevision: server.revision, responses,
+    contentKey: draftContentKey(responses, safetyClosure), ...(safetyClosure ? { safetyClosure } : {}) };
+  return { draft, repaired: local.serverRevision !== server.revision
+    || draft.contentKey !== local.contentKey || JSON.stringify(responses) !== JSON.stringify(local.responses) };
 }
 
 export function readDeviceAuditPosition(storage: Pick<Storage, "getItem">, actorId: string, auditId: string): number | null {

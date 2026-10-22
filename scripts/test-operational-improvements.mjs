@@ -1,13 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
-import { calculateQualityGroupScore } from "../src/domain/audit-draft.ts";
+import { calculateQualityGroupScore, nextDraftCheckId, nextDraftCheckNumber } from "../src/domain/audit-draft.ts";
 import { criteriaForModel } from "../src/domain/prototype-audits.ts";
 import { qualityGroupResultLabel, qualityItemResultLabel } from "../src/lib/pdf/audit-format.ts";
 import {
   draftContentKey,
   readDeviceAuditDraft,
   readDeviceAuditPosition,
+  reconcileDeviceAuditDraft,
   recoverDeviceAuditDraft,
   writeDeviceAuditDraft,
   writeDeviceAuditPosition,
@@ -56,6 +57,44 @@ function criterion(id, group, weight, verificationRule = "Conforme/Não Conforme
   return { id, code: id, title: id, text: id, group, subgroup: "", source: "F.175", locator: id,
     documentedWeight: weight, orientations: [], verificationRule };
 }
+
+test("remoção e nova inclusão nunca reutilizam o identificador de uma verificação existente", () => {
+  const criterionId = "F175-F175-Q01";
+  const checks = [{ id: `${criterionId}-1` }, { id: `${criterionId}-3` }];
+  assert.equal(nextDraftCheckNumber(criterionId, checks), 2);
+  assert.equal(nextDraftCheckId(criterionId, checks), `${criterionId}-2`);
+  checks.push({ id: `${criterionId}-2` });
+  assert.equal(nextDraftCheckId(criterionId, checks), `${criterionId}-4`);
+});
+
+test("rascunho mais recente do celular prevalece, é reparado e preserva campos existentes no servidor", () => {
+  const quantitative = criterion("F175-F175-Q01", "1. Materiais", .5, "Dividido pela quantidade verificada");
+  const qualitative = criterion("F175-F175-Q02", "1. Materiais", .5);
+  const serverResponses = { [modelId]: {
+    [quantitative.id]: { note: "Servidor", checks: [{ id: "server-1", label: "Servidor", compliant: true }] },
+    [qualitative.id]: { answer: "Conforme", note: "Resposta do servidor" },
+  } };
+  const localResponses = { [modelId]: {
+    [quantitative.id]: { note: "Celular", checks: [
+      { id: "duplicado", label: "Primeiro", compliant: true },
+      { id: "duplicado", label: "Segundo", compliant: false, note: "Corrigir", photos: ["foto-local"] },
+    ] },
+    [qualitative.id]: { answer: "Não conforme" },
+    desconhecido: { answer: "Conforme", note: "Não pertence ao roteiro" },
+  } };
+  const local = { version: 1, actorId, auditId, workId, modelId, serverRevision: 2,
+    updatedAt: new Date().toISOString(), contentKey: draftContentKey(localResponses), responses: localResponses };
+  const result = reconcileDeviceAuditDraft({ actorId, auditId, workId, modelId, revision: 4,
+    responses: serverResponses, criteria: [quantitative, qualitative] }, local);
+  assert.ok(result?.repaired);
+  assert.equal(result.draft.serverRevision, 4);
+  assert.equal(result.draft.responses[modelId][quantitative.id].note, "Celular");
+  assert.equal(new Set(result.draft.responses[modelId][quantitative.id].checks.map((check) => check.id)).size, 2);
+  assert.equal(result.draft.responses[modelId][quantitative.id].checks[1].note, "Corrigir");
+  assert.equal(result.draft.responses[modelId][qualitative.id].answer, "Não conforme");
+  assert.equal(result.draft.responses[modelId][qualitative.id].note, "Resposta do servidor");
+  assert.equal(result.draft.responses[modelId].desconhecido, undefined);
+});
 
 test("Qualidade distingue nota normalizada do grupo e contribuição ponderada dos quesitos", () => {
   const criteria = [

@@ -33,6 +33,8 @@ import {
   getAdjacentIndex,
   getItemResponse,
   getResponseLabel,
+  nextDraftCheckId,
+  nextDraftCheckNumber,
   type AuditDrafts,
   type DraftAnswer,
   type ItemResponse,
@@ -622,8 +624,9 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
             </div>)}
             <button type="button" className="add-verified-item" aria-label={`Adicionar verificação: ${criterion.code}`} data-tooltip="Adicionar verificação" onClick={() => {
               const checks = quantityChecks;
-              const number = checks.length + 1;
-              updateDraft({ ...response, checks: [...checks, { id: `${criterion.id}-${number}`, label: perCheckWeights ? "" : `Item verificado ${number}`, compliant: null, ...(perCheckWeights ? { weight: null } : {}) }] });
+              const number = nextDraftCheckNumber(criterion.id, checks);
+              const id = nextDraftCheckId(criterion.id, checks);
+              updateDraft({ ...response, checks: [...checks, { id, label: perCheckWeights ? "" : `Item verificado ${number}`, compliant: null, ...(perCheckWeights ? { weight: null } : {}) }] });
             }}><span aria-hidden="true">+</span><small className="mobile-action-label">Adicionar verificação</small></button>
           </div> : <div className={`answer-options${security ? " answer-options-security" : ` answer-options-quality${supportsNotApplicable ? " has-not-applicable" : ""}`}`}>
             {options.map((value) => {

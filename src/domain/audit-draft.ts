@@ -37,6 +37,16 @@ export const updateItemResponse = (drafts: AuditDrafts, model: string, criterion
 
 export const getResponseLabel = (response: ItemResponse): string => response.answer ?? "Não respondido";
 
+export function nextDraftCheckNumber(criterionId: string, checks: readonly Pick<DraftCheck, "id">[]): number {
+  const used = new Set(checks.map((check) => check.id));
+  let number = 1;
+  while (used.has(`${criterionId}-${number}`)) number += 1;
+  return number;
+}
+
+export const nextDraftCheckId = (criterionId: string, checks: readonly Pick<DraftCheck, "id">[]): string =>
+  `${criterionId}-${nextDraftCheckNumber(criterionId, checks)}`;
+
 export function getDraftCheckWeight(check: DraftCheck): number | null {
   if (typeof check.weight === "number" && Number.isFinite(check.weight) && check.weight > 0) return check.weight;
   const catalogWeight = fvsServices.find((service) => service.label === check.label)?.weight;

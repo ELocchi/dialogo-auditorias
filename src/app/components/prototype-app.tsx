@@ -459,8 +459,6 @@ function ProfileWorkspace({ context: providedContext, initialScreen, initialVisi
     const selectedWork = assignedAgendaWorks(user, context.works, [current]).find((entry) => entry.id === current.workId);
     if (!selectedWork || !current.modelId) throw new Error("Esta obra ou roteiro não está autorizado neste perfil.");
     if (!localTestVisitIds.has(current.id)) {
-      const existing = session.audits.find(a => a.visitId === current.id && !a.isDemo);
-      if (existing) await publication.save(existing.id, session.responses[existing.id] ?? {});
       const auditId = await publication.start(current);
       const rememberedPosition = publication.rememberedPosition(auditId);
       if (rememberedPosition !== null) setPositions((positions) => ({ ...positions, [auditId]: rememberedPosition }));

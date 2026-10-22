@@ -18,7 +18,7 @@ import {
   persistDeviceAuditPhotos,
   readDeviceAuditDraft,
   readDeviceAuditPosition,
-  recoverDeviceAuditDraft,
+  reconcileDeviceAuditDraft,
   restoreDeviceAuditPhotos,
   writeDeviceAuditDraft,
   writeDeviceAuditPosition,
@@ -74,9 +74,11 @@ export function useAuditPublication(actor: AgendaActorContext, session: Prototyp
   const loadKey = `${listQuery}:${loadAttempt}`;
   const accept = useCallback((data: PersistedAudit) => {
     const serverKey = draftContentKey(data.responses, data.safetyClosure);
-    const local = typeof window === "undefined" ? null
-      : recoverDeviceAuditDraft({ actorId: actor.userId, auditId: data.audit.id, workId: data.audit.workId,
-        modelId: data.audit.modelId, revision: data.revision }, readDeviceAuditDraft(window.localStorage, actor.userId, data.audit.id));
+    const reconciliation = typeof window === "undefined" ? null
+      : reconcileDeviceAuditDraft({ actorId: actor.userId, auditId: data.audit.id, workId: data.audit.workId,
+        modelId: data.audit.modelId, revision: data.revision, responses: data.responses,
+        criteria: data.criteria, safetyClosure: data.safetyClosure }, readDeviceAuditDraft(window.localStorage, actor.userId, data.audit.id));
+    const local = reconciliation?.draft ?? null;
     const recovered = local && local.contentKey !== serverKey ? local : null;
     const accepted = recovered ? { ...data, responses: recovered.responses, safetyClosure: recovered.safetyClosure } : data;
     meta.current.set(data.audit.id, { revision: data.revision, saved: serverKey, files: new Map() });
@@ -86,6 +88,7 @@ export function useAuditPublication(actor: AgendaActorContext, session: Prototyp
       safetyClosures: (() => { const closures = { ...current.safetyClosures }; if (accepted.safetyClosure) closures[data.audit.id] = accepted.safetyClosure; else delete closures[data.audit.id]; return closures; })(),
       criteriaSnapshots: { ...current.criteriaSnapshots, [data.audit.id]: data.criteria } }));
     if (recovered) {
+      if (reconciliation?.repaired && typeof window !== "undefined") writeDeviceAuditDraft(window.localStorage, recovered);
       setDraftFeedback(current => ({ ...current, [data.audit.id]: "saving" }));
       void restoreDeviceAuditPhotos(actor.userId, data.audit.id).then((photos) => {
         photos.forEach(({ reference, file }) => photoStore.restore(reference, file));
