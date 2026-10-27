@@ -21,6 +21,7 @@ import type { ActionPlanRow, PdfAssets } from "@/lib/pdf/types";
 import { createPublicationClient } from "./admin";
 import { draftPhotoUrl, type AuditDraftRecord, type PersistedAudit, type PlanRecord } from "./contracts";
 import { extractPublicationFindings, mapPhotos, normalizePlanRows, normalizeResponses, publicationScore, PublicationError } from "./validation";
+import { isConflictCode } from "@/lib/db-errors";
 
 type Client = Pick<SupabaseClient, "rpc" | "storage">;
 const hash = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
@@ -31,7 +32,7 @@ export function publicationService(context: ProfileWorkspaceContext, client: Cli
       p_scope: context.engineeringScope, p_admin: context.administrativeScope, p_operation: operation,
       p_id: id, p_revision: revision, p_payload: payload });
     if (error) {
-      if (["40001", "23505"].includes(error.code)) throw new PublicationError("O rascunho mudou em outra sessão. Reabra a auditoria ou o plano antes de continuar.", 409);
+      if ((isConflictCode(error.code) || error.code === "23505")) throw new PublicationError("O rascunho mudou em outra sessão. Reabra a auditoria ou o plano antes de continuar.", 409);
       if (error.code === "42501") throw new PublicationError("Seu perfil não tem mais permissão para esta operação. Confira a visita e os acessos.", 403);
       if (error.code === "55000") throw new PublicationError("Este documento já foi publicado e não pode ser alterado.", 409);
       console.error("[publications] command_failed", { operation, code: error.code });

@@ -9,6 +9,7 @@ import { parseStandaloneReport } from "@/lib/follow-up/standalone-contracts";
 import { photoPath } from "@/lib/follow-up/photos";
 import type { ProfileWorkspaceContext } from "@/lib/access/workspace-context";
 import type { JobKind } from "@/lib/jobs/contracts";
+import { isConflictCode } from "@/lib/db-errors";
 
 export type ClaimedJob = { id: string; lease_token: string; actor: string; profile: string; scope: string; admin: string;
   target: string; revision: number; kind: JobKind; result?: { revision?: number }; attempts: number; payload: Record<string, unknown> };
@@ -89,7 +90,10 @@ if (process.send) process.once("message", async (job: ClaimedJob) => {
   try { await executeJob(job); process.send?.({ ok: true, peakRssKb: process.resourceUsage().maxRSS }); }
   catch (error) {
     const value = error as { code?: string; status?: number };
+    // The job row keeps only the code; the message says which validation rejected the input.
+    console.error(JSON.stringify({ event: "job_error", jobId: job.id, kind: job.kind, code: value.code, status: value.status,
+      message: error instanceof Error ? error.message.slice(0, 300) : String(error).slice(0, 300) }));
     process.send?.({ ok: false, code: value.code ?? (value.status ? `http_${value.status}` : "processing_failed"),
-      retryable: !["42501", "22023", "23514", "54000", "40001"].includes(value.code ?? "") && ![400, 403, 404, 409, 413].includes(value.status ?? 0) });
+      retryable: !["42501", "22023", "23514", "54000"].includes(value.code ?? "") && !isConflictCode(value.code) && ![400, 403, 404, 409, 413].includes(value.status ?? 0) });
   } finally { process.disconnect?.(); }
 });

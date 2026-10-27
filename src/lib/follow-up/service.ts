@@ -2,6 +2,7 @@ import type { JobReceipt } from "../jobs/contracts.ts";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { uuidPattern } from "../access/validation.ts";
 import type { ProfileWorkspaceContext } from "../access/workspace-context.ts";
+import { isConflictCode } from "../db-errors.ts";
 
 type Client = Pick<SupabaseClient, "rpc">;
 export type FollowUpFinding = { id: string; location: string; description: string; correction: string; serious?: boolean };
@@ -118,7 +119,7 @@ export async function saveFollowUpReport(client: Client, context: ProfileWorkspa
     });
     if (error) {
       if (["PGRST202", "42883"].includes(error.code)) return failure("O salvamento estará disponível após a atualização do banco de dados.");
-      if (["40001", "23505"].includes(error.code)) return failure("Este relatório mudou em outra sessão. Atualize a página antes de salvar novamente.");
+      if ((isConflictCode(error.code) || error.code === "23505")) return failure("Este relatório mudou em outra sessão. Atualize a página antes de salvar novamente.");
       if (["42501", "P0002"].includes(error.code)) return failure("O acompanhamento não está mais autorizado ou disponível. Atualize a agenda.");
       if (error.code === "22023") return failure("Confira o texto do relatório e dos apontamentos.");
       return failure("Não foi possível confirmar o salvamento. Atualize o relatório antes de tentar novamente.");

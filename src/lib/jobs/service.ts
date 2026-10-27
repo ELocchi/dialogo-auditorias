@@ -3,6 +3,7 @@ import type { ProfileWorkspaceContext } from "@/lib/access/workspace-context";
 import { createPublicationClient } from "@/lib/publications/admin";
 import { PublicationError } from "@/lib/publications/validation";
 import type { JobKind, JobReceipt, JobStatus } from "./contracts";
+import { isConflictCode } from "@/lib/db-errors";
 
 export function jobService(context: ProfileWorkspaceContext, client = createPublicationClient()) {
   async function request<T>(operation: string, args: Record<string, unknown> = {}): Promise<T> {
@@ -12,7 +13,7 @@ export function jobService(context: ProfileWorkspaceContext, client = createPubl
     });
     if (error) {
       console.error(JSON.stringify({ event: "job_request_failed", operation, code: error.code }));
-      const status = error.code === "42501" ? 403 : error.code === "40001" ? 409 : error.code === "54000" ? 429 : 503;
+      const status = error.code === "42501" ? 403 : isConflictCode(error.code) ? 409 : error.code === "54000" ? 429 : 503;
       throw new PublicationError(status === 403 ? "Processamento indisponível para este perfil." : status === 409
         ? "O documento mudou. Reabra a tela antes de continuar." : status === 429 ? "Há muitos arquivos em processamento. Aguarde."
         : "Não foi possível consultar o processamento. Tente novamente.", status);

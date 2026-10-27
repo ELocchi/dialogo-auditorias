@@ -65,6 +65,8 @@ test('durable queue: real SQL, child worker, HTTP Storage, PDF, retries and acce
  try {
   await db.exec("alter table storage.objects add column created_at timestamptz default now();");
   await db.exec(await readFile('supabase/migrations/20261006000900_background_jobs.sql','utf8'));
+  await db.exec(await readFile('supabase/migrations/20261027000100_replace_stale_jobs.sql','utf8'));
+  await db.exec(await readFile('supabase/migrations/20261027000200_conflict_sqlstate.sql','utf8'));
   await db.exec(await readFile('supabase/tests/nplus1.sql','utf8'));
   await db.exec('commit');
   const jpeg=await sharp(randomBytes(1200*900*3),{raw:{width:1200,height:900,channels:3}}).jpeg({quality:85}).toBuffer();
@@ -81,6 +83,13 @@ test('durable queue: real SQL, child worker, HTTP Storage, PDF, retries and acce
   const bytes=objects.get(`orientative-report-pdfs/standalone/${report}.pdf`);assert.ok(bytes);assert.match(bytes.subarray(0,5).toString(),/%PDF-/);
   const pdf=await PDFDocument.load(bytes);assert.ok(pdf.getPageCount()>2);
   assert.equal((await request('enqueue',{p_kind:'standalone-pdf',p_target:report})).id,first.id);
+  // Finished work keeps its content; a failed job is replaced instead of pinning its revision forever.
+  await assert.rejects(request('enqueue',{p_kind:'standalone-pdf',p_target:report,p_payload:{changed:true}}),e=>e.code==='PT409','conflicts use PT409: PostgREST retries 40001 forever');
+  await db.query("update dialogo_private.background_jobs set status='failed',error_code='http_400',retryable=false where id=$1",[first.id]);
+  const replaced=await request('enqueue',{p_kind:'standalone-pdf',p_target:report,p_payload:{changed:true}});
+  assert.equal(replaced.id,first.id);assert.equal(replaced.status,'queued');
+  assert.equal((await request('enqueue',{p_kind:'standalone-pdf',p_target:report,p_payload:{changed:true}})).id,first.id,'replay of replaced content is idempotent');
+  await db.query("update dialogo_private.background_jobs set status='succeeded',payload='{}' where id=$1",[first.id]);
   await assert.rejects(request('get',{p_id:first.id,p_actor:id(3),p_profile:'ENGENHARIA',p_scope:'EQUIPE_OBRA'}),e=>e.code==='42501');
   const requestPermissions=await db.query("select has_function_privilege('authenticated','public.background_job_request(uuid,text,text,text,text,uuid,text,uuid,integer,jsonb)','EXECUTE') allowed");assert.equal(requestPermissions.rows[0].allowed,false);
   const getPermissions=await db.query("select has_function_privilege('authenticated','public.background_job_worker(text,uuid,uuid,jsonb)','EXECUTE') allowed");assert.equal(getPermissions.rows[0].allowed,false);
@@ -97,7 +106,7 @@ test('durable queue: real SQL, child worker, HTTP Storage, PDF, retries and acce
   await db.query("update dialogo_private.background_jobs set status='queued',result=null,attempts=0 where id=$1",[pending.id]);
   const old=await worker('claim');await db.query("update dialogo_private.background_jobs set lease_until=now()-interval '1 second' where id=$1",[pending.id]);
   const recovered=await worker('claim');assert.notEqual(old.lease_token,recovered.lease_token);
-  await assert.rejects(worker('complete',old,{url:'/forged'}),e=>e.code==='40001');
+  await assert.rejects(worker('complete',old,{url:'/forged'}),e=>e.code==='PT409');
   assert.equal((await run(recovered)).message.ok,true);
   evidence.push({scenario:'scheduled PDF transient failure, backoff, recovery and stale lease fencing',passed:true});
   // Exercise the actual HTTP route through enqueue -> isolated process -> publication.

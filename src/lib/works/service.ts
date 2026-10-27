@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { uuidPattern } from '../access/validation.ts';
 import { parseTeamAccountLinks, validateWorkCreate, validateWorkEdit } from './validation.ts';
 import type { WorkEditState } from './contracts.ts';
+import { isConflictCode } from '../db-errors.ts';
 type Dependencies = { createClient: () => Promise<Pick<SupabaseClient,'rpc'>> };
 const failure = (message: string, extras: Partial<WorkEditState> = {}): WorkEditState => ({ status:'error', message, ...extras });
 export async function createWorkWithDetails(form: FormData, deps: Dependencies): Promise<WorkEditState> {
@@ -56,7 +57,7 @@ export async function updateWork(form: FormData, deps: Dependencies): Promise<Wo
     const { data, error } = result;
     if (error) {
       if (['42883', 'PGRST202'].includes(error.code ?? '') && team.links) return failure('O vínculo de usuários e cargos ainda depende da atualização do banco. Nenhuma alteração foi salva.');
-      if (error.code === '40001') return failure('Esta obra foi alterada após você abrir a página. Seus campos foram mantidos; confira a versão atual antes de salvar novamente.',{conflict:true});
+      if (isConflictCode(error.code)) return failure('Esta obra foi alterada após você abrir a página. Seus campos foram mantidos; confira a versão atual antes de salvar novamente.',{conflict:true});
       if (error.code === '23505') return failure('Já existe uma obra com esse nome. Escolha um nome diferente.',{fieldErrors:{nome:'Este nome já está cadastrado.'}});
       if (error.code === '42501') return failure('Seu acesso administrativo não está disponível. Selecione o perfil Administrativo e confira sua liberação.');
       if (error.code === 'P0002') return failure('A obra não está disponível. Volte à lista e reabra o cadastro.');

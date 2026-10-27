@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ProfileWorkspaceContext } from "../access/workspace-context.ts";
 import { uuidPattern } from "../access/validation.ts";
 import { parseFindings, type FollowUpFinding } from "./service.ts";
+import { isConflictCode } from "../db-errors.ts";
 
 type Client = Pick<SupabaseClient, "rpc">;
 export type FindingDraft = { visitId: string; revision: number; findings: FollowUpFinding[]; updatedAt: string };
@@ -52,7 +53,7 @@ export async function saveFindingDrafts(client: Client, context: ProfileWorkspac
     });
     if (error) {
       if (["PGRST202", "42883"].includes(error.code)) return failed("O salvamento estará disponível após a atualização do banco de dados.");
-      if (["40001", "23505"].includes(error.code)) return failed("Os apontamentos mudaram em outra sessão. Atualize a página antes de salvar novamente.");
+      if ((isConflictCode(error.code) || error.code === "23505")) return failed("Os apontamentos mudaram em outra sessão. Atualize a página antes de salvar novamente.");
       if (["42501", "P0002"].includes(error.code)) return failed("Esta visita não está mais autorizada ou disponível para apontamentos.");
       if (error.code === "22023") return failed("Confira os textos dos apontamentos antes de salvar.");
       return failed("Não foi possível confirmar o salvamento. Tente novamente.");

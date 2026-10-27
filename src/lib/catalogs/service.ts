@@ -3,6 +3,7 @@ import type { ProfileWorkspaceContext } from "../access/workspace-context.ts";
 import { modelModule } from "../../domain/prototype-access.ts";
 import { catalogModelIds, bundledCatalog, bundledFvsWeights, unavailableCatalogs, type CatalogSaveResult, type CatalogSnapshot, type CatalogVersion, type FvsWeightVersion } from "./contracts.ts";
 import { isRecord, isModel, isUuid, validText, parseCriteria, parseFvsRevisionForm, parseFvsServices, parseRevisionForm, parseUpload } from "./validation.ts";
+import { isConflictCode } from "../db-errors.ts";
 
 type Client = Pick<SupabaseClient, "rpc">;
 export const missingCatalogMigration = (error: { code?: string } | null) => error?.code === "PGRST202" || error?.code === "42883";
@@ -66,7 +67,7 @@ export async function saveFvsWeightsRevision(form: FormData, context: ProfileWor
     });
     if (error) {
       if (missingCatalogMigration(error)) return failure("A edição dos pesos FVS estará disponível após a atualização da plataforma.");
-      if (error.code === "40001") return failure("Outra revisão dos pesos FVS foi salva. Atualize a página antes de editar novamente.");
+      if (isConflictCode(error.code)) return failure("Outra revisão dos pesos FVS foi salva. Atualize a página antes de editar novamente.");
       if (error.code === "42501") return failure("Seu acesso mudou. Entre novamente no perfil Administrativo de Qualidade.");
       if (error.code === "22023") return failure("Informe pesos entre 1 e 5 para todas as FVS.");
       return failure("Não foi possível confirmar os pesos FVS. Mantenha esta janela aberta e tente novamente.");
@@ -96,7 +97,7 @@ export async function saveCatalogRevision(form: FormData, context: ProfileWorksp
     });
     if (error) {
       if (missingCatalogMigration(error)) return failure("O salvamento de revisões estará disponível após a atualização da plataforma.");
-      if (error.code === "40001") return failure("Outra revisão foi salva. Atualize a página e confira os itens antes de editar novamente.");
+      if (isConflictCode(error.code)) return failure("Outra revisão foi salva. Atualize a página e confira os itens antes de editar novamente.");
       if (error.code === "42501") return failure("Seu acesso mudou. Entre novamente e selecione o perfil Administrativo.");
       if (error.code === "22023" && error.message === "invalid_catalog_criteria") return failure("Confira os campos obrigatórios dos itens. Alterações de títulos e descrições não exigem novo arquivo nem nova identificação da revisão de referência.");
       if (error.code === "22023" && error.message === "invalid_catalog_document") return failure("Confira o arquivo e a identificação da nova revisão de referência.");

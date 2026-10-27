@@ -36,7 +36,7 @@ export async function publicationFetch<T>(url: string, init?: RequestInit, onPro
   try {
     const response = await fetch(url, { ...init, credentials: "same-origin", cache: "no-store", signal: requestSignal(init?.signal, reading ? 20_000 : 90_000) });
     const data = await response.json().catch(() => null);
-    if (!response.ok || !data) throw new Error(data?.message || (reading ? "Não foi possível carregar os dados. Tente novamente." : "Não foi possível confirmar o salvamento. Seus dados continuam nesta tela."));
+    if (!response.ok || !data) throw Object.assign(new Error(data?.message || (reading ? "Não foi possível carregar os dados. Tente novamente." : "Não foi possível confirmar o salvamento. Seus dados continuam nesta tela.")), { status: response.status });
     if (response.status === 202 && isJobReceipt(data)) {
       const completed = await waitForJob(data, { signal: init?.signal ?? undefined, onProgress: job => onProgress?.(jobMessage(job)) });
       return completed.result as T;
@@ -66,6 +66,8 @@ export function useAuditPublication(actor: AgendaActorContext, session: Prototyp
   const deviceSavedContent = useRef(new Map<string, string>());
   const deviceQueue = useRef<Promise<unknown>>(Promise.resolve());
   const failed = useRef(new Map<string, string>());
+  // A 409 means the server revision moved on; autosave stops until the audit is reopened or retried.
+  const conflicted = useRef(new Set<string>());
   const [draftVersions, setDraftVersions] = useState<Record<string, PersistedAudit>>({});
   const meta = useRef(new Map<string, { revision: number; saved: string; files: Map<string, File> }>());
   const queue = useRef<Promise<unknown>>(Promise.resolve());
@@ -82,6 +84,7 @@ export function useAuditPublication(actor: AgendaActorContext, session: Prototyp
     const recovered = local && local.contentKey !== serverKey ? local : null;
     const accepted = recovered ? { ...data, responses: recovered.responses, safetyClosure: recovered.safetyClosure } : data;
     meta.current.set(data.audit.id, { revision: data.revision, saved: serverKey, files: new Map() });
+    conflicted.current.delete(data.audit.id);
     setDraftVersions(current => ({ ...current, [data.audit.id]: accepted }));
     setSession(current => ({ ...current, audits: [...current.audits.filter(a => a.id !== data.audit.id), data.audit],
       responses: { ...current.responses, [data.audit.id]: accepted.responses },
@@ -128,7 +131,7 @@ export function useAuditPublication(actor: AgendaActorContext, session: Prototyp
       const current = meta.current.get(id);
       if (!current) throw new Error("Reabra a auditoria para recuperar o rascunho.");
       const key = draftContentKey(responses, safetyClosure);
-      if (current.saved === key || (automatic && failed.current.get(id) === key)) return current.revision;
+      if (current.saved === key || (automatic && (failed.current.get(id) === key || conflicted.current.has(id)))) return current.revision;
       setStatus("Salvando..."); setError(""); setDraftFeedback(value => ({ ...value, [id]: "saving" }));
       const form = new FormData();
       form.set("revision", String(current.revision)); form.set("responses", JSON.stringify(responses)); form.set("safetyClosure", JSON.stringify(safetyClosure ?? null));
@@ -153,7 +156,7 @@ export function useAuditPublication(actor: AgendaActorContext, session: Prototyp
         }
         setStatus("Rascunho salvo"); setDraftFeedback(value => ({ ...value, [id]: "server" })); return result.revision;
       } catch (reason) {
-        failed.current.set(id, key); setStatus("Erro ao salvar"); setDraftFeedback(value => ({ ...value, [id]: "error" }));
+        failed.current.set(id, key); if ((reason as { status?: number }).status === 409) conflicted.current.add(id); setStatus("Erro ao salvar"); setDraftFeedback(value => ({ ...value, [id]: "error" }));
         const keptOnDevice = deviceSavedContent.current.get(id) === key;
         setError(`${reason instanceof Error ? reason.message : "Falha ao salvar."}${keptOnDevice ? " O rascunho permanece neste dispositivo." : " Mantenha esta página aberta e tente novamente."}`); throw reason;
       }
@@ -203,7 +206,7 @@ export function useAuditPublication(actor: AgendaActorContext, session: Prototyp
     loading: enabled && loaded?.key !== loadKey,
     loadError: enabled && loaded?.key === loadKey ? loaded.error : "",
     retryLoad: () => setLoadAttempt(value => value + 1),
-    retrySave: () => { failed.current.clear(); setError(""); setStatus("Salvando..."); setRetryAttempt(value => value + 1); },
+    retrySave: () => { failed.current.clear(); conflicted.current.clear(); setError(""); setStatus("Salvando..."); setRetryAttempt(value => value + 1); },
     rememberedPosition: (id: string) => typeof window === "undefined" ? null : readDeviceAuditPosition(window.localStorage, actor.userId, id),
     rememberPosition: (id: string, position: number) => { if (typeof window !== "undefined") writeDeviceAuditPosition(window.localStorage, actor.userId, id, position); },
     async start(visit: Visit) {

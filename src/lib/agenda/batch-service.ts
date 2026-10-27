@@ -4,6 +4,7 @@ import type { ProfileWorkspaceContext } from "../access/workspace-context.ts";
 import { uuidPattern } from "../access/validation.ts";
 import type { AgendaActionResult, CreateAgendaVisitInput } from "./contracts.ts";
 import { parseCreateAgendaVisit, readAgendaSnapshot } from "./service.ts";
+import { isConflictCode } from "../db-errors.ts";
 
 export const maximumAgendaBatchSize = 200;
 
@@ -37,7 +38,7 @@ export async function createAgendaVisitsBatch(input: unknown, context: ProfileWo
       if (error.code === "PGRST202" || error.code === "42883") return failure("O envio da agenda ficará disponível após a atualização do banco de dados.");
       if (error.code === "42501") return failure("Seu perfil ou um dos profissionais não está autorizado para estes agendamentos. Confira os acessos antes de reenviar.");
       if (error.code === "22023" || error.code === "22007" || error.code === "22008") return failure("Revise as obras, profissionais e datas. Nenhum novo agendamento deste envio foi salvo.");
-      if (error.code === "40001") return failure("A programação mudou. Confira os agendamentos e tente novamente com os mesmos dados.");
+      if (isConflictCode(error.code)) return failure("A programação mudou. Confira os agendamentos e tente novamente com os mesmos dados.");
       return failure("Não foi possível confirmar o envio. Tente novamente com os mesmos dados para consultar ou concluir esta agenda.");
     }
     if (!Array.isArray(data) || data.length !== values.length || new Set(data).size !== data.length

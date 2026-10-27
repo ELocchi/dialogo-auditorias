@@ -5,6 +5,7 @@ import { getSaoPauloToday, isCalendarDate } from "../../domain/visit-calendar.ts
 import { uuidPattern } from "../access/validation.ts";
 import type { ProfileWorkspaceContext } from "../access/workspace-context.ts";
 import { isAgendaRevision, unavailableAgenda, type AgendaSyncResult, type AgendaActionResult, type AgendaNotification, type AgendaSnapshot, type ConfirmAgendaVisitInput, type CreateAgendaVisitInput, type DeleteAgendaVisitInput } from "./contracts.ts";
+import { isConflictCode } from "../db-errors.ts";
 
 type Client = Pick<SupabaseClient, "rpc">;
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
@@ -168,7 +169,7 @@ async function mutate(client: Client, context: ProfileWorkspaceContext, rpc: str
       if (rpc === "delete_audit_visit" && (error.code === "PGRST202" || error.code === "42883")) {
         return failure("A exclusão de agendamentos ficará disponível após a atualização do banco de dados.");
       }
-      if (error.code === "40001") return failure("A programação mudou. Atualize a agenda e confira a data antes de continuar.");
+      if (isConflictCode(error.code)) return failure("A programação mudou. Atualize a agenda e confira a data antes de continuar.");
       if (error.code === "P0002") return failure("Este agendamento não está mais disponível. Atualize a agenda.");
       if (error.code === "42501") return failure("Seu perfil não está autorizado para esta operação. Confira seus acessos.");
       if (error.code === "22023") return failure("Confira a obra, o auditor e os dados do agendamento antes de continuar.");
