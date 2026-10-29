@@ -98,7 +98,7 @@ export function canStartAudit(user: DemoUser, workId: string, modelId: AuditMode
 export function canBeginScheduledAudit(user: DemoUser, visit: Visit, today: string): boolean {
   return visit.kind === "audit" && visit.modelId !== null
     && visit.auditorId === user.id && visit.confirmationStatus === "confirmed"
-    && visit.date === today && modelModule(visit.modelId) === visit.module
+    && (visit.date === today || (visit.lateStartAllowed === true && visit.date < today)) && modelModule(visit.modelId) === visit.module
     && canReadVisit(user, visit) && canAuditModule(user, visit.module);
 }
 
@@ -161,6 +161,8 @@ export interface Visit {
   revision?: number;
   confirmationStatus?: "pending_confirmation" | "confirmed";
   confirmedAt?: string | null;
+  /** Administrative exception: the assigned auditor may start this audit after its date. */
+  lateStartAllowed?: boolean;
   auditorName?: string;
   createdByName?: string;
   history: readonly { previousDate: string; date: string; note: string; changedBy: string; changedAt: string }[];

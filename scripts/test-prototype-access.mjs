@@ -200,6 +200,11 @@ test("designação libera somente a auditoria exata na obra de outro técnico", 
   assert.equal(canReadVisit(visitor, { ...visit, module: "quality", modelId: "quality-f175" }), false);
   assert.equal(canBeginScheduledAudit(visitor, { ...visit, confirmationStatus: "pending_confirmation" }, visit.date), false);
   assert.equal(canBeginScheduledAudit(visitor, visit, "2026-09-14"), false);
+  const nextDay = new Date(`${visit.date}T12:00:00Z`); nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+  const later = nextDay.toISOString().slice(0, 10);
+  assert.equal(canBeginScheduledAudit(visitor, visit, later), false);
+  assert.equal(canBeginScheduledAudit(visitor, { ...visit, lateStartAllowed: true }, later), true);
+  assert.equal(canBeginScheduledAudit(visitor, { ...visit, lateStartAllowed: true }, "2026-09-14"), false);
   const revoked = { ...visitor, auditAssignments: [] };
   assert.equal(canEditAudit(revoked, assignedAudit), false);
   assert.equal(canReadAudit(revoked, assignedAudit), false);
