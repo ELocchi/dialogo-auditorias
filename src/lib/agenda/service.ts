@@ -167,6 +167,10 @@ async function mutate(client: Client, context: ProfileWorkspaceContext, rpc: str
       if (rpc === "create_work_follow_up_visit" && (error.code === "PGRST202" || error.code === "42883")) {
         return failure("O agendamento de acompanhamento ficará disponível após a atualização do banco de dados.");
       }
+      if (rpc === "allow_late_audit_start" && (error.code === "PGRST202" || error.code === "42883")) {
+        return failure("A liberação após a data ficará disponível após a atualização do banco de dados.");
+      }
+      if (rpc === "allow_late_audit_start" && error.code === "22023") return failure("Somente auditorias com data já passada podem ser liberadas.");
       if (rpc === "delete_audit_visit" && (error.code === "PGRST202" || error.code === "42883")) {
         return failure("A exclusão de agendamentos ficará disponível após a atualização do banco de dados.");
       }
@@ -217,6 +221,16 @@ export async function deleteAgendaVisit(input: unknown, context: ProfileWorkspac
   return mutate(client, context, "delete_audit_visit", {
     p_request_id: value.requestId, p_visit_id: value.visitId, p_expected_revision: value.expectedRevision,
   }, "Agendamento excluído da agenda e das notificações.");
+}
+
+export async function allowLateAuditStart(input: unknown, context: ProfileWorkspaceContext, client: Client): Promise<AgendaActionResult> {
+  const value = parseConfirmAgendaVisit(input);
+  if (!value) return failure("Atualize a agenda e selecione um agendamento válido.");
+  if (!canManageAgenda(context.user)) return failure("Somente o Administrativo pode liberar o preenchimento após a data.");
+  // The database checks the past date, the module scope and the expected revision under a row lock.
+  return mutate(client, context, "allow_late_audit_start", {
+    p_request_id: value.requestId, p_visit_id: value.visitId, p_expected_revision: value.expectedRevision,
+  }, "Preenchimento liberado. O auditor responsável já pode iniciar a auditoria.");
 }
 
 export async function confirmAgendaVisit(input: unknown, context: ProfileWorkspaceContext, client: Client): Promise<AgendaActionResult> {

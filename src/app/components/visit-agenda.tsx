@@ -48,6 +48,7 @@ type VisitAgendaProps = {
   onCreateBatch?: (inputs: CreateAgendaVisitInput[]) => Promise<AgendaActionResult>;
   onDelete: (visitId: string, expectedRevision: number) => Promise<AgendaActionResult>;
   onConfirm: (visitId: string, expectedRevision: number) => Promise<AgendaActionResult>;
+  onAllowLateStart?: (visitId: string, expectedRevision: number) => Promise<AgendaActionResult>;
 };
 
 const modelIds = Object.keys(auditModelLabels) as AuditModelId[];
@@ -65,7 +66,7 @@ export function VisitAgenda(props: VisitAgendaProps) {
   return <AgendaContext key={`${props.user.id}:${props.module}:${props.workId}`} {...props} />;
 }
 
-function AdministrativeAgenda({ user, works, users, visits, module, workId, available, mutationPending = false, syncError, onCreate, onCreateBatch, onDelete, onConfirm }: VisitAgendaProps) {
+function AdministrativeAgenda({ user, works, users, visits, module, workId, available, mutationPending = false, syncError, onCreate, onCreateBatch, onDelete, onConfirm, onAllowLateStart }: VisitAgendaProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const addButtonRef = useRef<HTMLButtonElement>(null);
   const listId = useId();
@@ -117,7 +118,7 @@ function AdministrativeAgenda({ user, works, users, visits, module, workId, avai
         </div>
         {visibleVisits.length ? <PaginatedVisitList key={`${user.id}:${user.role}:${selectedAuditorId ?? "all"}`}
           visits={visibleVisits} works={authorizedWorks} user={user} users={users} available={available}
-          mutationPending={mutationPending} onDelete={onDelete} onConfirm={onConfirm} /> : <div className={styles.scheduledEmpty}>
+          mutationPending={mutationPending} onDelete={onDelete} onConfirm={onConfirm} onAllowLateStart={onAllowLateStart} /> : <div className={styles.scheduledEmpty}>
           <CalendarIcon />
           <p>{!available ? "Aguardando acesso à agenda." : authorizedWorks.length ? "Nenhuma visita agendada." : "Nenhuma obra disponível para agendamento."}</p>
         </div>}
@@ -243,8 +244,8 @@ function AgendaContext({ user, works, users, visits, module, workId, available, 
 }
 
 /** Paginate only the cards: the calendar always receives the full authorized collection. */
-function PaginatedVisitList({ visits, works, user, users, available, mutationPending, onDelete, onConfirm, collapsedInitially }: Pick<VisitAgendaProps,
-  "visits" | "works" | "user" | "users" | "available" | "mutationPending" | "onDelete" | "onConfirm"> & { collapsedInitially?: boolean }) {
+function PaginatedVisitList({ visits, works, user, users, available, mutationPending, onDelete, onConfirm, onAllowLateStart, collapsedInitially }: Pick<VisitAgendaProps,
+  "visits" | "works" | "user" | "users" | "available" | "mutationPending" | "onDelete" | "onConfirm" | "onAllowLateStart"> & { collapsedInitially?: boolean }) {
   const agendaWindow = useAgendaWindow();
   const listRef = useRef<HTMLDivElement>(null);
   const page = useHistoryPage(visits, `visits:${user.id}:${user.role}:${agendaWindow?.month}:${visits[0]?.auditorId ?? ""}`);
@@ -258,7 +259,7 @@ function PaginatedVisitList({ visits, works, user, users, available, mutationPen
     <div ref={listRef} className={styles.visitList} tabIndex={-1} role="group" aria-label="Lista de visitas agendadas">
       {page.items.map((visit) => <VisitCard key={visit.id} visit={visit} user={user} users={users}
         work={worksById.get(visit.workId)} available={available} mutationPending={mutationPending}
-        onDelete={onDelete} onConfirm={onConfirm} collapsedInitially={collapsedInitially} />)}
+        onDelete={onDelete} onConfirm={onConfirm} onAllowLateStart={onAllowLateStart} collapsedInitially={collapsedInitially} />)}
     </div>
     <HistoryPagination {...page} status={mutationPending || agendaWindow?.loading ? "loading" : "ready"} onPageChange={changePage} label="Páginas de visitas agendadas" unit="visitas" />
   </>;
@@ -524,7 +525,7 @@ function EditableAgendaRow({ input, user, works, users, disabled, newRow = false
   </tr>;
 }
 
-type VisitCardProps = Pick<VisitAgendaProps, "user" | "users" | "available" | "mutationPending" | "onDelete" | "onConfirm"> & {
+type VisitCardProps = Pick<VisitAgendaProps, "user" | "users" | "available" | "mutationPending" | "onDelete" | "onConfirm" | "onAllowLateStart"> & {
   visit: Visit;
   work?: WorkRecord;
   collapsedInitially?: boolean;
@@ -533,7 +534,7 @@ type VisitCardProps = Pick<VisitAgendaProps, "user" | "users" | "available" | "m
   auditStarted?: boolean;
 };
 
-export function VisitCard({ visit, user, users, work, available, mutationPending = false, onDelete, onConfirm, collapsedInitially = false, showType = true, onStartAudit, auditStarted = false }: VisitCardProps) {
+export function VisitCard({ visit, user, users, work, available, mutationPending = false, onDelete, onConfirm, onAllowLateStart, collapsedInitially = false, showType = true, onStartAudit, auditStarted = false }: VisitCardProps) {
   const manager = canManageAgenda(user);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -543,6 +544,8 @@ export function VisitCard({ visit, user, users, work, available, mutationPending
   const [success, setSuccess] = useState("");
   const [confirming, setConfirming] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [allowingLate, setAllowingLate] = useState(false);
+  const allowingLateRef = useRef(false);
   const confirmingRef = useRef(false);
   const startingRef = useRef(false);
   const deletingRef = useRef(false);
@@ -551,6 +554,7 @@ export function VisitCard({ visit, user, users, work, available, mutationPending
     && canReadVisit(user, visit);
   const hasRevision = Number.isInteger(visit.revision) && (visit.revision ?? 0) > 0;
   const confirmAllowed = assignedAllowed && canReadVisit(user, visit) && visit.confirmationStatus === "pending_confirmation" && hasRevision;
+  const lateStartVisible = manager && !!onAllowLateStart && visit.kind === "audit" && hasRevision && visit.date < getSaoPauloToday();
   const startVisible = !!onStartAudit && assignedAllowed && visit.kind === "audit";
   const startAllowed = startVisible && available && (canBeginScheduledAudit(user, visit, getSaoPauloToday()) || (auditStarted && visit.auditorId === user.id && visit.confirmationStatus === "confirmed"));
   const auditorName = visit.auditorName ?? users.find((entry) => entry.id === visit.auditorId)?.name ?? (visit.auditorId === user.id ? user.name : visit.auditorId);
@@ -598,6 +602,24 @@ export function VisitCard({ visit, user, users, work, available, mutationPending
     }
   };
 
+  const allowLateStart = async () => {
+    if (!onAllowLateStart || allowingLateRef.current || mutationPending || visit.revision === undefined) return;
+    allowingLateRef.current = true;
+    setAllowingLate(true);
+    setError("");
+    setSuccess("");
+    try {
+      const result = await onAllowLateStart(visit.id, visit.revision);
+      if (result.status !== "success") throw new Error(result.message);
+      setSuccess(result.message);
+    } catch (cause) {
+      setError(errorMessage(cause, "Não foi possível liberar o preenchimento. Atualize a agenda e tente novamente."));
+    } finally {
+      allowingLateRef.current = false;
+      setAllowingLate(false);
+    }
+  };
+
   const startAudit = async () => {
     if (!onStartAudit || startingRef.current || mutationPending || !startAllowed) return;
     startingRef.current = true;
@@ -632,6 +654,9 @@ export function VisitCard({ visit, user, users, work, available, mutationPending
           </dl>
           {startVisible && !startAllowed && <p className={`muted ${styles.startHint}`}>{!available ? "Agenda indisponível." : visit.confirmationStatus !== "confirmed" ? "Confirme a data da visita antes de iniciar a auditoria." : "A auditoria pode ser iniciada somente na data agendada."}</p>}
           {startVisible && <button type="button" className={`primary ${styles.startAuditButton}`} disabled={!startAllowed || mutationPending || starting} data-tooltip={!available ? "Agenda indisponível" : visit.confirmationStatus !== "confirmed" ? "Confirme a visita" : !startAllowed ? "Aguarde a data agendada" : undefined} onClick={() => { void startAudit(); }}>{starting ? "Abrindo…" : auditStarted ? "Retomar auditoria" : "Iniciar auditoria"}</button>}
+          {lateStartVisible && (visit.lateStartAllowed
+            ? <p className={`muted ${styles.startHint}`}>Preenchimento liberado após a data.</p>
+            : <button type="button" className="primary" disabled={!available || mutationPending || allowingLate} onClick={() => { void allowLateStart(); }}>{allowingLate ? "Liberando…" : "Liberar preenchimento"}</button>)}
           {manager && <button data-tooltip={confirmDelete ? "Cancelar exclusão" : "Excluir agendamento"} type="button" className="secondary" disabled={!available || !hasRevision || mutationPending || deleting} aria-label={`${confirmDelete ? "Cancelar exclusão do" : "Excluir"} agendamento: ${work?.name ?? visit.workId}, ${formatAuditDate(visit.date)}`} aria-expanded={confirmDelete} onClick={() => { setConfirmDelete(!confirmDelete); setError(""); }}>{confirmDelete ? "Cancelar exclusão" : "Excluir agendamento"}</button>}
         </div>
         {confirmDelete && manager && <div className={styles.deleteConfirmation}>

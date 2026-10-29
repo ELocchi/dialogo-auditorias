@@ -2,7 +2,7 @@ import test from 'node:test';
 import { withoutPublishedVisit } from '../src/lib/agenda/contracts.ts';
 import { getSaoPauloToday } from '../src/domain/visit-calendar.ts';
 import assert from 'node:assert/strict';
-import { parseCreateAgendaVisit, parseConfirmAgendaVisit, readAgendaSnapshot, createAgendaVisit, deleteAgendaVisit, confirmAgendaVisit } from '../src/lib/agenda/service.ts';
+import { parseCreateAgendaVisit, parseConfirmAgendaVisit, readAgendaSnapshot, createAgendaVisit, deleteAgendaVisit, confirmAgendaVisit, allowLateAuditStart } from '../src/lib/agenda/service.ts';
 
 // Offline fixtures only. No environment, database, real identity or notification.
 const adminId = '10000000-0000-4000-8000-000000000001';
@@ -218,6 +218,18 @@ test('only the administrator can delete a current visit, removing its notificati
   assert.equal(f.calls.filter((call) => call.name === 'delete_audit_visit').length, 2);
   const stale = fixture({ error: { code: '40001' } });
   assert.equal((await deleteAgendaVisit({ ...confirmation, expectedRevision: 2 }, context(), stale.client)).status, 'error');
+});
+
+test('somente o administrativo libera o preenchimento após a data', async () => {
+  const f = fixture();
+  assert.equal((await allowLateAuditStart(confirmation, context(), f.client)).status, 'success');
+  assert.deepEqual(f.calls[0], { name: 'allow_late_audit_start', params: { p_request_id: requestId, p_visit_id: visitId, p_expected_revision: 1 } });
+  const blocked = fixture();
+  assert.equal((await allowLateAuditStart(confirmation, context('safety-auditor'), blocked.client)).status, 'error');
+  assert.equal(blocked.calls.length, 0);
+  const future = await allowLateAuditStart(confirmation, context(), fixture({ error: { code: '22023' } }).client);
+  assert.equal(future.message, 'Somente auditorias com data já passada podem ser liberadas.');
+  assert.equal((await allowLateAuditStart(confirmation, context(), fixture({ error: { code: 'PT409' } }).client)).status, 'error');
 });
 
 test('publicação remove a visita e suas notificações da agenda ativa', () => {

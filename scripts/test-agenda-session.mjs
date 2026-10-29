@@ -85,6 +85,7 @@ const stubModules = {
     export const createAgendaVisit = (...args) => operation('create', ...args);
     export const deleteAgendaVisit = (...args) => operation('delete', ...args);
     export const confirmAgendaVisit = (...args) => operation('confirm', ...args);
+    export const allowLateAuditStart = (...args) => operation('allow-late-start', ...args);
     export async function readAgendaUpdate(client, context, revision, compact) {
       const s = globalThis.__agendaSessionFixture; s.receivedRevision = revision; s.compact = compact;
       if (s.unchanged) { s.agendaReads.push({client, context}); return { unchanged: true, revision: s.snapshot.revision }; }
@@ -114,6 +115,7 @@ const operations = [
   ["create-batch", actions.createAgendaVisitsBatchAction],
   ["delete", actions.deleteAgendaVisitAction],
   ["confirm", actions.confirmAgendaVisitAction],
+  ["allow-late-start", actions.allowLateAuditStartAction],
 ];
 
 test("Agenda actions authenticate before any payload, displayed-context or DAL work", async () => {
