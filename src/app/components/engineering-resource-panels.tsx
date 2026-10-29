@@ -39,6 +39,22 @@ export type PublishedAuditFinding = {
   evidencePhotos?: readonly { name: string; url?: string; thumbnailUrl?: string }[];
 };
 
+// Same marks as the audit form: × red, ! amber, ✓ green, — gray.
+const findingStatusTones: Record<string, { icon: string; label: string; tone: string }> = {
+  "0": { icon: "×", label: "Totalmente não conforme", tone: "noncompliant" },
+  "Não conforme": { icon: "×", label: "Não conforme", tone: "noncompliant" },
+  "5": { icon: "!", label: "Parcialmente não conforme", tone: "partial" },
+  "10": { icon: "✓", label: "Conforme", tone: "compliant" },
+  Conforme: { icon: "✓", label: "Conforme", tone: "compliant" },
+  "N/A": { icon: "—", label: "Não aplicável", tone: "notApplicable" },
+};
+
+function FindingStatus({ status, serious }: { status?: string; serious?: boolean }) {
+  const visual = findingStatusTones[status ?? ""];
+  const tone = serious ? "noncompliant" : visual?.tone ?? "partial";
+  return <strong className={`${styles.status} ${styles[tone]}`}><i aria-hidden="true">{serious ? "×" : visual?.icon ?? "!"}</i>{serious ? "Item grave" : visual?.label ?? (status || "Com apontamento")}</strong>;
+}
+
 export function PublishedAuditFindingsList({ auditFindings, works, module, contextKey = "", heading, workFilter }: {
   auditFindings: readonly PublishedAuditFinding[];
   works: readonly WorkRecord[];
@@ -108,7 +124,7 @@ export function PublishedAuditFindingsList({ auditFindings, works, module, conte
           {findingExpanded && <div className={styles.findingDetails} id={detailsId}>
             <div><span>Descrição</span><p>{finding.itemDescription || finding.description}</p></div>
             <div><span>Critério</span><p>{finding.verificationCriterion || "Não informado"}</p></div>
-            <div><span>Status</span><strong className={finding.serious ? styles.statusNonconforming : styles.status}>{finding.serious ? "Item grave" : finding.status || "Com apontamento"}</strong></div>
+            <div><span>Status</span><FindingStatus status={finding.status} serious={finding.serious} /></div>
             <div className={styles.findingPhotos}><span>Foto</span>{finding.evidencePhotos?.length ? <div>{finding.evidencePhotos.map((photo, photoIndex) => photo.url
               ? <EvidenceThumbnail thumbnailSrc={photo.thumbnailUrl} originalSrc={photo.url} alt={`Evidência do item ${finding.item}`} width={160} height={100}  key={`${photo.name}:${photoIndex}`} caption={<small>{photo.name}</small>} />
               : <small key={`${photo.name}:${photoIndex}`}>{photo.name}</small>)}</div>

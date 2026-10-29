@@ -8,7 +8,8 @@
   padding-bottom: 18px;
   border-bottom: 1px solid var(--line);
 }
-.heading h3 { flex: 1 1 200px; margin: 0; font-size: 18px; }
+.title { display: flex; flex: 1 1 200px; align-items: center; gap: 10px; min-width: 0; }
+.heading h3 { margin: 0; font-size: 18px; }
 .filters { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; max-width: 100%; }
 .year, .period { display: grid; min-width: 0; max-width: 100%; }
 .year select { width: 92px; }

@@ -9,7 +9,8 @@ import styles from "./admin-notifications.module.css";
 
 export type AdminNotification = {
   id: string;
-  type: "visit_scheduled" | "visit_confirmation_requested" | "visit_confirmed" | "audit_published";
+  type: "visit_scheduled" | "visit_confirmation_requested" | "visit_confirmed" | "audit_published"
+    | "audit_change_requested" | "audit_change_accepted" | "audit_change_refused" | "audit_change_republished";
   workName: string;
   createdAt: string;
   detail?: string;
@@ -21,7 +22,12 @@ const labels: Record<AdminNotification["type"], string> = {
   visit_confirmation_requested: "Confirmação de visita solicitada",
   visit_confirmed: "Visita confirmada",
   audit_published: "Auditoria publicada",
+  audit_change_requested: "Alteração de auditoria solicitada",
+  audit_change_accepted: "Alteração de auditoria aceita",
+  audit_change_refused: "Alteração de auditoria recusada",
+  audit_change_republished: "Auditoria publicada novamente",
 };
+const agendaNotification = (item: AdminNotification) => item.type.startsWith("visit_");
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
   dateStyle: "short",
   timeStyle: "short",
@@ -59,7 +65,7 @@ function NotificationContent({ item }: { item: AdminNotification }) {
   const date = Date.parse(item.createdAt);
   return <>
     <span className={styles.itemIcon}>
-      <Icon name={item.type === "audit_published" ? "report" : "calendar"} />
+      <Icon name={agendaNotification(item) ? "calendar" : "report"} />
     </span>
     <span className={styles.itemContent}>
       <strong>{labels[item.type]}</strong>
@@ -186,7 +192,7 @@ export function AdminNotifications({ items = emptyNotifications, userId, loading
             ? <a className={styles.item} href={item.href ?? "/app?secao=agenda"}
               onClick={(event) => {
                 dismissNotification(item);
-                if (item.type === "audit_published" || !onNavigateAgenda || event.defaultPrevented
+                if (!agendaNotification(item) || !onNavigateAgenda || event.defaultPrevented
                   || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
                 event.preventDefault();
                 setOpen(false);

@@ -47,3 +47,8 @@ export function qualityGroupResultLabel(score: number | null): string {
   return score === null ? "—" : `${score.toFixed(1).replace(".", ",")} / 10`;
 }
 
+/** Group result in the report: sum of the item results over the sum of their weights ("8,13 / 9,50"). */
+export function qualityGroupTotalLabel(totals: { obtained: number; possible: number } | null): string {
+  return totals === null ? "—" : `${totals.obtained.toFixed(2).replace(".", ",")} / ${totals.possible.toFixed(2).replace(".", ",")}`;
+}
+

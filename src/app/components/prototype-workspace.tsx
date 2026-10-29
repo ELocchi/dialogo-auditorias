@@ -10,6 +10,8 @@ import type { AdminFindingSummary } from "./admin-findings";
 import { PublishedAuditFindingsList, type PublishedAuditFinding } from "./engineering-resource-panels";
 import { usePublishedPlans } from "./use-published-plans";
 import { useHistoryActor } from "./audit-history-context";
+import { AdminChangeRequest, AuditorChangeRequest, useAuditChangeRequests } from "./audit-change-request";
+import { auditChangeStatusLabels, type AuditChangeRequest } from "@/domain/audit-change";
 import { publicationQuery } from "./use-audit-publication";
 import { useAgendaWindow } from "./agenda-window";
 import { MonthNavigation } from "./published-history-page";
@@ -100,7 +102,7 @@ export function PrototypeDashboard({ user, module, works, agendaWorks = works, a
     </div>
     {admin && findingsPanel}
     <div className="overview-grid">
-      <AdminMonthlyRanking publishedMonthlyScores={rankingScores} summary={summary?.ranking} available={summary?.available} />
+      <AdminMonthlyRanking publishedMonthlyScores={rankingScores} summary={summary?.ranking} available={summary?.available} exportable={admin} />
       {admin ? <AdminVisitCalendar visits={visits} works={works} auditors={auditors} viewerId={user.id} onViewAgenda={() => open("agenda")} includeFollowUps /> : <section className="panel"><div className="panel-heading"><div><span className="section-label">REGISTROS AUTORIZADOS</span><h3>Auditorias recentes</h3></div><span className="icon-tile"><Icon name="calendar" /></span></div>
         {[...audits].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 3).map((audit) => <div className="visit-card" key={audit.id}><div className="visit-info"><strong>{auditModelLabels[audit.modelId].name}</strong><small>{formatAuditDate(audit.date)} · {auditVersionLabel(audit)}</small></div><span className="badge">{audit.status}</span></div>)}
         {audits.length === 0 && <p className={styles.empty}>Nenhum registro disponível neste contexto.</p>}
@@ -286,6 +288,9 @@ export function AuditorScheduledAudits({ user, visits, works, audits, auditFindi
   const visibleFindings = auditFindings.filter((finding) => publicationPage.remote || publishedIds.has(finding.auditId))
     .slice().sort((left, right) => Number(right.serious === true) - Number(left.serious === true) || right.auditDate.localeCompare(left.auditDate));
   const publicationItems = publicationPage.remote ? [...visiblePublished.filter((audit) => audit.isDemo), ...publicationPage.items] : publicationPage.items;
+  const changeActor = useHistoryActor();
+  const ownPublications = publicationItems.filter((audit) => !audit.isDemo && audit.auditorId === user.id);
+  const changes = useAuditChangeRequests(changeActor, ownPublications.map((audit) => audit.id));
   const exampleWork = workById.get(scheduled[0]?.workId ?? "") ?? works[0];
   const agendaWindow = useAgendaWindow();
   const scheduledPage = useHistoryPage(scheduled, `scheduled:${user.id}:${user.role}:${agendaWindow?.month}`);
@@ -322,12 +327,20 @@ export function AuditorScheduledAudits({ user, visits, works, audits, auditFindi
           <div className={styles.publicationColumns}>
             <div className={styles.publicationColumn}>
               <h4>Auditoria</h4>
-              {publicationItems.length ? publicationItems.map((audit) => <PublishedDocumentCard key={audit.id} example={audit.isDemo} date={audit.date}
-                workName={workById.get(audit.workId)?.name ?? "Obra"} responsible={audit.auditor}
-                actionLabel={audit.reportUrl ? "Abrir PDF da auditoria" : undefined}
-                onAction={audit.reportUrl ? () => window.open(audit.reportUrl, "_blank", "noopener,noreferrer") : undefined} />)
+              {publicationItems.length ? publicationItems.map((audit) => {
+                const workName = workById.get(audit.workId)?.name ?? "Obra";
+                const change = changes.latest.get(audit.id);
+                const owner = changeActor && !audit.isDemo && audit.auditorId === user.id;
+                return <PublishedDocumentCard key={audit.id} example={audit.isDemo} date={audit.date}
+                  workName={workName} responsible={audit.auditor} flag={openChangeFlag(change)}
+                  actionLabel={audit.reportUrl ? "Abrir PDF da auditoria" : undefined}
+                  onAction={audit.reportUrl ? () => window.open(audit.reportUrl, "_blank", "noopener,noreferrer") : undefined}>
+                  {owner && <AuditorChangeRequest auditId={audit.id} workName={workName} actor={changeActor} request={change} onChanged={changes.reload} />}
+                </PublishedDocumentCard>;
+              })
                 : showFilteredExample ? <PublishedDocumentCard date={exampleDate} workName={exampleWork.name} responsible={user.name} example />
                   : publicationPage.status === "ready" ? <p className="muted">Nenhuma auditoria publicada para este perfil neste período.</p> : null}
+              {changes.error && <p role="alert" className="muted">Não foi possível carregar os chamados de alteração. <button type="button" className="secondary" onClick={changes.reload}>Tentar novamente</button></p>}
             </div>
             <div className={styles.publicationColumn}>
               <h4>Plano de ação</h4>
@@ -374,6 +387,7 @@ export function PublishedAuditsPanel({ user, works, audits, module, onCreateActi
   const planPage = usePublishedPlans(publicationItems.map(a => a.id));
   const publishedPlanIds = new Set(planPage.data?.plans.map(plan => plan.auditId) ?? []);
   const planItems = publicationItems.filter(audit => !administrative || publishedPlanIds.has(audit.id));
+  const changes = useAuditChangeRequests(administrative ? actor : null, publicationItems.filter((audit) => !audit.isDemo).map((audit) => audit.id));
   const exampleWork = works[0];
   const exampleDate = "2026-09-18";
   const showExample = !publicationPage.remote && process.env.NODE_ENV !== "production" && published.length === 0 && !!exampleWork;
@@ -387,12 +401,18 @@ export function PublishedAuditsPanel({ user, works, audits, module, onCreateActi
     <div className={styles.publicationColumns}>
       <div className={styles.publicationColumn}>
         <h4>Auditoria</h4>
-        {publicationItems.length ? publicationItems.map((audit) => <PublishedDocumentCard key={audit.id} example={audit.isDemo} date={audit.date}
-          workName={workById.get(audit.workId)?.name ?? "Obra"} responsible={audit.auditor}
-          actionLabel={audit.reportUrl ? "Abrir PDF da auditoria" : undefined}
-          onAction={audit.reportUrl ? () => window.open(audit.reportUrl, "_blank", "noopener,noreferrer") : undefined} />)
+        {publicationItems.length ? publicationItems.map((audit) => {
+          const change = administrative ? changes.latest.get(audit.id) : undefined;
+          return <PublishedDocumentCard key={audit.id} example={audit.isDemo} date={audit.date}
+            workName={workById.get(audit.workId)?.name ?? "Obra"} responsible={audit.auditor} flag={openChangeFlag(change)}
+            actionLabel={audit.reportUrl ? "Abrir PDF da auditoria" : undefined}
+            onAction={audit.reportUrl ? () => window.open(audit.reportUrl, "_blank", "noopener,noreferrer") : undefined}>
+            {change && actor && <AdminChangeRequest request={change} actor={actor} onChanged={changes.reload} />}
+          </PublishedDocumentCard>;
+        })
           : showFilteredExample ? <PublishedDocumentCard date={exampleDate} workName={exampleWork.name} responsible={user.name} example />
             : publicationPage.status === "ready" ? <p className="muted">Nenhuma auditoria publicada para este perfil neste período.</p> : null}
+        {changes.error && <p role="alert" className="muted">Não foi possível carregar os chamados de alteração. <button type="button" className="secondary" onClick={changes.reload}>Tentar novamente</button></p>}
       </div>
       <div className={styles.publicationColumn}>
         <h4>Plano de ação</h4>
@@ -422,8 +442,13 @@ export function PublishedAuditsPanel({ user, works, audits, module, onCreateActi
   </section>;
 }
 
-function PublishedDocumentCard({ date, workName, responsible, example = false, actionLabel, onAction }: {
-  date: string; workName: string; responsible?: string; example?: boolean; actionLabel?: string; onAction?: () => void;
+/** Short marker on the collapsed card while a change request is open. */
+function openChangeFlag(request?: AuditChangeRequest) {
+  return request && (request.status === "pending" || request.status === "accepted") ? auditChangeStatusLabels[request.status] : undefined;
+}
+
+function PublishedDocumentCard({ date, workName, responsible, example = false, actionLabel, onAction, flag, children }: {
+  date: string; workName: string; responsible?: string; example?: boolean; actionLabel?: string; onAction?: () => void; flag?: string; children?: ReactNode;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [year, month] = date.split("-");
@@ -432,13 +457,14 @@ function PublishedDocumentCard({ date, workName, responsible, example = false, a
   return <article className={styles.publicationCard}>
     <button type="button" className={styles.publicationSummary} aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
       <span className={styles.publicationDate}><strong>{monthAbbreviation}</strong><small>{year}</small></span>
-      <span className={styles.publicationInfo}><strong>{workName}</strong>{responsible && <><small>Responsável</small><span>{responsible}</span></>}</span>
+      <span className={styles.publicationInfo}><strong>{workName}</strong>{responsible && <><small>Responsável</small><span>{responsible}</span></>}{flag && <em className={styles.publicationFlag}>{flag}</em>}</span>
       <span className={styles.publicationChevron} aria-hidden="true" />
     </button>
     {expanded && <div className={styles.publicationDetails}>
       <span>{example ? "Exemplo visual, sem publicação" : `Referência: ${monthLabel}`}</span>
       {onAction && actionLabel ? <button type="button" className="primary" aria-label={`${actionLabel}: ${workName}, ${formatAuditDate(date)}`} onClick={onAction}>{actionLabel}</button>
         : <button type="button" className="secondary" disabled aria-label={`PDF ainda não disponível: ${workName}`} data-tooltip="PDF ainda não disponível">PDF indisponível</button>}
+      {children}
     </div>}
   </article>;
 }

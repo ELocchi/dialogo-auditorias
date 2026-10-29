@@ -116,8 +116,8 @@ function AdministrativeAgenda({ user, works, users, visits, module, workId, avai
           <div><h3 id={listId}>{selectedAuditor ? `Agenda de ${selectedAuditor.name}` : "Visitas agendadas"}</h3>{selectedAuditor && <button type="button" className={styles.clearProfile} onClick={() => setSelectedAuditorId(null)}>Ver todos os perfis</button>}</div>
           <button ref={addButtonRef} type="button" className={styles.addVisit} aria-label="Agendar visita" data-tooltip="Agendar visita" aria-haspopup="dialog" disabled={mutationPending} onClick={() => dialogRef.current?.showModal()}><Icon name="plus" /></button>
         </div>
-        {visibleVisits.length ? <PaginatedVisitList key={`${user.id}:${user.role}:${selectedAuditorId ?? "all"}`}
-          visits={visibleVisits} works={authorizedWorks} user={user} users={users} available={available}
+        {scheduledListVisits(visibleVisits).length ? <PaginatedVisitList key={`${user.id}:${user.role}:${selectedAuditorId ?? "all"}`}
+          visits={scheduledListVisits(visibleVisits)} works={authorizedWorks} user={user} users={users} available={available}
           mutationPending={mutationPending} onDelete={onDelete} onConfirm={onConfirm} onAllowLateStart={onAllowLateStart} /> : <div className={styles.scheduledEmpty}>
           <CalendarIcon />
           <p>{!available ? "Aguardando acesso à agenda." : authorizedWorks.length ? "Nenhuma visita agendada." : "Nenhuma obra disponível para agendamento."}</p>
@@ -153,8 +153,8 @@ function AuditorAgenda({ user, works, users, visits, available, mutationPending 
     <div className={styles.administrativeLayout}>
       <section className={`panel ${styles.scheduledPanel}`} aria-labelledby={listId}>
         <div className={styles.scheduledHeading}><h3 id={listId}>Visitas agendadas</h3></div>
-        {visibleVisits.length ? <PaginatedVisitList key={`${user.id}:${user.role}`}
-          visits={visibleVisits} works={authorizedWorks} user={user} users={users} available={available}
+        {scheduledListVisits(visibleVisits).length ? <PaginatedVisitList key={`${user.id}:${user.role}`}
+          visits={scheduledListVisits(visibleVisits)} works={authorizedWorks} user={user} users={users} available={available}
           mutationPending={mutationPending} onDelete={onDelete} onConfirm={onConfirm} collapsedInitially /> : <div className={styles.scheduledEmpty}>
           <CalendarIcon />
           <p>{!available ? "Aguardando acesso à agenda." : "Nenhuma visita agendada para este auditor."}</p>
@@ -186,8 +186,8 @@ function EngineeringAgenda({ user, works, users, visits, available, mutationPend
             {selectedVisitorId && <button type="button" className={styles.clearProfile} onClick={() => setSelectedVisitorId(null)}>Ver todos os perfis</button>}
           </div>
         </div>
-        {visibleVisits.length ? <PaginatedVisitList key={`${user.id}:${user.role}:${user.activity ?? ""}:${selectedVisitorId ?? "all"}`}
-          visits={visibleVisits} works={authorizedWorks} user={user} users={users} available={available}
+        {scheduledListVisits(visibleVisits).length ? <PaginatedVisitList key={`${user.id}:${user.role}:${user.activity ?? ""}:${selectedVisitorId ?? "all"}`}
+          visits={scheduledListVisits(visibleVisits)} works={authorizedWorks} user={user} users={users} available={available}
           mutationPending={mutationPending} onDelete={onDelete} onConfirm={onConfirm} collapsedInitially /> : <div className={styles.scheduledEmpty}>
           <CalendarIcon />
           <p>{!available ? "Aguardando acesso à agenda." : authorizedWorks.length ? "Nenhuma visita agendada nas obras autorizadas." : "Nenhuma obra disponível na agenda."}</p>
@@ -220,7 +220,7 @@ function AgendaContext({ user, works, users, visits, module, workId, available, 
 
     {canConsult && <div className={styles.context}>
       <span><strong>{authorizedWorks.length}</strong> {authorizedWorks.length === 1 ? "obra relacionada" : "obras relacionadas"}</span>
-      <span><strong>{visibleVisits.length}</strong> {visibleVisits.length === 1 ? "visita agendada" : "visitas agendadas"}</span>
+      <span><strong>{scheduledListVisits(visibleVisits).length}</strong> {scheduledListVisits(visibleVisits).length === 1 ? "visita agendada" : "visitas agendadas"}</span>
     </div>}
 
     {!canConsult ? <section className={`panel ${styles.restriction}`}>
@@ -232,8 +232,8 @@ function AgendaContext({ user, works, users, visits, module, workId, available, 
         <h3>Visitas agendadas</h3>
         <span>Ordenadas pela data prevista</span>
       </div>
-      {visibleVisits.length > 0 ? <PaginatedVisitList key={`${user.id}:${user.role}:${user.activity ?? ""}`}
-        visits={visibleVisits} works={authorizedWorks} user={user} users={users} available={available}
+      {scheduledListVisits(visibleVisits).length > 0 ? <PaginatedVisitList key={`${user.id}:${user.role}:${user.activity ?? ""}`}
+        visits={scheduledListVisits(visibleVisits)} works={authorizedWorks} user={user} users={users} available={available}
         mutationPending={mutationPending} onDelete={onDelete} onConfirm={onConfirm} /> : <section className={`panel ${styles.empty}`}>
         <CalendarIcon />
         <h3>Nenhuma visita disponível</h3>
@@ -241,6 +241,12 @@ function AgendaContext({ user, works, users, visits, module, workId, available, 
       </section>}
     </>}
   </>;
+}
+
+/** Acompanhamentos de dias passados saem da lista de visitas agendadas; o calendário continua mostrando-os para consulta. Auditorias permanecem. */
+function scheduledListVisits(visits: readonly Visit[]): Visit[] {
+  const today = getSaoPauloToday();
+  return visits.filter((visit) => visit.kind !== "follow_up" || visit.date >= today);
 }
 
 /** Paginate only the cards: the calendar always receives the full authorized collection. */

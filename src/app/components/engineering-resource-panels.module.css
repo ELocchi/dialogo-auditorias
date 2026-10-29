@@ -46,8 +46,12 @@
 .findingDetails > div { min-width: 0; }
 .findingDetails > div > span { display: block; margin-bottom: 6px; color: var(--muted); font-size: 10px; font-weight: 800; text-transform: uppercase; }
 .findingDetails p { overflow-wrap: anywhere; }
-.findingDetails .status, .findingDetails .statusNonconforming { display: inline-flex; width: fit-content; padding: 5px 8px; border-radius: 6px; background: #e8f5ed; color: #1f7a48; font-size: 11px; }
-.findingDetails .statusNonconforming { background: #fff0f1; color: var(--red); }
+.findingDetails .status { display: inline-flex; width: fit-content; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 6px; font-size: 11px; }
+.findingDetails .status i { font-size: 14px; font-style: normal; font-weight: 900; line-height: 1; }
+.findingDetails .noncompliant { background: #fff0f1; color: #d4313d; }
+.findingDetails .partial { background: #fff5e6; color: #b86b0f; }
+.findingDetails .compliant { background: #e8f5ed; color: #23854a; }
+.findingDetails .notApplicable { background: #eef1f5; color: #59687b; }
 .findingPhotos > div { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 8px; }
 .findingPhotos a { display: grid; min-width: 0; gap: 5px; padding: 5px; border: 1px solid var(--line); border-radius: 7px; background: white; color: var(--navy); text-decoration: none; }
 .findingPhotos img { display: block; width: 100%; height: 90px; border-radius: 5px; object-fit: cover; }

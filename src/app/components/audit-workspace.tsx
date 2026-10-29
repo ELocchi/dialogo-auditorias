@@ -10,7 +10,7 @@ import { containDialogFocus } from "./dialog-keyboard";
 import { SafetyClosureDialog } from "./safety-closure-dialog";
 import { safetyScore, toggleGroupNA, type SafetyClosure } from "@/domain/safety-audit";
 import { generatePdf } from "@/lib/pdf/client";
-import { awardedItemScore, scoreLabel, getGroupHeading, getSubgroupHeading, displayAuditDate, qualityGroupResultLabel, qualityItemResultLabel } from "@/lib/pdf/audit-format";
+import { awardedItemScore, scoreLabel, getGroupHeading, getSubgroupHeading, displayAuditDate, qualityGroupTotalLabel, qualityItemResultLabel } from "@/lib/pdf/audit-format";
 import type { AuditPdfInput, PdfPhotoSource } from "@/lib/pdf/types";
 import { memo, useCallback, useId, useMemo, useReducer, useRef, useState, type ChangeEvent } from "react";
 import { useEffect } from "react";
@@ -26,7 +26,7 @@ import previewStyles from "./catalog-preview-control.module.css";
 import { catalogVersion, type CatalogSnapshot } from "@/lib/catalogs/contracts";
 import {
   calculateAuditFinalScore,
-  calculateQualityGroupScore,
+  calculateQualityGroupTotals,
   calculateSecurityFinalScore,
   calculateSecurityGroupScore,
   getDraftCheckWeight,
@@ -123,12 +123,24 @@ function usesPerCheckWeights(item: Criterion): boolean {
   return /\bfvs\b/i.test(`${item.title} ${item.text}`);
 }
 
-function isQuantitativeResponseComplete(item: Criterion, response: ItemResponse): boolean {
+/** Why a quantity-verified item does not count as filled yet; null when it is complete. */
+function quantitativeResponseIssue(item: Criterion, response: ItemResponse): string | null {
   const checks = response.checks ?? [];
-  if (!checks.length) return false;
-  return checks.every((check) => check.compliant !== null
-    && check.label.trim().length > 0
-    && (!usesPerCheckWeights(item) || getDraftCheckWeight(check) !== null));
+  if (!checks.length) return "Adicione ao menos uma verificação.";
+  const perCheckWeights = usesPerCheckWeights(item);
+  for (const [index, check] of checks.entries()) {
+    const position = `Verificação ${index + 1}`;
+    if (!check.label.trim()) return `${position}: ${perCheckWeights ? "selecione o serviço verificado" : "informe o item verificado"} ou remova a linha.`;
+    if (perCheckWeights && getDraftCheckWeight(check) === null) return `${position}: selecione um serviço com peso cadastrado.`;
+    if (check.compliant === null) return `${position}: marque Conforme ou Não conforme, ou remova a linha.`;
+  }
+  return null;
+}
+
+function isItemComplete(item: Criterion, response: ItemResponse): boolean {
+  return item.verificationRule === "Dividido pela quantidade verificada"
+    ? quantitativeResponseIssue(item, response) === null
+    : response.answer !== undefined;
 }
 
 type CatalogProps = {
@@ -331,13 +343,13 @@ export function AuditReview({ model, modelId, workName, details, criteria, draft
       <button type="button" className="primary" disabled={!pdfUrl || published || publishing} onClick={async () => { if (publishing) return; setPublishing(true); setPublicationError(""); try { if (await onPublish()) setPublished(true); } catch (reason) { setPublicationError(reason instanceof Error ? reason.message : "Não foi possível publicar. Tente novamente."); } finally { setPublishing(false); } }}>{published ? "Auditoria publicada" : publishing ? "Publicando…" : pdfUrl ? "Publicar auditoria" : "Gerando prévia…"}</button>
     </div>
     <div className="audit-review-groups">
-      {!security && <p className="audit-review-score-legend"><strong>Notas dos grupos:</strong> escala de 0 a 10. <strong>Quesitos:</strong> resultado ponderado / peso do quesito.</p>}
+      {!security && <p className="audit-review-score-legend"><strong>Grupos:</strong> soma dos resultados / soma dos pesos aplicáveis. <strong>Quesitos:</strong> resultado ponderado / peso do quesito.</p>}
       {Object.entries(grouped).map(([group, items]) => {
         const collapsed = collapsedGroups.has(group);
         const securityPerformance = security ? calculateSecurityGroupScore(items, drafts, modelId) : null;
-        const groupScore = security ? securityPerformance : calculateQualityGroupScore(items, drafts, modelId);
+        const groupTotals = security ? null : calculateQualityGroupTotals(items, drafts, modelId);
         return <section key={group}>
-        <h3><button type="button" aria-expanded={!collapsed} onClick={() => setCollapsedGroups((current) => { const next = new Set(current); if (next.has(group)) next.delete(group); else next.add(group); return next; })}><span>{group}</span><strong title={security ? "Nota do grupo" : "Nota do grupo na escala de 0 a 10"}>{security ? scoreLabel(groupScore) : qualityGroupResultLabel(groupScore)}</strong><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg></button></h3>
+        <h3><button type="button" aria-expanded={!collapsed} onClick={() => setCollapsedGroups((current) => { const next = new Set(current); if (next.has(group)) next.delete(group); else next.add(group); return next; })}><span>{group}</span><strong title={security ? "Nota do grupo" : "Soma dos resultados do grupo / soma dos pesos aplicáveis"}>{security ? scoreLabel(securityPerformance) : qualityGroupTotalLabel(groupTotals)}</strong><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg></button></h3>
         {!collapsed && <div>{items.map((item) => {
           const response = getItemResponse(drafts, modelId, item);
           const label = item.verificationRule === "Dividido pela quantidade verificada"
@@ -466,12 +478,8 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
   const securityAnalysisCriterion = security && criterion ? criterion.analysisCriterion ?? criterion.orientations.map((orientation) => orientation.text).join("\n\n") : undefined;
   const requiresEvidence = response.answer === "0" || response.answer === "5" || response.answer === "Não conforme" || response.checks?.some((check) => check.compliant === false);
   const missingRequiredPhoto = criterion ? isRequiredPhotoMissing(criterion, response) : false;
-  const answered = criteria.filter((item) => {
-    const itemResponse = getItemResponse(drafts, responseKey, item);
-    return item.verificationRule === "Dividido pela quantidade verificada"
-      ? isQuantitativeResponseComplete(item, itemResponse)
-      : itemResponse.answer !== undefined;
-  }).length;
+  const incompleteIndexes = criteria.flatMap((item, index) => isItemComplete(item, getItemResponse(drafts, responseKey, item)) ? [] : [index]);
+  const answered = criteria.length - incompleteIndexes.length;
   const allItemsAnswered = criteria.length > 0 && answered === criteria.length;
   const progress = criteria.length ? Math.floor(answered / criteria.length * 1000) / 10 : 0;
   const awardedScores = criteria.map((item) => awardedItemScore(item, getItemResponse(drafts, responseKey, item), security)).filter((score): score is number => score !== null);
@@ -489,6 +497,7 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
   const supportsNotApplicable = criterion?.verificationRule === "Conforme/Não Conforme/Não Aplicável" || criterion?.sourceNote?.toLocaleLowerCase("pt-BR").includes("não aplic") === true;
   const options: DraftAnswer[] = security ? ["0", "5", "10", "N/A"] : supportsNotApplicable ? ["Não conforme", "Conforme", "N/A"] : ["Não conforme", "Conforme"];
   const perCheckWeights = criterion ? usesPerCheckWeights(criterion) : false;
+  const quantityIssue = criterion && !security && criterion.verificationRule === "Dividido pela quantidade verificada" && response.checks?.length ? quantitativeResponseIssue(criterion, response) : null;
   const quantityChecks = criterion ? response.checks ?? [{ id: `${criterion.id}-1`, label: perCheckWeights ? "" : "Item verificado 1", compliant: null }] : [];
   const choosePhoto = (target: string) => { setPhotoTarget(target); setPhotoPickerOpen(true); };
   const receivePhotos = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -562,6 +571,7 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
       </div>
     </section>
 
+    {!readOnly && onFinish && criteria.length > 0 && !allItemsAnswered && <p className="pending-items">Para revisar, complete: {incompleteIndexes.map((index, position) => <span key={criteria[index].id}>{position > 0 && ", "}<button type="button" className="link-button" onClick={() => { setActiveIndex(index); setSelectedItemOpen(true); }}>{criteria[index].code}</button></span>)}</p>}
     {closureError && <p role="alert">{closureError}</p>}
     {closing && <SafetyClosureDialog date={details.date} initial={safetyClosure} onCancel={() => setClosing(false)} onConfirm={value => { setClosing(false); void finish(value); }} />}
     <section className="question-card" aria-label="Quesito da auditoria">
@@ -628,6 +638,7 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
               const id = nextDraftCheckId(criterion.id, checks);
               updateDraft({ ...response, checks: [...checks, { id, label: perCheckWeights ? "" : `Item verificado ${number}`, compliant: null, ...(perCheckWeights ? { weight: null } : {}) }] });
             }}><span aria-hidden="true">+</span><small className="mobile-action-label">Adicionar verificação</small></button>
+            {quantityIssue && <p className="quantity-check-issue" role="status">{quantityIssue}</p>}
           </div> : <div className={`answer-options${security ? " answer-options-security" : ` answer-options-quality${supportsNotApplicable ? " has-not-applicable" : ""}`}`}>
             {options.map((value) => {
               const label = value === "0" ? "Totalmente não conforme" : value === "5" ? "Parcialmente não conforme" : value === "10" ? "Conforme" : value === "N/A" ? "Não aplicável" : value;
@@ -668,11 +679,12 @@ export function NewAudit({ model, criteria, activeIndex, setActiveIndex, drafts,
   </>;
 }
 
-const ItemPickerRow = memo(function ItemPickerRow({ criterion, index, answer, answered, missingRequiredPhoto, previousAudits, active, onSelect }: {
+const ItemPickerRow = memo(function ItemPickerRow({ criterion, index, answer, answered, started, missingRequiredPhoto, previousAudits, active, onSelect }: {
   criterion: Criterion;
   index: number;
   answer?: DraftAnswer;
   answered: boolean;
+  started: boolean;
   missingRequiredPhoto: boolean;
   previousAudits: readonly PreviousAudit[];
   active: boolean;
@@ -680,7 +692,7 @@ const ItemPickerRow = memo(function ItemPickerRow({ criterion, index, answer, an
 }) {
   return <button type="button" className={active ? "item-result active" : "item-result"} aria-pressed={active} onClick={() => onSelect(index)}>
     <span><b>{criterion.code}</b> {getCriterionDisplayTitle(criterion)}</span>
-    <span className="item-result-summary">{!answered && <em>Não respondido</em>}<span className="audit-result-columns">{previousAudits.map((audit) => <span key={audit.id}><small>{displayAuditDate(audit.date)}</small><VerificationMark response={{ answer: audit.answers[criterion.id] }} /></span>)}<span><small>ATUAL</small><VerificationMark response={{ answer }} missingPhoto={missingRequiredPhoto} /></span></span></span>
+    <span className="item-result-summary">{!answered && <em>{started ? "Incompleto" : "Não respondido"}</em>}<span className="audit-result-columns">{previousAudits.map((audit) => <span key={audit.id}><small>{displayAuditDate(audit.date)}</small><VerificationMark response={{ answer: audit.answers[criterion.id] }} /></span>)}<span><small>ATUAL</small><VerificationMark response={{ answer }} missingPhoto={missingRequiredPhoto} /></span></span></span>
   </button>;
 });
 
@@ -700,9 +712,10 @@ function ItemPicker({ id, model, criteria, drafts, previousAudits, activeId, sec
   };
   const renderItem = ({ criterion, index }: { criterion: Criterion; index: number }) => {
     const answer = getItemResponse(drafts, model, criterion);
-    const answered = answer.answer !== undefined || answer.checks?.some((check) => check.compliant !== null) === true;
+    const answered = isItemComplete(criterion, answer);
+    const started = answered || answer.checks?.some((check) => check.compliant !== null) === true;
     const missingRequiredPhoto = isRequiredPhotoMissing(criterion, answer);
-    return <ItemPickerRow key={criterion.id} criterion={criterion} index={index} answer={answer.answer} answered={answered} missingRequiredPhoto={missingRequiredPhoto} previousAudits={chronologicalAudits} active={criterion.id === activeId} onSelect={onSelect} />;
+    return <ItemPickerRow key={criterion.id} criterion={criterion} index={index} answer={answer.answer} answered={answered} started={started} missingRequiredPhoto={missingRequiredPhoto} previousAudits={chronologicalAudits} active={criterion.id === activeId} onSelect={onSelect} />;
   };
 
   return <div className="item-picker" id={id}>

@@ -27,6 +27,7 @@
 .publicationInfo > strong { font-size: 12px; }
 .publicationInfo > small { color: var(--muted); font-size: 9px; }
 .publicationInfo > span { color: var(--ink); font-size: 10px; }
+.publicationFlag { width: fit-content; padding: 2px 6px; border-radius: 999px; background: #fff5e6; color: #b86b0f; font-size: 9px; font-style: normal; font-weight: 800; }
 .publicationChevron { flex: none; width: 8px; height: 8px; border-right: 2px solid var(--navy); border-bottom: 2px solid var(--navy); transform: rotate(45deg); }
 .publicationSummary[aria-expanded="true"] .publicationChevron { transform: rotate(225deg); }
 .publicationDetails { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }

@@ -162,6 +162,10 @@
 .answer-10.active, .answer-Conforme.active { border-color: #23854a; background: #23854a; }
 .answer-NA.active { border-color: #59687b; background: #59687b; }
 .quantity-checks { display: grid; width: 100%; gap: 10px; overflow-x: auto; }
+.quantity-check-issue { margin: 0; color: #b86b0f; font-size: 12px; font-weight: 600; }
+.pending-items { margin: 0 0 12px; padding: 10px 12px; border: 1px solid #f1d3a8; border-radius: 7px; background: #fff8ee; color: #8a5208; font-size: 12px; line-height: 1.6; }
+.link-button { padding: 0; border: 0; background: none; color: var(--navy); font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; }
+.link-button:hover { color: var(--red); }
 .quantity-check, .quantity-check.has-photo-action { display: grid; width: 100%; min-width: 780px; grid-template-columns: 34px minmax(260px, 1.4fr) 44px 44px 44px minmax(180px, 1fr); align-items: stretch; gap: 8px; }
 .quantity-check.has-check-weight { min-width: 850px; grid-template-columns: 34px minmax(340px, 1.6fr) 44px 44px 44px 44px minmax(220px, 1fr); }
 .quantity-check input { width: 100%; min-width: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 7px; color: var(--navy); font: inherit; }

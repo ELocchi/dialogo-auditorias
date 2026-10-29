@@ -24,7 +24,10 @@ export async function runPdfJob(job: PdfJob, signal?: AbortSignal): Promise<Uint
         if (!blob) return;
         const bytes = new Uint8Array(await blob.arrayBuffer());
         const png = bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47;
-        assets.photos[photo.reference] = { bytes, mimeType: png ? "image/png" : blob.type || "image/jpeg", url: photo.url };
+        // PDF links need the full address; a relative "/api/..." does not open outside the page.
+        const link = photo.url ? new URL(photo.url, job.baseUrl) : null;
+        assets.photos[photo.reference] = { bytes, mimeType: png ? "image/png" : blob.type || "image/jpeg",
+          url: link && (link.protocol === "https:" || link.protocol === "http:") ? link.href : undefined };
       } catch { /* File names remain in the report if an evidence image cannot be loaded. */ }
     }));
   }

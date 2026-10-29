@@ -1,0 +1,22 @@
+.block { display: grid; flex-basis: 100%; gap: 10px; min-width: 0; }
+.summary { display: grid; gap: 6px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: #f7f9fc; }
+.status { margin: 0; color: var(--navy); font-size: 11px; font-weight: 800; }
+.status[data-status="pending"], .status[data-status="accepted"] { color: #b86b0f; }
+.status[data-status="refused"] { color: var(--red); }
+.status[data-status="republished"] { color: #23854a; }
+.facts { display: grid; gap: 5px; margin: 0; }
+.facts div { display: grid; gap: 1px; }
+.facts dt { color: var(--muted); font-size: 9px; font-weight: 800; text-transform: uppercase; }
+.facts dd { margin: 0; color: var(--ink); font-size: 11px; line-height: 1.4; overflow-wrap: anywhere; white-space: pre-line; }
+.link { color: var(--navy); font-size: 11px; font-weight: 700; }
+.form { display: grid; gap: 6px; min-width: 0; }
+.form h5 { margin: 0; color: var(--navy); font-size: 12px; }
+.form label { color: var(--muted); font-size: 10px; font-weight: 800; text-transform: uppercase; }
+.form select, .form textarea { width: 100%; min-width: 0; box-sizing: border-box; font: inherit; font-size: 12px; }
+.form textarea { padding: 8px; border: 1px solid var(--line); border-radius: 8px; resize: vertical; }
+.check { display: grid; gap: 4px; }
+.hint { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.4; }
+.actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.actions button { min-height: 36px; font-size: 11px; }
+.error { margin: 0; color: var(--red); font-size: 11px; }
+.done { margin: 0; color: #23854a; font-size: 11px; }

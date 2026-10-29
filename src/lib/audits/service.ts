@@ -176,10 +176,13 @@ export async function readPublishedAuditDetail(client: Client, context: ProfileW
   } catch { return unavailablePublishedAudits(); }
 }
 
-export async function readPublishedAuditReport(client: Client, context: ProfileWorkspaceContext, auditId: string): Promise<{ available: boolean; url: string | null }> {
-  if (!isUuid(auditId)) return { available: false, url: null };
+/** `contentRevision` opens a PDF replaced by a republication (the original is 0). */
+export async function readPublishedAuditReport(client: Client, context: ProfileWorkspaceContext, auditId: string, contentRevision?: number): Promise<{ available: boolean; url: string | null }> {
+  if (!isUuid(auditId) || (contentRevision !== undefined && (!Number.isSafeInteger(contentRevision) || contentRevision < 0))) return { available: false, url: null };
   try {
-    const { data, error } = await client.rpc("read_published_audit_report", { ...profileParameters(context), p_audit_id: auditId });
+    const { data, error } = contentRevision === undefined
+      ? await client.rpc("read_published_audit_report", { ...profileParameters(context), p_audit_id: auditId })
+      : await client.rpc("read_published_audit_version_report", { ...profileParameters(context), p_audit_id: auditId, p_content_revision: contentRevision });
     if (error) return { available: false, url: null };
     if (data === null) return { available: true, url: null };
     if (!isRecord(data) || data.id !== auditId.toLowerCase() || !isUuid(data.workId) || !isModel(data.modelId)

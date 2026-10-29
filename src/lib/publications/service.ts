@@ -18,6 +18,7 @@ import { auditPhotoReferences } from "@/lib/audits/photo-store";
 import { createAuditReviewPdf } from "@/lib/pdf/audit-report";
 import { generateActionPlanPdf } from "@/lib/pdf/action-plan";
 import type { ActionPlanRow, PdfAssets } from "@/lib/pdf/types";
+import { applicationUrl } from "@/lib/auth/site-url";
 import { createPublicationClient } from "./admin";
 import { draftPhotoUrl, type AuditDraftRecord, type PersistedAudit, type PlanRecord } from "./contracts";
 import { extractPublicationFindings, mapPhotos, normalizePlanRows, normalizeResponses, publicationScore, PublicationError } from "./validation";
@@ -34,6 +35,7 @@ export function publicationService(context: ProfileWorkspaceContext, client: Cli
     if (error) {
       if ((isConflictCode(error.code) || error.code === "23505")) throw new PublicationError("O rascunho mudou em outra sessão. Reabra a auditoria ou o plano antes de continuar.", 409);
       if (error.code === "42501") throw new PublicationError("Seu perfil não tem mais permissão para esta operação. Confira a visita e os acessos.", 403);
+      if (error.code === "55000" && error.message === "audit_change_in_progress") throw new PublicationError("Há uma alteração aceita nesta auditoria. Publique o plano depois que o Administrativo publicar a auditoria novamente.", 409);
       if (error.code === "55000") throw new PublicationError("Este documento já foi publicado e não pode ser alterado.", 409);
       console.error("[publications] command_failed", { operation, code: error.code });
       if (operation === "list") throw new PublicationError("Não foi possível carregar as auditorias e os planos. Tente novamente.", 503);
@@ -140,11 +142,14 @@ export function publicationService(context: ProfileWorkspaceContext, client: Cli
       const evidenceFiles = [...auditPhotoReferences([responses])];
       await progress("evidence");
       let total = 0;
+      // Each photo in the PDF links to the protected route, which checks the login and access of whoever opens it.
+      let origin: URL | null = null;
+      try { origin = applicationUrl(); } catch { /* Without a configured address the PDF keeps the photos without links. */ }
       for (const name of evidenceFiles) {
         const bytes = await download("audit-drafts", `${d.auditor_auth_user_id}/${id}/${name}`);
         total += bytes.length;
         if (total > 32 * 1024 * 1024) throw new PublicationError("As evidências excedem 32 MB. Reduza a quantidade de fotos antes de publicar.");
-        assets.photos[name] = { bytes, mimeType: "image/jpeg" };
+        assets.photos[name] = { bytes, mimeType: "image/jpeg", ...(origin ? { url: new URL(`/api/audits/${id}/photos/${name}`, origin).href } : {}) };
         await upload("published-audits", `${d.work_id}/${id}/${name}`, bytes, "image/jpeg");
       }
       await progress("pdf");

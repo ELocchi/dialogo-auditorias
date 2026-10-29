@@ -1,8 +1,8 @@
 import { safetyScore } from "../../domain/safety-audit.ts";
 import { PDFDocument, PDFName, PDFString, StandardFonts, rgb, type PDFFont, type PDFImage, type PDFPage } from "pdf-lib";
 import { getCriterionDisplayTitle, type Criterion } from "../../domain/catalogs.ts";
-import { calculateAuditFinalScore, calculateQualityGroupScore, calculateSecurityGroupScore, getDraftCheckWeight, getItemResponse, type ItemResponse } from "../../domain/audit-draft.ts";
-import { awardedItemScore, scoreLabel, getGroupHeading, getSubgroupHeading, displayAuditDate, qualityGroupResultLabel, qualityItemResultLabel } from "./audit-format.ts";
+import { calculateAuditFinalScore, calculateQualityGroupScore, calculateQualityGroupTotals, calculateSecurityGroupScore, getDraftCheckWeight, getItemResponse, type ItemResponse } from "../../domain/audit-draft.ts";
+import { awardedItemScore, scoreLabel, getGroupHeading, getSubgroupHeading, displayAuditDate, qualityGroupTotalLabel, qualityItemResultLabel } from "./audit-format.ts";
 import type { AuditPdfInput, PdfAssets } from "./types.ts";
 
 const pdfPageSize = { width: 612, height: 792 };
@@ -213,7 +213,7 @@ async function createSecurityAuditReportPdf({ model, modelId, workName, details,
   let summary = addPage(), summaryY = 535;
   drawSummaryTitle(summary);
   if (!security) {
-    summary.drawText("NOTAS DOS GRUPOS: ESCALA DE 0 A 10", { x: left, y: summaryY, size: 5.5, font: bold, color: muted });
+    summary.drawText("GRUPOS: SOMA DOS RESULTADOS / SOMA DOS PESOS APLICÁVEIS", { x: left, y: summaryY, size: 5.5, font: bold, color: muted });
     summary.drawText("QUESITOS: RESULTADO PONDERADO / PESO DO QUESITO", { x: left, y: summaryY - 10, size: 5.5, font: bold, color: muted });
     summaryY -= 28;
   }
@@ -245,7 +245,7 @@ async function createSecurityAuditReportPdf({ model, modelId, workName, details,
     const headingWidth = Math.min(right - left - 90, bold.widthOfTextAtSize(heading.title, 10.5));
     summary.drawLine({ start: { x: left + 34, y: summaryY - 7 }, end: { x: left + 34 + headingWidth, y: summaryY - 7 }, thickness: 1.6, color: red });
     const groupResult = calculateGroupScore(items);
-    const groupScoreLabel = security ? (groupResult === null ? "—" : groupResult.toFixed(1).replace(".", ",")) : qualityGroupResultLabel(groupResult);
+    const groupScoreLabel = security ? (groupResult === null ? "—" : groupResult.toFixed(1).replace(".", ",")) : qualityGroupTotalLabel(calculateQualityGroupTotals(items, drafts, modelId));
     summary.drawText(groupScoreLabel, { x: right - bold.widthOfTextAtSize(groupScoreLabel, 8), y: summaryY, size: 8, font: bold, color: navy });
     summaryY -= 25;
     if (!security) {
@@ -353,43 +353,70 @@ async function createSecurityAuditReportPdf({ model, modelId, workName, details,
       + checksHeight + (quantitative ? 0 : observations.length * 7.8 + 13) + photoHeight + 18;
     return { analysis, title, description, analysisLines, observations, checkRows, photos, photoHeight, height, showGroup, showSubgroup, quantitative };
   };
-  const drawDetailItem = (page: PDFPage, group: string, groupItems: Criterion[], item: Criterion, response: ItemResponse,
-    layout: ReturnType<typeof detailLayout>, top: number) => {
+  const drawDetailItem = (startPage: PDFPage, group: string, groupItems: Criterion[], item: Criterion, response: ItemResponse,
+    layout: ReturnType<typeof detailLayout>, top: number): { page: PDFPage; y: number } => {
+    let page = startPage;
     let cursor = top;
-    if (layout.showGroup) {
+    const drawGroupHeading = () => {
       const heading = getGroupHeading(group);
       const groupScore = calculateGroupScore(groupItems);
       drawRoundedCode(page, heading.number, left, cursor - 21, 24, 21, 9.5, navy, rgb(1, 1, 1));
       page.drawText(heading.title, { x: left + 34, y: cursor - 14, size: 10.5, font: bold, color: navy });
       const titleWidth = Math.min(detailWidth - 80, bold.widthOfTextAtSize(heading.title, 10.5));
       page.drawLine({ start: { x: left + 34, y: cursor - 21 }, end: { x: left + 34 + titleWidth, y: cursor - 21 }, thickness: 1.6, color: red });
-      const groupScoreLabel = security ? (groupScore === null ? "—" : groupScore.toFixed(1).replace(".", ",")) : qualityGroupResultLabel(groupScore);
+      const groupScoreLabel = security ? (groupScore === null ? "—" : groupScore.toFixed(1).replace(".", ",")) : qualityGroupTotalLabel(calculateQualityGroupTotals(groupItems, drafts, modelId));
       page.drawText(groupScoreLabel, { x: right - bold.widthOfTextAtSize(groupScoreLabel, 8), y: cursor - 14, size: 8, font: bold, color: navy });
       cursor -= 30;
-    }
-    if (layout.showSubgroup && item.subgroup) {
+    };
+    const drawSubgroupHeading = () => {
       const subgroup = getSubgroupHeading(item);
       drawRoundedCode(page, subgroup.code, left, cursor - 17, 32, 17, 6.8, red, rgb(1, 1, 1));
       page.drawText(subgroup.title, { x: left + 41, y: cursor - 12, size: 8.5, font: bold, color: navy });
       cursor -= 24;
-    }
-    drawRoundedCode(page, item.code, left, cursor - 17, 43, 17, 6.8, rgb(.93, .95, .98), navy);
-    layout.title.forEach((value, index) => page.drawText(value, { x: left + 52, y: cursor - 12 - index * 9, size: 8, font: bold, color: navy }));
-    if (security) drawStatus(page, response, right - 11, cursor - 12, .85);
-    else drawItemScore(page, item, response, right, cursor - 12.5);
-    cursor -= Math.max(17, 17 + (layout.title.length - 1) * 9) + 7;
+    };
+    const drawItemHeading = (continued: boolean) => {
+      drawRoundedCode(page, item.code, left, cursor - 17, 43, 17, 6.8, rgb(.93, .95, .98), navy);
+      layout.title.forEach((value, index) => page.drawText(value, { x: left + 52, y: cursor - 12 - index * 9, size: 8, font: bold, color: navy }));
+      if (continued) {
+        const label = "CONTINUAÇÃO";
+        drawLabel(page, label, right - bold.widthOfTextAtSize(label, 5.5), cursor - 12);
+      } else if (security) drawStatus(page, response, right - 11, cursor - 12, .85);
+      else {
+        drawItemScore(page, item, response, right, cursor - 12.5);
+        // Itens não quantitativos levam o ✓/× ao lado da nota, como os itens verificados dos quantitativos.
+        if (!layout.quantitative) drawStatus(page, response, right - bold.widthOfTextAtSize(qualityItemResultLabel(item, response), 7) - 12, cursor - 13, .7);
+      }
+      cursor -= Math.max(17, 17 + (layout.title.length - 1) * 9) + 7;
+    };
+    // Quando o próximo bloco não cabe, o item continua na página seguinte, aberta pelo título do grupo
+    // (e do subgrupo, na Segurança), pelo item e pelo rótulo da seção que segue.
+    const room = (height: number, sectionLabel?: string) => {
+      if (cursor - height >= detailBottom) return;
+      page = addPage();
+      cursor = detailTop;
+      drawGroupHeading();
+      if (security && item.subgroup) drawSubgroupHeading();
+      drawItemHeading(true);
+      if (sectionLabel) { drawLabel(page, sectionLabel, left, cursor); cursor -= 9; }
+    };
+    if (layout.showGroup) drawGroupHeading();
+    if (layout.showSubgroup && item.subgroup) drawSubgroupHeading();
+    drawItemHeading(false);
     const section = (label: string, lines: string[]) => {
+      room(9 + Math.min(lines.length, 1) * 7.8);
       drawLabel(page, label, left, cursor);
       cursor -= 9;
-      lines.forEach((value) => { page.drawText(value, { x: left, y: cursor, size: 6.2, font: regular, color: muted }); cursor -= 7.8; });
+      lines.forEach((value) => { room(7.8, label); page.drawText(value, { x: left, y: cursor, size: 6.2, font: regular, color: muted }); cursor -= 7.8; });
       cursor -= 3;
     };
     section("DESCRIÇÃO", layout.description);
     section(security ? "CRITÉRIO DE ANÁLISE" : "CRITÉRIO DE VERIFICAÇÃO", layout.analysisLines);
     if (layout.checkRows.length) {
+      room(9 + Math.max(9, layout.checkRows[0].lines.length * 7.2));
       drawLabel(page, "ITENS VERIFICADOS", left, cursor);
       cursor -= 9;
       layout.checkRows.forEach(({ check, lines }, index) => {
+        room(Math.max(9, lines.length * 7.2), "ITENS VERIFICADOS");
         const rowTop = cursor;
         page.drawText(`${String(index + 1).padStart(2, "0")}.`, { x: left, y: rowTop, size: 6.2, font: bold, color: navy });
         lines.forEach((value, lineIndex) => page.drawText(value, { x: left + 17, y: rowTop - lineIndex * 7.2, size: 6.2, font: regular, color: muted }));
@@ -399,36 +426,40 @@ async function createSecurityAuditReportPdf({ model, modelId, workName, details,
       cursor -= 3;
     }
     if (!layout.quantitative) section("OBSERVAÇÕES", layout.observations);
+    const gap = 8;
+    const photoWidth = (detailWidth - gap * 2) / 3;
+    const photoCellHeight = 62;
+    room(9 + (layout.photos.length ? photoCellHeight : layout.photoHeight));
     drawLabel(page, "EVIDÊNCIAS FOTOGRÁFICAS", left, cursor);
     cursor -= 9;
     if (layout.photos.length) {
-      const gap = 8;
-      const photoWidth = (detailWidth - gap * 2) / 3;
-      const photoCellHeight = 62;
-      layout.photos.forEach((name, index) => {
-        const column = index % 3;
-        const row = Math.floor(index / 3);
-        const photoX = left + column * (photoWidth + gap);
-        const photoTop = cursor - row * (photoCellHeight + gap);
-        const image = embeddedPhotos.get(name);
-        if (image) {
-          const dimensions = image.scaleToFit(photoWidth, photoCellHeight);
-          const photoY = photoTop - dimensions.height;
-          page.drawImage(image, { x: photoX, y: photoY, width: dimensions.width, height: dimensions.height });
-          const url = photoUrls.get(name);
-          if (url) photoLinks.push({ source: page, url, rect: [photoX, photoY, photoX + dimensions.width, photoTop] });
-        } else {
-          const nameLines = wrapPdfText(name, regular, 4.6, photoWidth).slice(0, 5);
-          nameLines.forEach((value, lineIndex) => page.drawText(value, { x: photoX, y: photoTop - 6 - lineIndex * 5.7, size: 4.6, font: regular, color: muted }));
-        }
-      });
-      cursor -= layout.photoHeight;
+      for (let first = 0; first < layout.photos.length; first += 3) {
+        // Uma linha de fotos nunca é cortada: se não cabe, passa inteira para a página seguinte.
+        room(photoCellHeight, "EVIDÊNCIAS FOTOGRÁFICAS");
+        const photoTop = cursor;
+        layout.photos.slice(first, first + 3).forEach((name, column) => {
+          const photoX = left + column * (photoWidth + gap);
+          const image = embeddedPhotos.get(name);
+          if (image) {
+            const dimensions = image.scaleToFit(photoWidth, photoCellHeight);
+            const photoY = photoTop - dimensions.height;
+            page.drawImage(image, { x: photoX, y: photoY, width: dimensions.width, height: dimensions.height });
+            const url = photoUrls.get(name);
+            if (url) photoLinks.push({ source: page, url, rect: [photoX, photoY, photoX + dimensions.width, photoTop] });
+          } else {
+            const nameLines = wrapPdfText(name, regular, 4.6, photoWidth).slice(0, 5);
+            nameLines.forEach((value, lineIndex) => page.drawText(value, { x: photoX, y: photoTop - 6 - lineIndex * 5.7, size: 4.6, font: regular, color: muted }));
+          }
+        });
+        cursor -= photoCellHeight + gap;
+      }
+      cursor += gap;
     } else {
       page.drawText("Nenhuma fotografia anexada a este item.", { x: left, y: cursor, size: 6.2, font: regular, color: muted });
       cursor -= layout.photoHeight;
     }
     page.drawLine({ start: { x: left, y: cursor - 4 }, end: { x: right, y: cursor - 4 }, thickness: .35, color: lineColor });
-    return cursor - 12;
+    return { page, y: cursor - 12 };
   };
 
   let detailPage: PDFPage | null = null;
@@ -453,7 +484,11 @@ async function createSecurityAuditReportPdf({ model, modelId, workName, details,
         layout = detailLayout(item, response, showGroup, showSubgroup);
       }
       detailPages.set(item.id, { page: detailPage, y: detailY });
-      detailY = drawDetailItem(detailPage, group, items, item, response, layout, detailY);
+      const drawn = drawDetailItem(detailPage, group, items, item, response, layout, detailY);
+      // An item that continued on new pages counts as the first item of the last one.
+      if (drawn.page !== detailPage) itemsOnDetailPage = 0;
+      detailPage = drawn.page;
+      detailY = drawn.y;
       itemsOnDetailPage += 1;
       previousDetailGroup = group;
       previousDetailSubgroup = item.subgroup;

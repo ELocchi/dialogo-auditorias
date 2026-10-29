@@ -4,6 +4,7 @@ import { useId, useState } from "react";
 import { getAnnualAdminRanking, getMonthlyAdminRanking, type PublishedMonthlyWorkScore } from "@/domain/admin-ranking";
 import { shiftCalendarMonth } from "@/domain/visit-calendar";
 import type { DashboardRanking } from "@/lib/audits/dashboard-contracts";
+import { rankingPdf } from "@/lib/pdf/ranking-report";
 import { Icon } from "./ui-icon";
 import styles from "./admin-monthly-ranking.module.css";
 
@@ -29,6 +30,8 @@ type AdminMonthlyRankingProps = {
   /** Already authorized, ordered and calculated by the data provider. */
   safetyRows?: readonly AdminMonthlyRankingRow[];
   qualityRows?: readonly AdminMonthlyRankingRow[];
+  /** Administrativo: exporta o ranking exibido em PDF. */
+  exportable?: boolean;
 };
 
 const monthFormatter = new Intl.DateTimeFormat("en-CA", {
@@ -65,8 +68,21 @@ function RankingTable({ title, reference, annual, rows }: {
   </section>;
 }
 
+async function exportRanking(input: { annual: boolean; reference: string; label: string; tables: { title: string; rows: readonly AdminMonthlyRankingRow[] }[] }) {
+  const logo = await fetch("/logo-relatorio-orientativo.png").then(async (response) => response.ok ? new Uint8Array(await response.arrayBuffer()) : null).catch(() => null);
+  const bytes = await rankingPdf({ ...input, logo });
+  const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: "application/pdf" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `Ranking das Obras - ${input.reference}.pdf`;
+  document.body.append(link); link.click(); link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
 /** Published monthly results drive the annual average; drafts and fixtures stay out of this view. */
-export function AdminMonthlyRanking({ month, onMonthChange, year, onYearChange, publishedMonthlyScores, summary, available = true, modules = ["safety", "quality"], safetyRows = [], qualityRows = [] }: AdminMonthlyRankingProps) {
+export function AdminMonthlyRanking({ month, onMonthChange, year, onYearChange, publishedMonthlyScores, summary, available = true, modules = ["safety", "quality"], safetyRows = [], qualityRows = [], exportable = false }: AdminMonthlyRankingProps) {
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState("");
   const [localMonth, setLocalMonth] = useState(currentMonth);
   const [localYear, setLocalYear] = useState(() => currentMonth().slice(0, 4));
   const [period, setPeriod] = useState<"month" | "year">("month");
@@ -99,7 +115,16 @@ export function AdminMonthlyRanking({ month, onMonthChange, year, onYearChange, 
 
   return <section className={`panel ${styles.panel}`} aria-labelledby={headingId}>
     <div className={styles.heading}>
-      <h3 id={headingId}>Ranking das Obras</h3>
+      <div className={styles.title}>
+        <h3 id={headingId}>Ranking das Obras</h3>
+        {exportable && <button type="button" className={styles.monthButton} data-tooltip="Exportar ranking" aria-label={`Exportar ranking ${annual ? `de ${selectedYear}` : `de ${monthLabel}`} em PDF`}
+          disabled={!available || exporting} onClick={() => {
+            setExporting(true); setExportError("");
+            exportRanking({ annual, reference: annual ? selectedYear : selectedMonth, label: annual ? selectedYear : monthLabel,
+              tables: [...(modules.includes("safety") ? [{ title: "Segurança", rows: safetyRanking }] : []), ...(modules.includes("quality") ? [{ title: "Qualidade", rows: qualityRanking }] : [])] })
+              .catch(() => setExportError("Não foi possível exportar o ranking.")).finally(() => setExporting(false));
+          }}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 4v11m-5-5 5 5 5-5M5 20h14" /></svg></button>}
+      </div>
       <div className={styles.filters}>
         <label className={styles.period} htmlFor={periodId}>
           <span className={styles.srOnly}>Período do ranking</span>
@@ -126,6 +151,7 @@ export function AdminMonthlyRanking({ month, onMonthChange, year, onYearChange, 
         </div>}
       </div>
     </div>
+    {exportError && <p role="alert">{exportError}</p>}
     {!available ? <p role="status">Não foi possível carregar o ranking das obras.</p> : <div className={styles.rankings}>
       {modules.includes("safety") && <RankingTable title="Segurança" reference={annual ? selectedYear : selectedMonth} annual={annual} rows={safetyRanking} />}
       {modules.includes("quality") && <RankingTable title="Qualidade" reference={annual ? selectedYear : selectedMonth} annual={annual} rows={qualityRanking} />}

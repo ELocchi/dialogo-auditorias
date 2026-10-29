@@ -59,7 +59,7 @@ test("audit renderer preserves pages, evidence, summary destinations and observa
   const text = document.getPages().map((page) => pageText(document, page)).join(" ");
   assert.match(text, /Obra Teste/);
   assert.match(text, /02\.04/);
-  assert.match(text, /NOTAS DOS GRUPOS: ESCALA DE 0 A 10/);
+  assert.match(text, /GRUPOS: SOMA DOS RESULTADOS \/ SOMA DOS PESOS APLIC/);
   assert.match(text, /0,00 \/ 1,00/);
   assert.match(text, /Regularizar materiais\./);
   assert.ok(imageCount(document.getPage(2)) >= 2, "detail page includes logo and evidence image");

@@ -1,7 +1,7 @@
 import "server-only";
 
-export function confirmationCallbackUrl() {
-  // Never derive a link sent by e-mail from untrusted Host/Origin/form fields.
+/** Configured application address; never derived from untrusted Host/Origin/form fields. */
+export function applicationUrl(): URL {
   const configured = process.env.APP_URL || (process.env.NODE_ENV === "development" ? "http://localhost:3000" : "");
   let url: URL;
   try { url = new URL(configured); } catch { throw new Error("Endereço da aplicação não configurado."); }
@@ -9,5 +9,10 @@ export function confirmationCallbackUrl() {
   if ((url.protocol !== "https:" && !(local && url.protocol === "http:")) || url.username || url.password || url.search || url.hash || url.pathname !== "/") {
     throw new Error("Endereço da aplicação inválido.");
   }
-  return new URL("/auth/callback", url).href;
+  return url;
+}
+
+export function confirmationCallbackUrl() {
+  // Links sent by e-mail always use the configured address.
+  return new URL("/auth/callback", applicationUrl()).href;
 }

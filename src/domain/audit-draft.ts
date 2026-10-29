@@ -121,6 +121,12 @@ export function calculateQualityFinalScore(criteria: Criterion[], drafts: AuditD
 
 /** Group performance uses a 0–10 scale; item results remain weighted contributions. */
 export function calculateQualityGroupScore(criteria: Criterion[], drafts: AuditDrafts, model: string): number | null {
+  const totals = calculateQualityGroupTotals(criteria, drafts, model);
+  return totals ? totals.obtained / totals.possible * 10 : null;
+}
+
+/** Sum of the weighted item results of a group and of the weights of its applicable items (N/A and unanswered excluded). */
+export function calculateQualityGroupTotals(criteria: Criterion[], drafts: AuditDrafts, model: string): { obtained: number; possible: number } | null {
   let obtainedScore = 0;
   let possibleScore = 0;
   for (const criterion of criteria) {
@@ -138,7 +144,7 @@ export function calculateQualityGroupScore(criteria: Criterion[], drafts: AuditD
       if (response.answer === "Conforme") obtainedScore += weight;
     }
   }
-  return possibleScore > 0 ? obtainedScore / possibleScore * 10 : null;
+  return possibleScore > 0 ? { obtained: obtainedScore, possible: possibleScore } : null;
 }
 
 export const calculateAuditFinalScore = (criteria: Criterion[], drafts: AuditDrafts, model: string): number | null =>
