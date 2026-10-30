@@ -102,7 +102,7 @@ export function PrototypeDashboard({ user, module, works, agendaWorks = works, a
     </div>
     {admin && findingsPanel}
     <div className="overview-grid">
-      <AdminMonthlyRanking publishedMonthlyScores={rankingScores} summary={summary?.ranking} available={summary?.available} exportable={admin} />
+      <AdminMonthlyRanking publishedMonthlyScores={rankingScores} summary={summary?.ranking} available={summary?.available} exportable={admin} works={works} />
       {admin ? <AdminVisitCalendar visits={visits} works={works} auditors={auditors} viewerId={user.id} onViewAgenda={() => open("agenda")} includeFollowUps /> : <section className="panel"><div className="panel-heading"><div><span className="section-label">REGISTROS AUTORIZADOS</span><h3>Auditorias recentes</h3></div><span className="icon-tile"><Icon name="calendar" /></span></div>
         {[...audits].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 3).map((audit) => <div className="visit-card" key={audit.id}><div className="visit-info"><strong>{auditModelLabels[audit.modelId].name}</strong><small>{formatAuditDate(audit.date)} · {auditVersionLabel(audit)}</small></div><span className="badge">{audit.status}</span></div>)}
         {audits.length === 0 && <p className={styles.empty}>Nenhum registro disponível neste contexto.</p>}

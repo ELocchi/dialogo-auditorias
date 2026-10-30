@@ -7,6 +7,9 @@ export type PublishedMonthlyWorkScore = {
   workId: string;
   workName: string;
   score: number;
+  /** Safety only: score before the accident penalty, and the penalty itself. */
+  rawScore?: number | null;
+  penalty?: number;
   published: true;
 };
 
@@ -16,6 +19,8 @@ export type AdminRankingRow = {
   position: number;
   score: number;
   monthsCount: number;
+  rawScore?: number | null;
+  penalty?: number;
 };
 
 const monthPattern = /^(?!0000)\d{4}-(0[1-9]|1[0-2])$/;
@@ -57,7 +62,9 @@ export function getMonthlyAdminRanking(
   if (!monthPattern.test(month)) return [];
   return rank(validMonthlyScores(results, discipline)
     .filter((result) => result.month === month)
-    .map((result) => ({ workId: result.workId, workName: result.workName, score: result.score, monthsCount: 1 })));
+    .map((result) => ({ workId: result.workId, workName: result.workName, score: result.score, monthsCount: 1,
+      ...(result.rawScore !== undefined ? { rawScore: result.rawScore } : {}),
+      ...(result.penalty !== undefined ? { penalty: result.penalty } : {}) })));
 }
 
 /** Annual score is the mean of available published monthly scores; missing months are excluded. */

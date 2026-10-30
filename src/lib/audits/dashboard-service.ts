@@ -143,8 +143,11 @@ export function createGlobalAuditDashboardReader() {
           || (row.discipline !== "safety" && row.discipline !== "quality")
           || typeof row.score !== "number" || !Number.isFinite(row.score) || row.score < 0 || row.score > 10)
           return unavailableAuditDashboard();
+        const rawScore = typeof row.rawScore === "number" && Number.isFinite(row.rawScore) ? row.rawScore : undefined;
+        const penalty = Number.isInteger(row.penalty) && (row.penalty as number) >= 0 ? row.penalty as number : undefined;
         scores.push({ workId: row.workId, workName: row.workName, month: row.month,
-          discipline: row.discipline, score: row.score, published: true });
+          discipline: row.discipline, score: row.score, published: true,
+          ...(rawScore !== undefined ? { rawScore } : {}), ...(penalty !== undefined ? { penalty } : {}) });
       }
       return { ...summary, ranking: buildDashboardRanking(scores) };
     } catch { return unavailableAuditDashboard(); }
