@@ -9,6 +9,8 @@ export interface WorkRecord {
   address?: string;
   status: "Ativa" | "Planejada";
   isDemo: boolean;
+  /** Real work used only for platform tests; stays out of the ranking and its exports. */
+  isTest?: boolean;
 }
 
 export interface AuditRecord {

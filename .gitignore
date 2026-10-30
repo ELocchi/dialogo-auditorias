@@ -54,3 +54,7 @@ next-env.d.ts
 
 # Dados reais usados somente em testes locais de auditoria
 /public/local-test-evidence/
+
+# Playwright
+/test-results/
+/playwright-report/

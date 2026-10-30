@@ -17,6 +17,7 @@
     "test:calendar": "node --experimental-strip-types --test scripts/test-visit-calendar.mjs",
     "test:agenda": "node --experimental-strip-types --test scripts/test-agenda.mjs scripts/test-agenda-session.mjs scripts/test-agenda-sync.mjs scripts/test-agenda-rendering.mjs scripts/test-agenda-batch.mjs scripts/test-agenda-compact.mjs scripts/test-agenda-detail-route.mjs",
     "test:reference-documents": "node --experimental-strip-types --test scripts/test-reference-documents.mjs",
+    "test:e2e": "playwright test",
     "test:access": "node --experimental-strip-types scripts/test-prototype-access.mjs",
     "test:audit-context": "node --experimental-strip-types scripts/test-prototype-audits.mjs",
     "test:access-administration": "node --experimental-strip-types --test scripts/test-access-administration.mjs scripts/test-effective-access.mjs scripts/test-administration-pages.mjs scripts/test-administration-render.mjs scripts/test-access-lazy-forms.mjs scripts/test-administration-streaming.mjs",
@@ -53,6 +54,7 @@
     "sharp": "^0.35.4"
   },
   "devDependencies": {
+    "@playwright/test": "1.56.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

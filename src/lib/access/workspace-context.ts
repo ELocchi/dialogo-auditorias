@@ -13,7 +13,7 @@ export type ProfileWorkspaceContext = {
   engineeringScope: EngineeringScope | null;
   administrativeScope: AdministrativeScope | null;
 };
-export type WorkspaceWork = AccessWork & Partial<Record<"cidade" | "uf" | "logradouro" | "numero" | "responsavel_tecnico" | "coordenacao", string>>;
+export type WorkspaceWork = AccessWork & Partial<Record<"cidade" | "uf" | "logradouro" | "numero" | "responsavel_tecnico" | "coordenacao", string>> & { teste?: boolean };
 type Input = {
   account: EffectiveAccount;
   profile: AccessProfile;
@@ -47,7 +47,8 @@ export function buildWorkspaceContext(input: Input): ProfileWorkspaceContext | n
       || (account.atuacao_administrativa !== "GERAL" && account.atuacao_administrativa !== administrativeScope))) return null;
     if (profile !== "ADMINISTRATIVO" && input.administrativeScope != null) return null;
     if (works.some((work) => !work || !uuidPattern.test(work.id) || typeof work.nome !== "string" || !work.nome.trim()
-      || typeof work.ativo !== "boolean" || [work.cidade, work.uf, work.logradouro, work.numero, work.responsavel_tecnico, work.coordenacao].some((value) => value !== undefined && typeof value !== "string")) || new Set(works.map((work) => work.id)).size !== works.length) return null;
+      || typeof work.ativo !== "boolean" || [work.cidade, work.uf, work.logradouro, work.numero, work.responsavel_tecnico, work.coordenacao].some((value) => value !== undefined && typeof value !== "string")
+      || (work.teste !== undefined && typeof work.teste !== "boolean")) || new Set(works.map((work) => work.id)).size !== works.length) return null;
     if (grants.some((grant) => !grant || !uuidPattern.test(grant.obra_id)
       || !["AUDITOR_SEGURANCA", "AUDITOR_QUALIDADE", "ENGENHARIA"].includes(grant.perfil)
       || !["SEGURANCA", "QUALIDADE"].includes(grant.modulo)
@@ -72,7 +73,7 @@ export function buildWorkspaceContext(input: Input): ProfileWorkspaceContext | n
       id: work.id, name: work.nome, city: [work.cidade, work.uf].filter(Boolean).join(", ") || "Não informado",
       engineer: work.responsavel_tecnico?.trim() || "Não informado", coordinator: work.coordenacao?.trim() || "Não informado",
       address: [work.logradouro, work.numero].filter(Boolean).join(", "),
-      status: "Ativa", isDemo: false,
+      status: "Ativa", isDemo: false, ...(work.teste === true ? { isTest: true } : {}),
     })).sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
     const modules = (["safety", "quality"] as const).filter((module) => profile === "ADMINISTRATIVO"
       ? administrativeModules.includes(module)

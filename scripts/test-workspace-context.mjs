@@ -138,3 +138,10 @@ test('dados salvos no cadastro alimentam o cartão da obra autorizada',()=>{
  assert.deepEqual(ctx.user.workIds,[a]);
  assert.equal(context('AUDITOR_SEGURANCA',{works:[{...work,cidade:8}]}),null);
 });
+test('obra de teste é marcada e o campo precisa ser booleano',()=>{
+ const works=[{id:a,nome:'Obra A',ativo:true,teste:true},{id:b,nome:'Obra B',ativo:true,teste:false},{id:c,nome:'Obra C',ativo:false}];
+ const marked=context('ADMINISTRATIVO',{works,administrativeScope:'GERAL'});
+ assert.equal(marked.works.find((work)=>work.id===a).isTest,true);
+ assert.equal('isTest' in marked.works.find((work)=>work.id===b),false);
+ assert.equal(context('ADMINISTRATIVO',{works:[{id:a,nome:'Obra A',ativo:true,teste:'sim'}],administrativeScope:'GERAL'}),null);
+});
