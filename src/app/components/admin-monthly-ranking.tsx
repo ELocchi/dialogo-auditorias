@@ -91,14 +91,25 @@ function rankingPdfRows({ annual, month, year, discipline, periodRows, monthlySc
   const annualRows: readonly AdminMonthlyRankingRow[] = annual ? periodRows
     : getAnnualAdminRanking(monthlyScores.filter((score) => score.month <= month), year, discipline);
   const annualById = new Map(annualRows.map((row) => [row.workId, row]));
+  // "Última": the work's latest monthly score before the selected month.
+  const previous = new Map<string, PublishedMonthlyWorkScore>();
+  for (const score of monthlyScores) {
+    if (annual || score.discipline !== discipline || score.month >= month) continue;
+    const current = previous.get(score.workId);
+    if (!current || score.month > current.month) previous.set(score.workId, score);
+  }
+  const details = (workId: string) => ({
+    annualScore: annualById.get(workId)?.score ?? null, annualPosition: annualById.get(workId)?.position ?? null,
+    previousScore: previous.get(workId)?.score ?? null,
+  });
   const rows: RankingPdfRow[] = periodRows.map((row) => ({
-    workName: row.workName, position: row.position, score: row.score, rawScore: row.rawScore, penalty: row.penalty,
-    annualScore: annualById.get(row.workId)?.score ?? null, annualPosition: annualById.get(row.workId)?.position ?? null,
+    workName: row.workName, position: row.position, score: row.score, rawScore: row.rawScore, penalty: row.penalty, ...details(row.workId),
   }));
   const evaluated = new Set(periodRows.map((row) => row.workId));
   const unevaluated: RankingPdfRow[] = works.filter((work) => work.status === "Ativa" && !work.isDemo && !evaluated.has(work.id))
-    .map((work) => ({ workName: work.name, position: null, score: null,
-      annualScore: annualById.get(work.id)?.score ?? null, annualPosition: annualById.get(work.id)?.position ?? null }))
+    .map((work) => ({ workName: work.name, position: null, score: null, ...details(work.id) }))
+    // Like the spreadsheet, Quality lists only works with a result earlier in the year; Safety lists every active work.
+    .filter((row) => discipline === "safety" || row.annualScore !== null)
     .sort((left, right) => (right.annualScore ?? -1) - (left.annualScore ?? -1) || workNames.compare(left.workName, right.workName));
   return { rows, unevaluated };
 }

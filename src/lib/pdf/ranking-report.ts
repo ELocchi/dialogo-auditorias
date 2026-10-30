@@ -9,6 +9,8 @@ export type RankingPdfRow = {
   penalty?: number | null;
   annualScore: number | null;
   annualPosition: number | null;
+  /** Quality: the work's latest score before the month ("Última" in the spreadsheet). */
+  previousScore?: number | null;
 };
 
 export type RankingPdfInput = {
@@ -18,7 +20,7 @@ export type RankingPdfInput = {
   label: string;
   /** Evaluated works in ranking order. */
   rows: readonly RankingPdfRow[];
-  /** Active works without a result in the period. */
+  /** Works without a result in the period. */
   unevaluated: readonly RankingPdfRow[];
   headerLogo?: Uint8Array | null;
   footerLogo?: Uint8Array | null;
@@ -67,13 +69,15 @@ type Column = { label: string; width: number; fill: RGB; text: RGB; value: (row:
 const formatScore = (value: number | null | undefined) => value !== null && value !== undefined && Number.isFinite(value) ? score2.format(value) : "-";
 const formatPosition = (value: number | null | undefined) => value !== null && value !== undefined && Number.isInteger(value) && value > 0 ? `${value}º` : "-";
 
-/** Ranking poster in the "+Segurança no seu Dia" layout: one tall page, one discipline. */
+/** One tall page per discipline: Safety follows the "+Segurança no seu Dia" poster, Quality the "Farol da Qualidade" spreadsheet. */
 export async function rankingPdf(input: RankingPdfInput): Promise<Uint8Array> {
-  const { discipline, annual, label, rows, unevaluated } = input;
-  const safety = discipline === "safety";
+  return input.discipline === "safety" ? safetyPosterPdf(input) : qualitySpreadsheetPdf(input);
+}
+
+async function safetyPosterPdf(input: RankingPdfInput): Promise<Uint8Array> {
+  const { annual, label, rows, unevaluated } = input;
   const document = await PDFDocument.create();
-  const disciplineName = safety ? "Segurança" : "Qualidade";
-  document.setTitle(`Ranking das Obras - ${disciplineName} - ${annual ? `Anual ${label}` : label}`);
+  document.setTitle(`Ranking das Obras - Segurança - ${annual ? `Anual ${label}` : label}`);
   document.setAuthor("Diálogo Engenharia");
   const regular = await document.embedFont(StandardFonts.Helvetica);
   const bold = await document.embedFont(StandardFonts.HelveticaBold);
@@ -86,26 +90,19 @@ export async function rankingPdf(input: RankingPdfInput): Promise<Uint8Array> {
       { label: "MÉDIA", width: 74, fill: colors.navy, text: colors.white, value: (row) => formatScore(row.annualScore) },
       { label: "CLASS.", width: 60, fill: colors.blue, text: colors.white, value: (row) => formatPosition(row.annualPosition) },
     ]
-    : safety
-      ? [
-        { label: "NOTA", width: 58, fill: colors.white, text: colors.navy, value: (row) => formatScore(row.rawScore ?? row.score) },
-        { label: "PENAL.", width: 53, fill: colors.darkRed, text: colors.white, value: (row) => String(row.penalty ?? 0) },
-        { label: "FINAL", width: 54, fill: colors.red, text: colors.white, value: (row) => formatScore(row.score) },
-        { label: "ANUAL", width: 53, fill: colors.navy, text: colors.white, value: (row) => formatScore(row.annualScore) },
-        { label: "CLASS.", width: 54, fill: colors.blue, text: colors.white, value: (row) => formatPosition(row.annualPosition) },
-      ]
-      : [
-        { label: "NOTA", width: 92, fill: colors.white, text: colors.navy, value: (row) => formatScore(row.score) },
-        { label: "ANUAL", width: 60, fill: colors.navy, text: colors.white, value: (row) => formatScore(row.annualScore) },
-        { label: "CLASS.", width: 60, fill: colors.blue, text: colors.white, value: (row) => formatPosition(row.annualPosition) },
-      ];
+    : [
+      { label: "NOTA", width: 58, fill: colors.white, text: colors.navy, value: (row) => formatScore(row.rawScore ?? row.score) },
+      { label: "PENAL.", width: 53, fill: colors.darkRed, text: colors.white, value: (row) => String(row.penalty ?? 0) },
+      { label: "FINAL", width: 54, fill: colors.red, text: colors.white, value: (row) => formatScore(row.score) },
+      { label: "ANUAL", width: 53, fill: colors.navy, text: colors.white, value: (row) => formatScore(row.annualScore) },
+      { label: "CLASS.", width: 54, fill: colors.blue, text: colors.white, value: (row) => formatPosition(row.annualPosition) },
+    ];
   // Monthly columns before ANUAL are replaced by "NÃO AVALIADA" for works without a result.
   const periodColumns = annual ? columns.length : columns.length - 2;
   const nameWidth = tableRight - tableLeft - columns.reduce((total, column) => total + column.width + gap, 0);
 
-  const logoSize = headerLogo ? headerLogo.scaleToFit(safety ? 300 : 180, safety ? 90 : 56) : { width: 0, height: 0 };
-  const awardsHeight = safety ? 360 : 0;
-  const observationsHeight = safety ? 96 : 0;
+  const logoSize = headerLogo ? headerLogo.scaleToFit(300, 90) : { width: 0, height: 0 };
+  const awardsHeight = 360, observationsHeight = 96;
   const tableTop = 36 + logoSize.height + 92;
   const tableBottom = tableTop + 26 + (rows.length + unevaluated.length) * rowStep + (rows.length + unevaluated.length ? 0 : rowStep);
   const height = tableBottom + 30 + awardsHeight + observationsHeight + (footerLogo ? 70 : 30);
@@ -116,8 +113,7 @@ export async function rankingPdf(input: RankingPdfInput): Promise<Uint8Array> {
 
   if (headerLogo) page.drawImage(headerLogo, { x: (width - logoSize.width) / 2, y: Y(36 + logoSize.height), width: logoSize.width, height: logoSize.height });
   const period = annual ? `Anual ${label}` : label;
-  const title = safety ? `Ranking obras - ${period}` : `Ranking obras Qualidade - ${period}`;
-  centered(page, title, width / 2, Y(36 + logoSize.height + 54), 17, regular, colors.navy, 0);
+  centered(page, `Ranking obras - ${period}`, width / 2, Y(36 + logoSize.height + 54), 17, regular, colors.navy, 0);
 
   const headerY = Y(tableTop + 10);
   spaced(page, "OBRAS", tableLeft + nameWidth / 2, headerY, 8, bold, colors.navy, 1.4);
@@ -161,8 +157,8 @@ export async function rankingPdf(input: RankingPdfInput): Promise<Uint8Array> {
   unevaluated.forEach((row, index) => drawRow(row, index, false));
   if (!rows.length && !unevaluated.length) centered(page, `Nenhum resultado disponível neste ${annual ? "ano" : "mês"}.`, width / 2, Y(top + 18), 10, regular, colors.navy, 0);
 
-  if (safety) drawAwards(page, Y, tableBottom + 30, width, regular, bold);
-  if (safety) {
+  drawAwards(page, Y, tableBottom + 30, width, regular, bold);
+  {
     let obsTop = tableBottom + 30 + awardsHeight + 16;
     for (const paragraph of safetyAwards.observations) {
       for (const line of wrap(paragraph, regular, 7.2, 470)) { centered(page, line, width / 2, Y(obsTop), 7.2, regular, colors.navy, 0); obsTop += 9.5; }
@@ -173,6 +169,101 @@ export async function rankingPdf(input: RankingPdfInput): Promise<Uint8Array> {
     const size = footerLogo.scaleToFit(118, 37);
     page.drawImage(footerLogo, { x: tableRight - size.width, y: 24, width: size.width, height: size.height });
   }
+  return document.save();
+}
+
+const plainScore = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 });
+const spreadsheetPosition = (value: number | null | undefined) => value !== null && value !== undefined && Number.isInteger(value) && value > 0 ? `${value}°` : "-";
+const spreadsheet = {
+  page: rgb(241 / 255, 241 / 255, 241 / 255),
+  navy: rgb(28 / 255, 61 / 255, 112 / 255),
+  firstPlace: rgb(30 / 255, 90 / 255, 166 / 255),
+  red: rgb(192 / 255, 25 / 255, 24 / 255),
+  blue: rgb(16 / 255, 88 / 255, 186 / 255),
+  gray: rgb(232 / 255, 232 / 255, 232 / 255),
+  white: rgb(1, 1, 1),
+};
+
+/** Quality ranking in the layout of the "Ranking obras - 2026" spreadsheet ("Farol da Qualidade"). */
+async function qualitySpreadsheetPdf(input: RankingPdfInput): Promise<Uint8Array> {
+  const { annual, label, rows, unevaluated } = input;
+  const document = await PDFDocument.create();
+  document.setTitle(`Ranking das Obras - Qualidade - ${annual ? `Anual ${label}` : label}`);
+  document.setAuthor("Diálogo Engenharia");
+  const regular = await document.embedFont(StandardFonts.Helvetica);
+  const bold = await document.embedFont(StandardFonts.HelveticaBold);
+  const logo = input.headerLogo ? await document.embedPng(input.headerLogo).catch(() => null) : null;
+
+  type Cell = { label: string; width: number; fill: RGB; text: RGB; value: (row: RankingPdfRow, evaluated: boolean) => string; gapBefore?: number };
+  const cells: Cell[] = annual
+    ? [
+      { label: "Anual", width: 70, fill: spreadsheet.navy, text: spreadsheet.white, value: (row) => formatScore(row.annualScore), gapBefore: 10 },
+      { label: "Class.", width: 60, fill: spreadsheet.blue, text: spreadsheet.white, value: (row) => spreadsheetPosition(row.annualPosition) },
+    ]
+    : [
+      { label: "Nota", width: 44, fill: spreadsheet.white, text: spreadsheet.navy, value: (row, evaluated) => evaluated ? formatScore(row.score) : "-" },
+      { label: "Última", width: 56, fill: spreadsheet.red, text: spreadsheet.white, value: (row) => row.previousScore !== null && row.previousScore !== undefined ? plainScore.format(row.previousScore) : "-", gapBefore: 10 },
+      { label: "Anual", width: 60, fill: spreadsheet.navy, text: spreadsheet.white, value: (row) => formatScore(row.annualScore) },
+      { label: "Class.", width: 58, fill: spreadsheet.blue, text: spreadsheet.white, value: (row) => spreadsheetPosition(row.annualPosition) },
+    ];
+  const width = 595.28, positionWidth = 30, nameWidth = 232, rowHeight = 28, separator = 1.2;
+  const tableWidth = positionWidth + nameWidth + cells.reduce((total, cell) => total + (cell.gapBefore ?? 0) + cell.width, 0);
+  const tableLeft = (width - tableWidth) / 2;
+  const nameLeft = tableLeft + positionWidth;
+  const tableRight = tableLeft + tableWidth;
+  const count = rows.length + unevaluated.length;
+  const headerTop = 118, firstRowTop = headerTop + 26;
+  const tableBottom = firstRowTop + Math.max(count, 1) * rowHeight;
+  const logoSize = logo ? logo.scaleToFit(118, 37) : { width: 0, height: 0 };
+  const height = tableBottom + 70 + logoSize.height + 60;
+  const page = document.addPage([width, height]);
+  const Y = (top: number) => height - top;
+  page.drawRectangle({ x: 0, y: 0, width, height, color: spreadsheet.page });
+
+  const centerText = (text: string, center: number, y: number, size: number, font: PDFFont, color: RGB) =>
+    page.drawText(text, { x: center - font.widthOfTextAtSize(text, size) / 2, y, size, font, color });
+  // "FAROL DA QUALIDADE" banner: a navy triangle hanging from the top edge, as in the spreadsheet.
+  const bannerLeft = nameLeft + nameWidth * .78, bannerRight = tableRight + 30, bannerHeight = 92;
+  page.drawSvgPath(`M 0 0 L ${bannerRight - bannerLeft} 0 L ${bannerRight - bannerLeft} ${bannerHeight} Z`, { x: bannerLeft, y: height, color: spreadsheet.navy });
+  for (const [index, line] of ["FAROL DA", "QUALIDADE"].entries()) {
+    centerText(line, bannerRight - 52, Y(26 + index * 13), 10.5, regular, spreadsheet.white);
+  }
+
+  const title = `Ranking obras – ${annual ? `Anual ${label}` : label}`;
+  const titleCenter = nameLeft + (nameWidth + (annual ? 0 : cells[0].width)) / 2;
+  page.drawText(title, { x: titleCenter - bold.widthOfTextAtSize(title, 13) / 2, y: Y(84), size: 13, font: bold, color: spreadsheet.navy });
+
+  const headerY = Y(headerTop + 10);
+  centerText("Obras", nameLeft + nameWidth / 2, headerY, 10, regular, spreadsheet.navy);
+  let x = nameLeft + nameWidth;
+  for (const cell of cells) { x += cell.gapBefore ?? 0; centerText(cell.label, x + cell.width / 2, headerY, 10, regular, spreadsheet.navy); x += cell.width; }
+
+  const nameFill = (index: number) => [spreadsheet.firstPlace, spreadsheet.red][index] ?? spreadsheet.gray;
+  const drawRow = (row: RankingPdfRow, index: number, top: number, evaluated: boolean) => {
+    const y = Y(top + rowHeight) + separator / 2, height = rowHeight - separator, textY = y + height / 2 - 2.8;
+    if (evaluated) {
+      const position = row.position !== null && Number.isInteger(row.position) && row.position > 0 ? `${row.position}°` : "";
+      page.drawText(position, { x: nameLeft - 6 - regular.widthOfTextAtSize(position, 8), y: textY, size: 8, font: regular, color: spreadsheet.navy });
+    }
+    const fill = evaluated ? nameFill(index) : spreadsheet.gray;
+    page.drawRectangle({ x: nameLeft, y, width: nameWidth, height, color: fill });
+    const size = fitSize(row.workName, regular, nameWidth - 12, 8, 0);
+    centerText(row.workName, nameLeft + nameWidth / 2, textY, size, regular, fill === spreadsheet.gray ? spreadsheet.navy : spreadsheet.white);
+    let cellX = nameLeft + nameWidth;
+    for (const cell of cells) {
+      cellX += cell.gapBefore ?? 0;
+      // Thin white rule between adjacent cells, like the spreadsheet borders.
+      const rule = cell.gapBefore ? 0 : separator / 2;
+      page.drawRectangle({ x: cellX + rule, y, width: cell.width - rule, height, color: cell.fill });
+      centerText(cell.value(row, evaluated), cellX + cell.width / 2, textY, 8, regular, cell.text);
+      cellX += cell.width;
+    }
+  };
+  rows.forEach((row, index) => drawRow(row, index, firstRowTop + index * rowHeight, true));
+  unevaluated.forEach((row, index) => drawRow(row, index, firstRowTop + (rows.length + index) * rowHeight, false));
+  if (!count) centerText(`Nenhum resultado disponível neste ${annual ? "ano" : "mês"}.`, width / 2, Y(firstRowTop + 16), 9, regular, spreadsheet.navy);
+
+  if (logo) page.drawImage(logo, { x: width / 2 - logoSize.width / 2 + 40, y: Y(tableBottom + 70 + logoSize.height), width: logoSize.width, height: logoSize.height });
   return document.save();
 }
 
