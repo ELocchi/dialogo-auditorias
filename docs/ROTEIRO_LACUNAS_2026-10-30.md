@@ -39,7 +39,7 @@ Fontes: código atual, regras de acesso e permissões lidas da produção (backu
 | 1.1 | **AUD-01:** proteger as fotos de relatórios orientativos fechados, com manifesto imutável. | O autor ainda pode apagar ou substituir fotos (as regras de Storage só verificam a pasta). | Alto: evidência e PDF ficam inconsistentes. | M |
 | 1.2 | **H01:** retirar a leitura de fotos de quem perdeu o acesso. | `follow_up_photos_read_own` só verifica a pasta do usuário. | Alto (confidencialidade). | S |
 | 1.3 | **H01-R01:** concluir um apontamento preservando foto e registro. | Concluir um apontamento que só existe no rascunho apaga o item e as fotos sem deixar registro (`actions.ts:195-200`). | Médio | S–M |
-| 1.4 | **F04:** salvar relatório agendado com item grave, com repetição segura. | `save_follow_up_report` exige 4 campos por item e recusa o campo `serious`. Uma nova tentativa pode duplicar. | Alto, se confirmado (1 teste). | S |
+| ~~1.4~~ | ~~**F04:** salvar relatório agendado com item grave.~~ **Fora do escopo (decisão de 30/10):** o relatório agendado não tem entrada na interface, e os relatórios são feitos pelo caminho avulso. | — | — | — |
 | 1.5 | **AUD-02:** conclusão por RPC transacional. | Hoje é um `upsert` feito direto do navegador. | Médio | M |
 | 1.6 | **Leitura de apontamentos exige acesso vigente** (`work_findings_read` e `follow_up_completion_select`). | Hoje basta ser o autor. | Médio (confidencialidade) | S |
 | 1.7 | **Apontamento concluído imutável.** | `work_findings_update` permite editar mesmo depois de concluído. | Médio (integridade) | S |
@@ -82,7 +82,10 @@ Fontes: código atual, regras de acesso e permissões lidas da produção (backu
 
 - **Recarregar a página durante o preenchimento volta para a tela inicial** (confirma o item 3.3). O rascunho se mantém, mas é preciso entrar de novo em Auditorias e clicar em Retomar.
 - **Depois de publicar, a lista "Auditorias publicadas" do auditor não se atualiza**: a nova publicação só aparece depois de recarregar a página. Esforço S.
-- **Visitas de "Acompanhamento" agendadas não têm entrada para o relatório.** O cartão com o botão "Relatórios" saiu da aba Acompanhamento em 30/09 (`f524c5a`). A agenda ainda permite agendar Acompanhamento, mas a página `/app/acompanhamento/relatorio/[visitId]` só abre pelo endereço. O relatório avulso (apontamento com foto, item grave e PDF) funciona e foi testado. **Decisão necessária:** devolver a entrada (e então o F04 da Etapa 1 volta a ser prioritário) ou retirar "Acompanhamento" da agenda. Até lá, o F04 tem prioridade baixa.
+- **Visitas de "Acompanhamento" agendadas não têm entrada para o relatório.** O cartão com o botão "Relatórios" saiu da aba Acompanhamento em 30/09 (`f524c5a`), e a página `/app/acompanhamento/relatorio/[visitId]` só abre pelo endereço. O relatório avulso (apontamento com foto, item grave e PDF) funciona e foi testado.
+  - **Decisão (30/10): fica como está.** O Relatório Orientativo não depende de agendamento.
+  - O agendamento de Acompanhamento serve para controlar a agenda do auditor e para a obra saber quando e onde cada pessoa estará.
+  - Por isso, o F04 (1.4) sai da Etapa 1.
 
 ## Etapa 4 — Pequenos ganhos
 
