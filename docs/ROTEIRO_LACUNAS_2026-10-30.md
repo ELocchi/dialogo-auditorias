@@ -78,6 +78,11 @@ Fontes: código atual, regras de acesso e permissões lidas da produção (backu
 | 3.2 | **Histórico de obras inativas:** publicações continuam consultáveis quando a obra é inativada. | Redefine RPCs de leitura usadas pelo chamado de alteração; precisa ser refeito sobre a `main`. | L |
 | 3.3 | **Navegação com histórico** (`?secao=`, o botão Voltar não sai do app). | Conflito grande em `prototype-app.tsx`. | M |
 
+## Achados dos testes automatizados (30/10)
+
+- **Recarregar a página durante o preenchimento volta para a tela inicial** (confirma o item 3.3). O rascunho se mantém, mas é preciso entrar de novo em Auditorias e clicar em Retomar.
+- **Depois de publicar, a lista "Auditorias publicadas" do auditor não se atualiza**: a nova publicação só aparece depois de recarregar a página. Esforço S.
+
 ## Etapa 4 — Pequenos ganhos
 
 - Notificações marcadas como lidas de forma consistente (`mergeDisplayedReadKeys`). S
