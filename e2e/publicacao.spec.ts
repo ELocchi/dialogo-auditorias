@@ -4,10 +4,10 @@ import { fillAllCompliant } from "./audit";
 import { chooseProfile, openSection, signIn } from "./session";
 
 // Publicação completa de uma F.175 na Obra Teste, com PDF. Uma auditoria publicada não pode ser apagada,
-// então este teste só roda quando pedido: E2E_PUBLISH=1 npm run test:e2e -- publicacao
+// então este teste só roda quando pedido: E2E_PERMANENT=1 npm run test:e2e -- publicacao
 // Todas as respostas são "Conforme", para não gerar apontamentos no painel do Administrativo.
 
-test.skip(!process.env.E2E_PUBLISH, "Cria um registro permanente; rode com E2E_PUBLISH=1.");
+test.skip(!process.env.E2E_PERMANENT, "Cria um registro permanente; rode com E2E_PERMANENT=1.");
 test.describe.configure({ mode: "serial" });
 
 let page: Page;

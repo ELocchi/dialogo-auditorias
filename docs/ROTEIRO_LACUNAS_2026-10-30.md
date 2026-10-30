@@ -82,6 +82,7 @@ Fontes: código atual, regras de acesso e permissões lidas da produção (backu
 
 - **Recarregar a página durante o preenchimento volta para a tela inicial** (confirma o item 3.3). O rascunho se mantém, mas é preciso entrar de novo em Auditorias e clicar em Retomar.
 - **Depois de publicar, a lista "Auditorias publicadas" do auditor não se atualiza**: a nova publicação só aparece depois de recarregar a página. Esforço S.
+- **Visitas de "Acompanhamento" agendadas não têm entrada para o relatório.** O cartão com o botão "Relatórios" saiu da aba Acompanhamento em 30/09 (`f524c5a`). A agenda ainda permite agendar Acompanhamento, mas a página `/app/acompanhamento/relatorio/[visitId]` só abre pelo endereço. O relatório avulso (apontamento com foto, item grave e PDF) funciona e foi testado. **Decisão necessária:** devolver a entrada (e então o F04 da Etapa 1 volta a ser prioritário) ou retirar "Acompanhamento" da agenda. Até lá, o F04 tem prioridade baixa.
 
 ## Etapa 4 — Pequenos ganhos
 
